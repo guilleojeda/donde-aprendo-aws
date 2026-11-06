@@ -1546,13 +1546,45 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the selected resource');
     }
 
-    return attachExistingResource(profile, resource, {
-      selectedForDirectory,
-      checks: [
-        { key: resourceKey, version: resourceVersion },
-        urlReservationCheck(reservationKey, reservation),
-      ],
-    });
+    try {
+      return await attachExistingResource(profile, resource, {
+        selectedForDirectory,
+        checks: [
+          { key: resourceKey, version: resourceVersion },
+          urlReservationCheck(reservationKey, reservation),
+        ],
+      });
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.code !== 'LINK_CONFLICT') throw error;
+      let latestResource;
+      try {
+        latestResource = await store.get(resourceKey);
+      } catch {
+        throw error;
+      }
+      if (!latestResource) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
+      if (latestResource.id !== body.resourceId || !isCatalogResource(latestResource)) throw error;
+      let latestUrl;
+      try {
+        latestUrl = validateResourceUrl(currentResourceUrl(latestResource));
+      } catch {
+        throw error;
+      }
+      if (latestUrl !== url) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
+
+      let latestReservation;
+      try {
+        latestReservation = await store.get(reservationKey);
+      } catch {
+        throw error;
+      }
+      if (!latestReservation) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
+      if (!isValidUrlReservation(latestReservation, url)) throw error;
+      if (latestReservation.status === 'collision' || latestReservation.resourceId !== body.resourceId) {
+        fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
+      }
+      throw error;
+    }
   }
 
   async function addLink(principal, body) {
@@ -2751,6 +2783,18 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         return writeJsonResponse(await patchPlacement(principal, id, await parseRequestBody(request)));
       }
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
+    }
+    if (path === '/api/creador/recursos' && url.searchParams.has('id')) {
+      requireMethod(request, 'PATCH');
+      requireWriteRequest(request, principal);
+      const resourceIds = url.searchParams.getAll('id');
+      if (resourceIds.length !== 1 || [...url.searchParams.keys()].length !== 1) {
+        fail(400, 'INVALID_RESOURCE_ID', 'exactly one resource id is required');
+      }
+      const resourceId = resourceIds[0];
+      requireCatalogResourceIdWithinLimit(resourceId);
+      if (resourceId !== '.' && resourceId !== '..') fail(404, 'NOT_FOUND', 'route not found');
+      return writeJsonResponse(await patchCreatorResource(principal, resourceId, await parseRequestBody(request)));
     }
     const creatorResourceMatch = path.match(/^\/api\/creador\/recursos\/([^/]+)$/);
     if (creatorResourceMatch) {

@@ -52,11 +52,11 @@ export type CreatorOwnerEditor =
   };
 
 export type CreatorOwnerLinkEditor =
-  | { kind: 'link-placement'; key: string; baseProfile: CreatorProfileDTO; baseLink: CreatorLinkDTO; editable: boolean; draft: CreatorOwnerLinkDraft; sharedTextCorrection?: Pick<CreatorOwnerLinkDraft, 'title' | 'url' | 'description'> }
+  | { kind: 'link-placement'; key: string; baseProfile: CreatorProfileDTO; baseLink: CreatorLinkDTO; editable: boolean; draft: CreatorOwnerLinkDraft; sharedTextCorrection?: Pick<CreatorOwnerLinkDraft, 'title' | 'url' | 'description'>; pendingDirectoryOptionDecision?: true }
   | { kind: 'link-resource'; key: string; baseResource: CreatorEditableResourceDTO; draft: Pick<CreatorOwnerLinkDraft, 'title' | 'url' | 'description'> }
   | { kind: 'add-link'; key: 'add-link'; baseProfile: CreatorProfileDTO; draft: CreatorOwnerLinkDraft }
   | { kind: 'move-link'; key: string; baseProfile: CreatorProfileDTO; baseLink: CreatorLinkDTO; baseOrder: readonly string[]; targetPosition: string; suggestionPosition?: number }
-  | { kind: 'reference'; key: 'reference'; baseProfile: CreatorProfileDTO; selected?: CreatorCatalogSelectionDTO; selectedForDirectory: boolean; rejectedSelections?: Pick<CreatorCatalogSelectionDTO, 'id' | 'url'>[] }
+  | { kind: 'reference'; key: 'reference'; baseProfile: CreatorProfileDTO; selected?: CreatorCatalogSelectionDTO; selectedForDirectory: boolean }
   | { kind: 'claim'; key: 'claim'; baseProfile: CreatorProfileDTO; selected: CreatorOwnerClaimSelection[]; knownUrls: string; evidence: string };
 
 export type CreatorOwnerView = 'enlaces' | 'series' | 'solicitudes' | 'estadisticas';
@@ -180,6 +180,7 @@ export interface CreatorOwnerState {
     search: string;
     page: number;
     needsRefresh: boolean;
+    rejectedReferenceSelections: Pick<CreatorCatalogSelectionDTO, 'id' | 'url'>[];
   };
   claimHistory: { status: 'idle' | 'loading' | 'error'; sequence: number; startedClaimIds: string[]; message?: string };
   message?: { text: string; kind: 'info' | 'success' | 'error' };
@@ -277,8 +278,7 @@ function cloneEditor(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor): Creat
     case 'link-resource': return { ...editor, baseResource: { ...editor.baseResource }, draft: { ...editor.draft } };
     case 'add-link': return { ...editor, baseProfile: { ...editor.baseProfile }, draft: { ...editor.draft } };
     case 'move-link': return { ...editor, baseProfile: { ...editor.baseProfile }, baseLink: { ...editor.baseLink, series: editor.baseLink.series.map((item) => ({ ...item })) }, baseOrder: [...editor.baseOrder] };
-    case 'reference': return { ...editor, baseProfile: { ...editor.baseProfile }, ...(editor.selected ? { selected: { ...editor.selected } } : {}),
-      ...(editor.rejectedSelections ? { rejectedSelections: editor.rejectedSelections.map((selection) => ({ ...selection })) } : {}) };
+    case 'reference': return { ...editor, baseProfile: { ...editor.baseProfile }, ...(editor.selected ? { selected: { ...editor.selected } } : {}) };
     case 'claim': return { ...editor, baseProfile: { ...editor.baseProfile }, selected: editor.selected.map((item) => ({ ...item })) };
   }
 }
@@ -330,7 +330,7 @@ export function createCreatorOwnerState(input: {
       prompt: 'none',
     },
     activity: { period: input.initialActivityPeriod ?? 30, sequence: 0, status: 'idle' },
-    catalog: { status: 'idle', search: '', page: 1, needsRefresh: false },
+    catalog: { status: 'idle', search: '', page: 1, needsRefresh: false, rejectedReferenceSelections: [] },
     claimHistory: { status: 'idle', sequence: 0, startedClaimIds: [] },
     runtimeReady: false,
   };
@@ -433,8 +433,17 @@ function applyEffect(data: CreatorEditorDTO, effect: CreatorOwnerEffect): Creato
     case 'link-added': {
       if (next.profile?.id !== effect.profileId) return next;
       next.profile = profileWithVersion(next.profile, effect.profileVersion);
-      if (!next.links.some(({ placementId }) => placementId === effect.link.placementId)) {
+      const existingIndex = next.links.findIndex(({ placementId }) => placementId === effect.link.placementId);
+      if (existingIndex < 0) {
         next.links = [...next.links, { ...effect.link, series: effect.link.series.map((item) => ({ ...item })) }];
+      } else if (effect.source === 'reference' && !effect.created) {
+        next.links = next.links.map((link, index) => index === existingIndex
+          ? { ...effect.link, series: effect.link.series.map((item) => ({ ...item })) } : link);
+        next.editableResources = next.editableResources.map((resource) => resource.id === effect.link.resourceId
+          ? { id: effect.link.resourceId, title: effect.link.title, url: effect.link.url,
+            ...(Object.hasOwn(effect.link, 'description') ? { description: effect.link.description } : {}),
+            version: effect.link.resourceVersion }
+          : resource);
       }
       if (effect.resource && !next.editableResources.some(({ id }) => id === effect.resource?.id)) next.editableResources = [...next.editableResources, { ...effect.resource }];
       return next;
@@ -467,6 +476,7 @@ function completeReference(
   current: Extract<CreatorOwnerLinkEditor, { kind: 'reference' }>,
   savedPlacement: CreatorLinkDTO | undefined,
   profile: CreatorProfileDTO,
+  rejectedSelections: readonly Pick<CreatorCatalogSelectionDTO, 'id' | 'url'>[],
   source: ReferenceCompletionSource,
   created?: boolean,
 ): CreatorOwnerReferenceCompletion {
@@ -480,7 +490,7 @@ function completeReference(
     : {};
 
   if (!saved) {
-    const rejectedSelection = referenceSelectionWasRejected(current, current.selected);
+    const rejectedSelection = referenceSelectionWasRejected(rejectedSelections, current.selected);
     const selected = rejectedSelection ? undefined : current.selected;
     return { editor: { ...current, baseProfile: { ...profile }, ...(rejectedSelection ? { selected: undefined } : {}) }, hasPendingIntent: true,
       message: rejectedSelection
@@ -492,9 +502,9 @@ function completeReference(
   if (sameSelection && current.selectedForDirectory !== submitted.selectedForDirectory) {
     return { editor: { kind: 'link-placement', key: `link:${saved.placementId}`, baseProfile: { ...profile },
       baseLink: { ...saved, series: saved.series.map((item) => ({ ...item })) }, editable: false,
-      draft: { ...linkDraft(saved), selectedForDirectory: current.selectedForDirectory } },
+      draft: { ...linkDraft(saved), selectedForDirectory: current.selectedForDirectory }, pendingDirectoryOptionDecision: true },
     hasPendingIntent: true,
-    message: 'La referencia enviada está en tu página. Conservamos el cambio de propuesta para que lo guardes en opciones.',
+    message: 'La referencia enviada está en tu página. Conservamos tu decisión posterior sobre la propuesta para que puedas guardarla o descartarla en opciones.',
     focusAfterRender: '#owner-link-directory-option' };
   }
 
@@ -547,8 +557,11 @@ function editorAfterEffect(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor |
   }
   if (effect.kind === 'link-updated' && editor.kind === 'link-placement' && editor.baseLink.placementId === effect.link.placementId) {
     const updated = data.links.find(({ placementId }) => placementId === effect.link.placementId) ?? effect.link;
-    return { ...editor, baseProfile: data.profile ? { ...data.profile } : editor.baseProfile, baseLink: { ...updated },
-      draft: correction ? editor.draft : linkDraft(updated) };
+    return { kind: 'link-placement', key: editor.key,
+      baseProfile: data.profile ? { ...data.profile } : editor.baseProfile, baseLink: { ...updated }, editable: editor.editable,
+      draft: correction ? editor.draft : linkDraft(updated),
+      ...(editor.sharedTextCorrection ? { sharedTextCorrection: editor.sharedTextCorrection } : {}),
+      ...(correction && editor.pendingDirectoryOptionDecision ? { pendingDirectoryOptionDecision: true as const } : {}) };
   }
   if (effect.kind === 'resource-updated' && editor.kind === 'link-resource' && editor.baseResource.id === effect.resource.id) {
     return { ...editor, baseResource: { ...effect.resource }, draft: correction ? editor.draft : resourceDraft(effect.resource) };
@@ -565,10 +578,21 @@ function editorAfterEffect(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor |
   if (effect.kind === 'link-added' && editor.kind === 'add-link' && editor.baseProfile.id === effect.profileId) {
     const updated = data.links.find(({ placementId }) => placementId === effect.link.placementId) ?? effect.link;
     const editable = data.editableResources.some(({ id }) => id === updated.resourceId);
-    if (!correction) return undefined;
-    if (editable) return { kind: 'link-placement', key: `link:${updated.placementId}`, baseProfile: data.profile ?? editor.baseProfile,
-      baseLink: { ...updated }, editable: true, draft: { ...editor.draft } };
-    return { ...editor, baseProfile: data.profile ?? editor.baseProfile };
+    if (effect.created) {
+      if (!correction) return undefined;
+      if (editable) return { kind: 'link-placement', key: `link:${updated.placementId}`, baseProfile: data.profile ?? editor.baseProfile,
+        baseLink: { ...updated }, editable: true, draft: { ...editor.draft } };
+      return { ...editor, baseProfile: data.profile ?? editor.baseProfile };
+    }
+    const lateSharedText = !editable && (editor.draft.title !== updated.title || editor.draft.url !== updated.url
+      || editor.draft.description !== (updated.description ?? ''));
+    const duplicateEditor: CreatorOwnerLinkEditor = { kind: 'link-placement', key: `link:${updated.placementId}`,
+      baseProfile: data.profile ?? editor.baseProfile, baseLink: { ...updated }, editable,
+      draft: editable
+        ? { ...editor.draft, featured: updated.featured }
+        : { ...linkDraft(updated), selectedForDirectory: editor.draft.selectedForDirectory },
+      ...(!editable && lateSharedText ? { sharedTextCorrection: { title: editor.draft.title, url: editor.draft.url, description: editor.draft.description } } : {}) };
+    return creatorOwnerLinkDraftIsDirty(duplicateEditor) ? duplicateEditor : undefined;
   }
   if (effect.kind === 'claim-submitted' && editor.kind === 'claim') {
     const submitted = intent.capture.kind === 'claim' ? intent.capture : undefined;
@@ -614,7 +638,8 @@ export function creatorOwnerDraftIsDirty(editor: CreatorOwnerEditor | CreatorOwn
 
 export function creatorOwnerLinkDraftIsDirty(editor: CreatorOwnerLinkEditor): boolean {
   switch (editor.kind) {
-    case 'link-placement': return JSON.stringify(editor.draft) !== JSON.stringify(linkDraft(editor.baseLink)) || Boolean(editor.sharedTextCorrection);
+    case 'link-placement': return JSON.stringify(editor.draft) !== JSON.stringify(linkDraft(editor.baseLink))
+      || Boolean(editor.sharedTextCorrection || editor.pendingDirectoryOptionDecision);
     case 'link-resource': return JSON.stringify(editor.draft) !== JSON.stringify(resourceDraft(editor.baseResource));
     case 'add-link': return Boolean(editor.draft.title.trim() || editor.draft.url.trim() || editor.draft.description.trim() || !editor.draft.selectedForDirectory);
     case 'move-link': return editor.targetPosition !== String(editor.baseOrder.indexOf(editor.baseLink.placementId) + 1);
@@ -648,9 +673,9 @@ function sameReferenceSelection(left: Pick<CreatorCatalogSelectionDTO, 'id' | 'u
   return Boolean(left && right && left.id === right.id && left.url === right.url);
 }
 
-function referenceSelectionWasRejected(editor: Extract<CreatorOwnerLinkEditor, { kind: 'reference' }>,
+function referenceSelectionWasRejected(rejectedSelections: readonly Pick<CreatorCatalogSelectionDTO, 'id' | 'url'>[],
   selected: Pick<CreatorCatalogSelectionDTO, 'id' | 'url'> | undefined): boolean {
-  return Boolean(selected && editor.rejectedSelections?.some((rejected) => sameReferenceSelection(rejected, selected)));
+  return Boolean(selected && rejectedSelections.some((rejected) => sameReferenceSelection(rejected, selected)));
 }
 
 function normalizeLinksQuery(
@@ -710,7 +735,7 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
     case 'update-reference-draft':
       if (state.editor?.kind !== 'reference') return state;
       {
-        if (referenceSelectionWasRejected(state.editor, action.selected)) {
+        if (referenceSelectionWasRejected(state.catalog.rejectedReferenceSelections, action.selected)) {
           const message = 'Esa dirección ya fue rechazada por estar desactualizada. Elige una selección vigente del catálogo.';
           return { ...state, message: { text: message, kind: 'info' } };
         }
@@ -745,7 +770,7 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       const selected = currentReferenceEditor?.selected;
       const selectionIsSubmitted = Boolean(selected && submitted && selected.id === submitted.id && selected.url === submitted.url);
       const selectionIsCurrent = Boolean(selected && entries.some(({ id, url }) => id === selected.id && url === selected.url));
-      const selectedWasRejected = Boolean(currentReferenceEditor && referenceSelectionWasRejected(currentReferenceEditor, selected));
+      const selectedWasRejected = referenceSelectionWasRejected(state.catalog.rejectedReferenceSelections, selected);
       const preserveLaterSelection = Boolean(referenceEditor && selected && !selectionIsSubmitted && selectionIsCurrent && !selectedWasRejected);
       const clearReferenceSelection = selectedWasRejected || Boolean(referenceEditor && !preserveLaterSelection);
       const editor = currentReferenceEditor && clearReferenceSelection
@@ -813,12 +838,9 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       if (!intent) return state;
       const rejected = action.status === 'conflict' && ['RESOURCE_CONFLICT', 'STALE_RESOURCE_REFERENCE'].includes(action.code ?? '')
         && intent.kind === 'reference' && intent.capture.kind === 'reference' ? intent.capture.selected : undefined;
-      const currentReference = state.editor?.kind === 'reference' && state.editor.key === intent.editorKey ? state.editor : undefined;
-      const rejectedSelections = rejected && currentReference && !referenceSelectionWasRejected(currentReference, rejected)
-        ? [...(currentReference.rejectedSelections ?? []), { id: rejected.id, url: rejected.url }] : currentReference?.rejectedSelections;
-      const editor = currentReference && rejectedSelections
-        ? { ...currentReference, rejectedSelections } : state.editor;
-      return { ...state, editor, attempt: { status: action.status, intent, message: action.message, ...(action.code ? { code: action.code } : {}) }, message: { text: action.message, kind: 'error' }, location: { ...state.location, transition: undefined, prompt: 'none' } };
+      const quarantinePair = rejected && !referenceSelectionWasRejected(state.catalog.rejectedReferenceSelections, rejected);
+      const catalog = quarantinePair ? { ...state.catalog, rejectedReferenceSelections: [...state.catalog.rejectedReferenceSelections, { id: rejected.id, url: rejected.url }] } : state.catalog;
+      return { ...state, catalog, attempt: { status: action.status, intent, message: action.message, ...(action.code ? { code: action.code } : {}) }, message: { text: action.message, kind: 'error' }, location: { ...state.location, transition: undefined, prompt: 'none' } };
     }
     case 'write-rejected': {
       const intent = currentAttempt(state, action.intentId);
@@ -837,7 +859,7 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         && referenceEffect?.profileId === referenceEditor.baseProfile.id && observed.profile
         ? completeReference(referenceCapture, referenceEditor,
           observed.links.find(({ placementId }) => placementId === referenceEffect.link.placementId) ?? referenceEffect.link,
-          observed.profile, 'acknowledged', referenceEffect.created)
+          observed.profile, state.catalog.rejectedReferenceSelections, 'acknowledged', referenceEffect.created)
         : undefined;
       const editor = referenceCompletion
         ? referenceCompletion.editor : editorAfterEffect(state.editor, intent, action.effect, action.correction, observed);
@@ -933,7 +955,8 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         ? snapshot.links.find(({ placementId }) => placementId === comparison.recoveredLinkId) : undefined;
       const referenceCompletion = current.kind === 'reference' && referenceCapture
         && snapshot.profile?.id === current.baseProfile.id
-        ? completeReference(referenceCapture, current, recoveredReference, snapshot.profile, 'adopted')
+        ? completeReference(referenceCapture, current, recoveredReference, snapshot.profile,
+          state.catalog.rejectedReferenceSelections, 'adopted')
         : undefined;
       let editor: CreatorOwnerEditor | CreatorOwnerLinkEditor | undefined = current;
       if (referenceCompletion) {
@@ -968,7 +991,10 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         }
       } else if (current.kind === 'link-placement' && snapshot.profile?.id === current.baseProfile.id) {
         const link = snapshot.links.find(({ placementId }) => placementId === current.baseLink.placementId);
-        if (link) editor = { ...current, baseProfile: { ...snapshot.profile }, baseLink: { ...link }, draft: linkDraft(link), sharedTextCorrection: undefined,
+        if (link) editor = { ...current, baseProfile: { ...snapshot.profile }, baseLink: { ...link },
+          draft: { ...linkDraft(link), ...(current.pendingDirectoryOptionDecision
+            ? { selectedForDirectory: current.draft.selectedForDirectory } : {}) }, sharedTextCorrection: undefined,
+          ...(current.pendingDirectoryOptionDecision ? { pendingDirectoryOptionDecision: true as const } : {}),
           editable: snapshot.editableResources.some(({ id }) => id === link.resourceId) };
       } else if (current.kind === 'link-resource') {
         const resource = snapshot.editableResources.find(({ id }) => id === current.baseResource.id);
@@ -1001,6 +1027,8 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         : current.kind === 'series' ? 'Usaste las versiones guardadas como base. Conservamos toda tu corrección; pulsa Guardar para enviarla.'
           : current.kind === 'add-link' && !comparison.recoveredLinkId ? 'No encontramos la URL original en tu página. Usaste las versiones actuales como base; puedes volver a agregarla manualmente.'
             : current.kind === 'add-link' ? 'Encontramos la URL del intento original. Revisa el contenido guardado y las correcciones antes de continuar.'
+              : current.kind === 'link-placement' && current.pendingDirectoryOptionDecision
+                ? 'Conservamos tu decisión posterior sobre la propuesta. Puedes guardarla o descartarla antes de salir.'
               : current.kind === 'link-placement' || current.kind === 'link-resource' ? 'Usaste los datos guardados. Puedes iniciar otra corrección cuando quieras.'
                 : 'Usaste los datos guardados. Puedes iniciar otra corrección cuando quieras.');
       return {

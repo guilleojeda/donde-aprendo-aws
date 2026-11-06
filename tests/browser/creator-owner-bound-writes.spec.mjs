@@ -11,6 +11,17 @@ import { creatorPageSessionBinding } from '../../src/lib/creator-session-context
 const ownerPath = '/api/creador/perfil';
 const sessionPath = '/api/creador/sesion';
 
+function deferred() {
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
+const pathOf = (request) => new URL(request.url()).pathname.replace(/\/$/u, '');
+const ownerResponse = (page, method, path, status) => page.waitForResponse((response) => response.request().method() === method
+  && pathOf(response.request()) === path && response.status() === status);
+const waitForRender = (page) => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+
 function dataForm(page) {
   return page.locator('[data-owner-dialog] form[data-owner-form="datos"]');
 }
@@ -378,5 +389,404 @@ test('la finalización de foto rechazada conserva la foto activa y el archivo ha
     boundRequests.stop();
     await page.unroute('https://creator-photos.example.invalid/**', providerHandler).catch(() => {});
     await capture.stop();
+  }
+});
+
+for (const historyFailure of [
+  { label: 'disabled-account 403', status: 403, error: 'ACCOUNT_DISABLED', change: (account) => ({ ...account, active: false }) },
+  { label: 'changed-role 409', status: 409, error: 'SESSION_CONTEXT_CHANGED', change: (account) => ({ ...account, isAdmin: !account.isAdmin }) },
+]) {
+  for (const olderErrorFirst of [false, true]) {
+  test(`a confirmed native photo supersedes older ${historyFailure.label} Solicitudes evidence delivered ${olderErrorFirst ? 'before' : 'after'} finalization`, async ({ fixture, page }) => {
+    const cookie = await loggedInOwner(fixture, page);
+    const account = originalAccount(fixture);
+    const startingProfile = (await fixture.rawOwner(cookie)).profile;
+    const { png } = await rasterPhotoFixtures();
+    const capture = await captureCreatorApi(page);
+    const history = { arrived: deferred(), gate: deferred() };
+    const finalize = { arrived: deferred(), gate: deferred() };
+    await page.route('https://creator-photos.example.invalid/**', async (route) => {
+      const request = route.request();
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({ status: 204, headers: {
+          'access-control-allow-origin': fixture.origin, 'access-control-allow-methods': 'POST, OPTIONS',
+          'access-control-allow-headers': request.headers()['access-control-request-headers'] ?? '',
+        } });
+        return;
+      }
+      const payload = request.postDataBuffer() ?? Buffer.alloc(0);
+      assert.ok(payload.includes(png), 'the provider receives the selected native file');
+      const key = payload.toString('latin1').match(/Content-Disposition: form-data; name="key"\r\n\r\n([^\r\n]+)/iu)?.[1];
+      assert.ok(key);
+      fixture.photoObjects.seed(key, png);
+      await route.fulfill({ status: 204, headers: { 'access-control-allow-origin': fixture.origin } });
+    });
+    await page.route('**/api/creador/**', async (route) => {
+      const request = route.request();
+      if (request.method() === 'GET' && pathOf(request) === ownerPath) {
+        const response = await route.fetch();
+        assert.equal(response.status(), historyFailure.status);
+        const body = await response.json();
+        assert.equal(body.error, historyFailure.error);
+        history.arrived.resolve();
+        await history.gate.promise;
+        await route.fulfill({ response, json: body });
+        return;
+      }
+      if (request.method() === 'POST' && pathOf(request) === '/api/creador/foto/finalizar') {
+        const response = await route.fetch();
+        assert.equal(response.status(), 200);
+        const body = await response.json();
+        assert.equal(body.versionChanges[0].after, startingProfile.version + 1);
+        finalize.arrived.resolve();
+        await finalize.gate.promise;
+        await route.fulfill({ response, json: body });
+        return;
+      }
+      await route.continue();
+    });
+    try {
+      await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+      await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+      fixture.accountStore.seedAccount(historyFailure.change(account));
+      const historyResponse = ownerResponse(page, 'GET', ownerPath, historyFailure.status);
+      await page.getByRole('button', { name: 'Actualizar solicitudes' }).click();
+      await history.arrived.promise;
+      fixture.accountStore.seedAccount(account);
+
+      await page.getByRole('button', { name: 'Editar foto' }).click();
+      const dialog = page.getByRole('dialog');
+      const file = dialog.getByLabel('Elegir una foto');
+      await file.setInputFiles({ name: 'ordering.png', mimeType: 'image/png', buffer: png });
+      const finalizeResponse = ownerResponse(page, 'POST', '/api/creador/foto/finalizar', 200);
+      await dialog.getByRole('button', { name: 'Subir y guardar foto' }).click();
+      await finalize.arrived.promise;
+      assert.equal((await fixture.rawOwner(cookie)).profile.version, startingProfile.version + 1,
+        'the real finalization commits before its browser response is released');
+
+      if (olderErrorFirst) {
+        history.gate.resolve();
+        await historyResponse;
+        await waitForRender(page);
+      }
+      finalize.gate.resolve();
+      await finalizeResponse;
+      await expect(dialog).toHaveCount(0);
+      if (!olderErrorFirst) {
+        history.gate.resolve();
+        await historyResponse;
+        await waitForRender(page);
+      }
+      await expect(page.getByRole('button', { name: 'Editar datos' })).toBeEnabled();
+      assert.equal(capture.records.find((record) => record.method === 'GET' && record.path === ownerPath)?.responseBody?.error,
+        historyFailure.error, 'the stale history classification came from the real owner endpoint');
+
+      await page.getByRole('button', { name: 'Editar datos' }).click();
+      const form = dataForm(page);
+      await form.getByLabel('Nombre visible').fill(`Manual save after ${historyFailure.label} ${olderErrorFirst ? 'early' : 'late'} history`);
+      await form.getByRole('button', { name: 'Guardar datos' }).click();
+      const saved = await waitForStatus(capture, 'PUT', ownerPath, 0, 200);
+      assert.equal((await fixture.rawOwner(cookie)).profile.displayName, saved.responseBody.profile.displayName);
+      assert.equal(capture.records.filter((record) => record.method === 'POST' && record.path.endsWith('/foto/finalizar')).length, 1,
+        'the delayed history response never repeats photo finalization');
+    } finally {
+      fixture.accountStore.seedAccount(account);
+      history.gate.resolve();
+      finalize.gate.resolve();
+      await page.unroute('**/api/creador/**').catch(() => {});
+      await page.unroute('https://creator-photos.example.invalid/**').catch(() => {});
+      await capture.stop({ skipErrorBodies: true });
+    }
+  });
+  }
+}
+
+for (const historyFailure of [
+  { label: 'disabled-account 403', status: 403, error: 'ACCOUNT_DISABLED', change: (account) => ({ ...account, active: false }) },
+  { label: 'changed-role 409', status: 409, error: 'SESSION_CONTEXT_CHANGED', change: (account) => ({ ...account, isAdmin: !account.isAdmin }) },
+]) {
+test(`a newer photo finalization role denial stays recoverable after older ${historyFailure.label} Solicitudes evidence`, async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const account = originalAccount(fixture);
+  const before = (await fixture.rawOwner(cookie)).profile;
+  const { png } = await rasterPhotoFixtures();
+  const capture = await captureCreatorApi(page);
+  const history = { arrived: deferred(), gate: deferred() };
+  let roleChanged = false;
+  await page.route('https://creator-photos.example.invalid/**', async (route) => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: {
+        'access-control-allow-origin': fixture.origin,
+        'access-control-allow-methods': 'POST, OPTIONS',
+        'access-control-allow-headers': request.headers()['access-control-request-headers'] ?? '',
+      } });
+      return;
+    }
+    const payload = request.postDataBuffer() ?? Buffer.alloc(0);
+    assert.ok(payload.includes(png));
+    const key = payload.toString('latin1').match(/Content-Disposition: form-data; name="key"\r\n\r\n([^\r\n]+)/iu)?.[1];
+    assert.ok(key);
+    fixture.photoObjects.seed(key, png);
+    if (!roleChanged) {
+      roleChanged = true;
+      fixture.accountStore.seedAccount({ ...account, isAdmin: !account.isAdmin });
+    }
+    await route.fulfill({ status: 204, headers: { 'access-control-allow-origin': fixture.origin } });
+  });
+  await page.route('**/api/creador/perfil/**', async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    const response = await route.fetch();
+    assert.equal(response.status(), historyFailure.status);
+    const body = await response.json();
+    assert.equal(body.error, historyFailure.error);
+    history.arrived.resolve();
+    await history.gate.promise;
+    await route.fulfill({ response, json: body });
+  });
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+    await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+    fixture.accountStore.seedAccount(historyFailure.change(account));
+    const historyResponse = ownerResponse(page, 'GET', ownerPath, historyFailure.status);
+    await page.getByRole('button', { name: 'Actualizar solicitudes' }).click();
+    await history.arrived.promise;
+    fixture.accountStore.seedAccount(account);
+
+    await page.getByRole('button', { name: 'Editar foto' }).click();
+    const form = photoForm(page);
+    const file = form.getByLabel('Elegir una foto');
+    await file.setInputFiles({ name: 'newer-denial.png', mimeType: 'image/png', buffer: png });
+    const selectedFile = await file.evaluateHandle((input) => input.files[0]);
+    const rejectedResponse = waitForStatus(capture, 'POST', '/api/creador/foto/finalizar', 0, 409);
+    await form.getByRole('button', { name: 'Subir y guardar foto' }).click();
+    const rejected = await rejectedResponse;
+    assert.equal(rejected.responseBody.error, 'SESSION_CONTEXT_CHANGED');
+    assert.deepEqual((await fixture.rawOwner(cookie)).profile, before, 'the rejected finalization does not mutate the profile');
+    await expect(sessionCheck(page)).toBeEnabled();
+    assert.equal(await file.evaluate((input, previous) => input.files[0] === previous, selectedFile), true);
+
+    fixture.accountStore.seedAccount(account);
+    history.gate.resolve();
+    await historyResponse;
+    await waitForRender(page);
+    await expect(sessionCheck(page)).toBeEnabled();
+    const renewed = ownerResponse(page, 'GET', sessionPath, 200);
+    await sessionCheck(page).click();
+    await renewed;
+    await expect(sessionCheck(page)).toHaveCount(0);
+    assert.equal(await file.evaluate((input, previous) => input.files[0] === previous, selectedFile), true,
+      'the exact native File remains available after the explicit session-only check');
+    const authorizeAgain = waitForStatus(capture, 'POST', '/api/creador/foto/autorizar', 1, 200);
+    const finalizeAgain = waitForStatus(capture, 'POST', '/api/creador/foto/finalizar', 1, 200);
+    await form.getByRole('button', { name: 'Subir y guardar foto' }).click();
+    await authorizeAgain;
+    await finalizeAgain;
+    await capture.settle();
+    assert.equal((await fixture.rawOwner(cookie)).profile.version, before.version + 1);
+    assert.deepEqual(apiEntries(capture, 'POST', '/api/creador/foto/autorizar').map(({ status }) => status), [200, 200]);
+    assert.deepEqual(apiEntries(capture, 'POST', '/api/creador/foto/finalizar').map(({ status }) => status), [409, 200]);
+    assert.equal(capture.records.filter((record) => record.method === 'POST' && record.path.endsWith('/foto/finalizar')).length, 2,
+      'the denied attempt is followed only by the explicit recovered upload');
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    history.gate.resolve();
+    await page.unroute('**/api/creador/perfil/**').catch(() => {});
+    await page.unroute('https://creator-photos.example.invalid/**').catch(() => {});
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+}
+
+test('ACCOUNT_DISABLED on a regular profile save enters a terminal state and preserves the draft', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const original = await fixture.rawOwner(cookie);
+  const account = originalAccount(fixture);
+  const capture = await captureCreatorApi(page);
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+    await page.getByRole('button', { name: 'Editar datos' }).click();
+    const form = dataForm(page);
+    await form.getByLabel('Nombre visible').fill('Draft retained for disabled account');
+    fixture.accountStore.seedAccount({ ...account, active: false });
+    const rejectedPromise = waitForStatus(capture, 'PUT', ownerPath, 0, 403);
+    await form.getByRole('button', { name: 'Guardar datos' }).click();
+    const rejected = await rejectedPromise;
+    await capture.settle();
+    assert.equal(rejected.responseBody.error, 'ACCOUNT_DISABLED');
+    await expect(form.getByLabel('Nombre visible')).toHaveValue('Draft retained for disabled account');
+    await expect(page.locator('[data-owner-dialog][open] [data-session-recovery-status]')).toContainText('Esta cuenta está desactivada.');
+    await expect(sessionCheck(page)).toHaveCount(0);
+    await expect(form.getByRole('button', { name: 'Guardar datos' })).toBeDisabled();
+    assert.equal(capture.writes().length, 1, 'the real disabled response is not retried');
+    fixture.accountStore.seedAccount(account);
+    assert.deepEqual((await fixture.rawOwner(cookie)).profile, original.profile);
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('ACCOUNT_DISABLED photo authorization enters a terminal state without uploading or losing the File', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const original = await fixture.rawOwner(cookie);
+  const account = originalAccount(fixture);
+  const { png } = await rasterPhotoFixtures();
+  const capture = await captureCreatorApi(page);
+  const providerUploads = [];
+  await page.route('https://creator-photos.example.invalid/**', async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: { 'access-control-allow-origin': fixture.origin } });
+      return;
+    }
+    providerUploads.push(route.request().postDataBuffer());
+    await route.fulfill({ status: 204, headers: { 'access-control-allow-origin': fixture.origin } });
+  });
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+    await page.getByRole('button', { name: 'Editar foto' }).click();
+    const form = photoForm(page);
+    const file = form.getByLabel('Elegir una foto');
+    await file.setInputFiles({ name: 'disabled-authorize.png', mimeType: 'image/png', buffer: png });
+    const selectedFile = await file.evaluateHandle((input) => input.files[0]);
+    fixture.accountStore.seedAccount({ ...account, active: false });
+    const rejectedPromise = waitForStatus(capture, 'POST', '/api/creador/foto/autorizar', 0, 403);
+    await form.getByRole('button', { name: 'Subir y guardar foto' }).click();
+    const rejected = await rejectedPromise;
+    await capture.settle();
+    assert.equal(rejected.responseBody.error, 'ACCOUNT_DISABLED');
+    await expect(page.locator('[data-owner-dialog][open] [data-session-recovery-status]')).toContainText('Esta cuenta está desactivada.');
+    await expect(sessionCheck(page)).toHaveCount(0);
+    await expect(form.getByRole('button', { name: 'Subir y guardar foto' })).toBeDisabled();
+    assert.equal(await file.evaluate((input, previous) => input.files[0] === previous, selectedFile), true);
+    assert.equal(providerUploads.length, 0);
+    assert.equal(fixture.photoPolicies.length, 0);
+    assert.equal(apiEntries(capture, 'POST', '/api/creador/foto/finalizar').length, 0);
+    assert.equal(capture.writes().length, 1);
+    fixture.accountStore.seedAccount(account);
+    assert.deepEqual((await fixture.rawOwner(cookie)).profile, original.profile);
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    await page.unroute('https://creator-photos.example.invalid/**').catch(() => {});
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('ACCOUNT_DISABLED photo finalization enters a terminal state and preserves the File and active photo', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const original = await fixture.rawOwner(cookie);
+  const account = originalAccount(fixture);
+  const { png } = await rasterPhotoFixtures();
+  const capture = await captureCreatorApi(page);
+  const providerUploads = [];
+  await page.route('https://creator-photos.example.invalid/**', async (route) => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: {
+        'access-control-allow-origin': fixture.origin,
+        'access-control-allow-methods': 'POST, OPTIONS',
+        'access-control-allow-headers': request.headers()['access-control-request-headers'] ?? '',
+      } });
+      return;
+    }
+    const payload = request.postDataBuffer() ?? Buffer.alloc(0);
+    assert.ok(payload.includes(png));
+    const key = payload.toString('latin1').match(/Content-Disposition: form-data; name="key"\r\n\r\n([^\r\n]+)/iu)?.[1];
+    assert.ok(key);
+    fixture.photoObjects.seed(key, png);
+    providerUploads.push({ key, payload });
+    fixture.accountStore.seedAccount({ ...account, active: false });
+    await route.fulfill({ status: 204, headers: { 'access-control-allow-origin': fixture.origin } });
+  });
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+    await page.getByRole('button', { name: 'Editar foto' }).click();
+    const form = photoForm(page);
+    const file = form.getByLabel('Elegir una foto');
+    await file.setInputFiles({ name: 'disabled-finalize.png', mimeType: 'image/png', buffer: png });
+    const selectedFile = await file.evaluateHandle((input) => input.files[0]);
+    const rejectedPromise = waitForStatus(capture, 'POST', '/api/creador/foto/finalizar', 0, 403);
+    await form.getByRole('button', { name: 'Subir y guardar foto' }).click();
+    const rejected = await rejectedPromise;
+    await capture.settle();
+    assert.equal(rejected.responseBody.error, 'ACCOUNT_DISABLED');
+    await expect(page.locator('[data-owner-dialog][open] [data-session-recovery-status]')).toContainText('Esta cuenta está desactivada.');
+    await expect(sessionCheck(page)).toHaveCount(0);
+    await expect(form.getByRole('button', { name: 'Subir y guardar foto' })).toBeDisabled();
+    assert.equal(await file.evaluate((input, previous) => input.files[0] === previous, selectedFile), true);
+    assert.equal(providerUploads.length, 1, 'the authorized upload reaches the provider before the real finalization denial');
+    assert.equal(fixture.photoPolicies.length, 1);
+    assert.equal(capture.writes().length, 2, 'one authorization and one denied finalization are sent');
+    fixture.accountStore.seedAccount(account);
+    assert.deepEqual((await fixture.rawOwner(cookie)).profile, original.profile,
+      'the denied finalization leaves the previous photo and profile version unchanged');
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    await page.unroute('https://creator-photos.example.invalid/**').catch(() => {});
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('a malformed successful photo authorization does not override older disabled Solicitudes evidence', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const original = await fixture.rawOwner(cookie);
+  const account = originalAccount(fixture);
+  const { png } = await rasterPhotoFixtures();
+  const capture = await captureCreatorApi(page);
+  const history = { arrived: deferred(), gate: deferred() };
+  await page.route('**/api/creador/**', async (route) => {
+    const request = route.request();
+    if (request.method() === 'GET' && pathOf(request) === ownerPath) {
+      const response = await route.fetch();
+      assert.equal(response.status(), 403);
+      const body = await response.json();
+      assert.equal(body.error, 'ACCOUNT_DISABLED');
+      history.arrived.resolve();
+      await history.gate.promise;
+      await route.fulfill({ response, json: body });
+      return;
+    }
+    if (request.method() === 'POST' && pathOf(request) === '/api/creador/foto/autorizar') {
+      const response = await route.fetch();
+      assert.equal(response.status(), 200, 'the service returned a real authorization response');
+      await route.fulfill({ response, json: {} });
+      return;
+    }
+    await route.continue();
+  });
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+    await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+    fixture.accountStore.seedAccount({ ...account, active: false });
+    const historyResponse = ownerResponse(page, 'GET', ownerPath, 403);
+    await page.getByRole('button', { name: 'Actualizar solicitudes' }).click();
+    await history.arrived.promise;
+    fixture.accountStore.seedAccount(account);
+
+    await page.getByRole('button', { name: 'Editar foto' }).click();
+    const form = photoForm(page);
+    const file = form.getByLabel('Elegir una foto');
+    await file.setInputFiles({ name: 'malformed-authorize.png', mimeType: 'image/png', buffer: png });
+    const selectedFile = await file.evaluateHandle((input) => input.files[0]);
+    await form.getByRole('button', { name: 'Subir y guardar foto' }).click();
+    const malformed = await waitForStatus(capture, 'POST', '/api/creador/foto/autorizar', 0, 200);
+    assert.deepEqual(malformed.responseBody, {});
+    assert.equal(apiEntries(capture, 'POST', '/api/creador/foto/finalizar').length, 0);
+    assert.equal(capture.writes().length, 1, 'an invalid authorization body does not start upload/finalization');
+
+    history.gate.resolve();
+    await historyResponse;
+    await waitForRender(page);
+    await expect(page.locator('[data-owner-dialog][open] [data-session-recovery-status]')).toContainText('Esta cuenta está desactivada.');
+    await expect(sessionCheck(page)).toHaveCount(0);
+    await expect(form.getByRole('button', { name: 'Subir y guardar foto' })).toBeDisabled();
+    assert.equal(await file.evaluate((input, previous) => input.files[0] === previous, selectedFile), true);
+    fixture.accountStore.seedAccount(account);
+    assert.deepEqual((await fixture.rawOwner(cookie)).profile, original.profile);
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    history.gate.resolve();
+    await page.unroute('**/api/creador/**').catch(() => {});
+    await capture.stop({ skipErrorBodies: true });
   }
 });

@@ -117,7 +117,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
         <p class="creator-owner__eyebrow">Primer paso</p>
         <h2 id="creator-owner-create-title">Prepara tu página</h2>
         <p>El nombre y la dirección se pueden elegir por separado. Al crearla queda como borrador; publicar es una acción posterior.</p>
-        <form class="creator-owner__form" data-owner-form="crear" onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onCreateProfile(); }}>
+        <form class="creator-owner__form" data-owner-form="crear" onSubmit={(event) => { event.preventDefault(); onCreateProfile(); }}>
           <div class="creator-owner__field">
             <label htmlFor="owner-create-name">Nombre visible</label>
             <input id="owner-create-name" name="displayName" value={state.editor?.kind === 'create-profile' ? state.editor.draft.displayName : ''}
@@ -134,7 +134,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
             <small>3–40 caracteres: minúsculas, números y guiones sencillos.</small>
           </div>
           <button class="button button--dark" type="submit" disabled={disabled}>Crear borrador</button>
-          {state.attempt.status === 'uncertain' && state.attempt.intent.kind === 'create-profile' && <button class="button button--outline" type="button" onClick={onCheck}>Comprobar</button>}
+          {(state.attempt.status === 'uncertain' || state.attempt.status === 'conflict') && state.attempt.intent.kind === 'create-profile' && <button class="button button--outline" type="button" onClick={onCheck}>Comprobar</button>}
           {state.attempt.status === 'uncertain' && state.attempt.comparison && <section class="creator-owner__conflict" data-owner-conflict>
             <h3>Revisar el borrador</h3><p>{state.attempt.comparison.message}</p>
             {state.attempt.comparison.canAdopt && <button class="button button--outline" type="button" data-owner-adopt onClick={() => onAdopt(state.attempt.status === 'uncertain' ? state.attempt.comparison?.id ?? '' : '')}>Continuar con los datos guardados</button>}
