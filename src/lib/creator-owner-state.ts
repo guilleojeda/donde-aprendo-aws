@@ -52,7 +52,8 @@ export type CreatorOwnerEditor =
   };
 
 export type CreatorOwnerLinkEditor =
-  | { kind: 'link-placement'; key: string; baseProfile: CreatorProfileDTO; baseLink: CreatorLinkDTO; editable: boolean; draft: CreatorOwnerLinkDraft; sharedTextCorrection?: Pick<CreatorOwnerLinkDraft, 'title' | 'url' | 'description'>; pendingDirectoryOptionDecision?: true }
+  | { kind: 'link-placement'; key: string; baseProfile: CreatorProfileDTO; baseLink: CreatorLinkDTO; editable: boolean; draft: CreatorOwnerLinkDraft;
+      optionsOnly?: true; sharedTextCorrection?: Pick<CreatorOwnerLinkDraft, 'title' | 'url' | 'description'>; pendingDirectoryOptionDecision?: true }
   | { kind: 'link-resource'; key: string; baseResource: CreatorEditableResourceDTO; draft: Pick<CreatorOwnerLinkDraft, 'title' | 'url' | 'description'> }
   | { kind: 'add-link'; key: 'add-link'; baseProfile: CreatorProfileDTO; draft: CreatorOwnerLinkDraft }
   | { kind: 'move-link'; key: string; baseProfile: CreatorProfileDTO; baseLink: CreatorLinkDTO; baseOrder: readonly string[]; targetPosition: string; suggestionPosition?: number }
@@ -141,7 +142,7 @@ export type CreatorOwnerSession =
   | { state: 'ready'; csrfToken: string }
   | { state: 'recovery-required'; reason: 'expired' | 'csrf' | 'different-principal'; message: string }
   | { state: 'checking'; reason: 'expired' | 'csrf' | 'different-principal'; message: string }
-  | { state: 'blocked'; reason: 'disabled' | 'invalid-context'; message: string };
+  | { state: 'blocked'; reason: 'disabled' | 'invalid-context'; message: string; ordinaryHistory?: true };
 
 export type CreatorOwnerLocation = {
   view: CreatorOwnerView;
@@ -240,7 +241,7 @@ export type CreatorOwnerAction =
   | { type: 'session-required'; reason: 'expired' | 'csrf' | 'different-principal'; message: string }
   | { type: 'session-check-started' }
   | { type: 'session-renewed'; csrfToken: string }
-  | { type: 'session-blocked'; reason: 'disabled' | 'invalid-context'; message: string }
+  | { type: 'session-blocked'; reason: 'disabled' | 'invalid-context'; message: string; ordinaryHistory?: true }
   | { type: 'set-message'; text: string; kind?: 'info' | 'success' | 'error' }
   | { type: 'set-series-search'; value: string }
   | { type: 'set-chapter-search'; value: string }
@@ -514,7 +515,7 @@ function completeReference(
 
   if (sameSelection && current.selectedForDirectory !== submitted.selectedForDirectory) {
     return { editor: { kind: 'link-placement', key: `link:${saved.placementId}`, baseProfile: { ...profile },
-      baseLink: { ...saved, series: saved.series.map((item) => ({ ...item })) }, editable: false,
+      baseLink: { ...saved, series: saved.series.map((item) => ({ ...item })) }, editable: false, optionsOnly: true,
       draft: { ...linkDraft(saved), selectedForDirectory: current.selectedForDirectory }, pendingDirectoryOptionDecision: true },
     hasPendingIntent: true,
     message: 'La referencia enviada está en tu página. Conservamos tu decisión posterior sobre la propuesta para que puedas guardarla o descartarla en opciones.',
@@ -580,6 +581,7 @@ function editorAfterEffect(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor |
     return { kind: 'link-placement', key: editor.key,
       baseProfile: data.profile ? { ...data.profile } : editor.baseProfile, baseLink: { ...updated }, editable: editor.editable,
       draft: correction ? editor.draft : linkDraft(updated),
+      ...(editor.optionsOnly ? { optionsOnly: true as const } : {}),
       ...(editor.sharedTextCorrection ? { sharedTextCorrection: editor.sharedTextCorrection } : {}),
       ...(correction && editor.pendingDirectoryOptionDecision ? { pendingDirectoryOptionDecision: true as const } : {}) };
   }
@@ -836,8 +838,8 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       ? { ...state, claimHistory: { status: 'error', sequence: action.sequence, startedClaimIds: [], message: action.message,
         ...(action.sessionDerived ? { sessionDerived: true } : {}) } } : state;
     case 'claim-history-session-cleared': {
-      if (state.claimHistory.sequence !== action.sequence || state.claimHistory.status !== 'error' || !state.claimHistory.sessionDerived) return state;
-      return { ...state, claimHistory: { status: 'idle', sequence: action.sequence, startedClaimIds: [] } };
+      if (state.claimHistory.sequence > action.sequence || state.claimHistory.status !== 'error' || !state.claimHistory.sessionDerived) return state;
+      return { ...state, claimHistory: { status: 'idle', sequence: state.claimHistory.sequence, startedClaimIds: [] } };
     }
     case 'claim-attempt-checked':
       if (state.attempt.status !== 'checking' || state.attempt.intent.id !== action.intentId || state.attempt.checkId !== action.checkId) return state;
@@ -1046,8 +1048,13 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         if (link) editor = { ...current, baseProfile: { ...snapshot.profile }, baseLink: { ...link },
           draft: { ...linkDraft(link), ...(current.pendingDirectoryOptionDecision
             ? { selectedForDirectory: current.draft.selectedForDirectory } : {}) },
-          ...(current.pendingDirectoryOptionDecision ? { pendingDirectoryOptionDecision: true as const } : {}),
-          editable: snapshot.editableResources.some(({ id }) => id === link.resourceId) };
+          editable: !current.optionsOnly && snapshot.editableResources.some(({ id }) => id === link.resourceId) };
+        else if (current.sharedTextCorrection) {
+          // A later options write can race with removal of the shared
+          // placement. The removal is authoritative: do not recreate it or
+          // retry its PATCH. Continue with the independent Add draft instead.
+          editor = sharedAddDraft(current, current.sharedTextCorrection, snapshot.profile);
+        }
       } else if (current.kind === 'link-resource') {
         const resource = snapshot.editableResources.find(({ id }) => id === current.baseResource.id);
         const stillRetained = resource && !snapshot.links.some(({ resourceId }) => resourceId === resource.id);
@@ -1065,6 +1072,9 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         else {
           const sent = state.attempt.intent.capture.kind === 'add-link' ? state.attempt.intent.capture.draft : current.draft;
           const { title, url, description, selectedForDirectory } = current.draft;
+          const savedText = { title: recovered.title, url: recovered.url, description: recovered.description ?? '' };
+          const submittedText = { title, url, description };
+          const textDiffersFromSaved = title !== savedText.title || url !== savedText.url || description !== savedText.description;
           const lateText = {
             ...(title !== sent.title ? { title } : {}),
             ...(url !== sent.url ? { url } : {}),
@@ -1073,8 +1083,12 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
           const lateOption = selectedForDirectory !== sent.selectedForDirectory;
           const editable = snapshot.editableResources.some(({ id }) => id === recovered.resourceId);
           editor = { kind: 'link-placement', key: `link:${recovered.placementId}`, baseProfile: { ...snapshot.profile }, baseLink: { ...recovered }, editable,
+            // A duplicate acknowledgement proves the existing placement, not
+            // that a shared placement's metadata matches the submitted Add
+            // text. Keep that shared text as an explicit manual correction;
+            // an owned resource still applies only later edits below.
             draft: { ...linkDraft(recovered), ...(editable ? lateText : {}), ...(lateOption ? { selectedForDirectory } : {}) },
-            ...(!editable && Object.keys(lateText).length ? { sharedTextCorrection: { title, url, description } } : {}),
+            ...(!editable && textDiffersFromSaved ? { sharedTextCorrection: submittedText } : {}),
             ...(lateOption ? { pendingDirectoryOptionDecision: true as const } : {}) };
         }
       }
@@ -1083,9 +1097,10 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         : current.kind === 'series' ? 'Usaste las versiones guardadas como base. Conservamos toda tu corrección; pulsa Guardar para enviarla.'
           : current.kind === 'add-link' && !action.addPlacementId ? 'Usaste la página guardada como base. El borrador del alta sigue separado de las fichas guardadas.'
             : current.kind === 'add-link' ? 'Abriste la ficha que elegiste. Revisa la corrección antes de guardarla.'
+              : current.kind === 'link-placement' && editor?.kind === 'add-link'
+                ? 'La colocación compartida ya no está en tu página. No la reincorporamos; conservamos el borrador del alta para una acción manual.'
               : current.kind === 'link-placement' && current.pendingDirectoryOptionDecision
                 ? 'Conservamos tu decisión posterior sobre la propuesta. Puedes guardarla o descartarla antes de salir.'
-              : current.kind === 'link-placement' || current.kind === 'link-resource' ? 'Usaste los datos guardados. Puedes iniciar otra corrección cuando quieras.'
                 : 'Usaste los datos guardados. Puedes iniciar otra corrección cuando quieras.');
       return {
         ...state, observed: snapshot, editor, attempt: { status: 'confirmed', intentId: state.attempt.intent.id },
@@ -1100,20 +1115,24 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
             prompt: 'none' as const } : {}),
           focusAfterRender: referenceCompletion ? referenceCompletion.focusAfterRender
             : current.kind === 'series' && !snapshot.series.some(({ id }) => id === current.baseSeries?.id) ? '#owner-series-title'
-              : current.kind === 'add-link' ? editor?.kind === 'link-placement'
-                ? editor.editable ? '#owner-link-title' : '#owner-link-directory-option'
-                : '#owner-add-link-title'
+              : editor?.kind === 'add-link' ? '#owner-add-link-title'
+                : editor?.kind === 'link-placement' && (current.kind === 'add-link' || editor.pendingDirectoryOptionDecision)
+                  ? editor.editable && current.kind === 'add-link' ? '#owner-link-title' : '#owner-link-directory-option'
                 : current.kind === 'link-placement' || current.kind === 'link-resource' || current.kind === 'move-link' ? '#owner-link-search' : undefined },
       };
     }
     case 'session-required':
+      if (state.session.state === 'blocked' && !state.session.ordinaryHistory) return state;
       return { ...state, session: { state: 'recovery-required', reason: action.reason, message: action.message }, message: { text: action.message, kind: 'error' } };
     case 'session-check-started':
       return state.session.state === 'recovery-required' ? { ...state, session: { ...state.session, state: 'checking' }, message: { text: 'Comprobando la sesión…', kind: 'info' } } : state;
     case 'session-renewed':
+      if (state.session.state === 'blocked' && !state.session.ordinaryHistory) return state;
       return { ...state, session: { state: 'ready', csrfToken: action.csrfToken }, message: { text: 'Sesión comprobada. Tus cambios siguen aquí; puedes decidir qué guardar.', kind: 'success' } };
     case 'session-blocked':
-      return { ...state, session: { state: 'blocked', reason: action.reason, message: action.message }, message: { text: action.message, kind: 'error' } };
+      if (state.session.state === 'blocked' && !state.session.ordinaryHistory) return state;
+      return { ...state, session: { state: 'blocked', reason: action.reason, message: action.message,
+        ...(action.ordinaryHistory ? { ordinaryHistory: true as const } : {}) }, message: { text: action.message, kind: 'error' } };
     case 'set-message': return { ...state, message: { text: action.text, kind: action.kind ?? 'info' } };
     case 'set-series-search': return { ...state, location: { ...state.location, pendingSeriesSearch: action.value } };
     case 'set-chapter-search': return { ...state, location: { ...state.location, pendingChapterSearch: action.value } };

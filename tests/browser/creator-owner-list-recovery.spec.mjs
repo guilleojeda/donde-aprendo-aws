@@ -1873,6 +1873,105 @@ test('review fragment skip keeps Series filters in the same owner document', asy
   }
 });
 
+test('Back clamps a chapter page after recovery and keeps the restored query usable', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const series = await createSeries(fixture, cookie, { name: 'Probe Chapters', slug: 'probe-chapters' });
+  const links = [];
+  for (let i = 1; i <= 26; i++) links.push(await addLink(fixture, cookie, {
+    title: `Probe chapter ${String(i).padStart(2, '0')}`, url: `https://probe-chapters.example/${i}`,
+  }));
+  const target = links.at(-1);
+  await openSeriesView(page, fixture, `&serie=${encodeURIComponent(series.id)}&buscarCapitulos=Probe+chapter&pertenencia=disponibles&paginaCapitulos=2`);
+  const transport = await installListTransport(page, {
+    writeMethod: 'PUT', writePath: `/api/creador/series/${series.id}/capitulos/${target.placementId}`,
+    readResponses: [{ kind: 'actual', hold: true }],
+  });
+  try {
+    const initialTime = await page.evaluate(() => performance.timeOrigin);
+    const add = page.locator(`[data-chapter-row="${target.placementId}"]`).getByRole('button', { name: 'Agregar capítulo', exact: true }).click();
+    await transport.writeArrived.promise;
+    assert.equal(transport.actualWrite.status, 200);
+    transport.writeGate.resolve();
+    await add;
+    await page.getByRole('button', { name: 'Comprobar', exact: true }).click();
+    await transport.read(0).arrived.promise;
+    await page.locator('[data-series-chapter-page]').filter({ hasText: 'Anterior' }).click();
+    await expect(page).toHaveURL((url) => url.searchParams.get('paginaCapitulos') === '1');
+    transport.read(0).gate.resolve();
+    await expect(page.locator('[data-owner-list-recovery]')).toHaveCount(0);
+    await page.goBack();
+    await expect(page.locator('[data-chapter-pagination]')).toContainText('Página 1 de 1');
+    await expect(page.locator('[data-chapter-row]')).toHaveCount(25);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), initialTime);
+    await expect(page.locator('#owner-chapter-search')).toHaveValue('Probe chapter');
+    await expect(page.locator('#owner-chapter-membership')).toHaveValue('disponibles');
+    await expect(page).toHaveURL((url) => url.searchParams.get('paginaCapitulos') === '1');
+
+    const next = links[0];
+    const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && response.status() === 200
+      && new URL(response.url()).pathname.replace(/\/$/u, '') === `/api/creador/series/${series.id}/capitulos/${next.placementId}`);
+    await page.locator(`[data-chapter-row="${next.placementId}"]`).getByRole('button', { name: 'Agregar capítulo', exact: true }).click();
+    await saved;
+    const readBack = await api(fixture, cookie, OWNER_PATH);
+    assert.equal(readBack.response.status, 200);
+    for (const link of [target, next]) {
+      assert.equal(readBack.body.links.find(({ placementId }) => placementId === link.placementId).series[0].seriesId, series.id);
+    }
+  } finally {
+    transport.writeGate.resolve();
+    transport.read(0).gate.resolve();
+    await transport.close();
+  }
+});
+
+test('Back preserves the native skip fragment when clamping a Links page', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const links = [];
+  for (let i = 1; i <= 26; i++) links.push(await addLink(fixture, cookie, {
+    title: `Probe link ${String(i).padStart(2, '0')}`, url: `https://probe-fragment-clamp.example/${i}`,
+  }));
+  const target = links.at(-1);
+  await openLinksView(page, fixture, '&buscar=Probe+link&paginaEnlaces=2');
+  await expect.poll(() => page.evaluate(() => history.state?.creatorOwnerIndex)).toBe(0);
+  const transport = await installListTransport(page, {
+    writeMethod: 'DELETE', writePath: `/api/creador/enlaces/${target.placementId}`, readResponses: [{ kind: 'actual', hold: true }],
+  });
+  try {
+    const initialTime = await page.evaluate(() => performance.timeOrigin);
+    page.once('dialog', (dialog) => dialog.accept());
+    const remove = page.locator(`[data-link-row="${target.placementId}"]`).getByRole('button', { name: 'Quitar de tu página', exact: true }).click();
+    await transport.writeArrived.promise;
+    assert.equal(transport.actualWrite.status, 204);
+    transport.writeGate.resolve();
+    await remove;
+    await page.getByRole('button', { name: 'Comprobar', exact: true }).click();
+    await transport.read(0).arrived.promise;
+    await page.getByRole('link', { name: 'Saltar al contenido' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL((url) => url.hash === '#contenido');
+    await expect(page.locator('#contenido')).toBeFocused();
+    assert.equal(await page.evaluate(() => history.state?.creatorOwnerIndex), 1);
+    await page.locator('[data-link-page]').filter({ hasText: 'Anterior' }).click();
+    await expect(page).toHaveURL((url) => url.searchParams.get('paginaEnlaces') === '1');
+    transport.read(0).gate.resolve();
+    await expect(page.locator('[data-owner-list-recovery]')).toHaveCount(0);
+    await page.goBack();
+    await expect.poll(() => page.evaluate(() => history.state?.creatorOwnerIndex)).toBe(1);
+    await expect(page.locator('[data-link-pagination]')).toContainText('Página 1 de 1');
+    assert.equal(await page.evaluate(() => performance.timeOrigin), initialTime);
+    await expect(page).toHaveURL((url) => url.searchParams.get('paginaEnlaces') === '1');
+    await expect(page).toHaveURL((url) => url.hash === '#contenido');
+    await expect(page.locator('#owner-link-search')).toHaveValue('Probe link');
+    const readBack = await api(fixture, cookie, OWNER_PATH);
+    assert.equal(readBack.response.status, 200);
+    assert.equal(readBack.body.links.some(({ placementId }) => placementId === target.placementId), false);
+  } finally {
+    transport.writeGate.resolve();
+    transport.read(0).gate.resolve();
+    await transport.close();
+  }
+});
+
 test('review dirty chapter Back restores across a fragment and then reaches the Series list', async ({ fixture, page }) => {
   const { listHref } = await prepareChapterList(fixture, page);
   const chapterHref = page.url();

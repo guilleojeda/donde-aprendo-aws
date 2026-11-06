@@ -138,7 +138,9 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
           {state.attempt.status === 'uncertain' && state.attempt.comparison && <section class="creator-owner__conflict" data-owner-conflict>
             <h3>Revisar el borrador</h3><p>{state.attempt.comparison.message}</p>
             {state.attempt.comparison.canAdopt && <button class="button button--outline" type="button" data-owner-adopt onClick={() => onAdopt(state.attempt.status === 'uncertain' ? state.attempt.comparison?.id ?? '' : '')}>Continuar con los datos guardados</button>}
-            {!state.attempt.comparison.canAdopt && !state.observed.profile && <button class="button button--outline" type="button" onClick={onRetryCreateProfile}>Volver a intentar crear borrador</button>}
+            {!state.attempt.comparison.canAdopt && !state.observed.profile && <button class="button button--outline" type="button"
+              disabled={!state.runtimeReady || state.session.state !== 'ready'}
+              onClick={onRetryCreateProfile}>Volver a intentar crear borrador</button>}
           </section>}
         </form>
       </section>}

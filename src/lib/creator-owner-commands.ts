@@ -842,7 +842,8 @@ export function createCreatorOwnerComparison(
       && snapshot.links.some((link) => link.placementId === item.placementId && link.series.some(({ seriesId: id }) => id === item.seriesId));
   }
   if (intent.kind === 'save-link' && capture.kind === 'link-placement') {
-    canAdopt = profileMatches && snapshot.links.some(({ placementId }) => placementId === capture.baseLink.placementId);
+    const placementPresent = snapshot.links.some(({ placementId }) => placementId === capture.baseLink.placementId);
+    canAdopt = profileMatches && (placementPresent || Boolean(capture.sharedTextCorrection));
   }
   if (intent.kind === 'save-link' && capture.kind === 'link-resource') {
     canAdopt = snapshot.editableResources.some(({ id }) => id === capture.baseResource.id)

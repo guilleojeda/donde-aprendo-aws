@@ -193,7 +193,16 @@ test('a changed principal remains recoverable through the owner reducer while di
     assert.equal(blocked.session.reason, reason);
     assert.strictEqual(reduce(blocked, { type: 'session-check-started' }), blocked,
       `${reason} cannot enter session checking`);
+    assert.strictEqual(reduce(blocked, { type: 'session-required', reason: 'different-principal', message: 'Later content mismatch' }), blocked,
+      `${reason} cannot be reclassified by a later queued recovery action`);
+    assert.strictEqual(reduce(blocked, { type: 'session-renewed', csrfToken: 'obsolete' }), blocked,
+      `${reason} cannot be undone by a queued renewal`);
   }
+
+  const provisional = reduce(initialState(), { type: 'session-blocked', reason: 'disabled', message, ordinaryHistory: true });
+  const newerWriteDenial = reduce(provisional, { type: 'session-required', reason: 'different-principal', message });
+  assert.equal(newerWriteDenial.session.state, 'recovery-required',
+    'an older ordinary history denial can still be superseded by the current bound write result');
 
   const checking = enterRecoverableMismatch(profileEditorState());
   assert.equal(checking.session.state, 'checking');
