@@ -96,6 +96,8 @@ export interface CreatorOwnerWriteIntent {
     | 'chapter-add' | 'chapter-remove' | 'chapter-move' | 'photo'
     | 'save-link' | 'add-link' | 'move-link' | 'remove-link' | 'reinclude-resource' | 'reference' | 'claim';
   capture: CreatorOwnerEditor | CreatorOwnerLinkEditor | CreatorOwnerListContext;
+  /** A delivered Add conflict proves that this attempt wrote no placement. */
+  addDidNotCommit?: true;
 }
 
 export interface CreatorOwnerListContext {
@@ -130,6 +132,7 @@ export interface CreatorOwnerComparison {
   draftAtCompare?: CreatorOwnerEditor | CreatorOwnerLinkEditor;
   seriesId?: string;
   recoveredLinkId?: string;
+  savedAddPlacementId?: string;
   canAdopt: boolean;
   message: string;
 }
@@ -182,7 +185,14 @@ export interface CreatorOwnerState {
     needsRefresh: boolean;
     rejectedReferenceSelections: Pick<CreatorCatalogSelectionDTO, 'id' | 'url'>[];
   };
-  claimHistory: { status: 'idle' | 'loading' | 'error'; sequence: number; startedClaimIds: string[]; message?: string };
+  claimHistory: {
+    status: 'idle' | 'loading' | 'error';
+    sequence: number;
+    startedClaimIds: string[];
+    message?: string;
+    /** True only for feedback derived from a session/account classification. */
+    sessionDerived?: boolean;
+  };
   message?: { text: string; kind: 'info' | 'success' | 'error' };
   runtimeReady: boolean;
 }
@@ -197,6 +207,7 @@ export type CreatorOwnerAction =
   | { type: 'update-move-draft'; targetPosition: string }
   | { type: 'update-link-draft'; value: Partial<CreatorOwnerLinkDraft> }
   | { type: 'update-add-link-draft'; value: Partial<CreatorOwnerLinkDraft> }
+  | { type: 'resume-shared-add' }
   | { type: 'update-move-link-draft'; targetPosition: string }
   | { type: 'set-link-move-suggestion'; targetPosition?: number }
   | { type: 'update-reference-draft'; selected?: CreatorCatalogSelectionDTO; selectedForDirectory?: boolean }
@@ -209,7 +220,8 @@ export type CreatorOwnerAction =
   | { type: 'catalog-require-refresh'; message: string }
   | { type: 'claim-history-started'; sequence: number }
   | { type: 'claim-history-ready'; sequence: number; claims: CreatorClaimDTO[]; message: string }
-  | { type: 'claim-history-failed'; sequence: number; message: string }
+  | { type: 'claim-history-failed'; sequence: number; message: string; sessionDerived?: boolean }
+  | { type: 'claim-history-session-cleared'; sequence: number }
   | { type: 'claim-attempt-checked'; intentId: string; checkId: string; message: string }
   | { type: 'set-move-suggestion'; targetPosition?: number }
   | { type: 'update-photo-file'; file?: File }
@@ -224,7 +236,7 @@ export type CreatorOwnerAction =
   | { type: 'begin-check'; intentId: string; checkId: string }
   | { type: 'check-failed'; intentId: string; checkId: string; message: string }
   | { type: 'check-compared'; intentId: string; checkId: string; comparison: CreatorOwnerComparison }
-  | { type: 'adopt-comparison'; comparisonId: string }
+  | { type: 'adopt-comparison'; comparisonId: string; addPlacementId?: string }
   | { type: 'session-required'; reason: 'expired' | 'csrf' | 'different-principal'; message: string }
   | { type: 'session-check-started' }
   | { type: 'session-renewed'; csrfToken: string }
@@ -433,19 +445,20 @@ function applyEffect(data: CreatorEditorDTO, effect: CreatorOwnerEffect): Creato
     case 'link-added': {
       if (next.profile?.id !== effect.profileId) return next;
       next.profile = profileWithVersion(next.profile, effect.profileVersion);
-      const existingIndex = next.links.findIndex(({ placementId }) => placementId === effect.link.placementId);
-      if (existingIndex < 0) {
-        next.links = [...next.links, { ...effect.link, series: effect.link.series.map((item) => ({ ...item })) }];
-      } else if (effect.source === 'reference' && !effect.created) {
-        next.links = next.links.map((link, index) => index === existingIndex
-          ? { ...effect.link, series: effect.link.series.map((item) => ({ ...item })) } : link);
-        next.editableResources = next.editableResources.map((resource) => resource.id === effect.link.resourceId
-          ? { id: effect.link.resourceId, title: effect.link.title, url: effect.link.url,
-            ...(Object.hasOwn(effect.link, 'description') ? { description: effect.link.description } : {}),
-            version: effect.link.resourceVersion }
-          : resource);
+      const canonicalLink = { ...effect.link, series: effect.link.series.map((item) => ({ ...item })) };
+      next.links = effect.created
+        ? [...next.links, canonicalLink]
+        : next.links.map((link) => link.placementId === effect.link.placementId ? canonicalLink : link);
+      const resource = effect.resource ?? {
+        id: effect.link.resourceId, title: effect.link.title, url: effect.link.url,
+        ...(Object.hasOwn(effect.link, 'description') ? { description: effect.link.description } : {}),
+        version: effect.link.resourceVersion,
+      };
+      if (next.editableResources.some(({ id }) => id === resource.id)) {
+        next.editableResources = next.editableResources.map((prior) => prior.id === resource.id ? resource : prior);
+      } else if (effect.resource) {
+        next.editableResources = [...next.editableResources, resource];
       }
-      if (effect.resource && !next.editableResources.some(({ id }) => id === effect.resource?.id)) next.editableResources = [...next.editableResources, { ...effect.resource }];
       return next;
     }
     case 'link-removed':
@@ -522,6 +535,12 @@ function completeReference(
     ...keepFocusInPicker };
 }
 
+function sharedAddDraft(editor: Extract<CreatorOwnerLinkEditor, { kind: 'link-placement' }>,
+  text: NonNullable<typeof editor.sharedTextCorrection>, profile: CreatorProfileDTO): CreatorOwnerLinkEditor {
+  return { kind: 'add-link', key: 'add-link', baseProfile: profile,
+    draft: { ...text, featured: false, selectedForDirectory: editor.draft.selectedForDirectory } };
+}
+
 function editorAfterEffect(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor | undefined, intent: CreatorOwnerWriteIntent, effect: CreatorOwnerEffect, correction: boolean, data: CreatorEditorDTO): CreatorOwnerEditor | CreatorOwnerLinkEditor | undefined {
   if (!editor || editor.key !== intent.editorKey) return editor;
   if (effect.kind === 'profile-updated') {
@@ -557,6 +576,7 @@ function editorAfterEffect(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor |
   }
   if (effect.kind === 'link-updated' && editor.kind === 'link-placement' && editor.baseLink.placementId === effect.link.placementId) {
     const updated = data.links.find(({ placementId }) => placementId === effect.link.placementId) ?? effect.link;
+    if (!correction && editor.sharedTextCorrection) return sharedAddDraft(editor, editor.sharedTextCorrection, data.profile ?? editor.baseProfile);
     return { kind: 'link-placement', key: editor.key,
       baseProfile: data.profile ? { ...data.profile } : editor.baseProfile, baseLink: { ...updated }, editable: editor.editable,
       draft: correction ? editor.draft : linkDraft(updated),
@@ -584,14 +604,20 @@ function editorAfterEffect(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor |
         baseLink: { ...updated }, editable: true, draft: { ...editor.draft } };
       return { ...editor, baseProfile: data.profile ?? editor.baseProfile };
     }
-    const lateSharedText = !editable && (editor.draft.title !== updated.title || editor.draft.url !== updated.url
-      || editor.draft.description !== (updated.description ?? ''));
+    // A shared no-op confirms the stored metadata, not the Add text. That
+    // text can already be a retained draft even if this request had no later input.
+    const unsavedSharedText = !editable && (editor.draft.title !== updated.title || editor.draft.url !== updated.url
+      || editor.draft.description !== (updated.description ?? ''))
+      ? { title: editor.draft.title, url: editor.draft.url, description: editor.draft.description } : undefined;
+    if (unsavedSharedText && editor.draft.selectedForDirectory === updated.selectedForDirectory) {
+      return { ...editor, baseProfile: data.profile ?? editor.baseProfile };
+    }
     const duplicateEditor: CreatorOwnerLinkEditor = { kind: 'link-placement', key: `link:${updated.placementId}`,
       baseProfile: data.profile ?? editor.baseProfile, baseLink: { ...updated }, editable,
       draft: editable
         ? { ...editor.draft, featured: updated.featured }
         : { ...linkDraft(updated), selectedForDirectory: editor.draft.selectedForDirectory },
-      ...(!editable && lateSharedText ? { sharedTextCorrection: { title: editor.draft.title, url: editor.draft.url, description: editor.draft.description } } : {}) };
+      ...(unsavedSharedText ? { sharedTextCorrection: unsavedSharedText, pendingDirectoryOptionDecision: true as const } : {}) };
     return creatorOwnerLinkDraftIsDirty(duplicateEditor) ? duplicateEditor : undefined;
   }
   if (effect.kind === 'claim-submitted' && editor.kind === 'claim') {
@@ -728,6 +754,14 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       return state;
     case 'update-add-link-draft':
       return state.editor?.kind === 'add-link' ? { ...state, editor: { ...state.editor, draft: { ...state.editor.draft, ...action.value } } } : state;
+    case 'resume-shared-add': {
+      const editor = state.editor;
+      if (editor?.kind !== 'link-placement' || !editor.sharedTextCorrection
+        || (state.attempt.status !== 'confirmed' && state.attempt.status !== 'idle')) return state;
+      return { ...state, editor: sharedAddDraft(editor, editor.sharedTextCorrection, editor.baseProfile),
+        message: { text: 'Recuperaste el borrador del alta. Las opciones de la ficha compartida siguen sin cambios.', kind: 'info' },
+        location: { ...state.location, focusAfterRender: '#owner-add-link-title' } };
+    }
     case 'update-move-link-draft':
       return state.editor?.kind === 'move-link' ? { ...state, editor: { ...state.editor, targetPosition: action.targetPosition, suggestionPosition: undefined } } : state;
     case 'set-link-move-suggestion':
@@ -799,7 +833,12 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         claimHistory: { status: 'idle', sequence: action.sequence, startedClaimIds: [], message: action.message } };
     }
     case 'claim-history-failed': return state.claimHistory.sequence === action.sequence
-      ? { ...state, claimHistory: { status: 'error', sequence: action.sequence, startedClaimIds: [], message: action.message } } : state;
+      ? { ...state, claimHistory: { status: 'error', sequence: action.sequence, startedClaimIds: [], message: action.message,
+        ...(action.sessionDerived ? { sessionDerived: true } : {}) } } : state;
+    case 'claim-history-session-cleared': {
+      if (state.claimHistory.sequence !== action.sequence || state.claimHistory.status !== 'error' || !state.claimHistory.sessionDerived) return state;
+      return { ...state, claimHistory: { status: 'idle', sequence: action.sequence, startedClaimIds: [] } };
+    }
     case 'claim-attempt-checked':
       if (state.attempt.status !== 'checking' || state.attempt.intent.id !== action.intentId || state.attempt.checkId !== action.checkId) return state;
       return { ...state, attempt: { status: 'confirmed', intentId: action.intentId }, message: { text: action.message, kind: 'info' } };
@@ -834,8 +873,12 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       }
       return { ...state, attempt: { status: 'sending', intent: action.intent }, message: undefined };
     case 'write-uncertain': {
-      const intent = currentAttempt(state, action.intentId);
+      let intent = currentAttempt(state, action.intentId);
       if (!intent) return state;
+      if (intent.kind === 'add-link' && action.status === 'conflict'
+        && ['PROFILE_CONFLICT', 'LINK_CONFLICT', 'URL_CONFLICT', 'PLACEMENT_ORDER_EXHAUSTED'].includes(action.code ?? '')) {
+        intent = { ...intent, addDidNotCommit: true };
+      }
       const rejected = action.status === 'conflict' && ['RESOURCE_CONFLICT', 'STALE_RESOURCE_REFERENCE'].includes(action.code ?? '')
         && intent.kind === 'reference' && intent.capture.kind === 'reference' ? intent.capture.selected : undefined;
       const quarantinePair = rejected && !referenceSelectionWasRejected(state.catalog.rejectedReferenceSelections, rejected);
@@ -868,9 +911,15 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         ? intent.capture.baseLink.placementId : undefined;
       const updatedLinkNoLongerMatches = !action.correction && action.effect.kind === 'link-updated' && linkPlacementId !== undefined
         && !selectCreatorOwnerLinks(observed.links, observed.series, state.location.linksQuery).matches.some(({ placementId }) => placementId === linkPlacementId);
-      const confirmationMessage = referenceCompletion?.message ?? (action.correction ? 'Cambios guardados. Conservamos la corrección que escribiste mientras se guardaba.'
+      const resumedSharedAdd = action.effect.kind === 'link-updated' && editor?.kind === 'add-link';
+      const duplicateUrl = action.effect.kind === 'link-added' && action.effect.source === 'url' && !action.effect.created;
+      const confirmationMessage = referenceCompletion?.message ?? (duplicateUrl
+        ? editor?.kind === 'add-link' || editor?.kind === 'link-placement' && editor.sharedTextCorrection
+          ? 'Ese contenido ya estaba en tu página. Conservamos tu borrador.'
+          : 'Ese contenido ya estaba en tu página. No cambiamos su ficha, opciones, posición ni series.'
+        : resumedSharedAdd ? 'Guardaste las opciones del enlace. El borrador del alta sigue pendiente.'
+        : action.correction ? 'Cambios guardados. Conservamos la corrección que escribiste mientras se guardaba.'
         : updatedLinkNoLongerMatches ? 'Cambios guardados. El enlace ya no coincide con la búsqueda o los filtros actuales.'
-        : action.effect.kind === 'link-added' && !action.effect.created ? 'Ese contenido ya estaba en tu página. No cambiamos su ficha, opciones, posición ni series.'
           : action.effect.kind === 'link-added' && action.effect.source === 'reference' ? 'Contenido agregado a tu página. La ficha compartida conserva sus datos.'
             : action.effect.kind === 'link-added' && action.effect.source === 'reinclude' ? 'Ficha reincorporada. Sus capítulos anteriores no se restauran automáticamente.'
               : action.effect.kind === 'link-added' ? 'Enlace agregado a tu página.' : 'Cambios guardados.');
@@ -883,10 +932,11 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         location: { ...state.location,
           ...(action.effect.kind === 'series-deleted' ? { query: { ...state.location.query, serie: '', buscarCapitulos: '', pertenencia: 'todos', paginaCapitulos: 1 }, pendingChapterSearch: '', pendingMembership: 'todos' as const } : {}),
           ...(referenceCompletion ? { transition: referenceCompletion.hasPendingIntent ? undefined : state.location.transition,
-            prompt: 'none' as const } : action.correction ? { transition: undefined, prompt: 'none' as const } : {}),
+            prompt: 'none' as const } : action.correction || resumedSharedAdd ? { transition: undefined, prompt: 'none' as const } : {}),
           ...(action.effect.kind === 'link-removed' || action.effect.kind === 'link-added' || action.effect.kind === 'link-updated'
             ? { linksQuery, pendingLinksQuery: linksQuery } : {}),
           ...(referenceCompletion ? { focusAfterRender: referenceCompletion.focusAfterRender }
+            : resumedSharedAdd ? { focusAfterRender: '#owner-add-link-title' }
             : action.effect.kind === 'series-deleted' ? { focusAfterRender: '#owner-series-title' }
             : action.effect.kind === 'chapters-updated' || action.effect.kind === 'chapter-moved' ? { focusAfterRender: '#owner-chapter-search' }
               : action.effect.kind === 'link-removed' || action.effect.kind === 'link-added' || action.effect.kind === 'link-moved'
@@ -911,6 +961,8 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       if (state.attempt.status !== 'uncertain' || state.attempt.comparison?.id !== action.comparisonId || !state.attempt.comparison.canAdopt) return state;
       const comparison = state.attempt.comparison;
       const current = state.editor;
+      if (action.addPlacementId && (current?.kind !== 'add-link'
+        || comparison.savedAddPlacementId !== action.addPlacementId)) return state;
       if (current && current.key !== comparison.editorKey) return state;
       const listOperation = ['publish', 'delete-series', 'chapter-add', 'chapter-remove', 'remove-link', 'reinclude-resource'].includes(state.attempt.intent.kind);
       const hasEditor = current !== undefined;
@@ -993,7 +1045,7 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         const link = snapshot.links.find(({ placementId }) => placementId === current.baseLink.placementId);
         if (link) editor = { ...current, baseProfile: { ...snapshot.profile }, baseLink: { ...link },
           draft: { ...linkDraft(link), ...(current.pendingDirectoryOptionDecision
-            ? { selectedForDirectory: current.draft.selectedForDirectory } : {}) }, sharedTextCorrection: undefined,
+            ? { selectedForDirectory: current.draft.selectedForDirectory } : {}) },
           ...(current.pendingDirectoryOptionDecision ? { pendingDirectoryOptionDecision: true as const } : {}),
           editable: snapshot.editableResources.some(({ id }) => id === link.resourceId) };
       } else if (current.kind === 'link-resource') {
@@ -1007,26 +1059,30 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
           editor = { ...current, baseProfile: { ...snapshot.profile }, baseLink: { ...link }, baseOrder: group.map(({ placementId }) => placementId) };
         }
       } else if (current.kind === 'add-link' && snapshot.profile?.id === current.baseProfile.id) {
-        const recovered = comparison.recoveredLinkId ? snapshot.links.find(({ placementId }) => placementId === comparison.recoveredLinkId)
+        const recovered = action.addPlacementId ? snapshot.links.find(({ placementId }) => placementId === action.addPlacementId)
           : undefined;
         if (!recovered) editor = { ...current, baseProfile: { ...snapshot.profile } };
         else {
           const sent = state.attempt.intent.capture.kind === 'add-link' ? state.attempt.intent.capture.draft : current.draft;
-          const lateText = ['title', 'url', 'description'].some((key) => current.draft[key as 'title' | 'url' | 'description'] !== sent[key as 'title' | 'url' | 'description']);
-          const lateOption = current.draft.selectedForDirectory !== sent.selectedForDirectory;
+          const { title, url, description, selectedForDirectory } = current.draft;
+          const lateText = {
+            ...(title !== sent.title ? { title } : {}),
+            ...(url !== sent.url ? { url } : {}),
+            ...(description !== sent.description ? { description } : {}),
+          };
+          const lateOption = selectedForDirectory !== sent.selectedForDirectory;
           const editable = snapshot.editableResources.some(({ id }) => id === recovered.resourceId);
           editor = { kind: 'link-placement', key: `link:${recovered.placementId}`, baseProfile: { ...snapshot.profile }, baseLink: { ...recovered }, editable,
-            draft: { ...linkDraft(recovered),
-              ...(editable && lateText ? { title: current.draft.title, url: current.draft.url, description: current.draft.description } : {}),
-              ...(lateOption ? { selectedForDirectory: current.draft.selectedForDirectory } : {}) },
-            ...(!editable && lateText ? { sharedTextCorrection: { title: current.draft.title, url: current.draft.url, description: current.draft.description } } : {}) };
+            draft: { ...linkDraft(recovered), ...(editable ? lateText : {}), ...(lateOption ? { selectedForDirectory } : {}) },
+            ...(!editable && Object.keys(lateText).length ? { sharedTextCorrection: { title, url, description } } : {}),
+            ...(lateOption ? { pendingDirectoryOptionDecision: true as const } : {}) };
         }
       }
       const adoptionMessage = referenceCompletion?.message ?? (current.kind === 'series' && !current.baseSeries && !comparison.seriesId
         ? 'Usaste la versión actual del perfil. No encontramos la serie original; conservamos el contenido para un nuevo intento manual.'
         : current.kind === 'series' ? 'Usaste las versiones guardadas como base. Conservamos toda tu corrección; pulsa Guardar para enviarla.'
-          : current.kind === 'add-link' && !comparison.recoveredLinkId ? 'No encontramos la URL original en tu página. Usaste las versiones actuales como base; puedes volver a agregarla manualmente.'
-            : current.kind === 'add-link' ? 'Encontramos la URL del intento original. Revisa el contenido guardado y las correcciones antes de continuar.'
+          : current.kind === 'add-link' && !action.addPlacementId ? 'Usaste la página guardada como base. El borrador del alta sigue separado de las fichas guardadas.'
+            : current.kind === 'add-link' ? 'Abriste la ficha que elegiste. Revisa la corrección antes de guardarla.'
               : current.kind === 'link-placement' && current.pendingDirectoryOptionDecision
                 ? 'Conservamos tu decisión posterior sobre la propuesta. Puedes guardarla o descartarla antes de salir.'
               : current.kind === 'link-placement' || current.kind === 'link-resource' ? 'Usaste los datos guardados. Puedes iniciar otra corrección cuando quieras.'
@@ -1044,7 +1100,10 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
             prompt: 'none' as const } : {}),
           focusAfterRender: referenceCompletion ? referenceCompletion.focusAfterRender
             : current.kind === 'series' && !snapshot.series.some(({ id }) => id === current.baseSeries?.id) ? '#owner-series-title'
-              : current.kind === 'link-placement' || current.kind === 'link-resource' || current.kind === 'move-link' || current.kind === 'add-link' ? '#owner-link-search' : undefined },
+              : current.kind === 'add-link' ? editor?.kind === 'link-placement'
+                ? editor.editable ? '#owner-link-title' : '#owner-link-directory-option'
+                : '#owner-add-link-title'
+                : current.kind === 'link-placement' || current.kind === 'link-resource' || current.kind === 'move-link' ? '#owner-link-search' : undefined },
       };
     }
     case 'session-required':

@@ -268,7 +268,6 @@ test('Enlaces conserva la búsqueda y página elegidas durante una lectura real 
     await capture.stop({ skipErrorBodies: true }).catch(() => {});
   }
 });
-
 test('Enlaces cancela búsquedas pendientes ante Back, Forward y paginación; la recuperación enfoca un control visible', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const links = [];
@@ -381,7 +380,6 @@ test('Enlaces cancela búsquedas pendientes ante Back, Forward y paginación; la
     await capture.stop({ skipErrorBodies: true }).catch(() => {});
   }
 });
-
 test('Enlaces conserva el texto escrito si la búsqueda y la adopción terminan en orden inverso', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const links = [];
@@ -1651,4 +1649,282 @@ test('Back en un documento nuevo conserva la búsqueda Series y limita la págin
     await transport.close();
     await capture.stop({ skipErrorBodies: true }).catch(() => {});
   }
+});
+
+test('review fragment skip preserves pending Links query and recovery', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const victim = await addLink(fixture, cookie, { title: 'Remove during skip', url: 'https://review-fragment.example/victim' });
+  const survivor = await addLink(fixture, cookie, { title: 'Survivor', url: 'https://review-fragment.example/survivor' });
+  await addLink(fixture, cookie, { title: 'Other candidate', url: 'https://review-fragment.example/other' });
+  await openLinksView(page, fixture);
+  await expect.poll(() => page.evaluate(() => history.state?.creatorOwnerIndex)).toBe(0);
+  const transport = await installListTransport(page, {
+    writeMethod: 'DELETE', writePath: `/api/creador/enlaces/${victim.placementId}`, readResponses: [{ kind: 'actual', hold: true }],
+  });
+  try {
+    page.once('dialog', (dialog) => dialog.accept());
+    const removeClick = page.locator(`[data-link-row="${victim.placementId}"]`)
+      .getByRole('button', { name: 'Quitar de tu página', exact: true }).click();
+    await transport.writeArrived.promise;
+    assert.equal(transport.actualWrite.status, 204);
+    transport.writeGate.resolve();
+    await removeClick;
+    const check = page.locator('[data-owner-list-recovery="links"]')
+      .getByRole('button', { name: 'Comprobar', exact: true }).click();
+    const read = await transport.read(0).arrived.promise;
+    assert.equal(read.status, 200);
+    assert.equal(read.body.links.some(({ placementId }) => placementId === victim.placementId), false);
+    await check;
+    await page.getByRole('link', { name: 'Saltar al contenido' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL((url) => url.hash === '#contenido');
+    const skipIndex = await page.evaluate(() => history.state?.creatorOwnerIndex);
+    assert.equal(skipIndex, 1, 'native skip navigation receives its own logical history offset');
+    await expect(page.locator('#contenido')).toBeFocused();
+    await expect.poll(async () => (await page.locator('#contenido').boundingBox())?.y ?? -Infinity).toBeGreaterThanOrEqual(0);
+    const skipBox = await page.locator('#contenido').boundingBox();
+    assert.ok(skipBox && skipBox.y >= 0 && skipBox.y <= 1000,
+      'native skip navigation leaves the destination focused and visible');
+    await page.evaluate(() => {
+      const search = document.querySelector('#owner-link-search');
+      const skip = document.querySelector('a[href="#contenido"]');
+      search.value = 'Survivor';
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+      // Activate the native link again before the search debounce fires.
+      skip.click();
+    });
+    await expect(page).toHaveURL((url) => url.searchParams.get('buscar') === 'Survivor');
+    await page.locator('#owner-link-order').selectOption('titulo-desc');
+    transport.read(0).gate.resolve();
+    await expect(page.locator('[data-owner-list-recovery="links"]')).toHaveCount(0);
+    await expect(page.locator(`[data-link-row="${survivor.placementId}"]`)).toBeVisible();
+    const orderedIndex = await page.evaluate(() => history.state?.creatorOwnerIndex);
+    assert.equal(orderedIndex, Number(skipIndex) + 1, 'order navigation adds one managed entry after the native fragment');
+    await page.goBack();
+    await expect(page).toHaveURL((url) => url.searchParams.get('buscar') === 'Survivor' && !url.searchParams.has('orden'));
+    assert.equal(await page.evaluate(() => history.state?.creatorOwnerIndex), skipIndex,
+      'Back returns to the pre-query owner entry without consuming a fragment offset');
+    await page.goForward();
+    await expect(page).toHaveURL((url) => url.searchParams.get('buscar') === 'Survivor'
+      && url.searchParams.get('orden') === 'titulo-desc');
+    assert.equal(await page.evaluate(() => history.state?.creatorOwnerIndex), orderedIndex,
+      'Forward restores the managed query entry after the native fragment');
+    const recoveredHref = new URL(page.url());
+    const visibleRows = await page.locator('[data-link-row]').count();
+    const before = await fixture.rawOwner(cookie);
+    await page.locator(`[data-link-row="${survivor.placementId}"]`)
+      .getByRole('button', { name: 'Editar ficha', exact: true }).click();
+    await linkEditForm(page).getByLabel(/Descripción/).fill('Saves after fragment recovery.');
+    await linkEditForm(page).getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(async () => (await fixture.rawResource(survivor.resourceId)).description)
+      .toBe('Saves after fragment recovery.');
+    assert.equal((await fixture.rawOwner(cookie)).profile.version, before.profile.version + 1);
+    assert.equal(recoveredHref.searchParams.get('buscar'), 'Survivor');
+    assert.equal(recoveredHref.searchParams.get('orden'), 'titulo-desc');
+    assert.equal(visibleRows, 1);
+  } finally {
+    await transport.close();
+  }
+});
+
+test('review Series Back clamps older page after uncertain series deletion', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const series = [];
+  for (let index = 0; index < 26; index += 1) series.push(await createSeries(fixture, cookie, {
+    name: `Review Old Page ${String(index).padStart(2, '0')}`, slug: `review-old-page-${index}`,
+  }));
+  const link = await addLink(fixture, cookie, { title: 'Review Next Chapter', url: 'https://review-series-back.example/chapter' });
+  await openSeriesView(page, fixture, '&buscarSeries=Review+Old+Page&paginaSeries=2');
+  await expect.poll(() => page.evaluate(() => history.state?.creatorOwnerIndex)).toBe(0);
+  const victim = series[25];
+  const transport = await installListTransport(page, {
+    writeMethod: 'DELETE', writePath: `/api/creador/series/${victim.id}`, readResponses: [{ kind: 'actual', hold: true }],
+  });
+  try {
+    page.once('dialog', (dialog) => dialog.accept());
+    const removeClick = page.locator(`[data-owner-series-row="${victim.id}"]`)
+      .getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await transport.writeArrived.promise;
+    assert.equal(transport.actualWrite.status, 204);
+    assert.equal(await fixture.rawSeries(cookie, victim.id), null);
+    transport.writeGate.resolve();
+    await removeClick;
+    const check = page.locator('[data-owner-list-recovery="series"]')
+      .getByRole('button', { name: 'Comprobar', exact: true }).click();
+    const read = await transport.read(0).arrived.promise;
+    assert.equal(read.status, 200);
+    assert.equal(read.body.series.some(({ id }) => id === victim.id), false);
+    await page.locator('#owner-series-search').fill('Review Old Page 0');
+    await page.locator('#owner-series-search').press('Enter');
+    await expect(page).toHaveURL((url) => url.searchParams.get('buscarSeries') === 'Review Old Page 0');
+    transport.read(0).gate.resolve();
+    await check;
+    await expect(page.locator('[data-owner-list-recovery="series"]')).toHaveCount(0);
+    await page.goBack();
+    await expect(page.locator('#owner-series-search')).toHaveValue('Review Old Page');
+    await expect(page.locator('[data-series-pagination]')).toContainText('Página 1 de 1');
+    const restoredHref = new URL(page.url());
+    const before = await fixture.rawOwner(cookie);
+    const chapterLink = page.locator(`[data-owner-series-row="${series[0].id}"]`)
+      .getByRole('link', { name: 'Gestionar capítulos', exact: true });
+    await chapterLink.click();
+    await expect(page).toHaveURL((url) => url.searchParams.get('serie') === series[0].id
+      && url.searchParams.get('buscarSeries') === 'Review Old Page'
+      && url.searchParams.get('paginaSeries') === '1');
+    await expect(page.locator(`[data-chapter-row="${link.placementId}"]`)).toBeVisible();
+    await page.locator(`[data-chapter-row="${link.placementId}"]`)
+      .getByRole('button', { name: 'Agregar capítulo', exact: true }).click();
+    await expect.poll(async () => Boolean((await fixture.rawPlacement(cookie, link.placementId)).series?.[series[0].id]))
+      .toBe(true);
+    assert.equal((await fixture.rawOwner(cookie)).profile.version, before.profile.version + 1);
+    assert.equal(restoredHref.searchParams.get('paginaSeries'), '1');
+    assert.equal(restoredHref.searchParams.get('buscarSeries'), 'Review Old Page');
+  } finally {
+    transport.writeGate.resolve();
+    transport.read(0).gate.resolve();
+    await transport.close();
+  }
+});
+
+test('review repeated guarded Back after discard reaches the previous entry again', async ({ fixture, page }) => {
+  const { cookie, series, target, listHref } = await prepareChapterList(fixture, page);
+  const chapterHref = page.url();
+  const initialTime = await page.evaluate(() => performance.timeOrigin);
+  const removePath = `/api/creador/series/${series.id}/capitulos/${target.placementId}`;
+  const transport = await installListTransport(page, {
+    writeMethod: 'DELETE', writePath: removePath, readResponses: [{ kind: 'actual' }],
+  });
+  const capture = await captureCreatorApi(page, { ignoreReads: true, skipErrorBodies: true });
+  try {
+    const remove = page.locator(`[data-chapter-row="${target.placementId}"]`)
+      .getByRole('button', { name: 'Quitar capítulo', exact: true }).click();
+    await transport.writeArrived.promise;
+    assert.equal(transport.actualWrite.status, 204);
+    transport.writeGate.resolve();
+    await remove;
+    const recover = page.locator('[data-owner-list-recovery]').getByRole('button', { name: 'Comprobar', exact: true });
+    await recover.click();
+    await transport.read(0).arrived.promise;
+    await expect(page.locator('[data-owner-list-recovery]')).toHaveCount(0);
+    const chapterEdit = page.locator('[data-owner-series-chapters] [data-series-edit]');
+    const form = page.locator('[data-owner-dialog] form[data-owner-form="serie"]');
+    const prompt = page.locator('[data-owner-exit-prompt]');
+    for (let turn = 1; turn <= 2; turn += 1) {
+      await chapterEdit.click();
+      await form.getByLabel('Nombre de la serie').fill(`Discard me ${turn}`);
+      await page.evaluate(() => history.back());
+      await expect(prompt).toBeVisible();
+      await expect(page).toHaveURL(chapterHref, 'guard restores the open editor entry');
+      await prompt.getByRole('button', { name: 'Descartar cambios', exact: true }).click();
+      await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0);
+      assert.equal((await fixture.rawSeries(cookie, series.id)).name, series.name);
+      await expect(page).toHaveURL(listHref, `discard on visit ${turn} should reach the same previous entry`);
+      assert.equal(await page.evaluate(() => performance.timeOrigin), initialTime);
+      if (turn === 1) {
+        await page.evaluate(() => history.forward());
+        await expect(page).toHaveURL(chapterHref);
+        await expect(page.locator('[data-owner-series-chapters]')).toBeVisible();
+      }
+    }
+    await capture.settle({ skipErrorBodies: true });
+    assert.equal(capture.writes().length, 1);
+  } finally {
+    await transport.close();
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+
+test('review fragment skip keeps Series filters in the same owner document', async ({ fixture, page }) => {
+  const { series, target } = await prepareChapterList(fixture, page);
+  const transport = await installListTransport(page, {
+    writeMethod: 'DELETE', writePath: `/api/creador/series/${series.id}/capitulos/${target.placementId}`, readResponses: [{ kind: 'actual', hold: true }],
+  });
+  try {
+    const remove = page.locator(`[data-chapter-row="${target.placementId}"]`)
+      .getByRole('button', { name: 'Quitar capítulo', exact: true }).click();
+    await transport.writeArrived.promise;
+    assert.equal(transport.actualWrite.status, 204);
+    transport.writeGate.resolve();
+    await remove;
+    const check = page.locator('[data-owner-list-recovery="series"]')
+      .getByRole('button', { name: 'Comprobar', exact: true }).click();
+    const read = await transport.read(0).arrived.promise;
+    assert.equal(read.status, 200);
+    assert.equal(read.body.links.find(({ placementId }) => placementId === target.placementId).series.length, 0);
+    await check;
+    await page.getByRole('link', { name: 'Saltar al contenido' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL((url) => url.hash === '#contenido');
+    const previousTimeOrigin = await page.evaluate(() => performance.timeOrigin);
+    const dialogs = [];
+    page.on('dialog', async (dialog) => { dialogs.push(dialog.type()); await dialog.dismiss(); });
+    await page.locator('#owner-chapter-membership').selectOption('incluidos');
+    await chapterFilters(page).getByRole('button', { name: 'Aplicar filtros', exact: true }).click({ noWaitAfter: true });
+    await expect.poll(() => dialogs.length || new URL(page.url()).searchParams.has('pertenencia')).toBeTruthy();
+    transport.read(0).gate.resolve();
+    await expect(page.locator('[data-owner-list-recovery="series"]')).toHaveCount(0);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), previousTimeOrigin);
+    assert.deepEqual(dialogs, [], 'same-view query must not attempt to unload the document');
+    await expect(page).toHaveURL((url) => url.searchParams.get('pertenencia') === 'incluidos');
+  } finally {
+    transport.writeGate.resolve();
+    transport.read(0).gate.resolve();
+    await transport.close();
+  }
+});
+
+test('review dirty chapter Back restores across a fragment and then reaches the Series list', async ({ fixture, page }) => {
+  const { listHref } = await prepareChapterList(fixture, page);
+  const chapterHref = page.url();
+  const chapterIndex = await page.evaluate(() => history.state?.creatorOwnerIndex);
+
+  await page.locator('#owner-chapter-membership').selectOption('incluidos');
+  await chapterFilters(page).getByRole('button', { name: 'Aplicar filtros', exact: true }).click();
+  await expect(page).toHaveURL((url) => url.searchParams.get('pertenencia') === 'incluidos');
+  const firstFilterIndex = await page.evaluate(() => history.state?.creatorOwnerIndex);
+  assert.equal(firstFilterIndex, Number(chapterIndex) + 1, 'the first same-context filter receives one managed step');
+  await page.goBack();
+  await expect(page).toHaveURL(chapterHref);
+  assert.equal(await page.evaluate(() => history.state?.creatorOwnerIndex), chapterIndex);
+
+  await page.getByRole('link', { name: 'Saltar al contenido' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL((url) => url.hash === '#contenido');
+  await expect(page.locator('#contenido')).toBeFocused();
+  await expect.poll(async () => (await page.locator('#contenido').boundingBox())?.y ?? -Infinity).toBeGreaterThanOrEqual(0);
+  const fragmentIndex = await page.evaluate(() => history.state?.creatorOwnerIndex);
+  assert.equal(fragmentIndex, firstFilterIndex, 'a fragment pushed after Back reuses the next physical slot, not the old chapter index');
+
+  await page.locator('#owner-chapter-membership').selectOption('incluidos');
+  await chapterFilters(page).getByRole('button', { name: 'Aplicar filtros', exact: true }).click();
+  await expect(page).toHaveURL((url) => url.searchParams.get('pertenencia') === 'incluidos');
+  const filterIndex = await page.evaluate(() => history.state?.creatorOwnerIndex);
+  assert.equal(filterIndex, Number(fragmentIndex) + 1, 'the managed filter follows the fragment entry physically');
+
+  await page.locator('[data-owner-series-chapters] [data-series-edit]').click();
+  const form = page.locator('[data-owner-dialog] form[data-owner-form="serie"]');
+  await form.getByLabel('Nombre de la serie').fill('Cambio antes de volver');
+  await page.evaluate(() => history.back());
+  const prompt = page.locator('[data-owner-exit-prompt]');
+  await expect(prompt).toBeVisible();
+  await expect(page).toHaveURL((url) => url.searchParams.get('pertenencia') === 'incluidos');
+  assert.equal(await page.evaluate(() => history.state?.creatorOwnerIndex), filterIndex,
+    'guarded Back restores the dirty editor entry before resolving the exit');
+
+  await prompt.getByRole('button', { name: 'Descartar cambios', exact: true }).click();
+  await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0);
+  await expect(page).toHaveURL((url) => url.hash === '#contenido'
+    && url.searchParams.get('pertenencia') === null);
+  assert.equal(await page.evaluate(() => history.state?.creatorOwnerIndex), fragmentIndex,
+    'discard reaches the requested fragment entry after restoration');
+
+  await page.goBack();
+  await expect(page).toHaveURL(chapterHref);
+  assert.equal(await page.evaluate(() => history.state?.creatorOwnerIndex), chapterIndex,
+    'Back from the fragment updates the managed logical offset');
+  await page.goBack();
+  await expect(page).toHaveURL(listHref);
+  await expect(page.locator('[data-owner-series-chapters]')).toBeHidden();
+  assert.equal(await page.evaluate(() => history.state?.creatorOwnerIndex), 0,
+    'the next physical Back reaches the original Series list entry');
 });

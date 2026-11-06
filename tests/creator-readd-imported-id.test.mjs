@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { GetCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { importCatalog, TARGET_ACCOUNT_ID } from '../src/lib/catalog-import.mjs';
+import { currentUrlKey } from '../src/lib/catalog-url.mjs';
 import { callApi, sessionCsrf } from './fixtures/creator-pages.mjs';
 import { createDynamoMoveHarness, seedMoveProfile, seedMoveResource } from './fixtures/creator-link-move.mjs';
 
@@ -80,3 +83,76 @@ for (const resourceId of ['import:catalog:' + 'r'.repeat(147), 'legacy:event/雪
     assert.equal((await owner(harness, 'creator-b')).links.length, 0);
   });
 }
+
+test('import, grant, retained edit and re-add preserve both literal dot IDs', async () => {
+  const harness = await createDynamoMoveHarness({ projectionAware: true });
+  seedMoveProfile(harness.mock);
+  const rows = ['.', '..'].map((id, index) => ({
+    id, url: `https://example.invalid/imported-dot/${index}?original=%2f`,
+    title: `Ficha importada ${index}`, description: 'Importada',
+    category: 'Contenido', kind: 'content', format: 'Artículo', topics: ['Fundamentos'],
+    published: true, order: index + 1, featured: false,
+  }));
+  const imported = await importCatalog(rows, {
+    tableName: 'catalog-test',
+    getCallerIdentity: async () => ({ Account: TARGET_ACCOUNT_ID }),
+    getItem: (parameters) => harness.mock.client.send(new GetCommand(parameters)),
+    transactWrite: (parameters) => harness.mock.client.send(new TransactWriteCommand(parameters)),
+  });
+  assert.deepEqual(imported, { total: 2, created: 2, skipped: 0 });
+  for (const { id, url } of rows) {
+    assert.equal(harness.mock.read('catalog-test', { id }).url, url);
+    assert.equal((await harness.store.get(currentUrlKey(url))).resourceId, id);
+  }
+
+  const claimed = await api(harness, '/api/creador/reclamaciones', {
+    resources: rows.map(({ id, url }) => ({ resourceId: id, url })),
+  });
+  assert.equal(claimed.status, 202);
+  assert.deepEqual(claimed.data.claim.resources, rows.map(({ id, url }) => ({ resourceId: id, url })));
+  const granted = await api(harness, '/api/admin/reclamaciones/vincular', {
+    accountId: 'private-account-a', resourceIds: rows.map(({ id }) => id),
+  }, { session: 'admin' });
+  assert.equal(granted.status, 200);
+  assert.deepEqual(granted.data.linkedResourceIds.toSorted(), ['.', '..']);
+
+  for (const [index, { id, url }] of rows.entries()) {
+    const before = await owner(harness);
+    const placed = before.links.find((link) => link.resourceId === id);
+    assert.ok(placed);
+    const unaffected = before.links.find((link) => link.resourceId !== id);
+    assert.ok(unaffected);
+    const removed = await api(harness, `/api/creador/enlaces/${placed.placementId}`, {
+      profileVersion: before.profile.version,
+    }, { method: 'DELETE' });
+    assert.equal(removed.status, 204);
+    const retired = await owner(harness);
+    assert.deepEqual(retired.links, [unaffected]);
+    const retained = retired.editableResources.find((resource) => resource.id === id);
+    assert.equal(retained?.url, url);
+
+    const newUrl = `https://example.invalid/retained-dot/${index}/?edited=%2F`;
+    const updated = await api(harness, `/api/creador/recursos/?id=${encodeURIComponent(id)}`, {
+      version: retained.version, url: newUrl,
+    }, { method: 'PATCH' });
+    assert.equal(updated.status, 200);
+    assert.equal(updated.data.resource.id, id);
+    assert.equal(updated.data.resource.url, newUrl);
+    assert.equal(updated.data.resource.version, retained.version + 1);
+    assert.equal(await harness.store.get(currentUrlKey(url)), null);
+    assert.equal((await harness.store.get(currentUrlKey(newUrl))).resourceId, id);
+
+    const added = await api(harness, '/api/creador/enlaces', {
+      resourceId: id, resourceVersion: updated.data.resource.version,
+    });
+    assert.equal(added.status, 201);
+    assert.equal(added.data.link.placementId, placed.placementId);
+    assert.equal(added.data.link.resourceId, id);
+    assert.equal(added.data.link.url, newUrl);
+    const persisted = await owner(harness);
+    assert.equal(persisted.links.length, 2);
+    assert.deepEqual(persisted.links.find((link) => link.resourceId === id), added.data.link);
+    assert.deepEqual(persisted.links.find((link) => link.resourceId !== id), unaffected);
+    assert.equal(harness.mock.read('catalog-test', { id }).url, newUrl);
+  }
+});

@@ -37,7 +37,7 @@ function sortedReceipts(changes) {
   return [...changes].sort((left, right) => `${left.entity}:${left.id}`.localeCompare(`${right.entity}:${right.id}`));
 }
 
-async function seedSharedCatalogResource(fixture) {
+async function seedSharedCatalogResource(fixture, overrides = {}) {
   // This record matches a selectable row in the public catalog fixture. It has
   // no editor reference, so the creator can add a placement but not edit it.
   const resource = {
@@ -57,6 +57,7 @@ async function seedSharedCatalogResource(fixture) {
     approvalRevoked: false,
     directoryControl: 'editorial',
     version: 4,
+    ...overrides,
   };
   const reservation = currentUrlReservation(resource.url, resource.id);
   assert.equal(await fixture.creatorStore.transact({
@@ -150,7 +151,7 @@ test('alta propia con acuse perdido: comprueba la URL original y guarda después
   const check = page.getByRole('button', { name: 'Comprobar si se agregó la URL original', exact: true });
   await expect(check, 'the first uncertain result must already expose a manual check').toBeVisible();
   await check.click();
-  await expect(page.getByRole('button', { name: 'Continuar con el contenido guardado', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Usar la página guardada y conservar el alta', exact: true })).toBeVisible();
   const createdLink = actualCreate.body.link;
   await capture.settle();
   const recoveryRead = capture.records.find(({ method, path, responseBody }) => method === 'GET'
@@ -173,14 +174,18 @@ test('alta propia con acuse perdido: comprueba la URL original y guarda después
   await expect(form.getByLabel('URL', { exact: true })).toHaveValue(correctedUrl);
   await expect(form.getByLabel(/Descripción/)).toHaveValue('Descripción B escrita durante el envío');
   const comparison = page.locator('[data-owner-comparison]');
-  await expect(comparison).toContainText(`Resultado del intento original: ${attemptedUrl} · Título enviado A · ${attemptedUrl}`);
+  await expect(comparison).toContainText('No pudimos confirmar el alta');
+  await expect(comparison).toContainText(attemptedUrl);
   await expect(comparison).toContainText(`Tu corrección: ${correctedUrl}`);
 
-  await page.getByRole('button', { name: 'Continuar con el contenido guardado', exact: true }).click();
+  const savedPlacement = page.getByRole('button', { name: 'Abrir ficha guardada: Título enviado A', exact: true });
+  await expect(savedPlacement).toHaveAttribute('data-owner-adopt-link', createdLink.placementId);
+  await savedPlacement.click();
   const recoveredRow = page.locator(`[data-link-row="${createdLink.placementId}"]`);
   await expect(recoveredRow.locator('[data-link-title]')).toHaveText('Título enviado A');
   const editor = linkEditForm(page);
   await expect(editor.getByLabel('Título', { exact: true })).toHaveValue('Corrección B escrita durante el envío');
+  await expect(editor.getByLabel('Título', { exact: true })).toBeFocused();
   await expect(editor.getByLabel(/Descripción/)).toHaveValue('Descripción B escrita durante el envío');
   await expect(editor.getByLabel('URL', { exact: true })).toHaveValue(correctedUrl);
   const createLink = actualCreate.body.link;
@@ -973,3 +978,148 @@ test('alta de URL compartida: conserva texto tardío hasta descartar y guarda op
   assert.equal(catalogReads.length, 0, 'adding a URL never requires loading the catalog index');
   await capture.stop();
 });
+
+for (const saveOptions of [true, false]) {
+test(`un alta repetida de una URL compartida devuelve el texto tardío al alta ${saveOptions ? 'después de guardar opciones' : 'sin guardar opciones'}`, async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const shared = await seedSharedCatalogResource(fixture);
+  const placed = await api(fixture, cookie, '/api/creador/enlaces', {
+    method: 'POST', body: { title: shared.title, url: shared.url, description: shared.description, selectedForDirectory: true },
+  });
+  assert.equal(placed.response.status, 201);
+  assert.equal(placed.body.link.resourceId, shared.id);
+  const placementId = placed.body.link.placementId;
+  const other = saveOptions ? await seedSharedCatalogResource(fixture, {
+    id: 'second-shared-resource', title: 'Otra ficha compartida', url: 'https://links.example/second-shared',
+  }) : undefined;
+  if (other) {
+    const response = await api(fixture, cookie, '/api/creador/enlaces', {
+      method: 'POST', body: { title: other.title, url: other.url, description: other.description, selectedForDirectory: false },
+    });
+    assert.equal(response.response.status, 201);
+    assert.equal(response.body.link.resourceId, other.id);
+  }
+  const initial = await fixture.rawOwner(cookie);
+  await openLinksView(page, fixture);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  let acknowledge, reached;
+  const gate = new Promise((resolve) => { acknowledge = resolve; });
+  const observed = new Promise((resolve) => { reached = resolve; });
+  const handler = async (route) => {
+    const request = route.request();
+    if (request.method() !== 'POST' || new URL(request.url()).pathname.replace(/\/$/u, '') !== '/api/creador/enlaces') {
+      return route.continue();
+    }
+    const response = await route.fetch();
+    const result = await response.json();
+    reached({ status: response.status(), result });
+    await gate;
+    await route.fulfill({ response, json: result });
+  };
+  await page.route('**/api/creador/**', handler);
+  let submit;
+  try {
+    await page.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    const add = addLinkForm(page);
+    await add.getByLabel('Título', { exact: true }).fill(shared.title);
+    await add.getByLabel('URL', { exact: true }).fill(shared.url);
+    await add.getByLabel(/Descripción/).fill(shared.description);
+    submit = add.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    const actual = await observed;
+    assert.equal(actual.status, 200);
+    assert.equal(actual.result.created, false);
+    assert.equal(actual.result.link.placementId, placementId);
+    assert.deepEqual(actual.result.versionChanges, []);
+    const lateTitle = 'A distinct late add title';
+    const lateUrl = 'https://links.example/different-late-url';
+    await add.getByLabel('Título', { exact: true }).fill(lateTitle);
+    await add.getByLabel('URL', { exact: true }).fill(lateUrl);
+    await add.getByLabel(/Descripción/).fill('Later description for the distinct URL');
+    await add.getByLabel('Proponer al directorio').uncheck();
+    acknowledge();
+    await submit;
+
+    const edit = linkEditForm(page);
+    await expect(edit).toBeVisible();
+    await expect(add).toHaveCount(0);
+    await expect(edit.getByLabel('Título', { exact: true })).toBeDisabled();
+    await expect(edit.getByLabel('Título', { exact: true })).toHaveValue(shared.title);
+    await expect(edit.getByLabel('URL', { exact: true })).toHaveValue(shared.url);
+    await expect(edit.locator('[data-link-add-shared-correction]')).toContainText('Conservamos aparte');
+    await expect(edit.locator('[data-owner-form-status="enlace"]')).toContainText('Ese contenido ya estaba en tu página');
+    await expect(edit.locator('[data-owner-form-status="enlace"]')).not.toContainText('Cambios guardados');
+    assert.equal((await fixture.rawOwner(cookie)).profile.version, initial.profile.version);
+    assert.equal((await fixture.rawPlacement(cookie, placementId)).selectedForDirectory, true);
+    assert.equal(capture.writes().length, 1);
+
+    const patches = () => writesTo(capture, 'PATCH', `/api/creador/enlaces/${placementId}/editar`);
+    if (saveOptions) {
+      await edit.getByRole('button', { name: 'Cancelar', exact: true }).click();
+      const exit = page.locator('[data-owner-exit-prompt]');
+      await exit.getByRole('button', { name: 'Guardar opciones y volver al borrador', exact: true }).click();
+      await expect.poll(() => patches()[0]?.status).toBe(200);
+      assert.deepEqual(patches()[0].body, {
+        profileVersion: initial.profile.version, placementVersion: placed.body.link.placementVersion,
+        resourceVersion: shared.version, featured: false, selectedForDirectory: false,
+      });
+    } else {
+      await edit.getByRole('button', { name: 'Volver al borrador sin guardar las opciones', exact: true }).click();
+    }
+    await expect(add).toBeVisible();
+    await expect(add.getByLabel('Título', { exact: true })).toHaveValue(lateTitle);
+    await expect(add.getByLabel('URL', { exact: true })).toHaveValue(lateUrl);
+    await expect(add.getByLabel(/Descripción/)).toHaveValue('Later description for the distinct URL');
+    await expect(add.locator('[data-link-add-status]')).toContainText(saveOptions
+      ? 'El borrador del alta sigue pendiente' : 'Las opciones de la ficha compartida siguen sin cambios');
+    const current = await api(fixture, cookie, '/api/creador/perfil');
+    assert.equal(current.body.links.length, other ? 2 : 1);
+    assert.equal(current.body.links[0].url, shared.url);
+    assert.equal(current.body.links[0].selectedForDirectory, !saveOptions);
+    assert.deepEqual(current.body.editableResources, []);
+    assert.deepEqual(await fixture.rawResource(shared.id), shared);
+    const adds = () => writesTo(capture, 'POST', '/api/creador/enlaces');
+    assert.equal(adds().length, 1);
+
+    if (!saveOptions) {
+      await add.getByRole('button', { name: 'Cancelar', exact: true }).click();
+      await page.locator('[data-owner-exit-prompt]').getByRole('button', { name: 'Descartar cambios', exact: true }).click();
+      await expect(page.locator('[data-owner-dialog]')).not.toBeVisible();
+      assert.equal(capture.writes().length, 1, 'reusing and discarding the draft sends no write');
+      assert.deepEqual((await api(fixture, cookie, '/api/creador/perfil')).body, current.body);
+      return;
+    }
+
+    // Another shared duplicate may receive the already-retained draft with no
+    // further input during that request. A 200 with empty receipts cannot save it.
+    await add.getByLabel('URL', { exact: true }).fill(other.url);
+    await add.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    await expect.poll(() => adds()[1]?.status).toBe(200);
+    assert.equal(adds()[1].responseBody.link.resourceId, other.id);
+    assert.deepEqual(adds()[1].responseBody.versionChanges, []);
+    await expect(add.locator('[data-link-add-status]')).toContainText('Ese contenido ya estaba en tu página');
+    await expect(add.getByLabel('Título', { exact: true })).toHaveValue(lateTitle);
+    await expect(add.getByLabel(/Descripción/)).toHaveValue('Later description for the distinct URL');
+    assert.deepEqual((await api(fixture, cookie, '/api/creador/perfil')).body, current.body);
+    assert.deepEqual(await fixture.rawResource(other.id), other);
+
+    await add.getByLabel('URL', { exact: true }).fill(lateUrl);
+    await add.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    await expect.poll(() => adds()[2]?.status).toBe(201);
+    const final = await api(fixture, cookie, '/api/creador/perfil');
+    assert.deepEqual(final.body.links.map(({ url, title, description }) => ({ url, title, description })), [
+      { url: shared.url, title: shared.title, description: shared.description },
+      { url: other.url, title: other.title, description: other.description },
+      { url: lateUrl, title: lateTitle, description: 'Later description for the distinct URL' },
+    ]);
+    assert.deepEqual(final.body.editableResources.map(({ id }) => id), [adds()[2].responseBody.link.resourceId]);
+    assert.deepEqual(await fixture.rawResource(shared.id), shared);
+    assert.equal(adds().length, 3);
+    assert.equal(patches().length, 1);
+  } finally {
+    acknowledge();
+    await submit?.catch(() => {});
+    await page.unroute('**/api/creador/**', handler).catch(() => {});
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+}

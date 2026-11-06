@@ -96,7 +96,8 @@ function createInitialState(props: Props): CreatorOwnerState {
     sessionBinding: props.sessionBinding,
     isAdmin: props.isAdmin,
     publicOrigin: props.publicOrigin,
-    seriesQuery: props.seriesQuery,
+    seriesQuery: props.view === 'series' && !props.seriesQueryError
+      ? selectCreatorOwnerSeries(props.data.series, props.seriesQuery).query : props.seriesQuery,
     view: props.view,
     linksQuery: props.linksQuery,
     ...(props.seriesQueryError ? { seriesQueryError: props.seriesQueryError } : {}),
@@ -216,6 +217,7 @@ export default function CreatorOwnerApp(props: Props) {
   const catalogLoadRef = useRef<Promise<void> | undefined>(undefined);
   const claimHistorySequenceRef = useRef(0);
   const sessionCheckSequenceRef = useRef(0);
+  const claimHistoryAuthorizationSequenceRef = useRef(0);
   const claimHistorySessionClassificationRef = useRef<{ historySequence: number; authorizationSequence: number } | undefined>(undefined);
   const linksHydrationAppliedRef = useRef(false);
   const handledTransitionRef = useRef<string | undefined>(undefined);
@@ -304,6 +306,10 @@ export default function CreatorOwnerApp(props: Props) {
         dispatch({ type: 'apply-links-query', query, focusSelector: '#owner-link-search' });
       }
     }
+    const initialQuery = stateRef.current.location.query;
+    if (props.view === 'series' && !props.seriesQueryError && initialQuery.paginaSeries !== props.seriesQuery.paginaSeries) {
+      replaceSeriesHistoryQuery(initialQuery, historyIndexRef.current);
+    }
     historyHrefRef.current = window.location.href;
 
     function blockForExit(transition?: CreatorOwnerState['location']['transition']): boolean {
@@ -328,13 +334,23 @@ export default function CreatorOwnerApp(props: Props) {
       return target;
     }
 
+    function replaceSeriesHistoryQuery(query: Props['seriesQuery'], index: number) {
+      const destination = new URL(creatorOwnerSeriesHref(query), window.location.href);
+      destination.hash = window.location.hash;
+      window.history.replaceState(withOwnerHistoryState(window.history.state, index, true, true), '',
+        `${destination.pathname}${destination.search}${destination.hash}`);
+    }
+
     function applyLocationFromHref(index: number) {
       if (!ownsCurrentHistoryEntry()) return;
       const url = new URL(window.location.href);
       if (stateRef.current.location.view === 'series') {
         const parsed = parseCreatorOwnerSeriesQuery(url.searchParams, stateRef.current.observed.series);
-        if (parsed.valid) dispatch({ type: 'apply-query', query: parsed.query });
-        else if (parsed.reason === 'series' && ownerSeriesQueryWasValid(window.history.state) === true) {
+        if (parsed.valid) {
+          const normalized = selectCreatorOwnerSeries(stateRef.current.observed.series, parsed.query).query;
+          if (normalized.paginaSeries !== parsed.query.paginaSeries) replaceSeriesHistoryQuery(normalized, index);
+          dispatch({ type: 'apply-query', query: normalized });
+        } else if (parsed.reason === 'series' && ownerSeriesQueryWasValid(window.history.state) === true) {
           url.searchParams.delete('serie');
           url.searchParams.delete('buscarCapitulos');
           url.searchParams.delete('pertenencia');
@@ -463,6 +479,21 @@ export default function CreatorOwnerApp(props: Props) {
       if (blockForExit({ href: '/cuenta/salir/', kind: 'logout' })) event.preventDefault();
     };
 
+    function ownNativeFragmentEntry(currentHref: string) {
+      if (!isSameDocumentFragmentTransition(historyHrefRef.current, currentHref)) return;
+      // Native fragment pushes arrive without an owner state; traversals to an
+      // observed fragment retain its stamped index.
+      const currentHistoryState = window.history.state;
+      const current = stateRef.current;
+      const destinationIndex = ownerIndex(currentHistoryState) ?? historyIndexRef.current + 1;
+      if (ownerIndex(currentHistoryState) !== destinationIndex) {
+        window.history.replaceState(withOwnerHistoryState(currentHistoryState, destinationIndex,
+          ownerSeriesQueryWasValid(currentHistoryState) ?? !current.seriesQueryError,
+          ownerLinksQueryWasValid(currentHistoryState) ?? !current.location.linksQueryError), '', currentHref);
+      }
+      historyIndexRef.current = destinationIndex;
+    }
+
     const onPopState = () => {
       const destinationIndex = ownerIndex(window.history.state);
       const targetIndex = destinationIndex ?? Math.max(0, historyIndexRef.current - 1);
@@ -481,13 +512,17 @@ export default function CreatorOwnerApp(props: Props) {
       if (allowedHistoryIndexRef.current === targetIndex) {
         allowedHistoryIndexRef.current = undefined;
         pendingHistoryRef.current = undefined;
+        handledTransitionRef.current = undefined;
         historyIndexRef.current = targetIndex;
         historyHrefRef.current = window.location.href;
         applyLocationFromHref(targetIndex);
         dispatch({ type: 'set-transition' });
         return;
       }
+      // Repeating a native fragment link can emit popstate without a new entry.
+      if (destinationIndex === historyIndexRef.current && window.location.href === historyHrefRef.current) return;
       if (isSameDocumentFragmentTransition(historyHrefRef.current, window.location.href)) {
+        ownNativeFragmentEntry(window.location.href);
         historyHrefRef.current = window.location.href;
         return;
       }
@@ -515,7 +550,11 @@ export default function CreatorOwnerApp(props: Props) {
       if (!isWriteActive(latest) && !shouldGuardExit(latest)) return;
       event.preventDefault();
     };
-    const onHashChange = () => { historyHrefRef.current = window.location.href; };
+    const onHashChange = () => {
+      const currentHref = window.location.href;
+      ownNativeFragmentEntry(currentHref);
+      historyHrefRef.current = currentHref;
+    };
 
     const root = rootRef.current;
     root?.addEventListener('account:logout', onLogout);
@@ -808,12 +847,14 @@ export default function CreatorOwnerApp(props: Props) {
     const latest = stateRef.current;
     const expectedProfileId = options?.profileId ?? latest.observed.profile?.id;
     const binding = latest.sessionBinding;
+    const authorizationSequence = claimHistoryAuthorizationSequenceRef.current;
     const sessionCheckSequence = sessionCheckSequenceRef.current;
     const sequence = ++claimHistorySequenceRef.current;
     dispatch({ type: 'claim-history-started', sequence });
-    const mayClassifySession = () => sessionCheckSequenceRef.current === sessionCheckSequence;
+    const mayClassifySession = () => claimHistoryAuthorizationSequenceRef.current === authorizationSequence
+      && sessionCheckSequenceRef.current === sessionCheckSequence;
     const rememberSessionClassification = () => {
-      if (!options) claimHistorySessionClassificationRef.current = { historySequence: sequence, authorizationSequence: sessionCheckSequence };
+      if (!options) claimHistorySessionClassificationRef.current = { historySequence: sequence, authorizationSequence };
     };
     const historyReadIsCurrent = () => {
       const current = stateRef.current;
@@ -850,7 +891,7 @@ export default function CreatorOwnerApp(props: Props) {
         if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
         rememberSessionClassification();
         dispatch({ type: 'session-required', reason: recoveryReason, message });
-        dispatch({ type: 'claim-history-failed', sequence, message });
+        dispatch({ type: 'claim-history-failed', sequence, message, sessionDerived: true });
         return false;
       }
       if (!response.ok) {
@@ -860,7 +901,7 @@ export default function CreatorOwnerApp(props: Props) {
           if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
           rememberSessionClassification();
           dispatch({ type: 'session-required', reason: 'different-principal', message });
-          dispatch({ type: 'claim-history-failed', sequence, message });
+          dispatch({ type: 'claim-history-failed', sequence, message, sessionDerived: true });
           return false;
         }
         if (sessionState.state === 'disabled' || sessionState.state === 'invalid-context') {
@@ -869,7 +910,7 @@ export default function CreatorOwnerApp(props: Props) {
           if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
           rememberSessionClassification();
           dispatch({ type: 'session-blocked', reason: sessionState.state, message });
-          dispatch({ type: 'claim-history-failed', sequence, message });
+          dispatch({ type: 'claim-history-failed', sequence, message, sessionDerived: true });
           return false;
         }
         throw new Error(response.status === 403 ? 'claim-forbidden' : 'claim-unavailable');
@@ -1088,6 +1129,12 @@ export default function CreatorOwnerApp(props: Props) {
 
   function invalidateOlderSessionClassifications() {
     sessionCheckSequenceRef.current += 1;
+    claimHistoryAuthorizationSequenceRef.current += 1;
+    claimHistorySessionClassificationRef.current = undefined;
+  }
+
+  function invalidateOlderClaimHistoryClassifications() {
+    claimHistoryAuthorizationSequenceRef.current += 1;
     claimHistorySessionClassificationRef.current = undefined;
   }
 
@@ -1096,11 +1143,13 @@ export default function CreatorOwnerApp(props: Props) {
     const supersedesOlderHistoryFailure = olderHistoryFailure !== undefined
       && olderHistoryFailure.historySequence <= commandHistorySequence
       && olderHistoryFailure.authorizationSequence === commandAuthorizationSequence
-      && sessionCheckSequenceRef.current === commandAuthorizationSequence;
+      && claimHistoryAuthorizationSequenceRef.current === commandAuthorizationSequence;
     sessionCheckSequenceRef.current += 1;
+    claimHistoryAuthorizationSequenceRef.current += 1;
     if (supersedesOlderHistoryFailure) {
       claimHistorySessionClassificationRef.current = undefined;
       dispatch({ type: 'session-renewed', csrfToken });
+      dispatch({ type: 'claim-history-session-cleared', sequence: olderHistoryFailure.historySequence });
     }
   }
 
@@ -1160,7 +1209,7 @@ export default function CreatorOwnerApp(props: Props) {
       return;
     }
     const commandHistorySequence = claimHistorySequenceRef.current;
-    const commandAuthorizationSequence = sessionCheckSequenceRef.current;
+    const commandAuthorizationSequence = claimHistoryAuthorizationSequenceRef.current;
     dispatch({ type: 'begin-write', intent });
     const token = latest.session.csrfToken;
     try {
@@ -1207,7 +1256,9 @@ export default function CreatorOwnerApp(props: Props) {
       dispatch({ type: 'write-confirmed', intentId: intent.id, effect: outcome.effect, correction });
       const referenceCompletionOwnedByReducer = intent.kind === 'reference' && intent.capture.kind === 'reference';
       const confirmedUrlDuplicate = outcome.effect.kind === 'link-added' && outcome.effect.source === 'url' && !outcome.effect.created;
-      if (!correction && intent.capture.kind !== 'list-command' && !referenceCompletionOwnedByReducer && !confirmedUrlDuplicate) dispatch({ type: 'close-editor' });
+      const retainsSharedAdd = intent.capture.kind === 'link-placement' && Boolean(intent.capture.sharedTextCorrection);
+      if (!correction && intent.capture.kind !== 'list-command' && !referenceCompletionOwnedByReducer
+        && !confirmedUrlDuplicate && !retainsSharedAdd) dispatch({ type: 'close-editor' });
     } catch {
       dispatch({ type: 'write-uncertain', intentId: intent.id, status: 'uncertain', message: 'No pudimos confirmar el resultado. Comprueba lo guardado antes de volver a intentar; no repetiremos la escritura.' });
     }
@@ -1234,7 +1285,7 @@ export default function CreatorOwnerApp(props: Props) {
       return;
     }
     const commandHistorySequence = claimHistorySequenceRef.current;
-    const commandAuthorizationSequence = sessionCheckSequenceRef.current;
+    const commandAuthorizationSequence = claimHistoryAuthorizationSequenceRef.current;
     const intent = creatorOwnerWriteIntent(nextId('photo'), editor);
     dispatch({ type: 'begin-write', intent });
     let finalizationRequested = false;
@@ -1343,6 +1394,12 @@ export default function CreatorOwnerApp(props: Props) {
     if (latest.attempt.status !== 'uncertain' && latest.attempt.status !== 'conflict') return;
     const intent = latest.attempt.intent;
     if (isWriteActive(latest)) return;
+    // A bound comparison/check is newer than an ordinary Solicitudes refresh.
+    // Its session result must remain authoritative if the older response is
+    // delivered later, including after the account is reactivated. Keep the
+    // independent session-check sequence intact so an already-running session
+    // renewal is not cancelled by a content check.
+    invalidateOlderClaimHistoryClassifications();
     const checkId = nextId('check');
     const sessionCheckSequence = sessionCheckSequenceRef.current;
     dispatch({ type: 'begin-check', intentId: intent.id, checkId });
@@ -1684,6 +1741,8 @@ export default function CreatorOwnerApp(props: Props) {
       onSetMoveSuggestion={(value) => dispatch({ type: 'set-move-suggestion', targetPosition: value })}
       onUpdateLink={(value) => dispatch({ type: 'update-link-draft', value })}
       onUpdateAddLink={(value) => dispatch({ type: 'update-add-link-draft', value })}
+      onResumeSharedAdd={() => dispatch({ type: 'resume-shared-add' })}
+      onAdoptAddPlacement={(comparisonId, addPlacementId) => dispatch({ type: 'adopt-comparison', comparisonId, addPlacementId })}
       onUpdateMoveLink={(value) => dispatch({ type: 'update-move-link-draft', targetPosition: value })}
       onUpdateReference={(value) => dispatch({ type: 'update-reference-draft', ...value })}
       onUpdateClaim={(value) => dispatch({ type: 'update-claim-draft', value })}

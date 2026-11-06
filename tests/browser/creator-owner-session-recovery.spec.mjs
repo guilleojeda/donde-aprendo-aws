@@ -143,6 +143,90 @@ test('claim mismatch restores the same draft, then checks history and permits a 
   }
 });
 
+test('a delayed ordinary Solicitudes mismatch cannot replace a newer terminal disabled comparison', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const original = (await (await fixture.request(cookie, '/api/creador/perfil')).json()).profile;
+  const account = [...fixture.accountStore.accounts.values()][0];
+  const oldRead = { arrived: deferred(), gate: deferred(), done: deferred() };
+  let holdOldRead = true;
+  let profileWrites = 0;
+  const transport = async (route) => {
+    const request = route.request();
+    if (request.method() === 'PUT' && pathOf(request) === '/api/creador/perfil') profileWrites += 1;
+    if (request.method() === 'GET' && pathOf(request) === '/api/creador/perfil') {
+      const response = await route.fetch();
+      if (holdOldRead && response.status() === 409) {
+        holdOldRead = false;
+        const body = await response.json();
+        assert.equal(body.error, 'SESSION_CONTEXT_CHANGED');
+        oldRead.arrived.resolve();
+        try {
+          await oldRead.gate.promise;
+          await route.fulfill({ response, json: body });
+        } finally {
+          oldRead.done.resolve();
+        }
+        return;
+      }
+      await route.fulfill({ response });
+      return;
+    }
+    await route.continue();
+  };
+  await page.route('**/api/creador/**', transport);
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+    await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+
+    fixture.accountStore.seedAccount({ ...account, isAdmin: !account.isAdmin });
+    const oldResponse = apiResponse(page, 'GET', '/api/creador/perfil', 409);
+    await page.getByRole('button', { name: 'Actualizar solicitudes' }).click();
+    await oldRead.arrived.promise;
+
+    fixture.accountStore.seedAccount(account);
+    await page.getByRole('button', { name: 'Editar datos' }).click();
+    const dialog = page.getByRole('dialog');
+    const form = dialog.locator('[data-owner-form="datos"]');
+    await form.getByLabel('Nombre visible').fill('Draft survives terminal comparison');
+    fixture.creatorStore.failNext('transact');
+    const failedWrite = apiResponse(page, 'PUT', '/api/creador/perfil', 503);
+    await form.getByRole('button', { name: 'Guardar datos' }).click();
+    await failedWrite;
+    await expect(form.locator('[data-owner-compare]')).toBeEnabled();
+
+    fixture.accountStore.seedAccount({ ...account, active: false });
+    const disabledRead = apiResponse(page, 'GET', '/api/creador/perfil', 403);
+    await form.locator('[data-owner-compare]').click();
+    const disabled = await disabledRead;
+    assert.equal((await disabled.json()).error, 'ACCOUNT_DISABLED');
+    await expect(dialog.locator('[data-session-recovery-status]')).toContainText('Esta cuenta está desactivada.');
+    await expect(sessionCheck(page)).toHaveCount(0);
+
+    // Reactivating the account in the same document must not let the older
+    // ordinary read replace the newer terminal classification.
+    fixture.accountStore.seedAccount(account);
+    oldRead.gate.resolve();
+    await oldRead.done.promise;
+    await oldResponse;
+    await waitForRender(page);
+    await expect(dialog.locator('[data-session-recovery-status]')).toContainText('Esta cuenta está desactivada.');
+    await expect(sessionCheck(page)).toHaveCount(0);
+    await expect(page.locator('[data-claim-index-status]')).toContainText('lectura empezó antes');
+    await expect(form.getByRole('button', { name: 'Guardar datos' })).toBeDisabled();
+    const input = form.getByLabel('Nombre visible');
+    await expect(input).toHaveValue('Draft survives terminal comparison');
+    await input.press('Enter');
+    await waitForRender(page);
+    assert.equal(profileWrites, 1, 'the original rejected write was the only PUT');
+    assert.deepEqual((await (await fixture.request(cookie, '/api/creador/perfil')).json()).profile, original);
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    oldRead.gate.resolve();
+    if (!holdOldRead) await oldRead.done.promise;
+    await page.unroute('**/api/creador/**', transport);
+  }
+});
+
 test('an obsolete claim-history mismatch cannot block a later confirmed manual claim', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const [resource] = await setupCatalog(fixture, page, 'claim-history-race');
@@ -1351,6 +1435,7 @@ test('a recovered first-profile retry uses native required-field and slug valida
   try {
     await page.goto(`${fixture.origin}/cuenta/?vista=series`);
     await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+    const originalDocument = await page.evaluateHandle(() => document);
     const form = page.locator('[data-owner-form="crear"]');
     const name = form.getByLabel('Nombre visible');
     const slug = form.getByLabel('Dirección de tu página');
@@ -1377,6 +1462,24 @@ test('a recovered first-profile retry uses native required-field and slug valida
     await waitForRender(page);
     assert.equal(capture.writes().length, writesBeforeRetry, 'native invalid fields prevent a recovered retry request');
     assert.equal((await fixture.rawOwner(cookie)).profile, null);
+    await name.fill('Corrected retry name');
+    await slug.fill('wrong format');
+    await retry.click();
+    await waitForRender(page);
+    assert.equal(capture.writes().length, writesBeforeRetry, 'slug pattern alone prevents a recovered retry request');
+    await slug.fill('corrected-retry-slug');
+    const manual = apiResponse(page, 'PUT', '/api/creador/perfil', 200);
+    await retry.click();
+    const created = await manual;
+    const createdBody = await created.json();
+    assert.equal(createdBody.profile.version, 1, 'the corrected retry creates a fresh profile state');
+    await expect(page.locator('[data-owner-name]')).toHaveText('Corrected retry name');
+    assert.equal((await page.evaluate((original) => document === original, originalDocument)), true);
+    const persisted = (await fixture.rawOwner(cookie)).profile;
+    assert.equal(persisted.version, 1);
+    assert.equal(persisted.displayName, 'Corrected retry name');
+    assert.equal(persisted.slug, 'corrected-retry-slug');
+    assert.equal(capture.writes().length, writesBeforeRetry + 1);
   } finally {
     await capture.stop({ skipErrorBodies: true });
   }
