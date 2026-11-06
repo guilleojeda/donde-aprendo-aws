@@ -891,8 +891,8 @@ for (const scenario of [
       await expect(page.locator('main [data-session-recovery-status]')).toContainText(
         scenario.status === 403 ? 'Esta cuenta está desactivada.' : 'La cuenta o el rol activo no coinciden',
       );
-      if (scenario.status === 403) await expect(page.locator('[data-session-recovery-check]')).toHaveCount(0);
-      else await expect(page.locator('main [data-session-recovery-check]')).toBeVisible();
+      await expect(page.locator('main [data-session-recovery-check]')).toBeEnabled();
+      await expect(form.getByRole('button', { name: 'Enviar solicitud', exact: true })).toBeDisabled();
 
       claimWrite.gate.resolve();
       const firstWrite = await firstWriteResponse;
@@ -995,7 +995,7 @@ test('a bound claim rejected under the changed role remains blocked after an old
   }
 });
 
-test('a delayed old claim-history mismatch stays retryable after session renewal', async ({ fixture, page }) => {
+test('an obsolete claim-history mismatch stays retryable without replacing renewed session readiness', async ({ fixture, page }) => {
   const initialCookie = await loggedInOwner(fixture, page);
   const [resource] = await setupCatalog(fixture, page, 'claim-history-session-order');
   const account = [...fixture.accountStore.accounts.values()][0];
@@ -1076,9 +1076,11 @@ test('a delayed old claim-history mismatch stays retryable after session renewal
     await mismatch.done.promise;
     await delayedMismatch;
     await waitForRender(page);
-    await expect(sessionCheck(page)).toHaveCount(0);
+    await expect(sessionCheck(page)).toHaveCount(0, 'the later matching session check remains authoritative over the old bound 409');
     await expect(checkAttempt).toBeEnabled();
     await expect(evidence).toHaveValue('First uncertain claim');
+    await expect(form.locator('[data-claim-recovery]')).toContainText('La lectura empezó antes de la última comprobación de sesión');
+    await expect(form.locator('[data-claim-recovery]')).not.toContainText('La cuenta o el rol activo no coinciden');
     assert.equal(capture.records.filter((item) => item.method === 'POST' && item.path === '/api/creador/reclamaciones').length, 1,
       'session renewal and history failure do not replay the claim');
 
@@ -1630,6 +1632,172 @@ test('an initial retry stays disabled until the bound session is restored', asyn
   }
 });
 
+test('an ordinary history 403 keeps explicit session recovery available for the next manual save', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const originalProfile = (await fixture.rawOwner(cookie)).profile;
+  const account = [...fixture.accountStore.accounts.values()][0];
+  const history = { arrived: deferred(), release: deferred() };
+  let profileWrites = 0;
+  await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+  await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+  await page.route('**/api/creador/perfil/', async (route) => {
+    if (route.request().method() !== 'GET') {
+      if (route.request().method() === 'PUT') profileWrites += 1;
+      await route.continue();
+      return;
+    }
+    const actual = await route.fetch();
+    assert.equal(actual.status(), 403);
+    const body = await actual.json();
+    assert.equal(body.error, 'ACCOUNT_DISABLED');
+    history.arrived.resolve();
+    await history.release.promise;
+    await route.fulfill({ response: actual, json: body });
+  });
+
+  try {
+    fixture.accountStore.seedAccount({ ...account, active: false });
+    const deniedHistory = apiResponse(page, 'GET', '/api/creador/perfil', 403);
+    await page.getByRole('button', { name: 'Actualizar solicitudes' }).click();
+    await history.arrived.promise;
+    fixture.accountStore.seedAccount(account);
+    const restoredCookie = await fixture.login();
+    await addCookie(page.context(), fixture, restoredCookie);
+
+    await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    const form = dialog.locator('[data-owner-form="datos"]');
+    const name = form.getByLabel('Nombre visible');
+    await name.fill('Manual save after ordinary denial');
+    history.release.resolve();
+    await deniedHistory;
+    await expect(dialog.locator('[data-session-recovery-status]')).toContainText('Esta cuenta está desactivada.');
+    await expect(name).toHaveValue('Manual save after ordinary denial');
+    await expect(form.getByRole('button', { name: 'Guardar datos' })).toBeDisabled();
+    await expect(sessionCheck(page)).toBeEnabled('ordinary 403 feedback must leave an explicit matching bound check available');
+
+    const sessionRead = apiResponse(page, 'GET', '/api/creador/sesion', 200);
+    await sessionCheck(page).click();
+    const renewed = await sessionRead;
+    const freshToken = (await renewed.json()).csrfToken;
+    assert.equal(typeof freshToken, 'string');
+    await expect(page.locator('[data-account-logout] input[name="csrfToken"]')).toHaveValue(freshToken);
+
+    const saved = apiResponse(page, 'PUT', '/api/creador/perfil', 200);
+    await form.getByRole('button', { name: 'Guardar datos' }).click();
+    await saved;
+    assert.equal(profileWrites, 1, 'the ordinary denial and session check do not replay a write');
+    assert.equal((await fixture.rawOwner(restoredCookie)).profile.displayName, 'Manual save after ordinary denial');
+    assert.equal((await fixture.rawOwner(restoredCookie)).profile.version, originalProfile.version + 1);
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    history.release.resolve();
+  }
+});
+
+test('an ordinary history 409 delivered after a newer bound read cannot restore its obsolete role warning', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const originalProfile = (await fixture.rawOwner(cookie)).profile;
+  const account = [...fixture.accountStore.accounts.values()][0];
+  const history = { arrived: deferred(), release: deferred(), done: deferred() };
+  let holdHistory = true;
+  let profileWrites = 0;
+  await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+  await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+  await page.route('**/api/creador/perfil/', async (route) => {
+    const request = route.request();
+    if (request.method() === 'GET') {
+      const actual = await route.fetch();
+      if (holdHistory) {
+        holdHistory = false;
+        assert.equal(actual.status(), 409);
+        const body = await actual.json();
+        assert.equal(body.error, 'SESSION_CONTEXT_CHANGED');
+        history.arrived.resolve();
+        try {
+          await history.release.promise;
+          await route.fulfill({ response: actual, json: body });
+        } finally {
+          history.done.resolve();
+        }
+        return;
+      }
+      await route.fulfill({ response: actual });
+      return;
+    }
+    if (request.method() === 'PUT') profileWrites += 1;
+    await route.continue();
+  });
+
+  try {
+    fixture.accountStore.seedAccount({ ...account, isAdmin: !account.isAdmin });
+    const firstMismatchCookie = await fixture.login();
+    await addCookie(page.context(), fixture, firstMismatchCookie);
+    const historyResponse = apiResponse(page, 'GET', '/api/creador/perfil', 409);
+    await page.getByRole('button', { name: 'Actualizar solicitudes' }).click();
+    await history.arrived.promise;
+
+    fixture.accountStore.seedAccount(account);
+    await addCookie(page.context(), fixture, cookie);
+    await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    const form = dialog.locator('[data-owner-form="datos"]');
+    const name = form.getByLabel('Nombre visible');
+    const compare = form.locator('[data-owner-compare]');
+    await name.fill('Manual save after stale history');
+    fixture.creatorStore.failNext('transact');
+    const failedWrite = apiResponse(page, 'PUT', '/api/creador/perfil', 503);
+    await form.getByRole('button', { name: 'Guardar datos' }).click();
+    await failedWrite;
+    await expect(compare).toBeEnabled();
+
+    fixture.accountStore.seedAccount({ ...account, isAdmin: !account.isAdmin });
+    const boundMismatchCookie = await fixture.login();
+    await addCookie(page.context(), fixture, boundMismatchCookie);
+    const boundMismatch = apiResponse(page, 'GET', '/api/creador/perfil', 409);
+    await compare.click();
+    await boundMismatch;
+    await expect(sessionCheck(page)).toBeEnabled();
+
+    fixture.accountStore.seedAccount(account);
+    await addCookie(page.context(), fixture, cookie);
+    const boundRead = apiResponse(page, 'GET', '/api/creador/perfil', 200);
+    await compare.click();
+    await boundRead;
+    await expect(form.locator('[data-owner-adopt]')).toBeEnabled();
+    await expect(sessionCheck(page)).toBeEnabled();
+    await expect(dialog.locator('[data-session-recovery-status]')).toContainText('Comprueba la sesión');
+
+    history.release.resolve();
+    await history.done.promise;
+    await historyResponse;
+    await waitForRender(page);
+    await expect(sessionCheck(page)).toBeEnabled();
+    await expect(dialog.locator('[data-session-recovery-status]')).toContainText('Comprueba la sesión');
+    await expect(dialog.locator('[data-session-recovery-status]')).not.toContainText('La cuenta o el rol activo no coinciden');
+    await expect(page.locator('[data-claim-index-status]')).not.toContainText('La cuenta o el rol activo no coinciden');
+
+    const sessionRead = apiResponse(page, 'GET', '/api/creador/sesion', 200);
+    await sessionCheck(page).click();
+    const renewed = await sessionRead;
+    const freshToken = (await renewed.json()).csrfToken;
+    assert.equal(typeof freshToken, 'string');
+    await expect(page.locator('[data-account-logout] input[name="csrfToken"]')).toHaveValue(freshToken);
+    await form.locator('[data-owner-adopt]').click();
+    await name.fill('Manual save after explicit session check');
+    const saved = apiResponse(page, 'PUT', '/api/creador/perfil', 200);
+    await form.getByRole('button', { name: 'Guardar datos' }).click();
+    await saved;
+    assert.equal(profileWrites, 2, 'the delayed history denial and session check send no write');
+    assert.equal((await fixture.rawOwner(cookie)).profile.displayName, 'Manual save after explicit session check');
+    assert.equal((await fixture.rawOwner(cookie)).profile.version, originalProfile.version + 1);
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    history.release.resolve();
+    if (!holdHistory) await history.done.promise;
+  }
+});
+
 test('a provisional Solicitudes denial yields to a bound read, then an explicit session check permits the manual save', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const originalProfile = (await fixture.rawOwner(cookie)).profile;
@@ -1690,21 +1858,21 @@ test('a provisional Solicitudes denial yields to a bound read, then an explicit 
 
     history.release.resolve();
     await expect(page.locator('[data-owner-dialog][open] [data-session-recovery-status]')).toContainText('Esta cuenta está desactivada.');
-    await expect(sessionCheck(page)).toHaveCount(0, 'an ordinary history 403 is advisory until newer bound evidence arrives');
     failedWrite.release.resolve();
-    await expect(sessionCheck(page)).toHaveCount(0);
+    await expect(sessionCheck(page)).toBeEnabled('an ordinary history 403 leaves the explicit bound session check available');
 
     holdBoundRead = true;
     boundReadStarted = true;
     const content = apiResponse(page, 'GET', '/api/creador/perfil', 200);
     await form.locator('[data-owner-compare]').click();
     await boundRead.arrived.promise;
-    await expect(sessionCheck(page)).toHaveCount(0, 'a bound GET 200 does not infer or renew the CSRF token');
+    await expect(sessionCheck(page)).toBeEnabled('a bound GET 200 does not infer or renew the CSRF token');
     boundRead.release.resolve();
     assert.equal((await (await content).json()).profile.displayName, originalProfile.displayName);
     await boundRead.done.promise;
     await expect(sessionCheck(page)).toBeEnabled();
     await expect(page.locator('[data-owner-dialog][open] [data-session-recovery-status]')).toContainText('Comprueba la sesión');
+    await expect(page.locator('[data-claim-index-status]')).toHaveCount(0, 'newer bound evidence clears the obsolete history denial');
 
     const restoredSession = apiResponse(page, 'GET', '/api/creador/sesion', 200);
     await sessionCheck(page).click();

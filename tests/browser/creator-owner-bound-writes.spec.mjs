@@ -796,7 +796,7 @@ test('a malformed successful photo authorization does not override older disable
     await historyResponse;
     await waitForRender(page);
     await expect(page.locator('[data-owner-dialog][open] [data-session-recovery-status]')).toContainText('Esta cuenta está desactivada.');
-    await expect(sessionCheck(page)).toHaveCount(0);
+    await expect(sessionCheck(page)).toBeEnabled();
     await expect(form.getByRole('button', { name: 'Subir y guardar foto' })).toBeDisabled();
     assert.equal(await file.evaluate((input, previous) => input.files[0] === previous, selectedFile), true);
     fixture.accountStore.seedAccount(account);

@@ -141,7 +141,6 @@ export interface CreatorOwnerComparison {
 
 export type CreatorOwnerSession =
   | { state: 'ready'; csrfToken: string }
-  | { state: 'advisory'; reason: 'disabled'; message: string; csrfToken?: string }
   | { state: 'recovery-required'; reason: 'expired' | 'csrf' | 'different-principal' | 'disabled' | 'check-required'; message: string; csrfToken?: string }
   | { state: 'checking'; reason: 'expired' | 'csrf' | 'different-principal' | 'disabled' | 'check-required'; message: string; checkId: string; csrfToken?: string }
   | { state: 'blocked'; reason: 'disabled' | 'invalid-context'; message: string };
@@ -231,7 +230,7 @@ export type CreatorOwnerAction =
   | { type: 'photo-upload-started'; intentId: string; uploadId: string; file: File }
   | { type: 'clear-photo-upload'; intentId: string }
   | { type: 'photo-check-complete'; intentId: string; snapshot: CreatorEditorDTO; uploaded: boolean; uploadedFile?: File }
-  | { type: 'begin-write'; intent: CreatorOwnerWriteIntent }
+  | { type: 'begin-write'; intent: CreatorOwnerWriteIntent; exitTransition?: CreatorOwnerLocation['transition'] }
   | { type: 'write-uncertain'; intentId: string; status: 'uncertain' | 'conflict'; message: string; code?: string }
   | { type: 'write-rejected'; intentId: string; message: string }
   | { type: 'clear-attempt'; message: string }
@@ -255,7 +254,7 @@ export type CreatorOwnerAction =
   | { type: 'set-links-query-error'; reason: 'links' }
   | { type: 'clear-focus' }
   | { type: 'set-transition'; transition?: CreatorOwnerLocation['transition'] }
-  | { type: 'resolve-transition'; action: 'save' | 'discard' | 'continue' }
+  | { type: 'resolve-transition'; action: 'discard' | 'continue' }
   | { type: 'set-prompt'; prompt: CreatorOwnerLocation['prompt']; seriesId?: string }
   | { type: 'activity-loading'; period: 7 | 30; sequence: number }
   | { type: 'set-activity-period'; period: 7 | 30 }
@@ -289,9 +288,8 @@ export function reduceCreatorOwnerSessionPolicy(
     if (current.state === 'blocked' || current.state === 'checking') return { ...state, accepted: false };
     const reason = action.reason;
     if (!reason || reason === 'invalid-context') return { ...state, accepted: false };
-    const session: CreatorOwnerSession = reason === 'disabled'
-      ? { state: 'advisory', reason, message: action.message, ...(current.state === 'ready' ? { csrfToken: current.csrfToken } : current.csrfToken ? { csrfToken: current.csrfToken } : {}) }
-      : { state: 'recovery-required', reason, message: action.message, ...(current.state === 'ready' ? { csrfToken: current.csrfToken } : current.csrfToken ? { csrfToken: current.csrfToken } : {}) };
+    const session: CreatorOwnerSession = { state: 'recovery-required', reason, message: action.message,
+      ...(current.state === 'ready' ? { csrfToken: current.csrfToken } : current.csrfToken ? { csrfToken: current.csrfToken } : {}) };
     return { ...state, session, feedback: { text: action.message, kind: 'error' }, accepted: true };
   }
   if (action.source === 'session-check' && (current.state !== 'checking' || current.checkId !== action.checkId)) return { ...state, accepted: false };
@@ -301,9 +299,10 @@ export function reduceCreatorOwnerSessionPolicy(
     : state.sessionEvidence;
   if (action.outcome === 'read-confirmed') {
     if (action.source !== 'bound') return { ...state, accepted: false };
-    if (current.state === 'advisory' || current.state === 'checking') {
+    if (current.state !== 'ready') {
       const message = 'La lectura confirmó esta página. Comprueba la sesión para habilitar cambios.';
-      return { ...state, sessionEvidence: boundEvidence, session: { state: 'recovery-required', reason: 'check-required', message, csrfToken: current.csrfToken },
+      return { ...state, sessionEvidence: boundEvidence, session: { state: 'recovery-required', reason: 'check-required', message,
+        ...(current.csrfToken ? { csrfToken: current.csrfToken } : {}) },
         feedback: { text: message, kind: 'info' }, accepted: true };
     }
     return { ...state, sessionEvidence: boundEvidence, accepted: true };
@@ -326,8 +325,7 @@ export function reduceCreatorOwnerSessionPolicy(
   }
   if (action.outcome === 'recoverable') {
     if (!action.reason || action.reason === 'invalid-context'
-      || action.reason === 'disabled' && action.source === 'bound'
-      || action.source === 'history' && action.reason === 'disabled') return { ...state, accepted: false };
+      || action.reason === 'disabled' && action.source === 'bound') return { ...state, accepted: false };
     return { ...state, sessionEvidence: boundEvidence, session: { state: 'recovery-required', reason: action.reason, message: action.message,
       ...(current.state === 'ready' ? { csrfToken: current.csrfToken } : current.csrfToken ? { csrfToken: current.csrfToken } : {}) },
       feedback: { text: action.message, kind: 'error' }, accepted: true };
@@ -1001,7 +999,8 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
           && state.attempt.intent.editorKey === action.intent.editorKey;
         if (!resubmittingClaimAfterHistoryCheck) return state;
       }
-      return { ...state, attempt: { status: 'sending', intent: action.intent }, message: undefined };
+      return { ...state, attempt: { status: 'sending', intent: action.intent }, message: undefined,
+        location: { ...state.location, transition: action.exitTransition } };
     case 'write-uncertain': {
       let intent = currentAttempt(state, action.intentId);
       if (!intent) return state;
@@ -1043,6 +1042,7 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         && !selectCreatorOwnerLinks(observed.links, observed.series, state.location.linksQuery).matches.some(({ placementId }) => placementId === linkPlacementId);
       const resumedSharedAdd = action.effect.kind === 'link-updated' && editor?.kind === 'add-link';
       const duplicateUrl = action.effect.kind === 'link-added' && action.effect.source === 'url' && !action.effect.created;
+      const retainsPendingEdit = action.correction || resumedSharedAdd || (duplicateUrl && Boolean(editor));
       const confirmationMessage = referenceCompletion?.message ?? (duplicateUrl
         ? editor?.kind === 'add-link' || editor?.kind === 'link-placement' && editor.pendingAddDraft
           ? 'Ese contenido ya estaba en tu página. Conservamos tu borrador.'
@@ -1062,7 +1062,7 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         location: { ...state.location,
           ...(action.effect.kind === 'series-deleted' ? { query: { ...state.location.query, serie: '', buscarCapitulos: '', pertenencia: 'todos', paginaCapitulos: 1 }, pendingChapterSearch: '', pendingMembership: 'todos' as const } : {}),
           ...(referenceCompletion ? { transition: referenceCompletion.hasPendingIntent ? undefined : state.location.transition,
-            prompt: 'none' as const } : action.correction || resumedSharedAdd ? { transition: undefined, prompt: 'none' as const } : {}),
+            prompt: 'none' as const } : retainsPendingEdit ? { transition: undefined, prompt: 'none' as const } : {}),
           ...(action.effect.kind === 'link-removed' || action.effect.kind === 'link-added' || action.effect.kind === 'link-updated'
             ? { linksQuery, pendingLinksQuery: linksQuery } : {}),
           ...(referenceCompletion ? { focusAfterRender: referenceCompletion.focusAfterRender }
@@ -1205,6 +1205,7 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
             { kind: 'observed', ...(submittedDraft ? { submittedDraft } : {}) });
         }
       }
+      const changedOperation = editor && (editor.key !== current.key || editor.kind !== current.kind);
       const adoptionMessage = referenceCompletion?.message ?? (current.kind === 'series' && !current.baseSeries && !comparison.seriesId
         ? 'Usaste la versión actual del perfil. No encontramos la serie original; conservamos el contenido para un nuevo intento manual.'
         : current.kind === 'series' ? 'Usaste las versiones guardadas como base. Conservamos toda tu corrección; pulsa Guardar para enviarla.'
@@ -1226,8 +1227,8 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
           pendingLinksQuery: selectCreatorOwnerLinks(snapshot.links, snapshot.series, state.location.linksQuery).query,
           pendingChapterSearch: selectedSeriesStillExists ? state.location.pendingChapterSearch : '',
           pendingMembership: selectedSeriesStillExists ? state.location.pendingMembership : 'todos',
-          ...(referenceCompletion ? { transition: referenceCompletion.hasPendingIntent ? undefined : state.location.transition,
-            prompt: 'none' as const } : {}),
+          ...(changedOperation || referenceCompletion?.hasPendingIntent ? { transition: undefined, prompt: 'none' as const }
+            : referenceCompletion ? { prompt: 'none' as const } : {}),
           focusAfterRender: referenceCompletion ? referenceCompletion.focusAfterRender
             : current.kind === 'series' && !snapshot.series.some(({ id }) => id === current.baseSeries?.id) ? '#owner-series-title'
               : editor?.kind === 'add-link' ? '#owner-add-link-title'
@@ -1265,8 +1266,7 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
     case 'set-transition': return { ...state, location: { ...state.location, transition: action.transition } };
     case 'resolve-transition': {
       if (action.action === 'continue') return { ...state, location: { ...state.location, transition: undefined, prompt: 'none' } };
-      if (action.action === 'discard') return { ...state, editor: undefined, attempt: { status: 'idle' }, location: { ...state.location, prompt: 'none' } };
-      return { ...state, location: { ...state.location, prompt: 'none' } };
+      return { ...state, editor: undefined, attempt: { status: 'idle' }, location: { ...state.location, prompt: 'none' } };
     }
     case 'set-prompt': return { ...state, location: { ...state.location, prompt: action.prompt, deleteSeriesId: action.seriesId } };
     case 'activity-loading': return { ...state, activity: { period: action.period, sequence: action.sequence, status: 'loading' } };

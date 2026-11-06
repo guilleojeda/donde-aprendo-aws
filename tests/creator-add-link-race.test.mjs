@@ -51,6 +51,62 @@ async function setUp(harness) {
   }
 }
 
+test('a profile save that wins after Add admission prevents every stale create write', async () => {
+  const harness = await createDynamoMoveHarness({ projectionAware: true });
+  await setUp(harness);
+
+  const session = 'creator-a';
+  const url = 'https://add-race.example/profile-cas';
+  const admittedOwner = await owner(harness, session);
+  const profileId = admittedOwner.profile.id;
+  const profileKey = `profile:${profileId}`;
+  const nextDisplayName = 'Concurrent profile winner';
+  let attemptedResourceId;
+  let attemptedPlacementId;
+  let winner;
+  let winnerProfileRow;
+
+  harness.mock.raceBeforeNextTransaction(async ({ actions }) => {
+    const items = actions.map((action) => action.Put?.Item).filter(Boolean);
+    const resource = items.find((item) => item.url === url && typeof item.id === 'string' && !item.id.startsWith('__'));
+    const placement = items.find((item) => item.recordType === 'placement' && item.resourceId === resource?.id);
+    assert.ok(resource, 'the admitted Add transaction prepared a real resource create');
+    assert.ok(placement, 'the admitted Add transaction prepared its placement');
+    attemptedResourceId = resource.id;
+    attemptedPlacementId = placement.id;
+
+    winner = await api(harness, session, 'PUT', OWNER, {
+      displayName: nextDisplayName,
+      slug: `add-race-${session}`,
+      socials: {},
+      version: admittedOwner.profile.version,
+    });
+    assert.equal(winner.status, 200, JSON.stringify(winner.body));
+    assert.equal(winner.body.profile.version, admittedOwner.profile.version + 1);
+    winnerProfileRow = await harness.store.get(profileKey);
+  });
+
+  const addResult = await api(harness, session, 'POST', '/api/creador/enlaces', {
+    title: 'Stale admitted draft',
+    url,
+    profileVersion: admittedOwner.profile.version,
+  });
+
+  const finalOwner = await owner(harness, session);
+  assert.ok(winner, 'the concurrent profile save completed after Add admission');
+  assert.equal(addResult.status, 409, JSON.stringify(addResult.body));
+  assert.equal(finalOwner.profile.displayName, nextDisplayName, 'Add does not replace the winning profile fields');
+  assert.equal(finalOwner.profile.version, winner.body.profile.version, 'the winning profile version remains current');
+  assert.deepEqual(finalOwner.links, [], 'the stale Add creates no owner placement');
+  assert.deepEqual(finalOwner.editableResources, [], 'the stale Add grants no edit reference');
+  assert.deepEqual(await harness.store.get(profileKey), winnerProfileRow, 'the profile row remains the concurrent save');
+  assert.equal(await harness.store.get(`resource:${attemptedResourceId}`), null, 'the candidate resource is absent');
+  assert.equal(await harness.store.get(`placement:${profileId}:${attemptedPlacementId}`), null, 'the candidate placement is absent');
+  assert.deepEqual(await harness.store.list(`placement:${profileId}:`), [], 'the profile has no placement from this Add');
+  assert.deepEqual(await harness.store.list(`editor:${profileId}:`), [], 'the profile has no editor reference from this Add');
+  assert.equal(await harness.store.get(currentUrlKey(url)), null, 'the candidate URL reservation is absent');
+});
+
 async function state(harness, profileIds, resourceIds) {
   const result = {
     resources: {},
