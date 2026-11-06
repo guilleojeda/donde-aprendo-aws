@@ -1439,9 +1439,17 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     };
   }
 
+  function requireAddProfileVersion(profile, expectedVersion) {
+    const actualVersion = storedVersion(profile.version, 'profile');
+    if (expectedVersion !== undefined && expectedVersion !== actualVersion) {
+      fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before adding a link');
+    }
+  }
+
   async function attachReservedUrl(profile, url, reservation, {
     selectedForDirectory = true,
     onStaleObservation = 'unavailable',
+    expectedProfileVersion,
   } = {}) {
     const failStaleObservation = () => {
       if (onStaleObservation === 'conflict') {
@@ -1458,6 +1466,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       }
       fail(409, 'URL_COLLISION', 'this URL needs administrative review');
     }
+    requireAddProfileVersion(profile, expectedProfileVersion);
 
     requireCatalogResourceIdWithinLimit(reservation.resourceId);
     const resource = await store.get(`resource:${reservation.resourceId}`);
@@ -1614,10 +1623,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const profile = await getRequiredOwnerProfile(principal);
     assertKnownFields(body, new Set(['title', 'url', 'description', 'selectedForDirectory', 'profileVersion']));
     const expectedProfileVersion = validVersion(body.profileVersion, { optional: true });
-    const profileVersion = storedVersion(profile.version, 'profile');
-    if (expectedProfileVersion !== undefined && expectedProfileVersion !== profileVersion) {
-      fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before adding a link');
-    }
     const title = textField(body.title, 'title');
     if (!title.trim()) fail(422, 'INVALID_TITLE', 'title is required');
     const url = validateResourceUrl(body.url);
@@ -1627,8 +1632,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const key = currentUrlKey(url);
     const reservation = await store.get(key);
     if (reservation) {
-      return attachReservedUrl(profile, url, reservation, { selectedForDirectory });
+      return attachReservedUrl(profile, url, reservation, {
+        selectedForDirectory, expectedProfileVersion,
+      });
     }
+    requireAddProfileVersion(profile, expectedProfileVersion);
 
     const resourceId = `resource-${newId()}`;
     const resource = {
@@ -1679,6 +1687,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       return attachReservedUrl(profile, url, latestReservation, {
         selectedForDirectory,
         onStaleObservation: 'conflict',
+        expectedProfileVersion,
       });
     }
     return {

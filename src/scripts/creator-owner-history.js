@@ -21,7 +21,17 @@
     const current = new URL(location.href);
     const target = new URL(anchor.href);
     if (target.origin !== current.origin || target.pathname !== current.pathname || target.search !== current.search
-      || !target.hash || target.hash === current.hash || !hasIndex(history.state)) return;
+      || !target.hash || !hasIndex(history.state)) return;
+    if (target.hash === current.hash) {
+      if (!anchor.matches('.skip-link[href="#contenido"]')) return;
+      // Firefox can replace the active entry's history state when the current
+      // skip link is activated again, without a popstate or hashchange event.
+      event.preventDefault();
+      const content = document.getElementById('contenido');
+      content?.focus({ preventScroll: true });
+      content?.scrollIntoView({ behavior: 'instant' });
+      return;
+    }
     activation = { event, href: target.href, from: history.state };
   }, { capture: true });
 

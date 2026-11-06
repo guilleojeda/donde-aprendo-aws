@@ -1685,15 +1685,25 @@ test('review fragment skip preserves pending Links query and recovery', async ({
     const skipBox = await page.locator('#contenido').boundingBox();
     assert.ok(skipBox && skipBox.y >= 0 && skipBox.y <= 1000,
       'native skip navigation leaves the destination focused and visible');
-    await page.evaluate(() => {
+    const historyLength = await page.evaluate(() => history.length);
+    const repeatStart = await page.evaluate(() => {
       const search = document.querySelector('#owner-link-search');
       const skip = document.querySelector('a[href="#contenido"]');
+      window.scrollBy({ top: 300, behavior: 'instant' });
+      const mainTop = document.getElementById('contenido').getBoundingClientRect().top;
+      search.focus({ preventScroll: true });
       search.value = 'Survivor';
       search.dispatchEvent(new Event('input', { bubbles: true }));
-      // Activate the native link again before the search debounce fires.
+      // Activate the same skip link again before the search debounce fires.
       skip.click();
+      return mainTop;
     });
-    await expect(page).toHaveURL((url) => url.searchParams.get('buscar') === 'Survivor');
+    assert.ok(repeatStart < 0, 'the repeat starts with the main destination above the viewport');
+    await expect(page).toHaveURL((url) => url.hash === '#contenido' && url.searchParams.get('buscar') === 'Survivor');
+    await expect(page.locator('#contenido')).toBeFocused();
+    await expect.poll(async () => (await page.locator('#contenido').boundingBox())?.y ?? -Infinity).toBeGreaterThanOrEqual(0);
+    assert.deepEqual(await page.evaluate(() => ({ index: history.state?.creatorOwnerIndex, length: history.length })),
+      { index: skipIndex, length: historyLength }, 'repeated skip keeps the same owned entry');
     await page.locator('#owner-link-order').selectOption('titulo-desc');
     transport.read(0).gate.resolve();
     await expect(page.locator('[data-owner-list-recovery="links"]')).toHaveCount(0);

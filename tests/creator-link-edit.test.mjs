@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
+import { currentUrlCollision, currentUrlKey } from '../src/lib/catalog-url.mjs';
 import { callApi, createCreatorPagesHarness, createDocumentStore, responseJson, sessionCsrf } from './fixtures/creator-pages.mjs';
 
 // Approved owner design D2: one Save commits a link's metadata and placement
@@ -324,6 +325,32 @@ test('URL Add enforces an observed profile version but keeps legacy callers comp
   assert.equal(stale.status, 409);
   assert.equal((await responseJson(stale)).error, 'PROFILE_CONFLICT');
   assert.deepEqual(await snapshot(state.harness.store), before, 'a stale versioned Add writes nothing');
+
+  const staleDuplicate = await api(state.harness, '/api/creador/enlaces', {
+    title: 'Stale duplicate Add', url: state.link.url,
+    profileVersion: state.observed.profile.version - 1,
+  }, { method: 'POST' });
+  assert.equal(staleDuplicate.status, 409);
+  assert.equal((await responseJson(staleDuplicate)).error, 'PROFILE_CONFLICT',
+    'a stale version cannot acknowledge a unique existing placement');
+  assert.deepEqual(await snapshot(state.harness.store), before);
+
+  const reservationKey = currentUrlKey(state.link.url);
+  const reservation = await state.harness.store.get(reservationKey);
+  assert.ok(reservation);
+  assert.equal(await state.harness.store.transact({
+    checks: [{ key: reservationKey, version: reservation.version }],
+    puts: [{ key: reservationKey, value: currentUrlCollision(state.link.url, [state.link.resourceId, 'cohost-a', 'cohost-b']) }],
+  }), true);
+  const beforeCollision = await snapshot(state.harness.store);
+  const staleCollision = await api(state.harness, '/api/creador/enlaces', {
+    title: 'Stale collided Add', url: state.link.url,
+    profileVersion: state.observed.profile.version - 1,
+  }, { method: 'POST' });
+  assert.equal(staleCollision.status, 409);
+  assert.equal((await responseJson(staleCollision)).error, 'URL_COLLISION',
+    'a definitive URL collision takes precedence over an unrelated stale profile version');
+  assert.deepEqual(await snapshot(state.harness.store), beforeCollision);
 
   const legacy = await api(state.harness, '/api/creador/enlaces', {
     title: 'Legacy Add', url: 'https://example.invalid/legacy-add',
