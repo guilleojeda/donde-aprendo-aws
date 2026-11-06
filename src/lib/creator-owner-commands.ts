@@ -320,6 +320,16 @@ function requestBody(intent: CreatorOwnerWriteIntent): Record<string, unknown> {
   return prepareCreatorOwnerRequest(intent).body;
 }
 
+function resourceFieldsMatch(link: CreatorLinkDTO, prior: CreatorLinkDTO | CreatorEditableResourceDTO): boolean {
+  return link.title === prior.title && link.url === prior.url
+    && Object.hasOwn(link, 'description') === Object.hasOwn(prior, 'description')
+    && link.description === prior.description;
+}
+
+function canonicalResourceMatchesObservation(link: CreatorLinkDTO, prior: CreatorEditableResourceDTO): boolean {
+  return link.resourceVersion > prior.version || (link.resourceVersion === prior.version && resourceFieldsMatch(link, prior));
+}
+
 function commandParticipants(
   status: number,
   intent: CreatorOwnerWriteIntent,
@@ -560,44 +570,35 @@ function commandParticipants(
       : capture.kind === 'add-link' || capture.kind === 'reference' ? capture.baseProfile : undefined;
     if (!profile) return { valid: false };
     const link = responseBody.link;
-    if (!isCreatorLink(link)) return { valid: false };
+    if (!isCreatorLink(link) || (Object.hasOwn(link, 'description') && typeof link.description !== 'string')) return { valid: false };
     const created = responseBody.created;
+    const editableObservation = observed.editableResources.find(({ id }) => id === link.resourceId);
     if (created === false) {
       if (status !== 200 || !validateCreatorOwnerReceipts(changes, [])) return { valid: false };
+      const matchesTarget = capture.kind === 'add-link' ? link.url === requestBody(intent).url
+        : capture.kind === 'reference' && capture.selected?.id === link.resourceId && capture.selected.url === link.url;
+      if (!matchesTarget) return { valid: false };
       const existing = observed.links.find(({ placementId }) => placementId === link.placementId);
-      if (!existing || existing.resourceId !== link.resourceId || existing.url !== link.url) return { valid: false };
-      if (reference && capture.kind === 'reference') {
-        if (link.resourceId !== capture.selected?.id || link.url !== capture.selected.url
-          || link.placementVersion !== existing.placementVersion
-          || link.position !== existing.position || link.featured !== existing.featured
-          || link.selectedForDirectory !== existing.selectedForDirectory
-          || JSON.stringify(link.series) !== JSON.stringify(existing.series)
-          || link.resourceVersion < existing.resourceVersion) return { valid: false };
-        const resourceObservationUnchanged = link.resourceVersion === existing.resourceVersion;
-        if (resourceObservationUnchanged && (link.title !== existing.title || link.hidden !== existing.hidden
-          || link.directoryApproval !== existing.directoryApproval
-          || Object.hasOwn(link, 'description') !== Object.hasOwn(existing, 'description')
-          || link.description !== existing.description)) return { valid: false };
-        return { valid: true, effect: { kind: 'link-added', profileId: profile.id, profileVersion: profile.version,
-          link: { ...link }, source: 'reference', created: false } };
-      }
-      if (intent.kind === 'reinclude-resource') return { valid: false };
-      return { valid: true, effect: { kind: 'link-added', profileId: profile.id, profileVersion: profile.version, link: existing,
-        source: add ? 'url' : 'reference', created: false } };
+      if (!existing || existing.resourceId !== link.resourceId || link.placementVersion !== existing.placementVersion
+        || link.position !== existing.position || link.featured !== existing.featured
+        || link.selectedForDirectory !== existing.selectedForDirectory
+        || JSON.stringify(link.series) !== JSON.stringify(existing.series)
+        || link.resourceVersion < existing.resourceVersion) return { valid: false };
+      if (link.resourceVersion === existing.resourceVersion && (!resourceFieldsMatch(link, existing)
+        || link.hidden !== existing.hidden || link.directoryApproval !== existing.directoryApproval)) return { valid: false };
+      if (editableObservation && !canonicalResourceMatchesObservation(link, editableObservation)) return { valid: false };
+      return { valid: true, effect: { kind: 'link-added', profileId: profile.id, profileVersion: profile.version,
+        link: { ...link }, source: reference ? 'reference' : 'url', created: false } };
     }
-    if (created !== true || status !== 201 || observed.links.some(({ placementId }) => placementId === link.placementId)) return { valid: false };
-    let resourceBefore: CreatorEditableResourceDTO | undefined;
+    if (created !== true || status !== 201 || observed.links.some(({ placementId, resourceId }) =>
+      placementId === link.placementId || resourceId === link.resourceId)) return { valid: false };
     let resourceWasCreated = false;
     if (add && capture.kind === 'add-link') {
       const body = requestBody(intent);
       if (link.url !== body.url || link.featured || link.selectedForDirectory !== capture.draft.selectedForDirectory || link.series.length !== 0 || link.position < 0) return { valid: false };
-      resourceBefore = observed.editableResources.find(({ id }) => id === link.resourceId);
       resourceWasCreated = changes?.some(({ entity, id }) => entity === 'resource' && id === link.resourceId) ?? false;
-      if (resourceWasCreated && (resourceBefore || link.title !== body.title || link.url !== body.url
+      if (resourceWasCreated && (editableObservation || link.title !== body.title || link.url !== body.url
         || !Object.hasOwn(link, 'description') || link.description !== body.description)) return { valid: false };
-      if (resourceBefore && (resourceBefore.title !== link.title || resourceBefore.url !== link.url
-        || Object.hasOwn(resourceBefore, 'description') !== Object.hasOwn(link, 'description')
-        || resourceBefore.description !== link.description || resourceBefore.version !== link.resourceVersion)) return { valid: false };
     } else if (reference && capture.kind === 'reference' && capture.selected) {
       if (link.resourceId !== capture.selected.id || link.url !== capture.selected.url || link.featured
         || link.selectedForDirectory !== capture.selectedForDirectory || link.series.length !== 0 || link.position < 0) return { valid: false };
@@ -607,6 +608,7 @@ function commandParticipants(
         || Object.hasOwn(link, 'description') !== Object.hasOwn(resource, 'description') || link.description !== resource.description
         || link.resourceVersion !== resource.version || link.featured || !link.selectedForDirectory || link.series.length !== 0 || link.position < 0) return { valid: false };
     } else return { valid: false };
+    if (editableObservation && !canonicalResourceMatchesObservation(link, editableObservation)) return { valid: false };
     const participants: CreatorOwnerReceiptParticipant[] = [
       { entity: 'profile', id: profile.id, before: profile.version, transition: 'increment', required: true },
       { entity: 'placement', id: link.placementId, before: 0, transition: 'created', required: true },
@@ -797,9 +799,6 @@ function compareLabel(intent: CreatorOwnerWriteIntent, foundSeries: CreatorSerie
     return `La lista guardada tiene ${snapshot.series.length} series y ${snapshot.links.length} enlaces. Revisa el estado antes de iniciar otra acción.`;
   }
   if (intent.kind === 'publish') return `Estado guardado: ${snapshot.profile?.published ? 'publicada' : 'borrador'}${snapshot.profile?.hidden ? ' y oculta por administración' : ''}.`;
-  if (intent.kind === 'add-link') return recoveredLink
-    ? `La URL original ya está en tu página como «${recoveredLink.title}». Puedes continuar desde el contenido guardado.`
-    : 'La URL del intento original no está en tu página. Comprobamos el estado; puedes volver a agregarla manualmente.';
   if (intent.kind === 'reference' && intent.capture.kind === 'reference') return recoveredLink
     ? 'La página guardada incluye la referencia enviada. La selección actual queda disponible para una decisión manual.'
     : 'No encontramos la referencia enviada en la página guardada. La selección actual queda disponible para una decisión manual.';
@@ -817,6 +816,7 @@ export function createCreatorOwnerComparison(
   const profileMatches = originalProfile ? snapshot.profile?.id === originalProfile.id : snapshot.profile !== null;
   let seriesId: string | undefined;
   let recoveredLinkId: string | undefined;
+  let savedAddPlacementId: string | undefined;
   let canAdopt = profileMatches;
   let message: string | undefined;
   if (intent.kind === 'save-series' && intent.capture.kind === 'series') {
@@ -854,8 +854,14 @@ export function createCreatorOwnerComparison(
   if (intent.kind === 'add-link' && intent.capture.kind === 'add-link') {
     const originalUrl = normalizeCreatorText(intent.capture.draft.url);
     const matches = originalUrl ? snapshot.links.filter(({ url }) => url === originalUrl) : [];
-    if (matches.length === 1) recoveredLinkId = matches[0].placementId;
-    canAdopt = profileMatches && matches.length <= 1;
+    if (!intent.addDidNotCommit && matches.length === 1) savedAddPlacementId = matches[0].placementId;
+    message = intent.addDidNotCommit
+      ? 'El intento no se guardó. Puedes usar la página guardada y continuar con el borrador del alta.'
+      : savedAddPlacementId
+        ? 'Hay una ficha guardada con esa URL. No pudimos confirmar el alta.'
+        : matches.length > 1
+          ? 'Hay varias fichas con esa URL. Conserva el borrador para decidir cómo continuar.'
+          : 'La URL enviada no aparece en tu página. Puedes seguir con el borrador del alta.';
   }
   if (intent.kind === 'reference' && intent.capture.kind === 'reference') {
     const selected = intent.capture.selected;
@@ -872,6 +878,7 @@ export function createCreatorOwnerComparison(
     ...(currentEditor ? { draftAtCompare: currentEditor } : {}),
     ...(seriesId ? { seriesId } : {}),
     ...(recoveredLinkId ? { recoveredLinkId } : {}),
+    ...(savedAddPlacementId ? { savedAddPlacementId } : {}),
     canAdopt,
     message: message ?? compareLabel(intent, seriesId ? snapshot.series.find(({ id }) => id === seriesId) : undefined, snapshot,
       recoveredLinkId ? snapshot.links.find(({ placementId }) => placementId === recoveredLinkId) : undefined),

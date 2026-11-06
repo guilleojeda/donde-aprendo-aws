@@ -404,6 +404,7 @@ for (const historyFailure of [
     const { png } = await rasterPhotoFixtures();
     const capture = await captureCreatorApi(page);
     const history = { arrived: deferred(), gate: deferred() };
+    const authorization = { arrived: deferred(), gate: deferred() };
     const finalize = { arrived: deferred(), gate: deferred() };
     await page.route('https://creator-photos.example.invalid/**', async (route) => {
       const request = route.request();
@@ -433,6 +434,14 @@ for (const historyFailure of [
         await route.fulfill({ response, json: body });
         return;
       }
+      if (request.method() === 'POST' && pathOf(request) === '/api/creador/foto/autorizar') {
+        const response = await route.fetch();
+        assert.equal(response.status(), 200);
+        authorization.arrived.resolve();
+        await authorization.gate.promise;
+        await route.fulfill({ response });
+        return;
+      }
       if (request.method() === 'POST' && pathOf(request) === '/api/creador/foto/finalizar') {
         const response = await route.fetch();
         assert.equal(response.status(), 200);
@@ -460,15 +469,20 @@ for (const historyFailure of [
       await file.setInputFiles({ name: 'ordering.png', mimeType: 'image/png', buffer: png });
       const finalizeResponse = ownerResponse(page, 'POST', '/api/creador/foto/finalizar', 200);
       await dialog.getByRole('button', { name: 'Subir y guardar foto' }).click();
-      await finalize.arrived.promise;
-      assert.equal((await fixture.rawOwner(cookie)).profile.version, startingProfile.version + 1,
-        'the real finalization commits before its browser response is released');
+      await authorization.arrived.promise;
 
       if (olderErrorFirst) {
         history.gate.resolve();
         await historyResponse;
         await waitForRender(page);
+        if (historyFailure.status === 403) {
+          await expect(page.locator('[data-claim-index-status]')).toContainText('Esta cuenta está desactivada.');
+        }
       }
+      authorization.gate.resolve();
+      await finalize.arrived.promise;
+      assert.equal((await fixture.rawOwner(cookie)).profile.version, startingProfile.version + 1,
+        'the real finalization commits before its browser response is released');
       finalize.gate.resolve();
       await finalizeResponse;
       await expect(dialog).toHaveCount(0);
@@ -478,6 +492,9 @@ for (const historyFailure of [
         await waitForRender(page);
       }
       await expect(page.getByRole('button', { name: 'Editar datos' })).toBeEnabled();
+      if (historyFailure.status === 403) {
+        await expect(page.locator('[data-claim-index-status]').filter({ hasText: 'Esta cuenta está desactivada.' })).toHaveCount(0);
+      }
       assert.equal(capture.records.find((record) => record.method === 'GET' && record.path === ownerPath)?.responseBody?.error,
         historyFailure.error, 'the stale history classification came from the real owner endpoint');
 
@@ -492,6 +509,7 @@ for (const historyFailure of [
     } finally {
       fixture.accountStore.seedAccount(account);
       history.gate.resolve();
+      authorization.gate.resolve();
       finalize.gate.resolve();
       await page.unroute('**/api/creador/**').catch(() => {});
       await page.unroute('https://creator-photos.example.invalid/**').catch(() => {});

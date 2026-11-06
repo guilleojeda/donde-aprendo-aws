@@ -13,6 +13,8 @@ interface Props {
   onSetMoveSuggestion(value?: number): void;
   onUpdateLink(value: Partial<CreatorOwnerLinkDraft>): void;
   onUpdateAddLink(value: Partial<CreatorOwnerLinkDraft>): void;
+  onResumeSharedAdd(): void;
+  onAdoptAddPlacement(comparisonId: string, placementId: string): void;
   onUpdateMoveLink(value: string): void;
   onUpdateReference(value: { selected?: CreatorCatalogSelectionDTO; selectedForDirectory?: boolean }): void;
   onUpdateClaim(value: { selected?: Array<{ resourceId: string; url: string; title: string }>; knownUrls?: string; evidence?: string }): void;
@@ -103,11 +105,7 @@ function comparisonRows(
   if (editor.kind === 'add-link') {
     const originalUrl = intent?.kind === 'add-link' && intent.capture.kind === 'add-link'
       ? normalizeCreatorText(intent.capture.draft.url) : normalizeCreatorText(editor.draft.url);
-    const found = comparison?.recoveredLinkId
-      ? data.links.find(({ placementId }) => placementId === comparison.recoveredLinkId)
-      : data.links.find(({ url }) => url === originalUrl);
-    const result = found ? `${originalUrl} · ${found.title} · ${found.url}` : `No aparece en la página: ${originalUrl}`;
-    return [['URL del intento', result, editor.draft.url]];
+    return [['URL del intento', originalUrl, editor.draft.url]];
   }
   if (editor.kind === 'reference') {
     const profileRows: Array<[string, string, string]> = data.profile?.id === editor.baseProfile.id
@@ -157,7 +155,7 @@ function adoptLabel(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor): string
   if (editor.kind === 'move-chapter') return 'Conservar este destino';
   if (editor.kind === 'link-placement' || editor.kind === 'link-resource') return 'Usar los datos guardados';
   if (editor.kind === 'move-link') return 'Conservar este destino';
-  if (editor.kind === 'add-link') return 'Continuar con el contenido guardado';
+  if (editor.kind === 'add-link') return 'Usar la página guardada y conservar el alta';
   if (editor.kind === 'reference') return 'Usar la página guardada';
   return 'Usar los datos guardados';
 }
@@ -175,7 +173,7 @@ function comparisonSavedLabel(label: string): string {
     case 'Programas': return 'Programas guardados';
     case 'Descripción': return 'Descripción guardada';
     case 'Posición guardada': return 'Posición guardada';
-    case 'URL del intento': return 'Resultado del intento original';
+    case 'URL del intento': return 'URL enviada';
     case 'Referencia enviada': return 'Resultado de A';
     case 'Selección actual': return 'Estado en la página guardada';
     case 'Propuesta al directorio': return 'Opción guardada de la selección actual';
@@ -183,7 +181,7 @@ function comparisonSavedLabel(label: string): string {
   }
 }
 
-export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpdateSocial, onUpdateSeries, onUpdateMove, onSetMoveSuggestion, onUpdateLink, onUpdateAddLink, onUpdateMoveLink, onUpdateReference, onUpdateClaim, onCatalogSearch, onCatalogPage, onCatalogRetry, onSetPhoto, onSubmit, onRequestClose, onCheck, onAdopt, onExit, onCheckSession, onCheckClaim }: Props) {
+export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpdateSocial, onUpdateSeries, onUpdateMove, onSetMoveSuggestion, onUpdateLink, onUpdateAddLink, onResumeSharedAdd, onAdoptAddPlacement, onUpdateMoveLink, onUpdateReference, onUpdateClaim, onCatalogSearch, onCatalogPage, onCatalogRetry, onSetPhoto, onSubmit, onRequestClose, onCheck, onAdopt, onExit, onCheckSession, onCheckClaim }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const editor = state.editor;
   const editorIsDialog = editor && editor.kind !== 'create-profile';
@@ -211,7 +209,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
     if (!dialog) return;
     if (shouldOpenDialog) {
       if (!dialog.open) dialog.showModal();
-      if (prompt) dialog.querySelector<HTMLElement>('[data-owner-exit-save]')?.focus({ preventScroll: true });
+      if (prompt) dialog.querySelector<HTMLElement>('[data-owner-exit-save]:enabled, [data-owner-exit-continue]')?.focus({ preventScroll: true });
       else if (editorIsDialog) {
         const selector = editor?.kind === 'photo' ? 'input[type="file"]'
           : editor?.kind === 'link-placement' && !editor.editable ? '#owner-link-directory-option' : 'input:not([type="hidden"]), textarea';
@@ -327,7 +325,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
 
       {editorIsDialog && editor.kind === 'link-placement' && <form class="creator-owner__form" hidden={prompt} data-owner-form="enlace" data-link-edit-form onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
         <p class="creator-owner__form-context">{editor.editable ? 'Esta ficha es tuya: los cambios del contenido y las opciones de la página se guardan juntos.' : 'Esta ficha es compartida. Puedes editar sus opciones; su título, URL y descripción siguen a cargo de quien la administra.'}</p>
-        {editor.sharedTextCorrection && <p class="creator-owner__status" data-link-add-shared-correction role="status">Conservamos aparte el texto que escribiste después de enviar. La ficha compartida mantiene su título, URL y descripción.</p>}
+        {editor.sharedTextCorrection && <p class="creator-owner__status" data-link-add-shared-correction role="status">Conservamos aparte el texto de tu borrador. Aquí puedes guardar las opciones de la ficha compartida.</p>}
         <fieldset class="creator-owner__field creator-owner__link-fields" data-link-metadata-fields disabled={!editor.editable}>
           <legend>Ficha del contenido</legend>
           {editor.editable && <details class="creator-owner__link-help"><summary>Sobre esta ficha</summary><p>El título, la URL y la descripción también se muestran a quienes referencian esta ficha.</p></details>}
@@ -343,7 +341,12 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         </fieldset>
         <p class="creator-owner__status" data-owner-form-status="enlace" role="status" aria-live="polite">{statusText}</p>
         {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
-        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canWrite}>Guardar cambios</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
+        <div class="creator-owner__dialog-actions">
+          <button class="button button--dark" type="submit" disabled={!canWrite}>Guardar cambios</button>
+          {editor.sharedTextCorrection && <button class="button button--outline" type="button"
+            disabled={state.attempt.status !== 'confirmed' && state.attempt.status !== 'idle'} onClick={onResumeSharedAdd}>Volver al borrador sin guardar las opciones</button>}
+          <button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button>
+        </div>
       </form>}
 
       {editorIsDialog && editor.kind === 'link-resource' && <form class="creator-owner__form" hidden={prompt} data-owner-form="enlace" data-link-edit-form onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
@@ -367,7 +370,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         <label class="creator-owner__link-checkbox"><input type="checkbox" name="selectedForDirectory" checked={editor.draft.selectedForDirectory} onChange={(event) => onUpdateAddLink({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>
         <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Quitarla no quita el enlace de tu página; la actualización del directorio puede demorar.</p></details>
         <p class="creator-owner__status" data-link-add-status role="status" aria-live="polite">{statusText}</p>
-        {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
+        {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} onAdoptAddPlacement={onAdoptAddPlacement} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canWrite}>Agregar enlace</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
@@ -421,7 +424,9 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
           {state.attempt.status === 'checking' && <p role="status" aria-live="polite">Comprobando…</p>}
         </section>}
         <div class="creator-owner__dialog-actions">
-          {editor && <button class="button button--dark" type="button" data-owner-exit-save disabled={!canWrite} onClick={() => onExit('save')}>Guardar y salir</button>}
+          {editor && <button class="button button--dark" type="button" data-owner-exit-save disabled={!canWrite} onClick={() => onExit('save')}>
+            {editor.kind === 'link-placement' && editor.sharedTextCorrection ? 'Guardar opciones y volver al borrador' : 'Guardar y salir'}
+          </button>}
           <button class="button button--outline" type="button" data-owner-exit-discard disabled={state.attempt.status === 'sending'} onClick={() => onExit('discard')}>Descartar cambios</button>
           <button class="button button--outline" type="button" data-owner-exit-continue onClick={() => onExit('continue')}>Seguir editando</button>
         </div>
@@ -430,19 +435,22 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
   </dialog>;
 }
 
-function Recovery({ state, editor, rows, canAdopt, onCheck, onAdopt }: {
+function Recovery({ state, editor, rows, canAdopt, onCheck, onAdopt, onAdoptAddPlacement }: {
   state: CreatorOwnerState;
   editor: CreatorOwnerEditor | CreatorOwnerLinkEditor;
   rows: Array<[string, string, string]>;
   canAdopt: boolean;
   onCheck(): void;
   onAdopt(id: string): void;
+  onAdoptAddPlacement?(comparisonId: string, placementId: string): void;
 }) {
   const attempt = state.attempt;
   if (attempt.status !== 'uncertain' && attempt.status !== 'conflict' && attempt.status !== 'checking') return null;
   const intent = 'intent' in attempt ? attempt.intent : undefined;
   if (!intent || intent.editorKey !== editor.key) return null;
   const comparison = attempt.status === 'uncertain' ? attempt.comparison : undefined;
+  const savedAddPlacement = canAdopt && comparison?.savedAddPlacementId
+    ? comparison.snapshot.links.find(({ placementId }) => placementId === comparison.savedAddPlacementId) : undefined;
   const comparisonActionLabel = editor.kind === 'series' && !editor.baseSeries && comparison && !comparison.seriesId
     ? 'Usar la versión actual del perfil' : adoptLabel(editor);
   return <section class="creator-owner__conflict" data-owner-conflict={true} data-series-conflict={editor.kind === 'series' ? true : undefined} aria-live="polite">
@@ -454,6 +462,8 @@ function Recovery({ state, editor, rows, canAdopt, onCheck, onAdopt }: {
         {rows.length > 0 && <dl>{rows.map(([label, saved, local]) => <div key={label}><dt>{label}</dt><dd>{comparisonSavedLabel(label)}: {savedValue(saved)} | Tu corrección: {savedValue(local)}</dd></div>)}</dl>}
       </div>
       {canAdopt && <button class="button button--outline" type="button" data-owner-adopt onClick={() => onAdopt(comparison.id)}>{comparisonActionLabel}</button>}
+      {onAdoptAddPlacement && savedAddPlacement && <button class="button button--outline" type="button" data-owner-adopt-link={savedAddPlacement.placementId}
+        onClick={() => onAdoptAddPlacement(comparison.id, savedAddPlacement.placementId)}>Abrir ficha guardada: {savedAddPlacement.title}</button>}
       <button class="button button--outline" type="button" data-owner-compare onClick={onCheck}>Comparar con lo guardado</button>
     </>}
     {!comparison && <button id="owner-compare" class="button button--outline" type="button" data-owner-compare disabled={attempt.status === 'checking'} onClick={onCheck}>{attempt.status === 'checking' ? 'Comprobando…' : recoveryActionLabel(editor, attempt.status)}</button>}

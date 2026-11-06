@@ -492,3 +492,234 @@ test('literal dot resource IDs remain editable and re-addable through the retain
     await capture.stop();
   }
 });
+
+const testCatalogRow = (id, url) => ({ id, title: 'Ficha ' + id, url, category: 'Contenido',
+  kind: 'content', format: 'Artículo', topics: ['AWS'], published: true, hidden: false,
+  directoryControl: 'editorial', version: 1 });
+
+async function putCatalogRows(fixture, records, url, reservation) {
+  assert.equal(await fixture.creatorStore.transact({
+    checks: records.map(({ id }) => ({ key: 'resource:' + id, version: null })),
+    puts: [...records.map((value) => ({ key: 'resource:' + value.id, value })),
+      ...(reservation ? [{ key: currentUrlKey(url), value: reservation }] : [])],
+  }), true);
+}
+
+async function exactGrant(fixture, cookie, resourceId, url) {
+  const claim = await api(fixture, cookie, '/api/creador/reclamaciones', {
+    method: 'POST', body: { resources: [{ resourceId, url }] },
+  });
+  assert.equal(claim.response.status, 202, JSON.stringify(claim.body));
+  const admin = await adminCookie(fixture);
+  const ownerPrincipal = await fixture.principal(cookie);
+  const grant = await api(fixture, admin, '/api/admin/reclamaciones/vincular', {
+    method: 'POST', body: { accountId: ownerPrincipal.accountId, resourceIds: [resourceId] },
+  });
+  assert.equal(grant.response.status, 200, JSON.stringify(grant.body));
+}
+
+async function prepareUrlAdd(page, fixture, url) {
+  await page.goto(fixture.origin + '/cuenta/?vista=enlaces');
+  await page.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+  const form = page.locator('[data-owner-form="alta-enlace"]');
+  await form.getByLabel('Título', { exact: true }).fill('Solo para el alta');
+  await form.getByLabel('URL', { exact: true }).fill(url);
+  return form;
+}
+
+async function verifySeparateAddDraft({ fixture, cookie, form, cohostId, originalUrl, capture, responseLost = false }) {
+  const title = 'Corrección para una ficha distinta';
+  const url = 'https://literal.example.invalid/alta-manual/';
+  await form.getByLabel('Título', { exact: true }).fill(title);
+  await form.getByLabel('URL', { exact: true }).fill(url);
+  await form.getByLabel('Proponer al directorio').uncheck();
+  const cohost = await fixture.rawResource(cohostId);
+  const before = await api(fixture, cookie, '/api/creador/perfil');
+  await form.locator('[data-owner-compare]').click();
+  const adopt = form.getByRole('button', { name: 'Usar la página guardada y conservar el alta', exact: true });
+  await expect(adopt).toBeVisible();
+  const candidates = form.locator('[data-owner-adopt-link]');
+  await expect(candidates).toHaveCount(responseLost ? 1 : 0);
+  if (responseLost) {
+    const savedCohost = before.body.links.find(({ resourceId }) => resourceId === cohostId);
+    await expect(candidates).toHaveAttribute('data-owner-adopt-link', savedCohost.placementId);
+    await expect(candidates).toContainText(savedCohost.title);
+  }
+  await adopt.click();
+  await expect(form).toBeVisible();
+  await expect(form.getByLabel('Título', { exact: true })).toHaveValue(title);
+  await expect(form.getByLabel('Título', { exact: true })).toBeFocused();
+  await expect(form.getByLabel('URL', { exact: true })).toHaveValue(url);
+  await expect(form.getByLabel('Proponer al directorio')).not.toBeChecked();
+  assert.equal(capture.writes().length, 1);
+  assert.deepEqual((await api(fixture, cookie, '/api/creador/perfil')).body, before.body);
+  await form.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+  const manual = await responseFor(capture, 'POST', '/api/creador/enlaces', 1);
+  assert.equal(manual.status, 201);
+  assert.equal(manual.body.url, url);
+  const final = await api(fixture, cookie, '/api/creador/perfil');
+  assert.deepEqual(final.body.links.find(({ resourceId }) => resourceId === cohostId),
+    before.body.links.find(({ resourceId }) => resourceId === cohostId));
+  const newLink = final.body.links.find(({ resourceId }) => resourceId === manual.responseBody.link.resourceId);
+  assert.equal(newLink.title, title);
+  assert.equal(newLink.url, url);
+  assert.equal(newLink.selectedForDirectory, false);
+  assert.deepEqual(await fixture.rawResource(cohostId), cohost);
+  assert.deepEqual(capture.writes().map(({ method, body }) => [method, body.url]), [['POST', originalUrl], ['POST', url]]);
+}
+
+test('recuperar un alta con rechazo de colisión perdido conserva el borrador separado de un cohost concedido', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const url = 'https://literal.example.invalid/lost-rejected/?q=%2f';
+  const ids = ['resource-6b7d41f8-43b8-4fa7-a373-a975d6a44a3b', 'fresh-grant-wrong-b'];
+  const matching = { ...testCatalogRow(ids[0], url), title: 'Solo para el alta', description: '',
+    published: false, approvalRevoked: false, version: 0 };
+  const cohost = testCatalogRow(ids[1], url);
+  await putCatalogRows(fixture, [matching, cohost], url, currentUrlCollision(url, ids));
+  const form = await prepareUrlAdd(page, fixture, url);
+  const capture = await captureCreatorApi(page);
+  let signal;
+  let release;
+  const arrived = new Promise((resolve) => { signal = resolve; });
+  const held = new Promise((resolve) => { release = resolve; });
+  await page.route('**/api/creador/enlaces/', async (route) => {
+    if (route.request().method() !== 'POST' || route.request().postDataJSON().url !== url) return route.continue();
+    const actual = await route.fetch();
+    signal({ status: actual.status(), body: await actual.json() });
+    await held;
+    await route.abort('failed');
+  });
+  try {
+    await form.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    const actual = await arrived;
+    assert.equal(actual.status, 409);
+    assert.equal(actual.body.error, 'URL_COLLISION');
+    await exactGrant(fixture, cookie, ids[0], url);
+    release();
+    await verifySeparateAddDraft({ fixture, cookie, form, cohostId: ids[0], originalUrl: url, capture, responseLost: true });
+    assert.deepEqual(await fixture.rawResource(ids[1]), cohost);
+    assert.deepEqual(await fixture.creatorStore.get(currentUrlKey(url)), currentUrlCollision(url, ids));
+  } finally {
+    release();
+    await capture.stop();
+  }
+});
+
+test('comparar un conflicto de alta conserva el borrador separado de un cohost sin reserva', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const url = 'https://literal.example.invalid/lost-cas/?q=%2f';
+  const nextUrl = 'https://literal.example.invalid/winner-moved/';
+  const winner = await addLink(fixture, cookie, { title: 'Ficha con reserva única', url });
+  const own0 = await api(fixture, cookie, '/api/creador/perfil');
+  assert.equal((await api(fixture, cookie, '/api/creador/enlaces/' + winner.placementId,
+    { method: 'DELETE', body: { profileVersion: own0.body.profile.version } })).response.status, 204);
+  const wrongId = 'unindexed-existing-wrong';
+  await putCatalogRows(fixture, [testCatalogRow(wrongId, url)], url);
+  await exactGrant(fixture, cookie, wrongId, url);
+  const form = await prepareUrlAdd(page, fixture, url);
+  const capture = await captureCreatorApi(page);
+  const transact = fixture.creatorStore.transact;
+  let won;
+  fixture.creatorStore.transact = async function (command, ...args) {
+    if (!won && command.puts?.some(({ value }) => value.recordType === 'placement' && value.resourceId === winner.resourceId)) {
+      won = await api(fixture, cookie, '/api/creador/recursos/' + winner.resourceId, {
+        method: 'PATCH', body: { version: winner.resourceVersion, url: nextUrl },
+      });
+    }
+    return transact.call(this, command, ...args);
+  };
+  try {
+    await form.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    const actual = await responseFor(capture, 'POST', '/api/creador/enlaces');
+    assert.equal(won?.response.status, 200, JSON.stringify(won?.body));
+    assert.equal(actual.status, 409, JSON.stringify(actual.responseBody));
+    assert.equal(actual.responseBody.error, 'LINK_CONFLICT');
+    await verifySeparateAddDraft({ fixture, cookie, form, cohostId: wrongId, originalUrl: url, capture });
+    assert.equal((await fixture.rawResource(winner.resourceId)).url, nextUrl);
+  } finally {
+    fixture.creatorStore.transact = transact;
+    await capture.stop();
+  }
+});
+
+test('un alta repetida usa la versión canónica al guardar manualmente la corrección', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const url = 'https://literal.example.invalid/canonical-duplicate/?q=%2f';
+  const existing = await addLink(fixture, cookie, { title: 'Ficha propia', url });
+  const form = await prepareUrlAdd(page, fixture, url);
+  const capture = await captureCreatorApi(page);
+  try {
+    const admin = await adminCookie(fixture);
+    const hidden = await api(fixture, admin, '/api/admin/recursos/' + existing.resourceId + '/ocultar', {
+      method: 'POST', body: { version: existing.resourceVersion },
+    });
+    assert.equal(hidden.response.status, 200, JSON.stringify(hidden.body));
+    assert.equal(hidden.body.resource.version, existing.resourceVersion + 1);
+    await form.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    const duplicate = await responseFor(capture, 'POST', '/api/creador/enlaces');
+    assert.equal(duplicate.status, 200, JSON.stringify(duplicate.responseBody));
+    assert.equal(duplicate.responseBody.created, false);
+    assert.equal(duplicate.responseBody.link.resourceVersion, existing.resourceVersion + 1);
+    assert.equal(duplicate.responseBody.link.hidden, true);
+    const editor = page.locator('[data-owner-form="enlace"]');
+    await expect(editor).toBeVisible();
+    await editor.getByRole('button', { name: 'Guardar cambios' }).click();
+    const patch = await responseFor(capture, 'PATCH', '/api/creador/enlaces/' + existing.placementId + '/editar');
+    assert.equal(patch.status, 200, JSON.stringify(patch.responseBody));
+    assert.equal(patch.body.resourceVersion, duplicate.responseBody.link.resourceVersion);
+    const saved = await api(fixture, cookie, '/api/creador/perfil');
+    assert.equal(saved.body.links.length, 1);
+    assert.equal(saved.body.links[0].resourceId, existing.resourceId);
+    assert.equal(saved.body.links[0].title, 'Solo para el alta');
+    assert.equal(saved.body.links[0].hidden, true);
+    assert.equal(writesTo(capture, 'POST', '/api/creador/enlaces').length, 1);
+  } finally {
+    await capture.stop();
+  }
+});
+
+for (const inconsistency of ['otra URL', 'metadatos de la misma versión']) {
+test(`un acuse incompatible con ${inconsistency} conserva el borrador y bloquea la edición de otra ficha`, async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const url = 'https://literal.example.invalid/ack-a/?q=%2f';
+  const otherUrl = 'https://literal.example.invalid/ack-b/?q=%2f';
+  const laterUrl = 'https://literal.example.invalid/ack-c/?q=%2f';
+  const intended = await addLink(fixture, cookie, { title: 'Intended row A', url });
+  const wrong = await addLink(fixture, cookie, { title: 'Unrelated row B', url: otherUrl });
+  const form = await prepareUrlAdd(page, fixture, url);
+  const capture = await captureCreatorApi(page);
+  let signal;
+  let release;
+  const arrived = new Promise((resolve) => { signal = resolve; });
+  const held = new Promise((resolve) => { release = resolve; });
+  await page.route('**/api/creador/enlaces/', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    const response = await route.fetch();
+    signal({ status: response.status(), body: await response.json() });
+    await held;
+    const incompatible = inconsistency === 'otra URL' ? wrong : { ...intended, title: 'Metadato distinto sin cambio de versión' };
+    await route.fulfill({ response, json: { created: false, link: incompatible, versionChanges: [] } });
+  });
+  try {
+    await form.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    const actual = await arrived;
+    assert.equal(actual.status, 200);
+    assert.equal(actual.body.link.resourceId, intended.resourceId);
+    await form.getByLabel('Título', { exact: true }).fill('Corrección para A solamente');
+    await form.getByLabel('URL', { exact: true }).fill(laterUrl);
+    release();
+    await expect(form.locator('[data-owner-conflict-copy]')).toContainText('La respuesta no coincide');
+    await expect(form.getByLabel('Título', { exact: true })).toHaveValue('Corrección para A solamente');
+    await expect(form.getByLabel('URL', { exact: true })).toHaveValue(laterUrl);
+    await expect(form.getByRole('button', { name: 'Agregar enlace', exact: true })).toBeDisabled();
+    await expect(form.getByRole('button', { name: 'Comprobar si se agregó la URL original' })).toBeVisible();
+    const saved = await api(fixture, cookie, '/api/creador/perfil');
+    assert.deepEqual(saved.body.links.find(({ resourceId }) => resourceId === wrong.resourceId), wrong);
+    assert.deepEqual(saved.body.links.find(({ resourceId }) => resourceId === intended.resourceId), intended);
+    assert.equal(capture.writes().length, 1);
+  } finally {
+    release();
+    await capture.stop();
+  }
+});
+}

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { makeAccount, makeIdentity } from '../fixtures/account-auth.mjs';
 import { seedResource } from '../fixtures/creator-pages.mjs';
 import { creatorPageSessionBinding } from '../../src/lib/creator-session-context.mjs';
 import {
@@ -912,14 +913,19 @@ test('el par rechazado sigue deshabilitado al cerrar y volver a abrir un índice
   }
 });
 
-for (const race of ['profile', 'resource-url']) {
-  test(`el conflicto de referencia distingue la carrera por ${race} y conserva la selección ajena`, async ({ fixture, page }) => {
+for (const [race, retainA] of [['profile', false], ['profile', true], ['resource-url', false]]) {
+  test(`el conflicto de referencia por ${race} conserva la selección ${retainA ? 'original A' : 'posterior B'}`, async ({ fixture, page }) => {
     const cookie = await loggedInOwner(fixture, page);
     const suffix = race === 'profile' ? 'profile-race' : 'resource-race';
     const itemA = catalogEntry(`phase8-${suffix}-a`, `Referencia A ${suffix}`, `https://phase8.example/${suffix}/a`);
     const itemB = catalogEntry(`phase8-${suffix}-b`, `Referencia B ${suffix}`, `https://phase8.example/${suffix}/b`);
     await seedCatalogRecord(fixture, itemA);
     await seedCatalogRecord(fixture, itemB);
+    const manualTarget = retainA ? itemA : itemB;
+    let indexReads = 0;
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname === '/catalog-selection.json') indexReads += 1;
+    });
     const removeIndexRoute = await serveSelectionIndex(page, [itemA, itemB]);
     const store = fixture.creatorStore;
     const transact = store.transact.bind(store);
@@ -963,7 +969,7 @@ for (const race of ['profile', 'resource-url']) {
       const expectedCode = race === 'resource-url' ? 'RESOURCE_CONFLICT' : 'LINK_CONFLICT';
       assert.equal(actual.body.error, expectedCode,
         'only a confirmed resource/URL-reservation loss rejects the exact catalog pair');
-      await catalogRadio(page, itemB).check();
+      if (!retainA) await catalogRadio(page, itemB).check();
       await form.getByRole('checkbox', { name: 'Proponer al directorio', exact: true }).uncheck();
       transport.writeGate.release();
       await submit;
@@ -971,32 +977,36 @@ for (const race of ['profile', 'resource-url']) {
       if (race === 'resource-url') {
         await expect(form.getByRole('button', { name: 'Actualizar catálogo', exact: true })).toBeVisible();
         await form.getByRole('button', { name: 'Actualizar catálogo', exact: true }).click();
-        await expect(catalogRadio(page, itemB)).toBeChecked();
+        await expect(catalogRadio(page, manualTarget)).toBeChecked();
         await expect(catalogRadio(page, itemA)).toBeDisabled();
       } else {
         await expect(form.getByRole('button', { name: 'Actualizar catálogo', exact: true })).toHaveCount(0,
           'a profile-only loss does not invalidate a still-current catalog pair');
-        await expect(catalogRadio(page, itemB)).toBeChecked();
+        await expect(catalogRadio(page, manualTarget)).toBeChecked();
       }
       if (race === 'profile') {
         await form.locator('[data-owner-compare]').click();
         await expect(form.locator('[data-owner-adopt]')).toBeEnabled();
         await form.locator('[data-owner-adopt]').click();
-        await expect(catalogRadio(page, itemB)).toBeChecked();
+        await expect(catalogRadio(page, manualTarget)).toBeChecked();
       }
       await expect(form.getByRole('checkbox', { name: 'Proponer al directorio', exact: true })).not.toBeChecked();
+      assert.equal(referenceWrites(capture).length, 1, 'comparison and adoption do not replay the failed reference');
+      assert.equal((await freshOwner(fixture, cookie)).links.length, 0);
       await form.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
       await expect.poll(() => referenceWrites(capture)[1]?.status).toBe(201);
       assert.deepEqual(referenceWrites(capture)[1].body, {
-        resourceId: itemB.id, url: itemB.url, profileVersion: (await freshOwner(fixture, cookie)).profile.version - 1,
+        resourceId: manualTarget.id, url: manualTarget.url, profileVersion: (await freshOwner(fixture, cookie)).profile.version - 1,
         selectedForDirectory: false,
       });
       const final = await freshOwner(fixture, cookie);
       assert.equal(final.links.length, 1);
-      assert.equal(final.links[0].resourceId, itemB.id);
+      assert.equal(final.links[0].resourceId, manualTarget.id);
       assert.equal(final.links[0].selectedForDirectory, false);
       assert.equal(final.editableResources.some(({ id }) => id === itemA.id || id === itemB.id), false);
-      assert.equal(referenceWrites(capture).filter(({ body }) => body.resourceId === itemA.id).length, 1);
+      assert.equal(referenceWrites(capture).length, 2);
+      assert.equal(referenceWrites(capture).filter(({ body }) => body.resourceId === itemA.id).length, retainA ? 2 : 1);
+      assert.equal(indexReads, race === 'profile' ? 1 : 2);
     } finally {
       store.transact = transact;
       transport.writeGate.release();
@@ -1007,3 +1017,159 @@ for (const race of ['profile', 'resource-url']) {
     }
   });
 }
+
+async function loginReferenceActor(fixture, sub, isAdmin = false) {
+  const email = `${sub}@example.invalid`;
+  if (isAdmin) fixture.accountStore.seedAccount(makeAccount({ identity: makeIdentity({ sub }), email, isAdmin: true }));
+  const oldClaims = fixture.accountHarness.state.oidc.claims;
+  fixture.accountHarness.state.oidc.claims = { sub, email };
+  try {
+    return await fixture.login();
+  } finally {
+    fixture.accountHarness.state.oidc.claims = oldClaims;
+  }
+}
+
+async function grantReferenceEditorship(fixture, cookie, item) {
+  const claim = await fixture.request(cookie, '/api/creador/reclamaciones', {
+    method: 'POST', body: { resources: [{ resourceId: item.id, url: item.url }] },
+  });
+  assert.equal(claim.status, 202, JSON.stringify(await claim.clone().json()));
+  const admin = await loginReferenceActor(fixture, 'reference-journey-admin', true);
+  const editor = await fixture.principal(cookie);
+  const grant = await fixture.request(admin, '/api/admin/reclamaciones/vincular', {
+    method: 'POST', body: { accountId: editor.accountId, resourceIds: [item.id] },
+  });
+  assert.equal(grant.status, 200, JSON.stringify(await grant.clone().json()));
+}
+
+test('una referencia existente usa la URL vigente y permite guardar opciones después de un traslado', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const item = catalogEntry('review-moved-noop', 'Ficha importada', 'https://review.example/existing-old?literal=1');
+  const moved = {...item, url: 'https://review-new.example/existing-new?literal=2/'};
+  await seedCatalogRecord(fixture, item);
+  const saved = await seedReferencePlacement(fixture, cookie, item, true);
+
+  const editorCookie = await loginReferenceActor(fixture, 'reference-url-editor');
+  const create = await fixture.request(editorCookie, OWNER_PATH, {
+    method: 'PUT', body: { displayName: 'URL editor', slug: 'url-editor', socials: {} },
+  });
+  assert.equal(create.status, 200, JSON.stringify(await create.clone().json()));
+  await grantReferenceEditorship(fixture, editorCookie, item);
+
+  await openLinksWithManagedHistory(page, fixture);
+  await expect(page.locator('[data-link-row]').filter({ hasText: item.title })).toContainText('review.example');
+  const otherOwner = await freshOwner(fixture, editorCookie);
+  const grantPlacement = otherOwner.links.find(({resourceId}) => resourceId === item.id);
+  const change = await fixture.request(editorCookie, `/api/creador/enlaces/${grantPlacement.placementId}/editar`, { method: 'PATCH', body: {
+    profileVersion: otherOwner.profile.version,
+    placementVersion: grantPlacement.placementVersion,
+    resourceVersion: grantPlacement.resourceVersion,
+    url: moved.url,
+  }});
+  assert.equal(change.status, 200, JSON.stringify(await change.clone().json()));
+
+  const removeIndexRoute = await serveSelectionIndex(page, [moved]);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const transport = await installReferenceTransport(page, { loseReferenceAcknowledgement: false });
+  try {
+    await openCatalog(page);
+    const reference = page.locator('[data-owner-form="referencia"]');
+    await catalogRadio(page, moved).check();
+    await reference.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+    const actual = await transport.writeArrived.promise;
+    assert.equal(actual.status, 200);
+    assert.equal(actual.body.created, false);
+    assert.deepEqual(actual.body.versionChanges, []);
+    assert.equal(actual.body.link.placementId, saved.link.placementId);
+    assert.equal(actual.body.link.url, moved.url);
+    assert.ok(actual.body.link.resourceVersion > saved.link.resourceVersion);
+    await reference.getByRole('checkbox', { name: 'Proponer al directorio', exact: true }).uncheck();
+    transport.writeGate.release();
+    const options = page.locator('[data-link-edit-form]');
+    await expect(options).toBeVisible();
+    await expect(options.getByLabel('URL', { exact: true })).toHaveValue(moved.url);
+    await expect(options.getByLabel('URL', { exact: true })).toBeDisabled();
+    await expect(options.getByRole('checkbox', { name: 'Proponer al directorio', exact: true })).not.toBeChecked();
+    assert.equal(capture.records.filter(({ method }) => method === 'GET').length, 0);
+    assert.equal(optionWrites(capture, saved.link.placementId).length, 0);
+    const canonicalResource = await fixture.rawResource(item.id);
+    const beforeSave = await freshOwner(fixture, cookie);
+    assert.equal(beforeSave.links[0].selectedForDirectory, true);
+    await options.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(() => optionWrites(capture, saved.link.placementId)[0]?.status).toBe(200);
+    assert.deepEqual(optionWrites(capture, saved.link.placementId)[0].body, {
+      profileVersion: beforeSave.profile.version, placementVersion: saved.link.placementVersion,
+      resourceVersion: actual.body.link.resourceVersion, featured: false, selectedForDirectory: false,
+    });
+    const persisted = await freshOwner(fixture, cookie);
+    assert.deepEqual(persisted.links.map(({ resourceId, url, selectedForDirectory }) => ({ resourceId, url, selectedForDirectory })),
+      [{ resourceId: item.id, url: moved.url, selectedForDirectory: false }]);
+    assert.equal(persisted.editableResources.length, 0);
+    assert.deepEqual(await fixture.rawResource(item.id), canonicalResource);
+    assert.equal(referenceWrites(capture).length, 1);
+    assert.equal(optionWrites(capture, saved.link.placementId).length, 1);
+  } finally {
+    await transport.close();
+    await capture.stop({ skipErrorBodies: true });
+    await removeIndexRoute();
+  }
+});
+
+
+test('retirar y reincorporar tras una referencia confirmada usa la versión vigente de la ficha propia', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const item = catalogEntry('review-owned-reattach', 'Ficha propia importada', 'https://retained-old.review.example/legacy');
+  const moved = { ...item, title: 'Ficha propia actual', url: 'https://retained-new.review.example/current' };
+  await seedCatalogRecord(fixture, item);
+  await grantReferenceEditorship(fixture, cookie, item);
+
+  const initial = await freshOwner(fixture, cookie);
+  const placement = initial.links.find(({resourceId}) => resourceId === item.id);
+  const remove = await fixture.request(cookie, `/api/creador/enlaces/${placement.placementId}`, { method: 'DELETE', body: { profileVersion: initial.profile.version } });
+  assert.equal(remove.status, 204);
+  const retired = await freshOwner(fixture, cookie);
+  await openLinksWithManagedHistory(page, fixture);
+  const retained = page.locator(`[data-retained-resource="${item.id}"]`);
+  await expect(retained).toContainText('retained-old.review.example');
+
+  const change = await fixture.request(cookie, `/api/creador/recursos/${item.id}`, { method: 'PATCH', body: {
+    version: retired.editableResources[0].version,
+    title: moved.title,
+    url: moved.url,
+  }});
+  assert.equal(change.status, 200, JSON.stringify(await change.clone().json()));
+  const changed = await freshOwner(fixture, cookie);
+  assert.equal(changed.profile.version, retired.profile.version);
+  assert.equal(changed.editableResources[0].url, moved.url);
+
+  const removeIndexRoute = await serveSelectionIndex(page, [moved]);
+  const capture = await captureCreatorApi(page);
+  try {
+    await openCatalog(page);
+    await catalogRadio(page, moved).check();
+    await page.locator('[data-owner-form="referencia"]').getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+    await expect.poll(() => referenceWrites(capture)[0]?.status).toBe(201);
+    assert.equal(referenceWrites(capture)[0].responseBody.link.url, moved.url);
+    const row = page.locator(`[data-link-row="${placement.placementId}"]`);
+    await expect(row).toContainText('retained-new.review.example');
+    await expect(retained).not.toBeVisible();
+    page.once('dialog', (dialog) => dialog.accept());
+    await row.getByRole('button', { name: 'Quitar de tu página', exact: true }).click();
+    await expect.poll(() => capture.writes().find(({method}) => method === 'DELETE')?.status).toBe(204);
+    await expect(retained).toContainText('retained-new.review.example');
+    await retained.getByRole('button', { name: 'Volver a agregar', exact: true }).click();
+    const readds = () => capture.writes().filter(({ method, path }) => method === 'POST' && path === '/api/creador/enlaces');
+    await expect.poll(() => readds()[0]?.status).toBe(201);
+    assert.deepEqual(readds()[0].body, { resourceId: item.id, resourceVersion: changed.editableResources[0].version });
+    const final = await freshOwner(fixture, cookie);
+    assert.deepEqual(final.links.map(({ placementId, resourceId, title, url, series }) => ({ placementId, resourceId, title, url, series })),
+      [{ placementId: placement.placementId, resourceId: item.id, title: moved.title, url: moved.url, series: [] }]);
+    assert.deepEqual(final.editableResources, changed.editableResources);
+    assert.equal(referenceWrites(capture).length, 1);
+    assert.equal(readds().length, 1);
+  } finally {
+    await capture.stop({skipErrorBodies:true});
+    await removeIndexRoute();
+  }
+});

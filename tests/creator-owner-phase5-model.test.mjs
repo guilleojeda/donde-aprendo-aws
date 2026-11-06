@@ -249,6 +249,23 @@ test('claim-history refresh changes only claims and leaves observed edit version
   assert.strictEqual(state.observed.editableResources, originalResources);
 });
 
+test('a confirmed bound write clears only superseded session-derived history feedback', () => {
+  let state = initialState();
+  state = ownerState.creatorOwnerReducer(state, { type: 'claim-history-started', sequence: 1 });
+  state = ownerState.creatorOwnerReducer(state, { type: 'claim-history-failed', sequence: 1,
+    message: 'Esta cuenta está desactivada. Conservamos tus cambios.', sessionDerived: true });
+  state = ownerState.creatorOwnerReducer(state, { type: 'claim-history-session-cleared', sequence: 1 });
+  assert.equal(state.claimHistory.status, 'idle');
+  assert.equal(state.claimHistory.message, undefined);
+
+  state = ownerState.creatorOwnerReducer(state, { type: 'claim-history-started', sequence: 2 });
+  state = ownerState.creatorOwnerReducer(state, { type: 'claim-history-failed', sequence: 2,
+    message: 'No pudimos leer Solicitudes. Puedes volver a intentarlo.' });
+  state = ownerState.creatorOwnerReducer(state, { type: 'claim-history-session-cleared', sequence: 2 });
+  assert.equal(state.claimHistory.status, 'error');
+  assert.equal(state.claimHistory.message, 'No pudimos leer Solicitudes. Puedes volver a intentarlo.');
+});
+
 test('a stale claims GET keeps a claim accepted after that read started and leaves its attempt untouched', () => {
   let state = initialState();
   state = ownerState.creatorOwnerReducer(state, { type: 'claim-history-started', sequence: 1 });
