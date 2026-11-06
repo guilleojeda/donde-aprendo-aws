@@ -330,12 +330,18 @@ test('disabled accounts cannot establish a session and getSession exposes only t
   assert.equal(disabledSession.state, 'disabled');
   assert.equal(disabledSession.csrfToken, [...store.sessions.values()][0].csrfToken);
   assert.deepEqual(Object.keys(disabledSession).sort(), ['csrfToken', 'state']);
+  const serverPrincipal = await harness.auth.getPrincipal(sessionRequest(firstLogin.sessionCookie));
+  assert.deepEqual(serverPrincipal, {
+    state: 'disabled',
+    accountId: createHash('sha256').update(JSON.stringify([ISSUER, TEST_SUB])).digest('base64url'),
+    isAdmin: false,
+  }, 'only the server authorization projection keeps the account and role needed for an opaque page-binding check');
   const nextLogin = await startLogin(harness);
   const response = await harness.auth.handle(callbackRequest(nextLogin));
   assertSafeFailureRedirect(response, 'acceso-invalido');
   assert.equal(store.calls.filter(({ operation }) => operation === 'putSession').length, 1);
   assert.equal((await harness.auth.getSession(sessionRequest(firstLogin.sessionCookie))).state, 'disabled');
-  assert.deepEqual(await harness.auth.getPrincipal(sessionRequest(firstLogin.sessionCookie)), { state: 'disabled' });
+  assert.deepEqual(await harness.auth.getPrincipal(sessionRequest(firstLogin.sessionCookie)), serverPrincipal);
 });
 
 test('login attempt and session storage failures return safe unavailable states', async () => {

@@ -148,6 +148,7 @@ test('POST accepts exact ID+URL pairs and reserved URL-only targets without gran
   const stored = await harness.store.get(`claim:${result.claim.id}`);
   assert.equal(result.claim.id, stored.id);
   assert.equal(result.claim.status, stored.status);
+  assert.equal(result.claim.version, stored.version, 'the private acknowledgement exposes the existing claim version');
   assert.equal(result.claim.createdAt, stored.createdAt);
   assert.deepEqual(result.claim.resourceIds, [pair.id, reserved.id]);
   assert.deepEqual(result.claim.resources, [
@@ -188,6 +189,7 @@ test('POST accepts exact ID+URL pairs and reserved URL-only targets without gran
   const ownerView = await responseJson(await api(harness, '/api/creador/perfil', 'creator-a'));
   assert.equal(ownerView.claims[0].id, stored.id);
   assert.equal(ownerView.claims[0].status, stored.status);
+  assert.equal(ownerView.claims[0].version, stored.version, 'the owner projector exposes the persisted claim version');
   assert.equal(ownerView.claims[0].createdAt, stored.createdAt);
   assert.deepEqual(ownerView.claims[0].resourceIds, [pair.id, reserved.id]);
   assert.equal(ownerView.claims[0].evidence, 'Confirmación privada del creador');
@@ -281,6 +283,32 @@ test('admin claim listing preserves submitted resource pairs through the physica
     physicalQuery: resources,
     adminHttpList: resources,
   }, 'the physical projection and admin HTTP listing both preserve submitted ID+URL pairs');
+});
+
+test('owner projection keeps a legacy claim without a persisted version readable', async () => {
+  const harness = await createCreatorPagesHarness();
+  await createProfile(harness, 'creator-a', 'claim-legacy-version');
+  const target = resource('claim-legacy-version-target', 'https://catalog.example/legacy-version');
+  await seedResource(harness.store, target);
+  const submitted = await api(harness, CLAIMS_PATH, 'creator-a', { method: 'POST', body: { resourceIds: [target.id] } });
+  assert.equal(submitted.status, 202);
+  const body = await responseJson(submitted);
+  const key = `claim:${body.claim.id}`;
+  const stored = await harness.store.get(key);
+  const { version: _version, ...legacyRow } = stored;
+  assert.equal(await harness.store.transact({
+    checks: [{ key, version: stored.version }],
+    puts: [{ key, value: legacyRow }],
+  }), true);
+
+  const ownerResponse = await api(harness, '/api/creador/perfil', 'creator-a');
+  assert.equal(ownerResponse.status, 200);
+  const owner = await responseJson(ownerResponse);
+  assert.equal(owner.claims.length, 1);
+  assert.equal(owner.claims[0].id, body.claim.id);
+  assert.equal(owner.claims[0].status, 'pending');
+  assert.equal(Object.hasOwn(owner.claims[0], 'version'), false,
+    'the private projector omits only the unavailable legacy ordering token');
 });
 
 test('exact cohost pairs preserve both IDs while URL-only collision is rejected without enumerating candidates', async () => {
@@ -630,6 +658,10 @@ test('colon and long catalog IDs survive exact partial admin resolution without 
   assert.equal(firstLink.status, 200);
   const partial = await responseJson(await api(harness, ADMIN_CLAIMS_PATH, 'admin'));
   assert.equal(partial.claims[0].status, 'partial');
+  const partialOwnerView = await responseJson(await api(harness, '/api/creador/perfil', 'creator-a'));
+  assert.equal(partialOwnerView.claims[0].status, 'partial');
+  assert.equal(partialOwnerView.claims[0].version, storedClaim.version + 1,
+    'the owner projector carries the existing claim-row status version');
   assert.deepEqual(partial.claims[0].resourceIds, [first.id, second.id]);
   assert.equal((await harness.store.get(`resource:${first.id}`)).editorProfileId, profile.id);
   assert.equal((await harness.store.get(`resource:${second.id}`)).editorProfileId, undefined);
@@ -642,6 +674,10 @@ test('colon and long catalog IDs survive exact partial admin resolution without 
   assert.equal(secondLink.status, 200);
   const resolved = await responseJson(await api(harness, ADMIN_CLAIMS_PATH, 'admin'));
   assert.equal(resolved.claims[0].status, 'resolved');
+  const resolvedOwnerView = await responseJson(await api(harness, '/api/creador/perfil', 'creator-a'));
+  assert.equal(resolvedOwnerView.claims[0].status, 'resolved');
+  assert.equal(resolvedOwnerView.claims[0].version, storedClaim.version + 2,
+    'a later status version is visible without using the profile version');
   assert.deepEqual(resolved.claims[0].resourceIds, [first.id, second.id]);
   if (resolved.claims[0].resources !== undefined) {
     assert.deepEqual(resolved.claims[0].resources, [],

@@ -187,7 +187,9 @@ function readClaim(value: unknown): CreatorClaimDTO {
   const item = record(value);
   if (!item) throw new TypeError('Una solicitud de vinculación recibida no tiene un formato válido.');
   const id = nonEmptyText(item.id ?? item.claimId);
-  if (!id || !Array.isArray(item.resourceIds)) {
+  const version = item.version;
+  if (!id || !Array.isArray(item.resourceIds)
+    || (version !== undefined && (!Number.isSafeInteger(version) || Number(version) < 1))) {
     throw new TypeError('Una solicitud de vinculación recibida no tiene un formato válido.');
   }
   const resourceIds = item.resourceIds.filter((idValue): idValue is string => typeof idValue === 'string');
@@ -196,6 +198,7 @@ function readClaim(value: unknown): CreatorClaimDTO {
   return {
     id,
     resourceIds,
+    ...(typeof version === 'number' ? { version } : {}),
     ...(resources ? { resources } : {}),
     ...(typeof item.sourceId === 'string' ? { sourceId: item.sourceId } : {}),
     ...(typeof item.status === 'string' ? { status: item.status } : {}),
@@ -248,7 +251,8 @@ export function isProfile(value: unknown): value is CreatorProfileDTO {
 
 export function isCreatorClaim(value: unknown): value is CreatorClaimDTO {
   if (!isRecord(value) || typeof value.id !== 'string' || value.id.length === 0
-    || !Array.isArray(value.resourceIds) || !value.resourceIds.every((id) => typeof id === 'string')) return false;
+    || !Array.isArray(value.resourceIds) || !value.resourceIds.every((id) => typeof id === 'string')
+    || (value.version !== undefined && (!Number.isSafeInteger(value.version) || Number(value.version) < 1))) return false;
   if (value.resources !== undefined) {
     if (!Array.isArray(value.resources)) return false;
     const observedIds = new Set<string>();

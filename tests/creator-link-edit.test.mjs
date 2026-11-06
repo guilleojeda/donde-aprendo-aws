@@ -313,3 +313,31 @@ test('el nuevo comando preserva autenticación, origen, CSRF, método y límites
   assert.equal((await api(state.harness, state.path, { ...versions(state), description: 'x'.repeat(33 * 1024), featured: true })).status, 413);
   assert.deepEqual(await snapshot(state.harness.store), before);
 });
+
+test('URL Add enforces an observed profile version but keeps legacy callers compatible', async () => {
+  const state = await fixture();
+  const before = await snapshot(state.harness.store);
+  const stale = await api(state.harness, '/api/creador/enlaces', {
+    title: 'Stale owner Add', url: 'https://example.invalid/stale-owner-add',
+    profileVersion: state.observed.profile.version - 1,
+  }, { method: 'POST' });
+  assert.equal(stale.status, 409);
+  assert.equal((await responseJson(stale)).error, 'PROFILE_CONFLICT');
+  assert.deepEqual(await snapshot(state.harness.store), before, 'a stale versioned Add writes nothing');
+
+  const legacy = await api(state.harness, '/api/creador/enlaces', {
+    title: 'Legacy Add', url: 'https://example.invalid/legacy-add',
+  }, { method: 'POST' });
+  assert.equal(legacy.status, 201, 'existing callers may continue omitting profileVersion');
+
+  const current = await editor(state.harness);
+  const versioned = await api(state.harness, '/api/creador/enlaces', {
+    title: 'Versioned Add', url: 'https://example.invalid/versioned-add',
+    profileVersion: current.profile.version,
+  }, { method: 'POST' });
+  assert.equal(versioned.status, 201);
+  const result = await responseJson(versioned);
+  assert.equal(result.link.title, 'Versioned Add');
+  assert.equal(result.versionChanges.find(({ entity }) => entity === 'profile').before, current.profile.version);
+  assert.equal((await editor(state.harness)).links.some(({ url }) => url === 'https://example.invalid/versioned-add'), true);
+});

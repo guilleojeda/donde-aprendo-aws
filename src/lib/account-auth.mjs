@@ -270,12 +270,15 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
 
     const account = await store.getAccount(record.identity);
     if (!account) return { state: 'anonymous' };
+    const accountId = sha256(JSON.stringify([record.identity.issuer, record.identity.sub]));
     if (account.active !== true) {
       // A disabled account cannot authorize requests, but its still-valid
-      // session must retain enough server-only data for a confirmed logout to
-      // revoke it before the cookie is cleared.
+      // session keeps server-only page-binding inputs so another disabled
+      // account can be distinguished without exposing its identity.
       return {
         state: 'disabled',
+        accountId,
+        isAdmin: account.isAdmin === true,
         csrfToken: record.csrfToken,
         sessionKey: `SESSION#${sha256(rawSession)}`,
       };
@@ -288,7 +291,7 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
     return {
       state: 'authenticated',
       account: { email: account.email },
-      accountId: sha256(JSON.stringify([record.identity.issuer, record.identity.sub])),
+      accountId,
       isAdmin: account.isAdmin === true,
       csrfToken: record.csrfToken,
       expiresAt: record.expiresAt,
@@ -323,6 +326,7 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
   async function getPrincipal(request) {
     try {
       const result = await resolveSession(request);
+      if (result.state === 'disabled') return { state: 'disabled', accountId: result.accountId, isAdmin: result.isAdmin };
       if (result.state !== 'authenticated') return { state: result.state };
       return {
         state: 'authenticated',

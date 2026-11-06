@@ -189,6 +189,7 @@ export function prepareCreatorOwnerRequest(intent: CreatorOwnerWriteIntent): Cre
     return { path: '/api/creador/enlaces/', method: 'POST', body: {
       title: normalizeCreatorText(capture.draft.title), url: normalizeCreatorText(capture.draft.url),
       description: normalizeCreatorText(capture.draft.description), selectedForDirectory: capture.draft.selectedForDirectory,
+      profileVersion: capture.baseProfile.version,
     } };
   }
   if (intent.kind === 'move-link') {
@@ -697,6 +698,7 @@ function commandParticipants(
       || Object.keys(responseBody).sort().join(',') !== 'claim,versionChanges'
       || claim.status !== 'pending' || typeof claim.createdAt !== 'number' || !Number.isFinite(claim.createdAt)
       || claim.createdAt <= 0
+      || (claim.version !== undefined && claim.version !== 1)
       || claim.sourceId !== undefined || (Object.hasOwn(body, 'evidence') ? claim.evidence !== body.evidence : claim.evidence !== undefined)
       || claim.resources.length !== claim.resourceIds.length || new Set(claim.resourceIds).size !== claim.resourceIds.length
       || claim.resourceIds.some((id, index) => claim.resources?.[index]?.resourceId !== id || !isSafeClaimUrl(claim.resources?.[index]?.url ?? ''))) return { valid: false };
@@ -707,7 +709,8 @@ function commandParticipants(
     const submittedUrls = new Set(submittedTargets.filter((item) => typeof item.url === 'string').map(({ url }) => String(url)));
     const returnedUrls = new Set(claim.resources.map(({ url }) => url));
     if (submittedUrls.size !== returnedUrls.size || [...submittedUrls].some((url) => !returnedUrls.has(url))) return { valid: false };
-    return { valid: true, effect: { kind: 'claim-submitted', claim: { ...claim, resourceIds: [...claim.resourceIds], resources: claim.resources.map((item) => ({ ...item })) } } };
+    return { valid: true, effect: { kind: 'claim-submitted', profileId: intent.capture.baseProfile.id,
+      claim: { ...claim, resourceIds: [...claim.resourceIds], resources: claim.resources.map((item) => ({ ...item })) } } };
   }
   return { valid: false };
 }
@@ -739,6 +742,10 @@ export async function interpretCreatorOwnerResponse(
           ? 'La ficha del catálogo cambió desde que la elegiste. Actualiza el catálogo y vuelve a seleccionar el contenido.'
           : 'El estado guardado cambió desde que abriste esta edición. Comprueba lo guardado antes de decidir cómo seguir.',
         ...(typeof code === 'string' ? { code } : {}) };
+    }
+    if (response.status === 404 && code === 'PLACEMENT_NOT_FOUND'
+      && intent.kind === 'save-link' && intent.capture.kind === 'link-placement') {
+      return { kind: 'conflict', message: 'La colocación ya no está en tu página. Compara el estado guardado antes de decidir cómo seguir.', code: 'PLACEMENT_NOT_FOUND' };
     }
     if (response.status === 408 || response.status >= 500) {
       return { kind: 'uncertain', message: 'No pudimos confirmar el resultado. Comprueba lo guardado antes de volver a intentar; no repetiremos la escritura.', ...(typeof code === 'string' ? { code } : {}) };
@@ -843,7 +850,12 @@ export function createCreatorOwnerComparison(
   }
   if (intent.kind === 'save-link' && capture.kind === 'link-placement') {
     const placementPresent = snapshot.links.some(({ placementId }) => placementId === capture.baseLink.placementId);
-    canAdopt = profileMatches && (placementPresent || Boolean(capture.sharedTextCorrection));
+    canAdopt = profileMatches && (placementPresent || Boolean(capture.pendingAddDraft) || Boolean(capture.optionsOnly));
+    if (!placementPresent && (capture.pendingAddDraft || capture.optionsOnly)) {
+      message = capture.pendingAddDraft
+        ? 'La colocación ya no está en tu página. Puedes adoptar la versión actual y continuar con el borrador del alta sin reincorporarla.'
+        : 'La colocación ya no está en tu página. Puedes adoptar la versión actual y decidir manualmente si quieres agregar una referencia.';
+    }
   }
   if (intent.kind === 'save-link' && capture.kind === 'link-resource') {
     canAdopt = snapshot.editableResources.some(({ id }) => id === capture.baseResource.id)

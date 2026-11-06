@@ -56,6 +56,54 @@ test('la lectura owner conserva compatibilidad y liga la respuesta a cuenta y ro
   assert.equal(sameContext.payload.profile.id, profile.id);
 });
 
+test('disabled owner identities are compared against the page binding before owner routes reach storage', async () => {
+  const runtime = await createCreatorOwnerRuntime();
+  runtime.setSession('creator-a');
+  const created = await runtime.fetchApi('/api/creador/perfil/', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json', 'x-csrf-token': 'csrf-a', origin: SITE_ORIGIN },
+    body: JSON.stringify({ displayName: 'Ana disabled-bound', slug: 'ana-disabled-bound' }),
+  }, { session: 'creator-a' });
+  assert.equal(created.status, 200);
+  const profile = (await created.json()).profile;
+  const originalBinding = creatorPageSessionBinding({ accountId: 'private-account-a', isAdmin: false });
+  const storeCallsBefore = runtime.pages.store.calls.length;
+
+  runtime.setSession('disabled-other', { principal: { state: 'disabled', accountId: 'private-account-b', isAdmin: false } });
+  const changedRead = await runtime.fetchApi('/api/creador/perfil/', {
+    headers: { 'x-creator-page-binding': originalBinding },
+  }, { session: 'disabled-other' });
+  assert.equal(changedRead.status, 409);
+  assert.equal((await changedRead.json()).error, 'SESSION_CONTEXT_CHANGED');
+
+  const changedWrite = await runtime.fetchApi('/api/creador/perfil/', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json', 'x-creator-page-binding': originalBinding },
+    body: JSON.stringify({ displayName: 'No cross-account write', slug: profile.slug, version: profile.version }),
+  }, { session: 'disabled-other' });
+  assert.equal(changedWrite.status, 409);
+  assert.equal((await changedWrite.json()).error, 'SESSION_CONTEXT_CHANGED');
+  assert.equal(runtime.pages.store.calls.length, storeCallsBefore, 'the different disabled identity never reaches owner storage');
+
+  runtime.setSession('disabled-same', { principal: { state: 'disabled', accountId: 'private-account-a', isAdmin: false } });
+  const matchingRead = await runtime.fetchApi('/api/creador/perfil/', {
+    headers: { 'x-creator-page-binding': originalBinding },
+  }, { session: 'disabled-same' });
+  assert.equal(matchingRead.status, 403);
+  assert.equal((await matchingRead.json()).error, 'ACCOUNT_DISABLED');
+  const matchingWrite = await runtime.fetchApi('/api/creador/perfil/', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json', 'x-creator-page-binding': originalBinding },
+    body: JSON.stringify({ displayName: 'No disabled write', slug: profile.slug, version: profile.version }),
+  }, { session: 'disabled-same' });
+  assert.equal(matchingWrite.status, 403);
+  assert.equal((await matchingWrite.json()).error, 'ACCOUNT_DISABLED');
+  assert.equal(runtime.pages.store.calls.length, storeCallsBefore, 'the matching disabled identity also stops before owner storage');
+  runtime.setSession('creator-a');
+  const persisted = await runtime.fetchApi('/api/creador/perfil/', {}, { session: 'creator-a' });
+  assert.equal((await persisted.json()).profile.displayName, 'Ana disabled-bound');
+});
+
 test('las escrituras owner comparan el binding de cuenta y rol antes de consultar o mutar el perfil', async () => {
   const runtime = await createCreatorOwnerRuntime();
   runtime.setSession('creator-a');
@@ -127,7 +175,7 @@ test('autorizar y finalizar fotos validan el binding antes de leer el perfil o i
   const originalBinding = creatorPageSessionBinding(state.principal);
   const request = (path, binding = originalBinding, body = { version: 1, uploadId: 'upload-photo' }) => {
     const headers = new Headers({
-      origin: SITE_ORIGIN, 'x-csrf-token': state.principal.csrfToken, 'content-type': 'application/json',
+      origin: SITE_ORIGIN, 'x-csrf-token': state.principal.csrfToken ?? 'disabled-no-token', 'content-type': 'application/json',
     });
     if (binding !== null) headers.set('x-creator-page-binding', binding);
     return new Request(new URL(path, SITE_ORIGIN), { method: 'POST', headers, body: JSON.stringify(body) });
@@ -162,4 +210,25 @@ test('autorizar y finalizar fotos validan el binding antes de leer el perfil o i
   const legacyFinalization = await handle(request('/api/creador/foto/finalizar/', null));
   assert.equal(legacyFinalization.status, 200);
   assert.deepEqual(calls, { profile: 2, authorize: 1, finalize: 1 });
+
+  const beforeDisabled = { ...calls };
+  state.principal = { state: 'disabled', accountId: 'private-other-photo-owner', isAdmin: false };
+  for (const [path, body] of [
+    ['/api/creador/foto/autorizar/', { version: 1 }],
+    ['/api/creador/foto/finalizar/', { version: 1, uploadId: 'upload-photo' }],
+  ]) {
+    const changedAccount = await handle(request(path, originalBinding, body));
+    assert.equal(changedAccount.status, 409);
+    assert.deepEqual(await changedAccount.json(), { error: 'SESSION_CONTEXT_CHANGED' });
+  }
+  state.principal = { state: 'disabled', accountId: 'private-photo-owner', isAdmin: false };
+  for (const [path, body] of [
+    ['/api/creador/foto/autorizar/', { version: 1 }],
+    ['/api/creador/foto/finalizar/', { version: 1, uploadId: 'upload-photo' }],
+  ]) {
+    const matchingAccount = await handle(request(path, originalBinding, body));
+    assert.equal(matchingAccount.status, 403);
+    assert.deepEqual(await matchingAccount.json(), { error: 'ACCOUNT_DISABLED' });
+  }
+  assert.deepEqual(calls, beforeDisabled, 'disabled identities never read the owner or reach photo services');
 });

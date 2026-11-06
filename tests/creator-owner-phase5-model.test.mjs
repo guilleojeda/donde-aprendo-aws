@@ -98,6 +98,8 @@ test('all phase 5 owner commands use Astro’s trailing-slash API paths', () => 
     `/api/creador/enlaces/${link.placementId}/`, '/api/creador/enlaces/',
     '/api/creador/referencias/', '/api/creador/reclamaciones/',
   ]);
+  assert.equal(ownerCommands.prepareCreatorOwnerRequest(ownerCommands.creatorOwnerWriteIntent('versioned-add', addEditor)).body.profileVersion,
+    profile.version, 'owner URL Add carries the profile version while legacy callers remain optional server-side');
 });
 
 test('removing a placement advances the profile while retaining owned resource authority', () => {
@@ -275,7 +277,7 @@ test('a stale claims GET keeps a claim accepted after that read started and leav
   const claim = { id: 'claim-after-read', resourceIds: ['resource-shared'], resources: [{ resourceId: 'resource-shared', url: 'https://example.test/shared' }], status: 'pending', createdAt: 2 };
   state = ownerState.creatorOwnerReducer(state, { type: 'begin-write', intent });
   state = ownerState.creatorOwnerReducer(state, { type: 'write-confirmed', intentId: intent.id, correction: false,
-    effect: { kind: 'claim-submitted', claim } });
+    effect: { kind: 'claim-submitted', profileId: profile.id, claim } });
   const profileAtNewClaim = state.observed.profile;
   const linksAtNewClaim = state.observed.links;
   const resourcesAtNewClaim = state.observed.editableResources;

@@ -8,8 +8,9 @@ import type {
   CreatorSeriesDTO,
 } from '../types/creators';
 import type { CreatorOwnerSeriesMembership, CreatorOwnerSeriesQuery } from './creator-owner-series';
-import { creatorOwnerChapterOrder, selectCreatorOwnerChapters, selectCreatorOwnerSeries } from './creator-owner-series';
+import { creatorOwnerChapterOrder } from './creator-owner-series';
 import { creatorOwnerLinkGroup, DEFAULT_CREATOR_OWNER_LINKS_QUERY, selectCreatorOwnerLinks } from './creator-owner-links';
+import { normalizeOwnerLinksQuery, normalizeOwnerSeriesQuery } from './creator-owner-navigation';
 import type { CreatorOwnerLinksQuery } from './creator-owner-links';
 
 export type CreatorOwnerProfileDraft = {
@@ -53,7 +54,7 @@ export type CreatorOwnerEditor =
 
 export type CreatorOwnerLinkEditor =
   | { kind: 'link-placement'; key: string; baseProfile: CreatorProfileDTO; baseLink: CreatorLinkDTO; editable: boolean; draft: CreatorOwnerLinkDraft;
-      optionsOnly?: true; sharedTextCorrection?: Pick<CreatorOwnerLinkDraft, 'title' | 'url' | 'description'>; pendingDirectoryOptionDecision?: true }
+      optionsOnly?: true; pendingAddDraft?: CreatorOwnerLinkDraft; pendingDirectoryOptionDecision?: true }
   | { kind: 'link-resource'; key: string; baseResource: CreatorEditableResourceDTO; draft: Pick<CreatorOwnerLinkDraft, 'title' | 'url' | 'description'> }
   | { kind: 'add-link'; key: 'add-link'; baseProfile: CreatorProfileDTO; draft: CreatorOwnerLinkDraft }
   | { kind: 'move-link'; key: string; baseProfile: CreatorProfileDTO; baseLink: CreatorLinkDTO; baseOrder: readonly string[]; targetPosition: string; suggestionPosition?: number }
@@ -87,7 +88,7 @@ export type CreatorOwnerEffect =
   | { kind: 'link-added'; profileId: string; profileVersion: number; link: CreatorLinkDTO; source: 'url' | 'reference' | 'reinclude'; created: boolean; resource?: CreatorEditableResourceDTO }
   | { kind: 'link-removed'; profileId: string; profileVersion: number; placementId: string }
   | { kind: 'resource-updated'; resource: CreatorEditableResourceDTO }
-  | { kind: 'claim-submitted'; claim: CreatorClaimDTO }
+  | { kind: 'claim-submitted'; profileId: string; claim: CreatorClaimDTO }
   | { kind: 'photo-updated'; profileId: string; profileVersion: number; photo: NonNullable<CreatorProfileDTO['photo']> };
 
 export interface CreatorOwnerWriteIntent {
@@ -140,9 +141,10 @@ export interface CreatorOwnerComparison {
 
 export type CreatorOwnerSession =
   | { state: 'ready'; csrfToken: string }
-  | { state: 'recovery-required'; reason: 'expired' | 'csrf' | 'different-principal'; message: string }
-  | { state: 'checking'; reason: 'expired' | 'csrf' | 'different-principal'; message: string }
-  | { state: 'blocked'; reason: 'disabled' | 'invalid-context'; message: string; ordinaryHistory?: true };
+  | { state: 'advisory'; reason: 'disabled'; message: string; csrfToken?: string }
+  | { state: 'recovery-required'; reason: 'expired' | 'csrf' | 'different-principal' | 'disabled' | 'check-required'; message: string; csrfToken?: string }
+  | { state: 'checking'; reason: 'expired' | 'csrf' | 'different-principal' | 'disabled' | 'check-required'; message: string; checkId: string; csrfToken?: string }
+  | { state: 'blocked'; reason: 'disabled' | 'invalid-context'; message: string };
 
 export type CreatorOwnerLocation = {
   view: CreatorOwnerView;
@@ -163,6 +165,7 @@ export interface CreatorOwnerState {
   observed: CreatorEditorDTO;
   accountEmail: string;
   sessionBinding: string;
+  sessionEvidence: { latestBoundOperationId: number; latestSessionCheckOperationId: number };
   isAdmin: boolean;
   publicOrigin: string;
   seriesQueryError?: string;
@@ -189,7 +192,6 @@ export interface CreatorOwnerState {
   claimHistory: {
     status: 'idle' | 'loading' | 'error';
     sequence: number;
-    startedClaimIds: string[];
     message?: string;
     /** True only for feedback derived from a session/account classification. */
     sessionDerived?: boolean;
@@ -238,17 +240,17 @@ export type CreatorOwnerAction =
   | { type: 'check-failed'; intentId: string; checkId: string; message: string }
   | { type: 'check-compared'; intentId: string; checkId: string; comparison: CreatorOwnerComparison }
   | { type: 'adopt-comparison'; comparisonId: string; addPlacementId?: string }
-  | { type: 'session-required'; reason: 'expired' | 'csrf' | 'different-principal'; message: string }
-  | { type: 'session-check-started' }
-  | { type: 'session-renewed'; csrfToken: string }
-  | { type: 'session-blocked'; reason: 'disabled' | 'invalid-context'; message: string; ordinaryHistory?: true }
+  | { type: 'session-check-started'; operationId: number; checkId: string }
+  | { type: 'session-evidence'; operationId: number; source: 'history' | 'bound' | 'session-check'; checkId?: string;
+      outcome: 'recoverable' | 'terminal' | 'read-confirmed' | 'write-confirmed' | 'renewed'; reason?: 'expired' | 'csrf' | 'different-principal' | 'disabled' | 'check-required' | 'invalid-context';
+      message: string; csrfToken?: string }
   | { type: 'set-message'; text: string; kind?: 'info' | 'success' | 'error' }
   | { type: 'set-series-search'; value: string }
   | { type: 'set-chapter-search'; value: string }
   | { type: 'set-pending-membership'; value: CreatorOwnerSeriesMembership }
-  | { type: 'apply-query'; query: CreatorOwnerSeriesQuery }
+  | { type: 'apply-query'; query: CreatorOwnerSeriesQuery; focusSelector?: string; preservePending?: boolean }
   | { type: 'set-links-pending-query'; query: Partial<CreatorOwnerLinksQuery> }
-  | { type: 'apply-links-query'; query: CreatorOwnerLinksQuery; focusSelector?: string }
+  | { type: 'apply-links-query'; query: CreatorOwnerLinksQuery; focusSelector?: string; preservePending?: boolean }
   | { type: 'set-series-query-error'; reason: 'series' }
   | { type: 'set-links-query-error'; reason: 'links' }
   | { type: 'clear-focus' }
@@ -261,6 +263,77 @@ export type CreatorOwnerAction =
   | { type: 'activity-ready'; period: 7 | 30; sequence: number; report: import('./creator-statistics-types').CreatorStatisticsReady }
   | { type: 'activity-failed'; period: 7 | 30; sequence: number; message: string }
   | { type: 'adopt-snapshot'; snapshot: CreatorEditorDTO };
+
+export type CreatorOwnerSessionPolicyState = Pick<CreatorOwnerState, 'session' | 'sessionEvidence'>;
+export type CreatorOwnerSessionPolicyAction = Extract<CreatorOwnerAction, { type: 'session-check-started' | 'session-evidence' }>;
+export type CreatorOwnerSessionPolicyResult = CreatorOwnerSessionPolicyState & { feedback?: CreatorOwnerState['message']; accepted: boolean };
+
+export function reduceCreatorOwnerSessionPolicy(
+  state: CreatorOwnerSessionPolicyState,
+  action: CreatorOwnerSessionPolicyAction,
+): CreatorOwnerSessionPolicyResult {
+  const current = state.session;
+  if (action.type === 'session-check-started') {
+    if (action.operationId <= state.sessionEvidence.latestSessionCheckOperationId || current.state !== 'recovery-required') return { ...state, accepted: false };
+    return { ...state, sessionEvidence: { ...state.sessionEvidence, latestSessionCheckOperationId: action.operationId },
+      session: { ...current, state: 'checking', checkId: action.checkId },
+      feedback: { text: 'Comprobando la sesión…', kind: 'info' }, accepted: true };
+  }
+  if (action.source === 'history' && (action.operationId <= state.sessionEvidence.latestBoundOperationId
+    || action.operationId <= state.sessionEvidence.latestSessionCheckOperationId)) return { ...state, accepted: false };
+  if (action.source === 'bound' && (action.operationId <= state.sessionEvidence.latestBoundOperationId
+    || action.operationId <= state.sessionEvidence.latestSessionCheckOperationId)) return { ...state, accepted: false };
+  if (action.source === 'session-check' && (action.operationId !== state.sessionEvidence.latestSessionCheckOperationId
+    || state.sessionEvidence.latestBoundOperationId > action.operationId)) return { ...state, accepted: false };
+  if (action.source === 'history' && action.outcome === 'recoverable') {
+    if (current.state === 'blocked' || current.state === 'checking') return { ...state, accepted: false };
+    const reason = action.reason;
+    if (!reason || reason === 'invalid-context') return { ...state, accepted: false };
+    const session: CreatorOwnerSession = reason === 'disabled'
+      ? { state: 'advisory', reason, message: action.message, ...(current.state === 'ready' ? { csrfToken: current.csrfToken } : current.csrfToken ? { csrfToken: current.csrfToken } : {}) }
+      : { state: 'recovery-required', reason, message: action.message, ...(current.state === 'ready' ? { csrfToken: current.csrfToken } : current.csrfToken ? { csrfToken: current.csrfToken } : {}) };
+    return { ...state, session, feedback: { text: action.message, kind: 'error' }, accepted: true };
+  }
+  if (action.source === 'session-check' && (current.state !== 'checking' || current.checkId !== action.checkId)) return { ...state, accepted: false };
+  if (current.state === 'blocked') return { ...state, accepted: false };
+  const boundEvidence = action.source === 'bound'
+    ? { ...state.sessionEvidence, latestBoundOperationId: action.operationId }
+    : state.sessionEvidence;
+  if (action.outcome === 'read-confirmed') {
+    if (action.source !== 'bound') return { ...state, accepted: false };
+    if (current.state === 'advisory' || current.state === 'checking') {
+      const message = 'La lectura confirmó esta página. Comprueba la sesión para habilitar cambios.';
+      return { ...state, sessionEvidence: boundEvidence, session: { state: 'recovery-required', reason: 'check-required', message, csrfToken: current.csrfToken },
+        feedback: { text: message, kind: 'info' }, accepted: true };
+    }
+    return { ...state, sessionEvidence: boundEvidence, accepted: true };
+  }
+  if (action.outcome === 'write-confirmed' || action.outcome === 'renewed') {
+    if (action.source === 'session-check' && action.outcome !== 'renewed'
+      || action.source === 'bound' && action.outcome !== 'write-confirmed'
+      || action.source === 'history' || typeof action.csrfToken !== 'string') return { ...state, accepted: false };
+    const wasRecovery = current.state !== 'ready';
+    return { ...state, sessionEvidence: boundEvidence, session: { state: 'ready', csrfToken: action.csrfToken },
+      ...(wasRecovery ? { feedback: { text: action.source === 'session-check'
+        ? 'Sesión comprobada. Tus cambios siguen aquí; puedes decidir qué guardar.'
+        : 'La respuesta ligada confirmó el acceso a esta página. Conservamos tus cambios.', kind: 'success' as const } } : {}), accepted: true };
+  }
+  if (action.outcome === 'terminal') {
+    if (!action.reason || (action.reason !== 'disabled' && action.reason !== 'invalid-context')) return { ...state, accepted: false };
+    if (action.source === 'history' && action.reason !== 'invalid-context') return { ...state, accepted: false };
+    return { ...state, sessionEvidence: boundEvidence, session: { state: 'blocked', reason: action.reason, message: action.message },
+      feedback: { text: action.message, kind: 'error' }, accepted: true };
+  }
+  if (action.outcome === 'recoverable') {
+    if (!action.reason || action.reason === 'invalid-context'
+      || action.reason === 'disabled' && action.source === 'bound'
+      || action.source === 'history' && action.reason === 'disabled') return { ...state, accepted: false };
+    return { ...state, sessionEvidence: boundEvidence, session: { state: 'recovery-required', reason: action.reason, message: action.message,
+      ...(current.state === 'ready' ? { csrfToken: current.csrfToken } : current.csrfToken ? { csrfToken: current.csrfToken } : {}) },
+      feedback: { text: action.message, kind: 'error' }, accepted: true };
+  }
+  return { ...state, accepted: false };
+}
 
 function copySnapshot(data: CreatorEditorDTO): CreatorEditorDTO {
   const profile = data.profile ? {
@@ -278,6 +351,37 @@ function copySnapshot(data: CreatorEditorDTO): CreatorEditorDTO {
   };
 }
 
+function copyClaim(claim: CreatorClaimDTO): CreatorClaimDTO {
+  return { ...claim, resourceIds: [...claim.resourceIds], ...(claim.resources ? { resources: claim.resources.map((item) => ({ ...item })) } : {}) };
+}
+
+/** Claim rows version independently of the profile, so every owner observation uses this merge. */
+function mergeClaimObservations(previous: readonly CreatorClaimDTO[], incoming: readonly CreatorClaimDTO[]): CreatorClaimDTO[] {
+  const merged = previous.map(copyClaim);
+  const indexes = new Map(merged.map((claim, index) => [claim.id, index]));
+  for (const observed of incoming) {
+    const index = indexes.get(observed.id);
+    if (index === undefined) {
+      indexes.set(observed.id, merged.length);
+      merged.push(copyClaim(observed));
+      continue;
+    }
+    const current = merged[index];
+    if (observed.version !== undefined && (current.version === undefined || observed.version > current.version)) {
+      merged[index] = copyClaim(observed);
+    }
+  }
+  return merged;
+}
+
+function copySnapshotWithClaimMerge(previous: CreatorEditorDTO, data: CreatorEditorDTO): CreatorEditorDTO {
+  const snapshot = copySnapshot(data);
+  if (previous.profile && snapshot.profile?.id === previous.profile.id) {
+    snapshot.claims = mergeClaimObservations(previous.claims, snapshot.claims);
+  }
+  return snapshot;
+}
+
 function cloneEditor(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor): CreatorOwnerEditor | CreatorOwnerLinkEditor {
   switch (editor.kind) {
     case 'create-profile': return { ...editor, draft: { ...editor.draft } };
@@ -287,7 +391,7 @@ function cloneEditor(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor): Creat
     case 'photo': return { ...editor };
     case 'series': return { ...editor, baseProfile: { ...editor.baseProfile }, baseSeries: editor.baseSeries ? { ...editor.baseSeries } : null, draft: { ...editor.draft } };
     case 'move-chapter': return { ...editor, baseProfile: { ...editor.baseProfile }, baseSeries: { ...editor.baseSeries }, basePlacement: { ...editor.basePlacement, series: editor.basePlacement.series.map((item) => ({ ...item })) }, baseOrder: [...editor.baseOrder] };
-    case 'link-placement': return { ...editor, baseProfile: { ...editor.baseProfile }, baseLink: { ...editor.baseLink, series: editor.baseLink.series.map((item) => ({ ...item })) }, draft: { ...editor.draft } };
+    case 'link-placement': return { ...editor, baseProfile: { ...editor.baseProfile }, baseLink: { ...editor.baseLink, series: editor.baseLink.series.map((item) => ({ ...item })) }, draft: { ...editor.draft }, ...(editor.pendingAddDraft ? { pendingAddDraft: { ...editor.pendingAddDraft } } : {}) };
     case 'link-resource': return { ...editor, baseResource: { ...editor.baseResource }, draft: { ...editor.draft } };
     case 'add-link': return { ...editor, baseProfile: { ...editor.baseProfile }, draft: { ...editor.draft } };
     case 'move-link': return { ...editor, baseProfile: { ...editor.baseProfile }, baseLink: { ...editor.baseLink, series: editor.baseLink.series.map((item) => ({ ...item })) }, baseOrder: [...editor.baseOrder] };
@@ -322,6 +426,7 @@ export function createCreatorOwnerState(input: {
     observed: data,
     accountEmail: input.accountEmail,
     sessionBinding: input.sessionBinding,
+    sessionEvidence: { latestBoundOperationId: 0, latestSessionCheckOperationId: 0 },
     isAdmin: input.isAdmin,
     publicOrigin: input.publicOrigin,
     ...(input.seriesQueryError ? { seriesQueryError: input.seriesQueryError } : {}),
@@ -344,7 +449,7 @@ export function createCreatorOwnerState(input: {
     },
     activity: { period: input.initialActivityPeriod ?? 30, sequence: 0, status: 'idle' },
     catalog: { status: 'idle', search: '', page: 1, needsRefresh: false, rejectedReferenceSelections: [] },
-    claimHistory: { status: 'idle', sequence: 0, startedClaimIds: [] },
+    claimHistory: { status: 'idle', sequence: 0 },
     runtimeReady: false,
   };
 }
@@ -471,7 +576,8 @@ function applyEffect(data: CreatorEditorDTO, effect: CreatorOwnerEffect): Creato
       next.editableResources = next.editableResources.map((resource) => resource.id === effect.resource.id ? { ...effect.resource } : resource);
       return next;
     case 'claim-submitted':
-      if (!next.claims.some(({ id }) => id === effect.claim.id)) next.claims = [...next.claims, { ...effect.claim, resourceIds: [...effect.claim.resourceIds], ...(effect.claim.resources ? { resources: effect.claim.resources.map((item) => ({ ...item })) } : {}) }];
+      if (next.profile?.id !== effect.profileId) return next;
+      next.claims = mergeClaimObservations(next.claims, [effect.claim]);
       return next;
   }
 }
@@ -537,9 +643,61 @@ function completeReference(
 }
 
 function sharedAddDraft(editor: Extract<CreatorOwnerLinkEditor, { kind: 'link-placement' }>,
-  text: NonNullable<typeof editor.sharedTextCorrection>, profile: CreatorProfileDTO): CreatorOwnerLinkEditor {
+  profile: CreatorProfileDTO): CreatorOwnerLinkEditor {
+  if (!editor.pendingAddDraft) throw new TypeError('La continuación no contiene el borrador completo del alta.');
   return { kind: 'add-link', key: 'add-link', baseProfile: profile,
-    draft: { ...text, featured: false, selectedForDirectory: editor.draft.selectedForDirectory } };
+    draft: { ...editor.pendingAddDraft } };
+}
+
+function addAfterDuplicate(
+  editor: Extract<CreatorOwnerLinkEditor, { kind: 'add-link' }>,
+  link: CreatorLinkDTO,
+  profile: CreatorProfileDTO,
+  editable: boolean,
+  openSaved = false,
+  submittedDraft?: CreatorOwnerLinkDraft,
+): CreatorOwnerEditor | CreatorOwnerLinkEditor | undefined {
+  const pendingAddDraft = { ...editor.draft };
+  const textDiffers = pendingAddDraft.title !== link.title || pendingAddDraft.url !== link.url
+    || pendingAddDraft.description !== (link.description ?? '');
+  const optionDiffers = pendingAddDraft.selectedForDirectory !== link.selectedForDirectory;
+  const optionChangedAfterSubmit = Boolean(submittedDraft
+    && pendingAddDraft.selectedForDirectory !== submittedDraft.selectedForDirectory);
+  if (!openSaved && !editable && !optionDiffers && !optionChangedAfterSubmit && textDiffers) {
+    return { ...editor, baseProfile: { ...profile }, draft: pendingAddDraft };
+  }
+  if (!openSaved && !textDiffers && !optionDiffers && !optionChangedAfterSubmit) return undefined;
+  const keepIndependentSharedAdd = !editable && (textDiffers || optionDiffers || optionChangedAfterSubmit);
+  return {
+    kind: 'link-placement', key: `link:${link.placementId}`, baseProfile: { ...profile },
+    baseLink: { ...link, series: link.series.map((item) => ({ ...item })) }, editable,
+    draft: editable ? { ...pendingAddDraft, featured: link.featured }
+      : { ...linkDraft(link), selectedForDirectory: pendingAddDraft.selectedForDirectory },
+    ...(keepIndependentSharedAdd ? { pendingAddDraft } : {}),
+    ...(optionDiffers || optionChangedAfterSubmit ? { pendingDirectoryOptionDecision: true as const } : {}),
+  };
+}
+
+type AddSettlement =
+  | { kind: 'created'; correction: boolean }
+  | { kind: 'duplicate'; submittedDraft?: CreatorOwnerLinkDraft }
+  | { kind: 'observed'; submittedDraft?: CreatorOwnerLinkDraft };
+
+function settleAdd(
+  editor: Extract<CreatorOwnerLinkEditor, { kind: 'add-link' }>,
+  link: CreatorLinkDTO,
+  profile: CreatorProfileDTO,
+  editable: boolean,
+  settlement: AddSettlement,
+): CreatorOwnerEditor | CreatorOwnerLinkEditor | undefined {
+  if (settlement.kind === 'created') {
+    if (!settlement.correction) return undefined;
+    if (editable) return { kind: 'link-placement', key: `link:${link.placementId}`, baseProfile: { ...profile },
+      baseLink: { ...link, series: link.series.map((item) => ({ ...item })) }, editable: true,
+      draft: { ...editor.draft, featured: link.featured } };
+    return { ...editor, baseProfile: { ...profile } };
+  }
+  return addAfterDuplicate(editor, link, profile, editable, settlement.kind === 'observed', settlement.submittedDraft);
 }
 
 function editorAfterEffect(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor | undefined, intent: CreatorOwnerWriteIntent, effect: CreatorOwnerEffect, correction: boolean, data: CreatorEditorDTO): CreatorOwnerEditor | CreatorOwnerLinkEditor | undefined {
@@ -577,12 +735,12 @@ function editorAfterEffect(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor |
   }
   if (effect.kind === 'link-updated' && editor.kind === 'link-placement' && editor.baseLink.placementId === effect.link.placementId) {
     const updated = data.links.find(({ placementId }) => placementId === effect.link.placementId) ?? effect.link;
-    if (!correction && editor.sharedTextCorrection) return sharedAddDraft(editor, editor.sharedTextCorrection, data.profile ?? editor.baseProfile);
+    if (!correction && editor.pendingAddDraft) return sharedAddDraft(editor, data.profile ?? editor.baseProfile);
     return { kind: 'link-placement', key: editor.key,
       baseProfile: data.profile ? { ...data.profile } : editor.baseProfile, baseLink: { ...updated }, editable: editor.editable,
       draft: correction ? editor.draft : linkDraft(updated),
       ...(editor.optionsOnly ? { optionsOnly: true as const } : {}),
-      ...(editor.sharedTextCorrection ? { sharedTextCorrection: editor.sharedTextCorrection } : {}),
+      ...(editor.pendingAddDraft ? { pendingAddDraft: { ...editor.pendingAddDraft } } : {}),
       ...(correction && editor.pendingDirectoryOptionDecision ? { pendingDirectoryOptionDecision: true as const } : {}) };
   }
   if (effect.kind === 'resource-updated' && editor.kind === 'link-resource' && editor.baseResource.id === effect.resource.id) {
@@ -600,27 +758,10 @@ function editorAfterEffect(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor |
   if (effect.kind === 'link-added' && editor.kind === 'add-link' && editor.baseProfile.id === effect.profileId) {
     const updated = data.links.find(({ placementId }) => placementId === effect.link.placementId) ?? effect.link;
     const editable = data.editableResources.some(({ id }) => id === updated.resourceId);
-    if (effect.created) {
-      if (!correction) return undefined;
-      if (editable) return { kind: 'link-placement', key: `link:${updated.placementId}`, baseProfile: data.profile ?? editor.baseProfile,
-        baseLink: { ...updated }, editable: true, draft: { ...editor.draft } };
-      return { ...editor, baseProfile: data.profile ?? editor.baseProfile };
-    }
-    // A shared no-op confirms the stored metadata, not the Add text. That
-    // text can already be a retained draft even if this request had no later input.
-    const unsavedSharedText = !editable && (editor.draft.title !== updated.title || editor.draft.url !== updated.url
-      || editor.draft.description !== (updated.description ?? ''))
-      ? { title: editor.draft.title, url: editor.draft.url, description: editor.draft.description } : undefined;
-    if (unsavedSharedText && editor.draft.selectedForDirectory === updated.selectedForDirectory) {
-      return { ...editor, baseProfile: data.profile ?? editor.baseProfile };
-    }
-    const duplicateEditor: CreatorOwnerLinkEditor = { kind: 'link-placement', key: `link:${updated.placementId}`,
-      baseProfile: data.profile ?? editor.baseProfile, baseLink: { ...updated }, editable,
-      draft: editable
-        ? { ...editor.draft, featured: updated.featured }
-        : { ...linkDraft(updated), selectedForDirectory: editor.draft.selectedForDirectory },
-      ...(unsavedSharedText ? { sharedTextCorrection: unsavedSharedText, pendingDirectoryOptionDecision: true as const } : {}) };
-    return creatorOwnerLinkDraftIsDirty(duplicateEditor) ? duplicateEditor : undefined;
+    const submittedDraft = intent.capture.kind === 'add-link' ? intent.capture.draft : undefined;
+    return settleAdd(editor, updated, data.profile ?? editor.baseProfile, editable, effect.created
+      ? { kind: 'created', correction }
+      : { kind: 'duplicate', ...(submittedDraft ? { submittedDraft } : {}) });
   }
   if (effect.kind === 'claim-submitted' && editor.kind === 'claim') {
     const submitted = intent.capture.kind === 'claim' ? intent.capture : undefined;
@@ -667,7 +808,7 @@ export function creatorOwnerDraftIsDirty(editor: CreatorOwnerEditor | CreatorOwn
 export function creatorOwnerLinkDraftIsDirty(editor: CreatorOwnerLinkEditor): boolean {
   switch (editor.kind) {
     case 'link-placement': return JSON.stringify(editor.draft) !== JSON.stringify(linkDraft(editor.baseLink))
-      || Boolean(editor.sharedTextCorrection || editor.pendingDirectoryOptionDecision);
+      || Boolean(editor.pendingAddDraft || editor.pendingDirectoryOptionDecision);
     case 'link-resource': return JSON.stringify(editor.draft) !== JSON.stringify(resourceDraft(editor.baseResource));
     case 'add-link': return Boolean(editor.draft.title.trim() || editor.draft.url.trim() || editor.draft.description.trim() || !editor.draft.selectedForDirectory);
     case 'move-link': return editor.targetPosition !== String(editor.baseOrder.indexOf(editor.baseLink.placementId) + 1);
@@ -704,15 +845,6 @@ function sameReferenceSelection(left: Pick<CreatorCatalogSelectionDTO, 'id' | 'u
 function referenceSelectionWasRejected(rejectedSelections: readonly Pick<CreatorCatalogSelectionDTO, 'id' | 'url'>[],
   selected: Pick<CreatorCatalogSelectionDTO, 'id' | 'url'> | undefined): boolean {
   return Boolean(selected && rejectedSelections.some((rejected) => sameReferenceSelection(rejected, selected)));
-}
-
-function normalizeLinksQuery(
-  links: readonly CreatorLinkDTO[],
-  series: readonly CreatorSeriesDTO[],
-  query: CreatorOwnerLinksQuery,
-): CreatorOwnerLinksQuery {
-  const seriesExists = query.serie === 'todos' || series.some(({ id }) => id === query.serie);
-  return selectCreatorOwnerLinks(links, series, seriesExists ? query : { ...query, serie: 'todos' }).query;
 }
 
 export function creatorOwnerEditorChangedSince(capture: CreatorOwnerEditor | CreatorOwnerLinkEditor | CreatorOwnerListContext, current: CreatorOwnerEditor | CreatorOwnerLinkEditor | undefined): boolean {
@@ -758,9 +890,9 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       return state.editor?.kind === 'add-link' ? { ...state, editor: { ...state.editor, draft: { ...state.editor.draft, ...action.value } } } : state;
     case 'resume-shared-add': {
       const editor = state.editor;
-      if (editor?.kind !== 'link-placement' || !editor.sharedTextCorrection
+      if (editor?.kind !== 'link-placement' || !editor.pendingAddDraft
         || (state.attempt.status !== 'confirmed' && state.attempt.status !== 'idle')) return state;
-      return { ...state, editor: sharedAddDraft(editor, editor.sharedTextCorrection, editor.baseProfile),
+      return { ...state, editor: sharedAddDraft(editor, editor.baseProfile),
         message: { text: 'Recuperaste el borrador del alta. Las opciones de la ficha compartida siguen sin cambios.', kind: 'info' },
         location: { ...state.location, focusAfterRender: '#owner-add-link-title' } };
     }
@@ -824,22 +956,18 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
     case 'catalog-page': return { ...state, catalog: { ...state.catalog, page: action.value } };
     case 'catalog-require-refresh': return { ...state, catalog: { ...state.catalog, needsRefresh: true, message: action.message } };
     case 'claim-history-started': return { ...state, claimHistory: { status: 'loading', sequence: action.sequence,
-      startedClaimIds: state.observed.claims.map(({ id }) => id), message: 'Comprobando solicitudes…' } };
+      message: 'Comprobando solicitudes…' } };
     case 'claim-history-ready': {
       if (state.claimHistory.sequence !== action.sequence) return state;
-      const fetchedIds = new Set(action.claims.map(({ id }) => id));
-      const startedIds = new Set(state.claimHistory.startedClaimIds);
-      const addedWhileReading = state.observed.claims.filter(({ id }) => !startedIds.has(id) && !fetchedIds.has(id));
-      const claims = [...action.claims, ...addedWhileReading];
-      return { ...state, observed: { ...state.observed, claims: claims.map((claim) => ({ ...claim, resourceIds: [...claim.resourceIds], ...(claim.resources ? { resources: claim.resources.map((item) => ({ ...item })) } : {}) })) },
-        claimHistory: { status: 'idle', sequence: action.sequence, startedClaimIds: [], message: action.message } };
+      return { ...state, observed: { ...state.observed, claims: mergeClaimObservations(state.observed.claims, action.claims) },
+        claimHistory: { status: 'idle', sequence: action.sequence, message: action.message } };
     }
     case 'claim-history-failed': return state.claimHistory.sequence === action.sequence
-      ? { ...state, claimHistory: { status: 'error', sequence: action.sequence, startedClaimIds: [], message: action.message,
+      ? { ...state, claimHistory: { status: 'error', sequence: action.sequence, message: action.message,
         ...(action.sessionDerived ? { sessionDerived: true } : {}) } } : state;
     case 'claim-history-session-cleared': {
       if (state.claimHistory.sequence > action.sequence || state.claimHistory.status !== 'error' || !state.claimHistory.sessionDerived) return state;
-      return { ...state, claimHistory: { status: 'idle', sequence: state.claimHistory.sequence, startedClaimIds: [] } };
+      return { ...state, claimHistory: { status: 'idle', sequence: state.claimHistory.sequence } };
     }
     case 'claim-attempt-checked':
       if (state.attempt.status !== 'checking' || state.attempt.intent.id !== action.intentId || state.attempt.checkId !== action.checkId) return state;
@@ -856,7 +984,7 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
     case 'photo-check-complete': {
       const intent = currentAttempt(state, action.intentId);
       if (!intent || intent.kind !== 'photo' || !isCreatorOwnerProfileForIntent(action.snapshot, intent)) return state;
-      const snapshot = copySnapshot(action.snapshot);
+      const snapshot = copySnapshotWithClaimMerge(state.observed, action.snapshot);
       const editor = state.editor?.kind === 'photo' && state.editor.key === intent.editorKey && snapshot.profile
         ? { ...state.editor, base: { ...snapshot.profile }, uploadId: undefined, uploadedFile: undefined,
           file: action.uploaded && state.editor.file === action.uploadedFile ? undefined : state.editor.file }
@@ -916,7 +1044,7 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       const resumedSharedAdd = action.effect.kind === 'link-updated' && editor?.kind === 'add-link';
       const duplicateUrl = action.effect.kind === 'link-added' && action.effect.source === 'url' && !action.effect.created;
       const confirmationMessage = referenceCompletion?.message ?? (duplicateUrl
-        ? editor?.kind === 'add-link' || editor?.kind === 'link-placement' && editor.sharedTextCorrection
+        ? editor?.kind === 'add-link' || editor?.kind === 'link-placement' && editor.pendingAddDraft
           ? 'Ese contenido ya estaba en tu página. Conservamos tu borrador.'
           : 'Ese contenido ya estaba en tu página. No cambiamos su ficha, opciones, posición ni series.'
         : resumedSharedAdd ? 'Guardaste las opciones del enlace. El borrador del alta sigue pendiente.'
@@ -974,15 +1102,12 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         return { ...state, attempt: { ...state.attempt, comparison: undefined, message }, message: { text: message, kind: 'info' },
           location: { ...state.location, focusAfterRender: state.location.prompt === 'exit' ? '#owner-exit-compare' : '#owner-compare' } };
       }
-      const snapshot = copySnapshot(comparison.snapshot);
+      const snapshot = copySnapshotWithClaimMerge(state.observed, comparison.snapshot);
       if (!current && listOperation) {
-        const query = selectCreatorOwnerSeries(snapshot.series, state.location.query).query;
-        const seriesStillExists = Boolean(query.serie) && snapshot.series.some(({ id }) => id === query.serie);
-        const currentLinksQuery = normalizeLinksQuery(snapshot.links, snapshot.series, state.location.linksQuery);
-        const pendingLinksQuery = normalizeLinksQuery(snapshot.links, snapshot.series, state.location.pendingLinksQuery);
-        const currentQuery = seriesStillExists
-          ? selectCreatorOwnerChapters(snapshot, query).query
-          : { ...query, serie: '', buscarCapitulos: '', pertenencia: 'todos' as const, paginaCapitulos: 1 };
+        const currentQuery = normalizeOwnerSeriesQuery(snapshot, state.location.query);
+        const seriesStillExists = Boolean(currentQuery.serie);
+        const currentLinksQuery = normalizeOwnerLinksQuery(snapshot, state.location.linksQuery);
+        const pendingLinksQuery = normalizeOwnerLinksQuery(snapshot, state.location.pendingLinksQuery);
         const focusAfterRender = state.location.view === 'enlaces'
           ? state.location.linksQueryError ? '#contenido' : '#owner-link-search'
           : state.location.view === 'series'
@@ -1049,11 +1174,15 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
           draft: { ...linkDraft(link), ...(current.pendingDirectoryOptionDecision
             ? { selectedForDirectory: current.draft.selectedForDirectory } : {}) },
           editable: !current.optionsOnly && snapshot.editableResources.some(({ id }) => id === link.resourceId) };
-        else if (current.sharedTextCorrection) {
-          // A later options write can race with removal of the shared
-          // placement. The removal is authoritative: do not recreate it or
-          // retry its PATCH. Continue with the independent Add draft instead.
-          editor = sharedAddDraft(current, current.sharedTextCorrection, snapshot.profile);
+        else if (current.pendingAddDraft) {
+          // The removed placement is authoritative. Resume the independent
+          // Add draft with the adopted profile; never recreate the placement.
+          editor = sharedAddDraft(current, snapshot.profile);
+        } else if (current.optionsOnly) {
+          const selection = state.catalog.entries?.find(({ id, url }) => id === current.baseLink.resourceId && url === current.baseLink.url);
+          editor = { kind: 'reference', key: 'reference', baseProfile: { ...snapshot.profile },
+            ...(selection && !referenceSelectionWasRejected(state.catalog.rejectedReferenceSelections, selection)
+              ? { selected: { ...selection } } : {}), selectedForDirectory: current.draft.selectedForDirectory };
         }
       } else if (current.kind === 'link-resource') {
         const resource = snapshot.editableResources.find(({ id }) => id === current.baseResource.id);
@@ -1070,26 +1199,10 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
           : undefined;
         if (!recovered) editor = { ...current, baseProfile: { ...snapshot.profile } };
         else {
-          const sent = state.attempt.intent.capture.kind === 'add-link' ? state.attempt.intent.capture.draft : current.draft;
-          const { title, url, description, selectedForDirectory } = current.draft;
-          const savedText = { title: recovered.title, url: recovered.url, description: recovered.description ?? '' };
-          const submittedText = { title, url, description };
-          const textDiffersFromSaved = title !== savedText.title || url !== savedText.url || description !== savedText.description;
-          const lateText = {
-            ...(title !== sent.title ? { title } : {}),
-            ...(url !== sent.url ? { url } : {}),
-            ...(description !== sent.description ? { description } : {}),
-          };
-          const lateOption = selectedForDirectory !== sent.selectedForDirectory;
           const editable = snapshot.editableResources.some(({ id }) => id === recovered.resourceId);
-          editor = { kind: 'link-placement', key: `link:${recovered.placementId}`, baseProfile: { ...snapshot.profile }, baseLink: { ...recovered }, editable,
-            // A duplicate acknowledgement proves the existing placement, not
-            // that a shared placement's metadata matches the submitted Add
-            // text. Keep that shared text as an explicit manual correction;
-            // an owned resource still applies only later edits below.
-            draft: { ...linkDraft(recovered), ...(editable ? lateText : {}), ...(lateOption ? { selectedForDirectory } : {}) },
-            ...(!editable && textDiffersFromSaved ? { sharedTextCorrection: submittedText } : {}),
-            ...(lateOption ? { pendingDirectoryOptionDecision: true as const } : {}) };
+          const submittedDraft = state.attempt.intent.capture.kind === 'add-link' ? state.attempt.intent.capture.draft : undefined;
+          editor = settleAdd(current, recovered, snapshot.profile, editable,
+            { kind: 'observed', ...(submittedDraft ? { submittedDraft } : {}) });
         }
       }
       const adoptionMessage = referenceCompletion?.message ?? (current.kind === 'series' && !current.baseSeries && !comparison.seriesId
@@ -1098,7 +1211,9 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
           : current.kind === 'add-link' && !action.addPlacementId ? 'Usaste la página guardada como base. El borrador del alta sigue separado de las fichas guardadas.'
             : current.kind === 'add-link' ? 'Abriste la ficha que elegiste. Revisa la corrección antes de guardarla.'
               : current.kind === 'link-placement' && editor?.kind === 'add-link'
-                ? 'La colocación compartida ya no está en tu página. No la reincorporamos; conservamos el borrador del alta para una acción manual.'
+                ? 'La colocación ya no está en tu página. No la reincorporamos; conservamos el borrador del alta con el perfil actual.'
+                : current.kind === 'link-placement' && editor?.kind === 'reference'
+                  ? 'La colocación ya no está en tu página. Conservamos la selección y su opción para una decisión manual; no repetimos ni recreamos la referencia.'
               : current.kind === 'link-placement' && current.pendingDirectoryOptionDecision
                 ? 'Conservamos tu decisión posterior sobre la propuesta. Puedes guardarla o descartarla antes de salir.'
                 : 'Usaste los datos guardados. Puedes iniciar otra corrección cuando quieras.');
@@ -1116,30 +1231,33 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
           focusAfterRender: referenceCompletion ? referenceCompletion.focusAfterRender
             : current.kind === 'series' && !snapshot.series.some(({ id }) => id === current.baseSeries?.id) ? '#owner-series-title'
               : editor?.kind === 'add-link' ? '#owner-add-link-title'
+                : editor?.kind === 'reference' ? editor.selected ? '#owner-link-directory-option' : '#owner-catalog-search'
                 : editor?.kind === 'link-placement' && (current.kind === 'add-link' || editor.pendingDirectoryOptionDecision)
                   ? editor.editable && current.kind === 'add-link' ? '#owner-link-title' : '#owner-link-directory-option'
                 : current.kind === 'link-placement' || current.kind === 'link-resource' || current.kind === 'move-link' ? '#owner-link-search' : undefined },
       };
     }
-    case 'session-required':
-      if (state.session.state === 'blocked' && !state.session.ordinaryHistory) return state;
-      return { ...state, session: { state: 'recovery-required', reason: action.reason, message: action.message }, message: { text: action.message, kind: 'error' } };
     case 'session-check-started':
-      return state.session.state === 'recovery-required' ? { ...state, session: { ...state.session, state: 'checking' }, message: { text: 'Comprobando la sesión…', kind: 'info' } } : state;
-    case 'session-renewed':
-      if (state.session.state === 'blocked' && !state.session.ordinaryHistory) return state;
-      return { ...state, session: { state: 'ready', csrfToken: action.csrfToken }, message: { text: 'Sesión comprobada. Tus cambios siguen aquí; puedes decidir qué guardar.', kind: 'success' } };
-    case 'session-blocked':
-      if (state.session.state === 'blocked' && !state.session.ordinaryHistory) return state;
-      return { ...state, session: { state: 'blocked', reason: action.reason, message: action.message,
-        ...(action.ordinaryHistory ? { ordinaryHistory: true as const } : {}) }, message: { text: action.message, kind: 'error' } };
+    case 'session-evidence': {
+      const nextPolicy = reduceCreatorOwnerSessionPolicy(state, action);
+      if (nextPolicy.sessionEvidence === state.sessionEvidence && nextPolicy.session === state.session) return state;
+      return { ...state, session: nextPolicy.session, sessionEvidence: nextPolicy.sessionEvidence,
+        ...(nextPolicy.accepted && nextPolicy.feedback ? { message: nextPolicy.feedback } : {}) };
+    }
     case 'set-message': return { ...state, message: { text: action.text, kind: action.kind ?? 'info' } };
     case 'set-series-search': return { ...state, location: { ...state.location, pendingSeriesSearch: action.value } };
     case 'set-chapter-search': return { ...state, location: { ...state.location, pendingChapterSearch: action.value } };
-    case 'apply-query': return { ...state, seriesQueryError: undefined, location: { ...state.location, query: { ...action.query }, pendingSeriesSearch: action.query.buscarSeries, pendingChapterSearch: action.query.buscarCapitulos, pendingMembership: action.query.pertenencia,
-      focusAfterRender: action.query.serie ? action.query.serie !== state.location.query.serie ? '#owner-series-chapters-title' : '#owner-chapter-search' : '#owner-series-search' } };
+    case 'apply-query': return { ...state, seriesQueryError: undefined, location: { ...state.location, query: action.query,
+      ...(action.preservePending ? {} : { pendingSeriesSearch: action.query.buscarSeries }),
+      ...(action.preservePending && action.query.serie === state.location.query.serie ? {} : {
+        pendingChapterSearch: action.query.buscarCapitulos, pendingMembership: action.query.pertenencia,
+      }),
+      ...(action.preservePending ? {} : { focusAfterRender: action.focusSelector }) } };
     case 'set-links-pending-query': return { ...state, location: { ...state.location, pendingLinksQuery: { ...state.location.pendingLinksQuery, ...action.query } } };
-    case 'apply-links-query': return { ...state, location: { ...state.location, linksQueryError: undefined, linksQuery: { ...action.query }, pendingLinksQuery: { ...action.query }, focusAfterRender: action.focusSelector ?? '#owner-links-title' } };
+    case 'apply-links-query': return { ...state, location: { ...state.location, linksQueryError: undefined, linksQuery: action.query,
+      ...(action.preservePending ? {
+        pendingLinksQuery: normalizeOwnerLinksQuery(state.observed, state.location.pendingLinksQuery),
+      } : { pendingLinksQuery: action.query, focusAfterRender: action.focusSelector }) } };
     case 'set-series-query-error': return { ...state, seriesQueryError: action.reason };
     case 'set-links-query-error': return { ...state, location: { ...state.location, linksQueryError: action.reason } };
     case 'set-pending-membership': return { ...state, location: { ...state.location, pendingMembership: action.value } };
@@ -1158,6 +1276,6 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       return state.activity.sequence === action.sequence && state.activity.period === action.period ? { ...state, activity: { ...state.activity, status: 'ready', report: action.report, message: undefined } } : state;
     case 'activity-failed':
       return state.activity.sequence === action.sequence && state.activity.period === action.period ? { ...state, activity: { ...state.activity, status: 'error', message: action.message } } : state;
-    case 'adopt-snapshot': return { ...state, observed: copySnapshot(action.snapshot) };
+    case 'adopt-snapshot': return { ...state, observed: copySnapshotWithClaimMerge(state.observed, action.snapshot) };
   }
 }

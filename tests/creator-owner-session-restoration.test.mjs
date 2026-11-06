@@ -88,19 +88,33 @@ function reduce(state, action) {
   return ownerState.creatorOwnerReducer(state, action);
 }
 
+function nextOperationId(state) {
+  return Math.max(state.sessionEvidence.latestBoundOperationId, state.sessionEvidence.latestSessionCheckOperationId) + 1;
+}
+
+function evidence(state, source, outcome, extra = {}) {
+  const operationId = extra.operationId ?? nextOperationId(state);
+  const { operationId: _operationId, ...details } = extra;
+  return reduce(state, { type: 'session-evidence', operationId, source, outcome,
+    message: details.message ?? 'Session evidence', ...details });
+}
+
 function enterRecoverableMismatch(state) {
-  // The approved owner-session union routes this reason through the recoverable
-  // action; both App call sites must use it for their changed-principal result.
-  state = reduce(state, { type: 'session-required', reason: 'different-principal', message: changedPrincipalMessage });
+  state = evidence(state, 'bound', 'recoverable', { reason: 'different-principal', message: changedPrincipalMessage });
   assert.equal(state.session.state, 'recovery-required');
   assert.equal(state.session.reason, 'different-principal');
-  state = reduce(state, { type: 'session-check-started' });
+  state = reduce(state, { type: 'session-check-started', operationId: nextOperationId(state), checkId: 'matching-session-check' });
   assert.equal(state.session.state, 'checking');
   return state;
 }
 
+function renewFromMatchingCheck(state, csrfToken) {
+  assert.equal(state.session.state, 'checking');
+  return evidence(state, 'session-check', 'renewed', { operationId: state.sessionEvidence.latestSessionCheckOperationId, checkId: state.session.checkId, csrfToken, message: 'Session checked' });
+}
+
 function stripSessionFeedback(state) {
-  const { session: _session, message: _message, ...productState } = state;
+  const { session: _session, sessionEvidence: _sessionEvidence, message: _message, ...productState } = state;
   return productState;
 }
 
@@ -185,24 +199,40 @@ function recoveryButton(html) {
   return html.match(/<button\b[^>]*data-session-recovery-check[^>]*>/u)?.[0];
 }
 
-test('a changed principal remains recoverable through the owner reducer while disabled and invalid bindings stay blocked', () => {
+test('one session evidence policy separates provisional history denials from terminal bound denials', async () => {
   const message = 'No se puede comprobar esta sesión.';
   for (const reason of ['disabled', 'invalid-context']) {
-    const blocked = reduce(initialState(), { type: 'session-blocked', reason, message });
+    let blocked = evidence(initialState(), 'bound', 'terminal', { reason, message });
     assert.equal(blocked.session.state, 'blocked', `${reason} stays terminal`);
     assert.equal(blocked.session.reason, reason);
-    assert.strictEqual(reduce(blocked, { type: 'session-check-started' }), blocked,
+    assert.strictEqual(reduce(blocked, { type: 'session-check-started', operationId: nextOperationId(blocked), checkId: 'cannot-check' }), blocked,
       `${reason} cannot enter session checking`);
-    assert.strictEqual(reduce(blocked, { type: 'session-required', reason: 'different-principal', message: 'Later content mismatch' }), blocked,
-      `${reason} cannot be reclassified by a later queued recovery action`);
-    assert.strictEqual(reduce(blocked, { type: 'session-renewed', csrfToken: 'obsolete' }), blocked,
-      `${reason} cannot be undone by a queued renewal`);
+    blocked = evidence(blocked, 'bound', 'recoverable', { reason: 'different-principal', message: 'Later content mismatch' });
+    assert.equal(blocked.session.state, 'blocked', `${reason} remains absorbing when newer bound evidence mismatches`);
+    assert.equal(blocked.session.reason, reason);
   }
 
-  const provisional = reduce(initialState(), { type: 'session-blocked', reason: 'disabled', message, ordinaryHistory: true });
-  const newerWriteDenial = reduce(provisional, { type: 'session-required', reason: 'different-principal', message });
-  assert.equal(newerWriteDenial.session.state, 'recovery-required',
-    'an older ordinary history denial can still be superseded by the current bound write result');
+  const historyDenied = evidence(initialState(), 'history', 'recoverable', { reason: 'disabled', message });
+  assert.equal(historyDenied.session.state, 'advisory', 'ordinary Solicitudes evidence pauses writes without claiming terminal authority');
+  assert.equal(historyDenied.sessionEvidence.latestBoundOperationId, 0, 'an advisory history result does not own bound authority');
+  const newerMismatch = evidence(historyDenied, 'bound', 'recoverable', { operationId: 2, reason: 'different-principal', message: 'Later bound mismatch' });
+  assert.equal(newerMismatch.session.state, 'recovery-required');
+  assert.equal(newerMismatch.session.reason, 'different-principal', 'a newer bound 409 enables explicit restoration');
+
+  const newerRead = evidence(historyDenied, 'bound', 'read-confirmed', { operationId: 2, message: 'Bound read confirmed' });
+  assert.equal(newerRead.session.state, 'recovery-required', 'a profile GET clears the advisory but does not infer a CSRF token');
+  assert.equal(newerRead.session.reason, 'check-required');
+  assert.equal(newerRead.sessionEvidence.latestBoundOperationId, 2, 'a newer bound 200 makes the old history result obsolete');
+
+  const olderHistoryAfterBound = reduce(newerMismatch, { type: 'session-evidence', operationId: 1, source: 'history', outcome: 'recoverable', reason: 'disabled', message });
+  assert.equal(olderHistoryAfterBound.session.reason, 'different-principal', 'both response delivery orders preserve newer bound evidence');
+  const confirmedWrite = evidence(historyDenied, 'bound', 'write-confirmed', { operationId: 2, csrfToken: 'csrf-original', message: 'Write confirmed' });
+  assert.equal(confirmedWrite.session.state, 'ready', 'a real write may finish with its already validated token');
+  assert.equal(confirmedWrite.session.csrfToken, 'csrf-original');
+
+  const advisoryView = await render('CreatorOwnerIdentityPanel', identityProps(historyDenied));
+  assert.equal(recoveryButton(advisoryView), undefined, 'the advisory hold offers no session check before newer bound evidence');
+  assert.doesNotMatch(advisoryView, /Abrir una página nueva/u, 'the advisory hold is not presented as terminal');
 
   const checking = enterRecoverableMismatch(profileEditorState());
   assert.equal(checking.session.state, 'checking');
@@ -218,7 +248,7 @@ test('matching session restoration changes session state and CSRF only, then ena
   const bindingBefore = state.sessionBinding;
   state = enterRecoverableMismatch(state);
   const checkingState = state;
-  state = reduce(state, { type: 'session-renewed', csrfToken: 'csrf-original-renewed' });
+  state = renewFromMatchingCheck(state, 'csrf-original-renewed');
 
   assert.deepEqual(stripSessionFeedback(state), stripSessionFeedback(checkingState));
   assert.equal(state.session.state, 'ready');
@@ -251,13 +281,41 @@ test('matching session restoration changes session state and CSRF only, then ena
   assert.equal(sending.attempt.intent.id, intent.id);
 });
 
+test('a session check started after a content read owns later evidence, while a genuinely newer bound mismatch can supersede it', () => {
+  let state = evidence(profileEditorState(), 'bound', 'recoverable', { reason: 'different-principal', message: changedPrincipalMessage });
+  const olderContentReadId = nextOperationId(state);
+  const checkId = 'later-session-check';
+  state = reduce(state, { type: 'session-check-started', operationId: olderContentReadId + 1, checkId });
+  const sessionCheckId = state.sessionEvidence.latestSessionCheckOperationId;
+  const delayedContentMismatch = reduce(state, { type: 'session-evidence', operationId: olderContentReadId,
+    source: 'bound', outcome: 'recoverable', reason: 'different-principal', message: 'Old content mismatch' });
+  assert.strictEqual(delayedContentMismatch, state, 'the earlier content response cannot cancel the later session check');
+  state = reduce(state, { type: 'session-evidence', operationId: sessionCheckId, source: 'session-check', checkId,
+    outcome: 'renewed', csrfToken: 'csrf-from-matching-check', message: 'Session checked' });
+  assert.equal(state.session.state, 'ready');
+  assert.equal(state.session.csrfToken, 'csrf-from-matching-check');
+
+  let newerMismatch = evidence(profileEditorState(), 'bound', 'recoverable', { reason: 'different-principal', message: changedPrincipalMessage });
+  const oldSessionId = nextOperationId(newerMismatch);
+  const laterCheckId = 'check-before-newer-bound-read';
+  newerMismatch = reduce(newerMismatch, { type: 'session-check-started', operationId: oldSessionId, checkId: laterCheckId });
+  const laterBoundId = nextOperationId(newerMismatch);
+  newerMismatch = reduce(newerMismatch, { type: 'session-evidence', operationId: laterBoundId, source: 'bound', outcome: 'recoverable',
+    reason: 'different-principal', message: 'Newer bound mismatch' });
+  const staleCheck = reduce(newerMismatch, { type: 'session-evidence', operationId: oldSessionId, source: 'session-check', checkId: laterCheckId,
+    outcome: 'renewed', csrfToken: 'obsolete-check-token', message: 'Stale session check' });
+  assert.equal(staleCheck.session.state, 'recovery-required');
+  assert.notEqual(staleCheck.session.state, 'ready');
+  assert.ok(laterBoundId > oldSessionId);
+});
+
 test('session restoration preserves the later reference choice and leaves its earlier attempt unresolved', () => {
   let state = referenceWithPendingAttempt();
   const observedBefore = state.observed;
   const attemptBefore = state.attempt;
   const bindingBefore = state.sessionBinding;
   state = enterRecoverableMismatch(state);
-  state = reduce(state, { type: 'session-renewed', csrfToken: 'csrf-restored' });
+  state = renewFromMatchingCheck(state, 'csrf-restored');
 
   assert.deepEqual(state.observed, observedBefore);
   assert.deepEqual(state.attempt, attemptBefore, 'session restoration does not compare or adopt the pending content write');
@@ -277,7 +335,7 @@ test('session restoration retains the exact selected photo File object', () => {
   const observedBefore = state.observed;
   const bindingBefore = state.sessionBinding;
   state = enterRecoverableMismatch(state);
-  state = reduce(state, { type: 'session-renewed', csrfToken: 'csrf-restored' });
+  state = renewFromMatchingCheck(state, 'csrf-restored');
 
   assert.strictEqual(state.editor.file, file);
   assert.deepEqual(state.observed, observedBefore);
@@ -288,11 +346,10 @@ test('session restoration retains the exact selected photo File object', () => {
 
 test('owner shell and editor dialog expose recovery controls for different-principal required/checking states', async () => {
   let state = profileEditorState();
-  // This runtime fixture represents the approved future owner-session union.
-  state = reduce(state, { type: 'session-required', reason: 'different-principal', message: changedPrincipalMessage });
+  state = evidence(state, 'bound', 'recoverable', { reason: 'different-principal', message: changedPrincipalMessage });
 
   for (const [sessionState, disabled] of [['recovery-required', false], ['checking', true]]) {
-    if (sessionState === 'checking') state = reduce(state, { type: 'session-check-started' });
+    if (sessionState === 'checking') state = reduce(state, { type: 'session-check-started', operationId: nextOperationId(state), checkId: 'ui-check' });
     const shell = await render('CreatorOwnerIdentityPanel', identityProps(state));
     const dialog = await render('CreatorOwnerEditorDialog', dialogProps(state));
     for (const [name, html] of [['owner shell', shell], ['editor dialog', dialog]]) {
@@ -307,9 +364,7 @@ test('owner shell and editor dialog expose recovery controls for different-princ
 
 test('owner shell and editor dialog keep disabled and invalid-context sessions blocked', async () => {
   for (const reason of ['disabled', 'invalid-context']) {
-    const state = reduce(profileEditorState(), {
-      type: 'session-blocked', reason, message: `Blocked: ${reason}`,
-    });
+    const state = evidence(profileEditorState(), 'bound', 'terminal', { reason, message: `Blocked: ${reason}` });
     const shell = await render('CreatorOwnerIdentityPanel', identityProps(state));
     const dialog = await render('CreatorOwnerEditorDialog', dialogProps(state));
     assert.equal(recoveryButton(shell), undefined, `${reason} does not expose a session recheck in the shell`);

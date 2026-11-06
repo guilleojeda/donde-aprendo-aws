@@ -5,8 +5,7 @@ import { normalizeCreatorText } from './creator-values.mjs';
 import { dynamoDbNumberSize } from './creator-dynamodb-size.mjs';
 import { createOrderCalculationBudget, OrderCalculationUnavailableError, solveIntegerOrder } from './creator-order.mjs';
 import {
-  creatorPageSessionBinding,
-  creatorPageSessionBindingFailure,
+  creatorPageSessionBindingFailureForRequest,
 } from './creator-session-context.mjs';
 
 const PROGRAMS = new Set(['User Group Leaders', 'Community Builders', 'Heroes']);
@@ -513,7 +512,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
     if (!isRecord(principal)) fail(503, 'AUTH_UNAVAILABLE', 'authentication returned an invalid principal');
     if (principal.state === 'anonymous') fail(401, 'AUTH_REQUIRED', 'sign in is required');
-    if (principal.state === 'disabled') fail(403, 'ACCOUNT_DISABLED', 'this account is disabled');
+    if (principal.state === 'disabled') return {
+      state: 'disabled',
+      ...(typeof principal.accountId === 'string' && principal.accountId.trim() ? { accountId: principal.accountId } : {}),
+      ...(typeof principal.isAdmin === 'boolean' ? { isAdmin: principal.isAdmin } : {}),
+    };
     if (principal.state === 'unavailable') fail(503, 'AUTH_UNAVAILABLE', 'authentication is temporarily unavailable');
     if (principal.state !== 'authenticated' || typeof principal.accountId !== 'string' || !principal.accountId
       || typeof principal.csrfToken !== 'string' || typeof principal.isAdmin !== 'boolean') {
@@ -526,19 +529,21 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (principal.isAdmin !== true) fail(403, 'ADMIN_REQUIRED', 'administrator access is required');
   }
 
+  function requireCreatorPageSessionBinding(request, principal) {
+    const failure = creatorPageSessionBindingFailureForRequest(request.headers.get('x-creator-page-binding'), principal);
+    if (!failure) return;
+    const message = failure.error === 'INVALID_CONTEXT' ? 'creator page context is invalid'
+      : failure.error === 'SESSION_CONTEXT_CHANGED' ? 'creator page session context changed'
+        : failure.error === 'ACCOUNT_DISABLED' ? 'this account is disabled' : 'authentication is temporarily unavailable';
+    fail(failure.status, failure.error, message);
+  }
+
   function requireWriteRequest(request, principal) {
     if (request.headers.get('origin') !== origin || request.headers.get('x-csrf-token') !== principal.csrfToken) {
       fail(403, 'CSRF_REJECTED', 'request origin or CSRF token is invalid');
     }
     if (new URL(request.url).pathname.startsWith('/api/creador/')) {
-      const requestedBinding = request.headers.get('x-creator-page-binding');
-      const bindingFailure = requestedBinding === null
-        ? undefined
-        : creatorPageSessionBindingFailure(requestedBinding, creatorPageSessionBinding(principal));
-      if (bindingFailure) {
-        fail(bindingFailure.status, bindingFailure.error, bindingFailure.error === 'INVALID_CONTEXT'
-          ? 'creator page context is invalid' : 'creator page session context changed');
-      }
+      requireCreatorPageSessionBinding(request, principal);
     }
   }
 
@@ -988,10 +993,15 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       const claim = await store.get(claimKey(reference.id));
       if (!claim) fail(503, 'MISSING_CLAIM', 'claim reference points to missing claim data');
       if (claim && claim.profileId === profile.id) {
+        if (claim.version !== undefined && (!Number.isSafeInteger(claim.version) || claim.version < 0)) {
+          fail(503, 'INVALID_CLAIM', 'claim version is malformed');
+        }
         const resources = storedClaimResources(claim);
+        // The store represents a legacy row with no version as version 0; expose only persisted positive versions.
         claims.push({
           id: claim.id,
           resourceIds: Array.isArray(claim.resourceIds) ? [...claim.resourceIds] : [],
+          ...(Number.isSafeInteger(claim.version) && claim.version >= 1 ? { version: claim.version } : {}),
           ...(resources ? { resources } : {}),
           ...(typeof claim.sourceId === 'string' ? { sourceId: claim.sourceId } : {}),
           ...(typeof claim.status === 'string' ? { status: claim.status } : {}),
@@ -1602,7 +1612,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       return readdEditableResource(principal, body);
     }
     const profile = await getRequiredOwnerProfile(principal);
-    assertKnownFields(body, new Set(['title', 'url', 'description', 'selectedForDirectory']));
+    assertKnownFields(body, new Set(['title', 'url', 'description', 'selectedForDirectory', 'profileVersion']));
+    const expectedProfileVersion = validVersion(body.profileVersion, { optional: true });
+    const profileVersion = storedVersion(profile.version, 'profile');
+    if (expectedProfileVersion !== undefined && expectedProfileVersion !== profileVersion) {
+      fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before adding a link');
+    }
     const title = textField(body.title, 'title');
     if (!title.trim()) fail(422, 'INVALID_TITLE', 'title is required');
     const url = validateResourceUrl(body.url);
@@ -2411,6 +2426,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       ...(evidence ? { evidence } : {}),
       status: 'pending',
       createdAt,
+      version: claim.version,
     } };
   }
 
@@ -2688,14 +2704,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
     if (path === '/api/creador/perfil') {
       if (request.method === 'GET') {
-        const requestedBinding = request.headers.get('x-creator-page-binding');
-        const bindingFailure = requestedBinding === null
-          ? undefined
-          : creatorPageSessionBindingFailure(requestedBinding, creatorPageSessionBinding(principal));
-        if (bindingFailure) {
-          fail(bindingFailure.status, bindingFailure.error, bindingFailure.error === 'INVALID_CONTEXT'
-            ? 'creator page context is invalid' : 'creator page session context changed');
-        }
+        requireCreatorPageSessionBinding(request, principal);
         return jsonResponse(await creatorEditor(principal));
       }
       if (request.method === 'PUT') {
@@ -2864,6 +2873,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         const url = new URL(request.url);
         if (!url.pathname.startsWith('/api/')) return jsonResponse({ error: 'NOT_FOUND', message: 'route not found' }, 404);
         const principal = await getPrincipal(request);
+        if (principal.state === 'disabled') {
+          if (url.pathname.startsWith('/api/creador/')) requireCreatorPageSessionBinding(request, principal);
+          fail(403, 'ACCOUNT_DISABLED', 'this account is disabled');
+        }
         return await route(request, principal);
       } catch (error) {
         if (error instanceof ApiError) return jsonResponse({ error: error.code, message: error.message, ...(error.details ?? {}) }, error.status);

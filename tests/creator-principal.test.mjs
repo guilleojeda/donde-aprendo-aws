@@ -33,7 +33,8 @@ test('creator authorization shares session invalidation and account failure beha
   assert.deepEqual(await harness.auth.getPrincipal(request), { state: 'unavailable' });
   const account = harness.store.accounts.get(identityKey(makeIdentity()));
   account.active = false;
-  assert.deepEqual(await harness.auth.getPrincipal(request), { state: 'disabled' });
+  const expectedId = createHash('sha256').update(identityKey(makeIdentity())).digest('base64url');
+  assert.deepEqual(await harness.auth.getPrincipal(request), { state: 'disabled', accountId: expectedId, isAdmin: false });
   account.active = true;
   account.epoch += 1;
   assert.deepEqual(await harness.auth.getPrincipal(request), { state: 'anonymous' });

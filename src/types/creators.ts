@@ -101,6 +101,8 @@ export interface CreatorClaimResourceDTO {
 export interface CreatorClaimDTO {
   id: string;
   resourceIds: string[];
+  /** Persisted claim row version; optional for snapshots from legacy deployments. */
+  version?: number;
   resources?: CreatorClaimResourceDTO[];
   sourceId?: string;
   status?: string;
