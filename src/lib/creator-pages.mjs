@@ -1000,7 +1000,17 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         });
       }
     }
-    return { profile: cleanPublicProfile(profile), links, editableResources, claims, series };
+    // The owner snapshot spans several strongly consistent reads, but those
+    // reads are not one DynamoDB transaction. Recheck the existing profile
+    // version after collecting its projections so a concurrent owner write
+    // cannot be returned as a mixed, apparently successful snapshot.
+    const ownerProfileDto = cleanPublicProfile(profile);
+    const latest = await store.get(profileKey(profile.id));
+    if (!latest || latest.id !== profile.id || !Number.isSafeInteger(latest.version) || latest.version < 0) {
+      fail(503, 'INVALID_PROFILE', 'profile data is missing or malformed');
+    }
+    if (latest.version !== ownerProfileDto.version) fail(409, 'PROFILE_CONFLICT', 'profile changed while reading owner data');
+    return { profile: ownerProfileDto, links, editableResources, claims, series };
   }
 
   async function saveProfile(principal, body) {

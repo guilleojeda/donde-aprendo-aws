@@ -15,6 +15,158 @@ async function openLinksView(page, fixture) {
   await expect(page.getByRole('heading', { name: 'Enlaces', exact: true })).toBeVisible();
 }
 
+test('un duplicado compartido con acuse perdido conserva el texto del alta al abrir la ficha elegida', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const shared = await seedSharedCatalogResource(fixture, { id: 'review-shared-lost-add' });
+  const placed = await api(fixture, cookie, '/api/creador/enlaces', {
+    method: 'POST', body: { title: shared.title, url: shared.url, description: shared.description, selectedForDirectory: true },
+  });
+  assert.equal(placed.response.status, 201);
+  const before = await api(fixture, cookie, '/api/creador/perfil');
+  await openLinksView(page, fixture);
+  const capture = await captureCreatorApi(page);
+  let dropped = false;
+  const handler = async (route) => {
+    if (route.request().method() !== 'POST' || dropped) return route.continue();
+    dropped = true;
+    const actual = await route.fetch();
+    assert.equal(actual.status(), 200);
+    const body = await actual.json();
+    assert.equal(body.created, false);
+    assert.deepEqual(body.versionChanges, []);
+    assert.equal(body.link.placementId, placed.body.link.placementId);
+    await route.abort('failed');
+  };
+  await page.route('**/api/creador/enlaces/', handler);
+  try {
+    await page.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    const add = addLinkForm(page);
+    await add.getByLabel('Título', { exact: true }).fill('Texto enviado que no fue confirmado');
+    await add.getByLabel('URL', { exact: true }).fill(shared.url);
+    await add.getByLabel(/Descripción/).fill('Descripción enviada que no fue confirmada');
+    await add.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    await add.getByRole('button', { name: 'Comprobar si se agregó la URL original', exact: true }).click();
+    const open = add.getByRole('button', { name: `Abrir ficha guardada: ${shared.title}`, exact: true });
+    await expect(open).toBeVisible();
+    await open.click();
+
+    const edit = linkEditForm(page);
+    await expect(edit).toBeVisible();
+    await expect(edit.getByLabel('Título', { exact: true })).toHaveValue(shared.title);
+    await expect(edit.getByLabel('Descripción', { exact: false })).toHaveValue(shared.description);
+    await expect(edit.getByLabel('URL', { exact: true })).toHaveValue(shared.url);
+    await expect(edit.getByLabel('Título', { exact: true })).toBeDisabled();
+    await expect(edit.getByRole('button', { name: 'Volver al borrador sin guardar las opciones', exact: true })).toBeVisible();
+    assert.equal(capture.writes().length, 1, 'opening the explicitly chosen placement does not write the retained Add text');
+    assert.deepEqual((await api(fixture, cookie, '/api/creador/perfil')).body, before.body,
+      'opening the saved shared placement leaves the owner state unchanged');
+
+    await edit.getByRole('button', { name: 'Volver al borrador sin guardar las opciones', exact: true }).click();
+    await expect(add.getByLabel('Título', { exact: true })).toHaveValue('Texto enviado que no fue confirmado');
+    await expect(add.getByLabel(/Descripción/)).toHaveValue('Descripción enviada que no fue confirmada');
+    const newUrl = 'https://links.example/recovered-shared-draft';
+    await add.getByLabel('URL', { exact: true }).fill(newUrl);
+    await add.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'POST', '/api/creador/enlaces')[1]?.status).toBe(201);
+    const readBack = await api(fixture, cookie, '/api/creador/perfil');
+    assert.equal(readBack.response.status, 200);
+    const persisted = readBack.body.links.find(({ url }) => url === newUrl);
+    assert.equal(persisted?.title, 'Texto enviado que no fue confirmado');
+    assert.equal(persisted?.description, 'Descripción enviada que no fue confirmada');
+    assert.deepEqual(await fixture.rawResource(shared.id), shared);
+  } finally {
+    await page.unroute('**/api/creador/enlaces/', handler).catch(() => {});
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+
+test('una carrera de retiro no restaura la ficha compartida y continúa con el alta retenida', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const shared = await seedSharedCatalogResource(fixture, { id: 'review-shared-removal-race' });
+  const placed = await api(fixture, cookie, '/api/creador/enlaces', {
+    method: 'POST', body: { title: shared.title, url: shared.url, description: shared.description, selectedForDirectory: true },
+  });
+  assert.equal(placed.response.status, 201);
+  const placementId = placed.body.link.placementId;
+  const before = await api(fixture, cookie, '/api/creador/perfil');
+  await openLinksView(page, fixture);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  let release;
+  let reached;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const duplicateReached = new Promise((resolve) => { reached = resolve; });
+  let duplicateSeen = false;
+  const duplicateHandler = async (route) => {
+    if (route.request().method() !== 'POST' || duplicateSeen) return route.continue();
+    duplicateSeen = true;
+    const actual = await route.fetch();
+    assert.equal(actual.status(), 200);
+    const body = await actual.json();
+    assert.equal(body.created, false);
+    assert.deepEqual(body.versionChanges, []);
+    reached();
+    await gate;
+    await route.fulfill({ response: actual, json: body });
+  };
+  await page.route('**/api/creador/enlaces/', duplicateHandler);
+  const transact = fixture.creatorStore.transact;
+  let removal;
+  fixture.creatorStore.transact = async function (command, ...args) {
+    if (!removal && command.puts?.some(({ value }) => value.recordType === 'placement'
+      && value.id === placementId && value.selectedForDirectory === false)) {
+      removal = await api(fixture, cookie, `/api/creador/enlaces/${placementId}`, {
+        method: 'DELETE', body: { profileVersion: before.body.profile.version },
+      });
+    }
+    return transact.call(this, command, ...args);
+  };
+  try {
+    await page.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    const add = addLinkForm(page);
+    await add.getByLabel('Título', { exact: true }).fill(shared.title);
+    await add.getByLabel('URL', { exact: true }).fill(shared.url);
+    await add.getByLabel(/Descripción/).fill(shared.description);
+    await add.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    await duplicateReached;
+    await add.getByLabel('Título', { exact: true }).fill('Alta separada después del retiro');
+    await add.getByLabel('URL', { exact: true }).fill('https://links.example/retiro-race');
+    await add.getByLabel(/Descripción/).fill('Descripción separada después del retiro');
+    await add.getByLabel('Proponer al directorio').uncheck();
+    release();
+
+    const edit = linkEditForm(page);
+    await expect(edit).toBeVisible();
+    await edit.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'PATCH', `/api/creador/enlaces/${placementId}/editar`)[0]?.status).toBe(409);
+    assert.equal(removal?.response.status, 204);
+    await edit.locator('[data-owner-compare]').click();
+    await expect(edit.getByRole('button', { name: 'Usar los datos guardados', exact: true })).toBeVisible();
+    await edit.getByRole('button', { name: 'Usar los datos guardados', exact: true }).click();
+
+    await expect(add).toBeVisible();
+    await expect(add.getByLabel('Título', { exact: true })).toHaveValue('Alta separada después del retiro');
+    await expect(add.getByLabel('URL', { exact: true })).toHaveValue('https://links.example/retiro-race');
+    await expect(add.getByLabel(/Descripción/)).toHaveValue('Descripción separada después del retiro');
+    await expect(add.getByLabel('Proponer al directorio')).not.toBeChecked();
+    assert.deepEqual((await api(fixture, cookie, '/api/creador/perfil')).body.links, [],
+      'adoption observes the removal and does not recreate the shared placement');
+    assert.equal(writesTo(capture, 'PATCH', `/api/creador/enlaces/${placementId}/editar`).length, 1,
+      'the conflicted options patch is not replayed during recovery');
+
+    await add.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'POST', '/api/creador/enlaces')[1]?.status).toBe(201);
+    const final = await api(fixture, cookie, '/api/creador/perfil');
+    assert.equal(final.body.links[0].url, 'https://links.example/retiro-race');
+    assert.equal(final.body.links[0].title, 'Alta separada después del retiro');
+    assert.deepEqual(await fixture.rawResource(shared.id), shared, 'shared metadata remains unchanged');
+  } finally {
+    release?.();
+    fixture.creatorStore.transact = transact;
+    await page.unroute('**/api/creador/enlaces/', duplicateHandler).catch(() => {});
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+
 function addLinkForm(page) {
   return page.locator('[data-owner-dialog] form[data-owner-form="alta-enlace"]');
 }

@@ -899,6 +899,7 @@ for (const scenario of [
       await claimWrite.done.promise;
       assert.equal(firstWrite.status(), 202);
       await expect(page.locator('[data-session-recovery-shell]')).toHaveCount(0);
+      await expect(page.locator('[data-claim-index-status]')).toHaveCount(0);
       await expect(page.locator('[data-claim-section-open]')).toBeEnabled();
 
       await page.locator('[data-claim-section-open]').click();
@@ -1507,7 +1508,197 @@ test('the native exit-save action does not create an invalid initial profile', a
     assert.equal(await page.evaluate((original) => document === original, originalDocument), true,
       'invalid native fields keep the current document and draft available');
     await expect(form.getByLabel('Dirección de tu página')).toHaveValue('invalid slug');
+    await expect(form.getByLabel('Dirección de tu página')).toBeFocused();
+    await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0);
+
+    await form.getByLabel('Dirección de tu página').fill('corrected-exit-slug');
+    const saved = apiResponse(page, 'PUT', '/api/creador/perfil', 200);
+    await form.getByRole('button', { name: 'Crear borrador' }).click();
+    await saved;
+    await expect(page.locator('[data-owner-name]')).toHaveText('Invalid first profile');
+    assert.equal((await fixture.rawOwner(cookie)).profile.slug, 'corrected-exit-slug');
+    assert.equal(capture.writes().length, requestsBefore + 1);
   } finally {
     await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('a terminal disabled owner stays blocked when a later content check reports a role mismatch', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const account = [...fixture.accountStore.accounts.values()][0];
+  let writes = 0;
+  page.on('request', (request) => {
+    if (request.method() === 'PUT' && pathOf(request) === '/api/creador/perfil') writes += 1;
+  });
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+    await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+    await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    const form = dialog.locator('[data-owner-form="datos"]');
+    await form.getByLabel('Nombre visible').fill('Retained terminal draft');
+    fixture.creatorStore.failNext('transact');
+    const failedWrite = apiResponse(page, 'PUT', '/api/creador/perfil', 503);
+    await form.getByRole('button', { name: 'Guardar datos' }).click();
+    await failedWrite;
+
+    fixture.accountStore.seedAccount({ ...account, active: false });
+    const disabledRead = apiResponse(page, 'GET', '/api/creador/perfil', 403);
+    await form.locator('[data-owner-compare]').click();
+    await disabledRead;
+    await expect(dialog.locator('[data-session-recovery-status]')).toContainText('Esta cuenta está desactivada.');
+    await expect(sessionCheck(page)).toHaveCount(0);
+    await expect(form.getByRole('button', { name: 'Guardar datos' })).toBeDisabled();
+
+    fixture.accountStore.seedAccount({ ...account, isAdmin: !account.isAdmin });
+    const mismatchedRead = apiResponse(page, 'GET', '/api/creador/perfil', 409);
+    await form.locator('[data-owner-compare]').click();
+    await mismatchedRead;
+    await expect(dialog.locator('[data-session-recovery-status]')).toContainText('Esta cuenta está desactivada.');
+    await expect(sessionCheck(page)).toHaveCount(0);
+    await expect(form.getByLabel('Nombre visible')).toHaveValue('Retained terminal draft');
+
+    await page.context().clearCookies({ name: cookie.name });
+    const expiredRead = apiResponse(page, 'GET', '/api/creador/perfil', 401);
+    await form.locator('[data-owner-compare]').click();
+    await expiredRead;
+    await expect(dialog.locator('[data-session-recovery-status]')).toContainText('Esta cuenta está desactivada.');
+    await expect(sessionCheck(page)).toHaveCount(0);
+
+    fixture.accountStore.seedAccount(account);
+    await addCookie(page.context(), fixture, cookie);
+    const restoredRead = apiResponse(page, 'GET', '/api/creador/perfil', 200);
+    await form.locator('[data-owner-compare]').click();
+    await restoredRead;
+    await expect(form.locator('[data-owner-comparison]')).toBeVisible();
+    await expect(dialog.locator('[data-session-recovery-status]')).toContainText('Esta cuenta está desactivada.');
+    await expect(form.getByRole('button', { name: 'Guardar datos' })).toBeDisabled();
+    await form.getByLabel('Nombre visible').press('Enter');
+    await waitForRender(page);
+    await expect.poll(() => writes).toBe(1);
+    assert.equal((await fixture.rawOwner(cookie)).profile.displayName, 'Ana Browser');
+  } finally {
+    fixture.accountStore.seedAccount(account);
+  }
+});
+
+test('an initial retry stays disabled until the bound session is restored', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page, { profile: false });
+  const account = [...fixture.accountStore.accounts.values()][0];
+  let writes = 0;
+  page.on('request', (request) => {
+    if (request.method() === 'PUT' && pathOf(request) === '/api/creador/perfil') writes += 1;
+  });
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+    await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+    const form = page.locator('[data-owner-form="crear"]');
+    await form.getByLabel('Nombre visible').fill('Retry after session renewal');
+    await form.getByLabel('Dirección de tu página').fill('retry-after-session');
+    fixture.creatorStore.failNext('transact');
+    const failedCreate = apiResponse(page, 'PUT', '/api/creador/perfil', 503);
+    await form.getByRole('button', { name: 'Crear borrador' }).click();
+    await failedCreate;
+
+    fixture.accountStore.seedAccount({ ...account, isAdmin: !account.isAdmin });
+    const mismatchedRead = apiResponse(page, 'GET', '/api/creador/perfil', 409);
+    await form.getByRole('button', { name: 'Comprobar', exact: true }).click();
+    await mismatchedRead;
+    const retry = form.getByRole('button', { name: 'Volver a intentar crear borrador' });
+    await expect(page.locator('main [data-session-recovery-check]')).toBeEnabled();
+    await expect(retry).toHaveCount(0);
+
+    fixture.accountStore.seedAccount(account);
+    const compared = apiResponse(page, 'GET', '/api/creador/perfil', 200);
+    await form.getByRole('button', { name: 'Comprobar', exact: true }).click();
+    await compared;
+    await expect(retry).toBeDisabled();
+    const sessionRead = apiResponse(page, 'GET', '/api/creador/sesion', 200);
+    await page.locator('main [data-session-recovery-check]').click();
+    await sessionRead;
+    await expect(retry).toBeEnabled();
+    const saved = apiResponse(page, 'PUT', '/api/creador/perfil', 200);
+    await retry.click();
+    await saved;
+    await expect(page.locator('[data-owner-name]')).toHaveText('Retry after session renewal');
+    await expect.poll(() => writes).toBe(2);
+    const { profile } = await fixture.rawOwner(cookie);
+    assert.equal(profile.slug, 'retry-after-session');
+    assert.equal(profile.version, 1);
+  } finally {
+    fixture.accountStore.seedAccount(account);
+  }
+});
+
+test('restoring the owner session clears an older rendered history error through the manual save', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const account = [...fixture.accountStore.accounts.values()][0];
+  const history = { arrived: deferred(), release: deferred() };
+  const failedWrite = { arrived: deferred(), release: deferred() };
+  let writes = 0;
+  let holdHistory = true;
+  const interceptProfile = async (route) => {
+    const method = route.request().method();
+    if (method === 'GET' && holdHistory) {
+      holdHistory = false;
+      const actual = await route.fetch();
+      assert.equal(actual.status(), 409);
+      assert.equal((await actual.json()).error, 'SESSION_CONTEXT_CHANGED');
+      history.arrived.resolve();
+      await history.release.promise;
+      await route.fulfill({ response: actual });
+    } else if (method === 'PUT' && ++writes === 1) {
+      const actual = await route.fetch();
+      assert.equal(actual.status(), 503);
+      failedWrite.arrived.resolve();
+      await failedWrite.release.promise;
+      await route.fulfill({ response: actual });
+    } else await route.continue();
+  };
+
+  await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+  await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+  await page.route('**/api/creador/perfil/', interceptProfile);
+  try {
+    fixture.accountStore.seedAccount({ ...account, isAdmin: !account.isAdmin });
+    await page.getByRole('button', { name: 'Actualizar solicitudes' }).click();
+    await history.arrived.promise;
+    fixture.accountStore.seedAccount(account);
+    await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
+    const form = page.locator('[data-owner-dialog][open] [data-owner-form="datos"]');
+    const name = form.getByLabel('Nombre visible');
+    const save = form.getByRole('button', { name: 'Guardar datos' });
+    await name.fill('Interrupted correction');
+    fixture.creatorStore.failNext('transact');
+    await save.click();
+    await failedWrite.arrived.promise;
+
+    const staleAlert = page.locator('[data-claim-index-status]').filter({ hasText: 'La cuenta o el rol activo no coinciden' });
+    history.release.resolve();
+    await expect(staleAlert).toBeVisible();
+    failedWrite.release.resolve();
+    await expect(sessionCheck(page)).toBeEnabled();
+
+    const restoredSession = apiResponse(page, 'GET', '/api/creador/sesion', 200);
+    await sessionCheck(page).click();
+    await restoredSession;
+    const content = apiResponse(page, 'GET', '/api/creador/perfil', 200);
+    await form.locator('[data-owner-compare]').click();
+    assert.equal((await (await content).json()).profile.displayName, 'Ana Browser');
+    await form.locator('[data-owner-adopt]').click();
+    assert.equal(writes, 1, 'session renewal and content adoption send no write');
+    await name.fill('Manual save after the restored session');
+    const saved = apiResponse(page, 'PUT', '/api/creador/perfil', 200);
+    await save.click();
+    await saved;
+    await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0);
+    assert.equal((await fixture.rawOwner(cookie)).profile.displayName, 'Manual save after the restored session');
+    assert.equal(writes, 2);
+    await expect(staleAlert).toHaveCount(0);
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    history.release.resolve();
+    failedWrite.release.resolve();
+    await page.unroute('**/api/creador/perfil/', interceptProfile);
   }
 });

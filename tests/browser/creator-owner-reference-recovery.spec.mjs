@@ -134,6 +134,78 @@ test('un cambio de título en el catálogo no invalida una comparación de refer
   }
 });
 
+test('una referencia ya concedida conserva la continuación de opciones tras un conflicto de perfil', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const item = catalogEntry('review-options-owned-recovery', 'Ficha propia recuperable', 'https://review.example/options-owned-recovery');
+  await seedCatalogRecord(fixture, item);
+  await grantReferenceEditorship(fixture, cookie, item);
+  const removeIndexRoute = await serveSelectionIndex(page, [item]);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const transport = await installReferenceTransport(page, { loseReferenceAcknowledgement: false });
+  let submitted;
+  try {
+    await openLinksWithManagedHistory(page, fixture);
+    await openCatalog(page);
+    const reference = page.locator('[data-owner-form="referencia"]');
+    await catalogRadio(page, item).check();
+    const before = await freshOwner(fixture, cookie);
+    const resourceBefore = await fixture.rawResource(item.id);
+    submitted = reference.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+    const actual = await transport.writeArrived.promise;
+    assert.equal(actual.status, 200);
+    assert.equal(actual.body.created, false, 'the already granted placement returns an authoritative no-op');
+    assert.equal(actual.body.link.resourceId, item.id);
+    const placementId = actual.body.link.placementId;
+    await reference.getByRole('checkbox', { name: 'Proponer al directorio', exact: true }).uncheck();
+    transport.writeGate.release();
+    await submitted;
+
+    const options = page.locator('[data-link-edit-form]');
+    await expect(options).toBeVisible();
+    await expect(options.getByLabel('URL', { exact: true })).toBeDisabled();
+    const changed = await fixture.request(cookie, OWNER_PATH, { method: 'PUT', body: {
+      displayName: 'Nombre concurrente de recuperación', version: before.profile.version,
+    } });
+    assert.equal(changed.status, 200, JSON.stringify(await changed.clone().json()));
+    await options.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(() => optionWrites(capture, placementId)[0]?.status).toBe(409);
+    await options.locator('[data-owner-compare]').click();
+    await expect(options.locator('[data-owner-adopt]')).toBeEnabled();
+    await options.locator('[data-owner-adopt]').click();
+
+    await expect(options.getByRole('checkbox', { name: 'Proponer al directorio', exact: true })).not.toBeChecked();
+    await expect(options.getByLabel('URL', { exact: true })).toBeDisabled();
+    await options.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(() => optionWrites(capture, placementId)[1]?.status).toBe(200);
+    const patch = optionWrites(capture, placementId)[1];
+    assert.deepEqual(patch.body, {
+      profileVersion: before.profile.version + 1,
+      placementVersion: actual.body.link.placementVersion,
+      resourceVersion: actual.body.link.resourceVersion,
+      featured: actual.body.link.featured,
+      selectedForDirectory: false,
+    }, 'the explicit continuation sends only the corrected placement option against the adopted versions');
+    assert.equal(Object.hasOwn(patch.body, 'title'), false);
+    assert.equal(Object.hasOwn(patch.body, 'url'), false);
+    assert.equal(Object.hasOwn(patch.body, 'description'), false);
+    assert.equal(referenceWrites(capture).length, 1, 'recovery and the options save never replay the reference no-op');
+
+    const final = await freshOwner(fixture, cookie);
+    assert.equal(final.links.filter(({ resourceId }) => resourceId === item.id).length, 1);
+    assert.equal(final.links[0].selectedForDirectory, false);
+    assert.equal(final.editableResources.some(({ id }) => id === item.id), true,
+      'the existing grant remains the owner resource authority');
+    assert.deepEqual(await fixture.rawResource(item.id), resourceBefore,
+      'the options-only continuation does not modify the shared resource');
+  } finally {
+    transport.writeGate.release();
+    await submitted?.catch(() => {});
+    await transport.close();
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+    await removeIndexRoute();
+  }
+});
+
 async function openLinksWithManagedHistory(page, fixture) {
   await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
   await page.waitForLoadState('networkidle');

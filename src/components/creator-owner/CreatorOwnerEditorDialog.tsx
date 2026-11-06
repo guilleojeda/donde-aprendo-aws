@@ -324,7 +324,9 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
       </form>}
 
       {editorIsDialog && editor.kind === 'link-placement' && <form class="creator-owner__form" hidden={prompt} data-owner-form="enlace" data-link-edit-form onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
-        <p class="creator-owner__form-context">{editor.editable ? 'Esta ficha es tuya: los cambios del contenido y las opciones de la página se guardan juntos.' : 'Esta ficha es compartida. Puedes editar sus opciones; su título, URL y descripción siguen a cargo de quien la administra.'}</p>
+        <p class="creator-owner__form-context">{editor.optionsOnly ? 'Estás editando las opciones de este enlace en tu página.'
+          : editor.editable ? 'Esta ficha es tuya: los cambios del contenido y las opciones de la página se guardan juntos.'
+            : 'Esta ficha es compartida. Puedes editar sus opciones; su título, URL y descripción siguen a cargo de quien la administra.'}</p>
         {editor.sharedTextCorrection && <p class="creator-owner__status" data-link-add-shared-correction role="status">Conservamos aparte el texto de tu borrador. Aquí puedes guardar las opciones de la ficha compartida.</p>}
         <fieldset class="creator-owner__field creator-owner__link-fields" data-link-metadata-fields disabled={!editor.editable}>
           <legend>Ficha del contenido</legend>
