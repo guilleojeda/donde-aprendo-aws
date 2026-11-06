@@ -209,7 +209,7 @@ export default function CreatorOwnerApp(props: Props) {
   const sessionPolicyRef = useRef<CreatorOwnerSessionPolicyState>({ session: state.session, sessionEvidence: state.sessionEvidence });
   const sessionOperationIdRef = useRef(0);
   // requestSubmit dispatches submit synchronously, and only after native validation.
-  const exitSubmitTransitionRef = useRef<CreatorOwnerLocation['transition']>();
+  const exitSubmitTransitionRef = useRef<CreatorOwnerLocation['transition']>(undefined);
   const linksHydrationAppliedRef = useRef(false);
   const handledTransitionRef = useRef<string | undefined>(undefined);
   const previousEditorKeyRef = useRef<string | undefined>(undefined);
