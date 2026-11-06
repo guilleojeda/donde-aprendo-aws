@@ -1267,3 +1267,144 @@ test('an obsolete session-check network failure cannot replace newer readiness',
     await capture.stop({ skipErrorBodies: true });
   }
 });
+
+test('a real initial-profile slug conflict leaves a reachable comparison and a valid manual retry', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page, { profile: false });
+  const oidc = fixture.accountHarness.state.oidc;
+  const previousClaims = oidc.claims;
+  oidc.claims = { ...(previousClaims ?? {}), sub: 'competing-browser-owner', email: 'different-owner@example.invalid' };
+  let otherCookie;
+  try { otherCookie = await fixture.login(); }
+  finally {
+    if (previousClaims === undefined) delete oidc.claims;
+    else oidc.claims = previousClaims;
+  }
+  const originalPrincipal = await fixture.principal(cookie);
+  assert.notEqual((await fixture.principal(otherCookie)).accountId, originalPrincipal.accountId);
+  const capture = await captureCreatorApi(page);
+  const store = fixture.creatorStore;
+  const transact = store.transact;
+  let armed = true;
+  const held = { arrived: deferred(), gate: deferred() };
+  store.transact = async function(input) {
+    if (armed && input.puts?.some(({ key }) => key === `account-profile:${originalPrincipal.accountId}`)) {
+      armed = false;
+      held.arrived.resolve();
+      await held.gate.promise;
+    }
+    return transact.call(this, input);
+  };
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+    await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+    const originalDocument = await page.evaluateHandle(() => document);
+    const form = page.locator('[data-owner-form="crear"]');
+    const name = form.getByLabel('Nombre visible');
+    const slug = form.getByLabel('Dirección de tu página');
+    await name.fill('Original initial profile');
+    await slug.fill('concurrent-slug');
+
+    const conflictResponse = apiResponse(page, 'PUT', '/api/creador/perfil', 409);
+    await form.getByRole('button', { name: 'Crear borrador' }).click();
+    await held.arrived.promise;
+    const winner = await fixture.request(otherCookie, '/api/creador/perfil', {
+      method: 'PUT', body: { displayName: 'Second account profile', slug: 'concurrent-slug' },
+    });
+    assert.equal(winner.status, 200);
+    held.gate.resolve();
+    const conflict = await conflictResponse;
+    assert.equal((await conflict.json()).error, 'PROFILE_CONFLICT');
+
+    const exactEmptySnapshot = await fixture.request(cookie, '/api/creador/perfil');
+    assert.equal(exactEmptySnapshot.status, 200);
+    assert.deepEqual(await exactEmptySnapshot.json(), { profile: null, links: [], editableResources: [], claims: [], series: [] });
+    const compare = form.getByRole('button', { name: 'Comprobar', exact: true });
+    await expect(compare).toBeEnabled();
+    await expect(name).toHaveValue('Original initial profile');
+    await expect(slug).toHaveValue('concurrent-slug');
+    assert.equal(capture.writes().length, 1, 'the actual slug conflict is not retried automatically');
+
+    const comparison = apiResponse(page, 'GET', '/api/creador/perfil', 200);
+    await compare.click();
+    assert.deepEqual(await (await comparison).json(), { profile: null, links: [], editableResources: [], claims: [], series: [] });
+    const retry = form.getByRole('button', { name: 'Volver a intentar crear borrador' });
+    await expect(retry).toBeEnabled();
+    await expect(name).toHaveValue('Original initial profile');
+    assert.equal(await page.evaluate((original) => document === original, originalDocument), true);
+
+    await slug.fill('manual-unique-slug');
+    const manual = apiResponse(page, 'PUT', '/api/creador/perfil', 200);
+    await retry.click();
+    await manual;
+    assert.equal((await fixture.rawOwner(cookie)).profile.slug, 'manual-unique-slug');
+    assert.equal(capture.writes().length, 2, 'only the original failed create and the explicit valid retry were sent');
+  } finally {
+    held.gate.resolve();
+    store.transact = transact;
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('a recovered first-profile retry uses native required-field and slug validation', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page, { profile: false });
+  const capture = await captureCreatorApi(page);
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+    await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+    const form = page.locator('[data-owner-form="crear"]');
+    const name = form.getByLabel('Nombre visible');
+    const slug = form.getByLabel('Dirección de tu página');
+    const create = form.getByRole('button', { name: 'Crear borrador' });
+    await name.fill('Recoverable initial profile');
+    await slug.fill('recoverable-initial-profile');
+    fixture.creatorStore.failNext('transact');
+    const unavailable = apiResponse(page, 'PUT', '/api/creador/perfil', 503);
+    await create.click();
+    await unavailable;
+    assert.equal((await fixture.rawOwner(cookie)).profile, null);
+
+    const compare = form.getByRole('button', { name: 'Comprobar', exact: true });
+    const emptySnapshot = apiResponse(page, 'GET', '/api/creador/perfil', 200);
+    await compare.click();
+    await emptySnapshot;
+    const retry = form.getByRole('button', { name: 'Volver a intentar crear borrador' });
+    await expect(retry).toBeEnabled();
+    await name.fill('');
+    await slug.fill('');
+    assert.equal(await form.evaluate((node) => node.checkValidity()), false);
+    const writesBeforeRetry = capture.writes().length;
+    await retry.click();
+    await waitForRender(page);
+    assert.equal(capture.writes().length, writesBeforeRetry, 'native invalid fields prevent a recovered retry request');
+    assert.equal((await fixture.rawOwner(cookie)).profile, null);
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('the native exit-save action does not create an invalid initial profile', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page, { profile: false });
+  const capture = await captureCreatorApi(page);
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+    await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+    const originalDocument = await page.evaluateHandle(() => document);
+    const form = page.locator('[data-owner-form="crear"]');
+    await form.getByLabel('Nombre visible').fill('Invalid first profile');
+    await form.getByLabel('Dirección de tu página').fill('invalid slug');
+    const requestsBefore = capture.writes().length;
+    await page.getByRole('navigation', { name: 'Secciones de Tu página' }).getByRole('link', { name: 'Solicitudes' }).click();
+    const exit = page.locator('[data-owner-dialog][open] [data-owner-exit-prompt]');
+    await expect(exit).toBeVisible();
+    await exit.getByRole('button', { name: 'Guardar y salir' }).click();
+    await waitForRender(page);
+    assert.equal(await form.evaluate((node) => node.checkValidity()), false);
+    assert.equal(capture.writes().length, requestsBefore, 'the exit-save action validates before starting a create request');
+    assert.equal((await fixture.rawOwner(cookie)).profile, null);
+    assert.equal(await page.evaluate((original) => document === original, originalDocument), true,
+      'invalid native fields keep the current document and draft available');
+    await expect(form.getByLabel('Dirección de tu página')).toHaveValue('invalid slug');
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
+  }
+});

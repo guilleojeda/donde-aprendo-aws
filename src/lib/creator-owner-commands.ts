@@ -29,8 +29,10 @@ import { parseCreatorOwnerClaimUrls } from './creator-owner-catalog';
 import { creatorOwnerChapterOrder } from './creator-owner-series';
 import { creatorOwnerLinkGroup } from './creator-owner-links';
 
+export type CreatorOwnerRequestPath = `/api/creador/${string}/` | `/api/creador/recursos/?id=${'.' | '..'}`;
+
 export interface CreatorOwnerRequest {
-  path: `/api/creador/${string}/`;
+  path: CreatorOwnerRequestPath;
   method: 'PUT' | 'POST' | 'PATCH' | 'DELETE';
   body: Record<string, unknown>;
 }
@@ -41,7 +43,9 @@ export type CreatorOwnerCommandOutcome =
   | { kind: 'conflict'; message: string; code?: string }
   | { kind: 'rejected'; message: string; code?: string; viablePosition?: number }
   | { kind: 'session'; reason: 'expired' | 'csrf' | 'different-principal'; message: string }
-  | { kind: 'session-blocked'; reason: 'invalid-context'; message: string };
+  | { kind: 'session-blocked'; reason: 'disabled' | 'invalid-context'; message: string };
+
+export type CreatorOwnerSessionOutcome = Extract<CreatorOwnerCommandOutcome, { kind: 'session' | 'session-blocked' }>;
 
 export function creatorOwnerWriteIntent(id: string, capture: CreatorOwnerEditor | CreatorOwnerLinkEditor | CreatorOwnerListContext): CreatorOwnerWriteIntent {
   const kind: CreatorOwnerWriteIntent['kind'] = capture.kind === 'list-command'
@@ -170,7 +174,13 @@ export function prepareCreatorOwnerRequest(intent: CreatorOwnerWriteIntent): Cre
       const body: Record<string, unknown> = { version: capture.baseResource.version,
         title: normalizeCreatorText(capture.draft.title), url: normalizeCreatorText(capture.draft.url) };
       if (normalizeCreatorText(capture.draft.description) !== (capture.baseResource.description ?? '')) body.description = normalizeCreatorText(capture.draft.description);
-      return { path: `/api/creador/recursos/${encodeURIComponent(capture.baseResource.id)}/`, method: 'PATCH', body };
+      const resourceId = capture.baseResource.id;
+      const path: CreatorOwnerRequest['path'] = resourceId === '.'
+        ? '/api/creador/recursos/?id=.'
+        : resourceId === '..'
+          ? '/api/creador/recursos/?id=..'
+          : `/api/creador/recursos/${encodeURIComponent(resourceId)}/`;
+      return { path, method: 'PATCH', body };
     }
     throw new TypeError('La edición del enlace no contiene su colocación o ficha base.');
   }
@@ -245,6 +255,30 @@ function errorMessage(code: unknown, status: number, intent: CreatorOwnerWriteIn
   if (status === 422) return 'Revisa los datos: el servicio no acepta alguno de ellos. Tus cambios siguen aquí.';
   if (status === 403) return 'Esta cuenta no tiene permiso para completar esta acción. Tus cambios siguen aquí.';
   return 'No pudimos completar la acción. Tus cambios siguen aquí; revisa la información e inténtalo de nuevo.';
+}
+
+export function classifyCreatorOwnerWriteSessionFailure(
+  status: number,
+  payload: Record<string, unknown> | null,
+  retained: 'draft' | 'photo',
+): CreatorOwnerSessionOutcome | undefined {
+  const preserved = retained === 'photo' ? 'conservamos el archivo elegido' : 'conservamos tus cambios';
+  const recoveryReason = creatorSessionRecoveryReason(status, payload);
+  if (recoveryReason) return { kind: 'session', reason: recoveryReason, message: recoveryReason === 'expired'
+    ? `La sesión terminó. Ingresa con la misma cuenta en otra pestaña y comprueba la sesión antes de volver a guardar; ${preserved}.`
+    : `La sesión cambió. Comprueba la sesión antes de volver a intentar; ${preserved}.` };
+  const sessionCheck = classifyCreatorSessionCheck(status, payload);
+  if (sessionCheck.state === 'context-changed') return { kind: 'session', reason: 'different-principal',
+    message: retained === 'photo'
+      ? 'La cuenta o el rol activo no coincide con esta página. Comprueba la sesión; conservamos el archivo elegido.'
+      : 'La cuenta o el rol activo no coincide con esta página. Comprueba la sesión; conservamos tus cambios.' };
+  if (sessionCheck.state === 'disabled') return { kind: 'session-blocked', reason: 'disabled',
+    message: retained === 'photo' ? 'Esta cuenta está desactivada. Conservamos el archivo elegido.' : 'Esta cuenta está desactivada. Conservamos tus cambios.' };
+  if (sessionCheck.state === 'invalid-context') return { kind: 'session-blocked', reason: 'invalid-context',
+    message: retained === 'photo'
+      ? 'El contexto de esta página no es válido. Conservamos el archivo elegido; abre una página nueva con la cuenta original.'
+      : 'El contexto de esta página no es válido. Conservamos tus cambios; abre una página nueva con la cuenta original.' };
+  return undefined;
 }
 
 function sameOtherProfileFields(left: CreatorProfileDTO, right: CreatorProfileDTO, fields: ReadonlySet<string>): boolean {
@@ -532,7 +566,21 @@ function commandParticipants(
       if (status !== 200 || !validateCreatorOwnerReceipts(changes, [])) return { valid: false };
       const existing = observed.links.find(({ placementId }) => placementId === link.placementId);
       if (!existing || existing.resourceId !== link.resourceId || existing.url !== link.url) return { valid: false };
-      if (reference && capture.kind === 'reference' && (link.resourceId !== capture.selected?.id || link.url !== capture.selected.url)) return { valid: false };
+      if (reference && capture.kind === 'reference') {
+        if (link.resourceId !== capture.selected?.id || link.url !== capture.selected.url
+          || link.placementVersion !== existing.placementVersion
+          || link.position !== existing.position || link.featured !== existing.featured
+          || link.selectedForDirectory !== existing.selectedForDirectory
+          || JSON.stringify(link.series) !== JSON.stringify(existing.series)
+          || link.resourceVersion < existing.resourceVersion) return { valid: false };
+        const resourceObservationUnchanged = link.resourceVersion === existing.resourceVersion;
+        if (resourceObservationUnchanged && (link.title !== existing.title || link.hidden !== existing.hidden
+          || link.directoryApproval !== existing.directoryApproval
+          || Object.hasOwn(link, 'description') !== Object.hasOwn(existing, 'description')
+          || link.description !== existing.description)) return { valid: false };
+        return { valid: true, effect: { kind: 'link-added', profileId: profile.id, profileVersion: profile.version,
+          link: { ...link }, source: 'reference', created: false } };
+      }
       if (intent.kind === 'reinclude-resource') return { valid: false };
       return { valid: true, effect: { kind: 'link-added', profileId: profile.id, profileVersion: profile.version, link: existing,
         source: add ? 'url' : 'reference', created: false } };
@@ -668,17 +716,13 @@ export async function interpretCreatorOwnerResponse(
   observed: CreatorEditorDTO,
 ): Promise<CreatorOwnerCommandOutcome> {
   const payload = await responseObject(response);
-  const recoveryReason = creatorSessionRecoveryReason(response.status, payload ?? null);
-  if (recoveryReason) return { kind: 'session', reason: recoveryReason, message: recoveryReason === 'expired'
-    ? 'La sesión terminó. Ingresa con la misma cuenta en otra pestaña y comprueba la sesión antes de volver a guardar.'
-    : 'La sesión cambió. Comprueba la sesión antes de volver a intentar; conservamos tus cambios.' };
-  const sessionCheck = classifyCreatorSessionCheck(response.status, payload ?? null);
-  if (sessionCheck.state === 'context-changed') return { kind: 'session', reason: 'different-principal',
-    message: 'La cuenta o el rol activo no coincide con esta página. Comprueba la sesión; conservamos tus cambios.' };
-  if (sessionCheck.state === 'invalid-context') return { kind: 'session-blocked', reason: 'invalid-context',
-    message: 'El contexto de esta página no es válido. Conservamos tus cambios; abre una página nueva con la cuenta original.' };
+  const sessionOutcome = classifyCreatorOwnerWriteSessionFailure(response.status, payload ?? null, 'draft');
+  if (sessionOutcome) return sessionOutcome;
   if (!response.ok) {
     const code = payload?.error;
+    if (response.status === 409 && code === 'URL_COLLISION') {
+      return { kind: 'rejected', message: errorMessage(code, response.status, intent), code };
+    }
     if (response.status === 503 && code === 'ORDER_MOVE_CALCULATION_UNAVAILABLE') {
       return { kind: 'rejected', message: errorMessage(code, response.status, intent), code: String(code) };
     }
@@ -712,15 +756,8 @@ export async function interpretCreatorOwnerPhotoFinalize(
   uploadId: string,
 ): Promise<CreatorOwnerCommandOutcome> {
   const payload = await responseObject(response);
-  const recoveryReason = creatorSessionRecoveryReason(response.status, payload ?? null);
-  if (recoveryReason) return { kind: 'session', reason: recoveryReason, message: recoveryReason === 'expired'
-    ? 'La sesión terminó. Ingresa con la misma cuenta en otra pestaña y comprueba la sesión antes de volver a guardar.'
-    : 'La sesión cambió. Comprueba la sesión antes de volver a intentar; conservamos el archivo elegido.' };
-  const sessionCheck = classifyCreatorSessionCheck(response.status, payload ?? null);
-  if (sessionCheck.state === 'context-changed') return { kind: 'session', reason: 'different-principal',
-    message: 'La cuenta o el rol activo no coincide con esta página. Comprueba la sesión; conservamos el archivo elegido.' };
-  if (sessionCheck.state === 'invalid-context') return { kind: 'session-blocked', reason: 'invalid-context',
-    message: 'El contexto de esta página no es válido. Conservamos el archivo elegido; abre una página nueva con la cuenta original.' };
+  const sessionOutcome = classifyCreatorOwnerWriteSessionFailure(response.status, payload ?? null, 'photo');
+  if (sessionOutcome) return sessionOutcome;
   if (!response.ok) {
     if (response.status === 409) return { kind: 'conflict', message: 'El perfil cambió mientras se guardaba la foto. Comprueba cuál quedó activa antes de volver a cargar.' };
     if (response.status === 408 || response.status >= 500) return { kind: 'uncertain', message: 'No pudimos confirmar si la foto se guardó. Comprueba cuál quedó activa antes de volver a cargar.' };

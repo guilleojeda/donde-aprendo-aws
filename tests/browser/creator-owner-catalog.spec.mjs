@@ -537,12 +537,16 @@ test('el 409 tardío de A conserva B y su opción durante la actualización ante
     assert.equal(indexReads, 2, 'the explicit refresh reads the index after the comparison is adopted');
     assert.equal(linkWrites(capture).length, 1, 'refresh keeps B as intent without sending it');
 
-    // An old exact pair can remain in a lagging index. Trying it again must
+    // An old exact pair can remain in a lagging index. Clicking its label must
     // leave the later valid B selection and its directory option intact.
-    await catalogRadio(page, oldA.title).click();
+    await expect(catalogRadio(page, oldA.title)).toBeDisabled();
+    const staleLabel = dialog.getByText(oldA.title, { exact: true });
+    await expect(staleLabel).toBeVisible();
+    await staleLabel.click({ force: true });
     await expect(catalogRadio(page, oldA.title)).not.toBeChecked();
     await expect(catalogRadio(page, itemB.title)).toBeChecked();
     await expect(directory).not.toBeChecked();
+    assert.equal(linkWrites(capture).length, 1, 'the stale choice does not send another request');
 
     await dialog.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
     await expect.poll(() => linkWrites(capture).length).toBe(2);

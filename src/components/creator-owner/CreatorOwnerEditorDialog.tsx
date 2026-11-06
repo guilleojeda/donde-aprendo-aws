@@ -474,6 +474,9 @@ function CatalogPicker({ state, mode, selected, onSearch, onPage, onRetry, onSel
   const entries = catalog.entries ?? [];
   const selection = pageCreatorOwnerCatalog(entries, catalog.search, catalog.page);
   const rows = catalog.needsRefresh ? [] : selection.rows;
+  const hasRejectedVisibleReference = mode === 'reference' && selection.rows.some(({ id, url }) =>
+    catalog.rejectedReferenceSelections.some((rejected) => rejected.id === id && rejected.url === url));
+  const canRefresh = catalog.status === 'error' || catalog.needsRefresh || catalog.status === 'ready' && hasRejectedVisibleReference;
   const loadLabel = catalog.status === 'loading' ? 'Cargando el catálogo…'
     : catalog.status === 'error' ? catalog.message ?? 'No pudimos cargar el catálogo.'
       : catalog.needsRefresh ? catalog.message ?? 'Actualiza el catálogo antes de continuar.'
@@ -490,18 +493,23 @@ function CatalogPicker({ state, mode, selected, onSearch, onPage, onRetry, onSel
         onClick={() => { onSearch(catalog.search); resultsRef.current?.focus(); }}>Buscar</button>
     </div>
     <p class="creator-owner__status" data-catalog-index-status role={catalog.status === 'error' ? 'alert' : 'status'} aria-live="polite">{loadLabel}</p>
-    {(catalog.status === 'error' || catalog.needsRefresh) && <button class="button button--outline" type="button" data-catalog-retry onClick={onRetry}>{catalog.needsRefresh ? 'Actualizar catálogo' : 'Reintentar carga del catálogo'}</button>}
+    {canRefresh && <button class="button button--outline" type="button" data-catalog-retry onClick={onRetry}>{catalog.status === 'error' ? 'Reintentar carga del catálogo' : 'Actualizar catálogo'}</button>}
     {catalog.status === 'ready' && !catalog.needsRefresh && <>
       <p data-catalog-count aria-live="polite">{selection.matches.length} {selection.matches.length === 1 ? 'resultado' : 'resultados'}</p>
       <ul class="creator-owner__catalog-results" data-catalog-results aria-label="Resultados del catálogo" tabIndex={-1} ref={resultsRef}>
-        {rows.map((item) => <li class="creator-owner__catalog-row" data-catalog-row={item.id} key={item.id}>
+        {rows.map((item) => {
+          const rejected = mode === 'reference' && catalog.rejectedReferenceSelections.some(({ id, url }) => id === item.id && url === item.url);
+          return <li class="creator-owner__catalog-row" data-catalog-row={item.id} key={item.id}>
           <label><input type={mode === 'reference' ? 'radio' : 'checkbox'} name={mode === 'reference' ? 'catalogReference' : undefined}
             data-catalog-select data-resource-id={item.id} checked={selected.includes(item.id)}
+            disabled={rejected}
             aria-label={`${mode === 'claim' ? 'Solicitar edición de' : 'Seleccionar'} ${item.title}`}
             onChange={(event) => onSelect(item, event.currentTarget.checked)} />
-            <span class="creator-owner__catalog-item"><strong>{item.title}</strong><span>{item.url}</span></span>
+            <span class="creator-owner__catalog-item"><strong>{item.title}</strong><span>{item.url}</span>
+              {rejected && <span data-catalog-rejected>URL desactualizada.</span>}
+            </span>
           </label>
-        </li>)}
+        </li>; })}
       </ul>
       <p class="creator-owner__empty" data-catalog-empty hidden={selection.matches.length > 0}>
         {entries.length ? 'No hay recursos que coincidan con la búsqueda.' : 'El catálogo no tiene recursos disponibles en este momento.'}

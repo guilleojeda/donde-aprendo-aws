@@ -34,9 +34,9 @@ function placement(selection, overrides = {}) {
   };
 }
 
-function beginReference({ existing } = {}) {
+function beginReference({ existing, editableResource } = {}) {
   let state = ownerState.createCreatorOwnerState({
-    data: { profile, links: existing ? [existing] : [], editableResources: [], claims: [], series: [series] },
+    data: { profile, links: existing ? [existing] : [], editableResources: editableResource ? [editableResource] : [], claims: [], series: [series] },
     accountEmail: 'creator@example.test', csrfToken: 'csrf', sessionBinding: 'a'.repeat(64),
     isAdmin: false, publicOrigin: 'https://example.test', view: 'enlaces',
     seriesQuery: ownerSeries.DEFAULT_CREATOR_OWNER_SERIES_QUERY,
@@ -282,6 +282,8 @@ for (const mode of ['acknowledged', 'recovered']) {
     assert.equal(state.editor?.kind, 'link-placement');
     assert.equal(state.editor.editable, false);
     assert.equal(state.editor.draft.selectedForDirectory, false, 'compare latest choice to the submitted choice, not the saved option');
+    assert.equal(ownerState.creatorOwnerDraftIsDirty(state.editor), true,
+      'the later choice remains an explicit unsaved decision even when it equals the saved value');
     assert.deepEqual(state.observed.links, [existing], 'the no-op itself changes no placement fields');
     const manual = commands.prepareCreatorOwnerRequest(commands.creatorOwnerWriteIntent('noop-options-manual', state.editor));
     assert.equal(manual.method, 'PATCH');
@@ -290,6 +292,114 @@ for (const mode of ['acknowledged', 'recovered']) {
     assert.equal(manual.body.selectedForDirectory, false);
   });
 }
+
+test('a confirmed reference no-op uses its canonical newer resource version and preserves a same-A manual option save', async () => {
+  const existing = placement(A, { selectedForDirectory: false, resourceVersion: 4 });
+  let { state, intent } = beginReference({ existing });
+  const canonical = { ...existing, title: 'IAM guide updated elsewhere', resourceVersion: 5 };
+  const response = new Response(JSON.stringify({ link: canonical, created: false, versionChanges: [] }), {
+    status: 200, headers: { 'content-type': 'application/json' },
+  });
+  const outcome = await commands.interpretCreatorOwnerResponse(response, intent, state.observed);
+  assert.equal(outcome.kind, 'confirmed');
+  assert.equal(outcome.effect.link.resourceVersion, 5,
+    'the actual no-op result carries the canonical shared resource version');
+  assert.equal(outcome.effect.link.title, canonical.title);
+
+  state = updateReference(state, { selectedForDirectory: false });
+  state = ownerState.creatorOwnerReducer(state, { type: 'write-confirmed', intentId: intent.id,
+    correction: true, effect: outcome.effect });
+  assert.equal(state.editor?.kind, 'link-placement');
+  assert.equal(state.editor.baseLink.resourceVersion, 5);
+  assert.equal(state.editor.draft.selectedForDirectory, false);
+  assert.equal(ownerState.creatorOwnerDraftIsDirty(state.editor), true);
+  const manual = commands.prepareCreatorOwnerRequest(commands.creatorOwnerWriteIntent('canonical-noop-option', state.editor));
+  assert.equal(manual.body.resourceVersion, 5,
+    'the manual options request uses the canonical result, so a newer shared catalog version does not reject it');
+  assert.equal(manual.body.selectedForDirectory, false);
+  assert.equal(Object.hasOwn(manual.body, 'title'), false,
+    'the reference continuation never gains shared-resource editing authority');
+  assert.deepEqual(state.observed.editableResources, [], 'a shared reference does not create edit authority');
+});
+
+test('a reference no-op refreshes an existing owner resource projection without granting authority', async () => {
+  const existing = placement(A, { selectedForDirectory: true, resourceVersion: 4 });
+  let { state, intent } = beginReference({ existing, editableResource: { id: A.id, title: A.title, url: A.url, version: 4 } });
+  const canonical = { ...existing, title: 'Owner resource updated elsewhere', resourceVersion: 5 };
+  const response = new Response(JSON.stringify({ link: canonical, created: false, versionChanges: [] }), {
+    status: 200, headers: { 'content-type': 'application/json' },
+  });
+  const outcome = await commands.interpretCreatorOwnerResponse(response, intent, state.observed);
+  assert.equal(outcome.kind, 'confirmed');
+  state = ownerState.creatorOwnerReducer(state, { type: 'write-confirmed', intentId: intent.id,
+    correction: false, effect: outcome.effect });
+  assert.deepEqual(state.observed.editableResources, [
+    { id: A.id, title: canonical.title, url: A.url, version: 5 },
+  ], 'the canonical no-op keeps an already-owned editable projection consistent');
+  assert.equal(state.editor, undefined, 'the no-op creates no additional editing step');
+});
+
+test('a reference no-op cannot confirm a different placement identity', async () => {
+  const existing = placement(A);
+  const { state, intent } = beginReference({ existing });
+  const response = new Response(JSON.stringify({ link: { ...existing, placementId: 'another-placement' },
+    created: false, versionChanges: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+  const outcome = await commands.interpretCreatorOwnerResponse(response, intent, state.observed);
+  assert.equal(outcome.kind, 'uncertain', 'a mismatched canonical placement is not adopted');
+});
+
+test('a rejected exact catalog pair stays quarantined across closing and reopening the reference editor', () => {
+  let { state, intent } = beginReference();
+  state = ownerState.creatorOwnerReducer(state, { type: 'write-uncertain', intentId: intent.id, status: 'conflict',
+    code: 'RESOURCE_CONFLICT', message: 'La URL de A quedó desactualizada.' });
+  state = ownerState.creatorOwnerReducer(state, { type: 'catalog-load-ready', entries: [A, B] });
+  state = ownerState.creatorOwnerReducer(state, { type: 'close-editor' });
+  state = ownerState.creatorOwnerReducer(state, { type: 'open-editor', editor: {
+    kind: 'reference', key: 'reference', baseProfile: state.observed.profile, selected: undefined, selectedForDirectory: true,
+  } });
+  state = ownerState.creatorOwnerReducer(state, { type: 'catalog-load-ready', entries: [A, B] });
+  state = updateReference(state, { selected: A });
+  assert.equal(state.editor.selected, undefined, 'a lagging cached index cannot re-enable the exact rejected ID/URL pair');
+  assert.equal(state.editor.selectedForDirectory, true, 'rejecting A does not change the independent directory choice');
+  assert.equal(state.catalog.rejectedReferenceSelections.some(({ id, url }) => id === A.id && url === A.url), true);
+  assert.match(state.message.text, /dirección ya fue rechazada/u);
+
+  const currentA = { ...A, url: 'https://catalog.example/a-current' };
+  state = ownerState.creatorOwnerReducer(state, { type: 'catalog-load-ready', entries: [currentA, B] });
+  state = updateReference(state, { selected: currentA, selectedForDirectory: false });
+  assert.deepEqual(state.editor.selected, currentA, 'a refreshed replacement URL remains selectable for the same resource ID');
+  state = updateReference(state, { selected: A });
+  assert.deepEqual(state.editor.selected, currentA, 'the old literal pair stays rejected after a replacement refresh');
+  const replacementRequest = commands.prepareCreatorOwnerRequest(commands.creatorOwnerWriteIntent('replacement-a', state.editor));
+  assert.deepEqual(replacementRequest.body, { resourceId: A.id, url: currentA.url, profileVersion: profile.version, selectedForDirectory: false });
+});
+
+test('a late option decision survives a genuine options conflict and explicit snapshot adoption', () => {
+  const existing = placement(A, { selectedForDirectory: false });
+  let { state, intent } = beginReference({ existing });
+  state = updateReference(state, { selectedForDirectory: false });
+  state = ownerState.creatorOwnerReducer(state, { type: 'write-confirmed', intentId: intent.id, correction: true,
+    effect: { kind: 'link-added', source: 'reference', created: false, profileId: profile.id, profileVersion: profile.version, link: existing } });
+  assert.equal(state.editor.kind, 'link-placement');
+  assert.equal(ownerState.creatorOwnerDraftIsDirty(state.editor), true);
+
+  const manual = commands.creatorOwnerWriteIntent('option-save', state.editor);
+  state = ownerState.creatorOwnerReducer(state, { type: 'begin-write', intent: manual });
+  state = ownerState.creatorOwnerReducer(state, { type: 'write-uncertain', intentId: manual.id, status: 'conflict',
+    code: 'PROFILE_CONFLICT', message: 'El perfil cambió.' });
+  state = ownerState.creatorOwnerReducer(state, { type: 'begin-check', intentId: manual.id, checkId: 'option-check' });
+  const snapshot = { profile: { ...profile, version: 11 }, links: [existing], editableResources: [], claims: [], series: [series] };
+  const comparison = commands.createCreatorOwnerComparison(manual, snapshot, state.editor);
+  state = ownerState.creatorOwnerReducer(state, { type: 'check-compared', intentId: manual.id, checkId: 'option-check', comparison });
+  state = ownerState.creatorOwnerReducer(state, { type: 'adopt-comparison', comparisonId: comparison.id });
+  assert.equal(state.editor.kind, 'link-placement');
+  assert.equal(state.editor.draft.selectedForDirectory, false);
+  assert.equal(state.editor.pendingDirectoryOptionDecision, true);
+  assert.equal(ownerState.creatorOwnerDraftIsDirty(state.editor), true,
+    'adoption keeps the explicit later decision pending even though it equals the observed value');
+  assert.match(state.message.text, /Conservamos tu decisión posterior sobre la propuesta/u);
+  assert.equal(commands.prepareCreatorOwnerRequest(commands.creatorOwnerWriteIntent('option-save-again', state.editor)).body.profileVersion, 11);
+});
 
 test('adopting a read without original A preserves B for a manual reference without claiming A was found', () => {
   let { state, intent } = beginReference();
