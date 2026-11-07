@@ -41,11 +41,11 @@
     if (!activation) return;
     const { event, href, from } = activation;
     activation = undefined;
-    if (!event.defaultPrevented && location.href === href && !hasIndex(history.state)) {
-      history.replaceState({ ...history.state, creatorOwnerIndex: from.creatorOwnerIndex + 1,
-        creatorOwnerSeriesQueryValid: from.creatorOwnerSeriesQueryValid,
-        creatorOwnerLinksQueryValid: from.creatorOwnerLinksQueryValid }, '');
-    }
+    if (event.defaultPrevented || location.href !== href) return;
+    if (!hasIndex(history.state)) history.replaceState({ ...history.state, creatorOwnerIndex: from.creatorOwnerIndex + 1,
+      creatorOwnerSeriesQueryValid: from.creatorOwnerSeriesQueryValid,
+      creatorOwnerLinksQueryValid: from.creatorOwnerLinksQueryValid }, '');
+    window.dispatchEvent(new Event('creator-owner:native-fragment'));
   }
 
   window.addEventListener('popstate', recordNativeFragment);

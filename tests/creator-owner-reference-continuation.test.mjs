@@ -92,10 +92,9 @@ function complete(mode, state, intent, { existing, recovered = true, queueExit =
 }
 
 function queueTransition(state) {
-  state = ownerState.creatorOwnerReducer(state, { type: 'set-transition', transition: {
+  return ownerState.creatorOwnerReducer(state, { type: 'request-exit', transition: {
     href: '/cuenta/?vista=enlaces&buscar=previous', kind: 'history', historyIndex: 0,
   } });
-  return ownerState.creatorOwnerReducer(state, { type: 'set-prompt', prompt: 'exit' });
 }
 
 function updateReference(state, value) {
@@ -414,9 +413,51 @@ test('adopting unchanged recovered A from the exit prompt finishes the editor an
   const pending = beginReference();
   const { state } = complete('recovered', pending.state, pending.intent, { queueExit: true });
   assert.equal(state.editor, undefined);
-  assert.equal(state.location.prompt, 'none', 'a completed original reference cannot leave a stale exit prompt open');
-  assert.equal(state.location.transition?.href, '/cuenta/?vista=enlaces&buscar=previous', 'the existing transition adapter can continue the chosen exit');
-  assert.equal(state.location.transition?.kind, 'history');
+  assert.equal(state.location.prompt, 'exit', 'recovery does not turn a proposed destination into an approved exit');
+  assert.equal(state.location.exitRequest?.href, '/cuenta/?vista=enlaces&buscar=previous');
+  assert.equal(state.location.exitRequest?.kind, 'history');
+  assert.equal(state.location.transition, undefined, 'the comparison has not authorized navigation');
+  assert.equal(state.location.focusAfterRender, '#owner-exit-discard', 'the remaining prompt choice receives focus');
+  const discarded = ownerState.creatorOwnerReducer(state, { type: 'resolve-transition', action: 'discard' });
+  assert.equal(discarded.location.exitRequest, undefined);
+  assert.equal(discarded.location.transition?.href, '/cuenta/?vista=enlaces&buscar=previous', 'discard explicitly authorizes the queued exit');
+});
+
+test('guard and submit eligibility share current reference, claim, photo and option rules', () => {
+  let { state } = beginReference();
+  assert.equal(ownerState.creatorOwnerCanSubmitEditor(state), true, 'an exact current reference can submit');
+  state = updateReference(state, { selected: undefined });
+  assert.equal(ownerState.creatorOwnerCanSubmitEditor(state), false, 'an empty reference selection cannot submit');
+  state = updateReference(state, { selected: A });
+  assert.equal(ownerState.creatorOwnerCanSubmitEditor(state), true);
+  state = ownerState.creatorOwnerReducer(state, { type: 'catalog-require-refresh', message: 'Refresh needed.' });
+  assert.equal(ownerState.creatorOwnerCanSubmitEditor(state), false, 'a reference requires a current catalog pair');
+
+  state = ownerState.creatorOwnerReducer(state, { type: 'open-editor', editor: {
+    kind: 'claim', key: 'claim', baseProfile: state.observed.profile, selected: [], knownUrls: '', evidence: '',
+  } });
+  assert.equal(ownerState.creatorOwnerCanSubmitEditor(state), false, 'an empty claim cannot submit');
+  state = ownerState.creatorOwnerReducer(state, { type: 'update-claim-draft', value: { knownUrls: 'https://known.example/' } });
+  assert.equal(ownerState.creatorOwnerCanSubmitEditor(state), true, 'a known URL remains a valid claim route');
+  state = ownerState.creatorOwnerReducer(state, { type: 'open-editor', editor: {
+    kind: 'photo', key: 'photo', base: state.observed.profile,
+  } });
+  assert.equal(ownerState.creatorOwnerCanSubmitEditor(state), false, 'photo requires a selected file');
+  state = ownerState.creatorOwnerReducer(state, { type: 'update-photo-file', file: { name: 'photo.png' } });
+  assert.equal(ownerState.creatorOwnerCanSubmitEditor(state), true);
+
+  const saved = placement(A, { selectedForDirectory: true });
+  state = ownerState.creatorOwnerReducer(state, { type: 'open-editor', editor: {
+    kind: 'link-placement', key: 'link:shared', baseProfile: state.observed.profile, baseLink: saved, editable: false,
+    pendingAddDraft: { title: 'Independent draft', url: 'https://draft.example/', description: '', featured: false, selectedForDirectory: true },
+    draft: { title: saved.title, url: saved.url, description: '', featured: saved.featured, selectedForDirectory: saved.selectedForDirectory },
+  } });
+  assert.equal(ownerState.creatorOwnerLinkOptionsAreDirty(state.editor), false);
+  assert.equal(ownerState.creatorOwnerCanSubmitEditor(state), false, 'saving an unchanged shared option is unavailable');
+  state = ownerState.creatorOwnerReducer(state, { type: 'update-link-draft', value: { selectedForDirectory: false } });
+  assert.equal(ownerState.creatorOwnerLinkOptionsAreDirty(state.editor), true);
+  assert.equal(ownerState.creatorOwnerDraftIsDirty(state.editor), true);
+  assert.equal(ownerState.creatorOwnerCanSubmitEditor(state), true, 'the same current option difference enables Save');
 });
 
 test('changes after a reference comparison require another check before adoption', () => {

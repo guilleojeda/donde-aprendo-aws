@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from 'preact/hooks';
 import type { CreatorCatalogSelectionDTO, CreatorEditorDTO, CreatorProfileDTO } from '../../types/creators';
 import { normalizeCreatorText } from '../../lib/creator-values.mjs';
+import { creatorOwnerCanSubmitEditor, creatorOwnerLinkOptionsAreDirty, creatorOwnerReferenceSubmissionStatus } from '../../lib/creator-owner-state';
 import type { CreatorOwnerAttempt, CreatorOwnerComparison, CreatorOwnerEditor, CreatorOwnerLinkDraft, CreatorOwnerLinkEditor, CreatorOwnerState, CreatorOwnerWriteIntent } from '../../lib/creator-owner-state';
 import { pageCreatorOwnerCatalog } from '../../lib/creator-owner-catalog';
 
@@ -162,6 +163,10 @@ function adoptLabel(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor): string
 
 function savedValue(value: string): string { return value || '—'; }
 
+function ComparisonRows({ rows }: { rows: Array<[string, string, string]> }) {
+  return <dl>{rows.map(([label, saved, local]) => <div key={label}><dt>{label}</dt><dd>{comparisonSavedLabel(label)}: {savedValue(saved)} | Tu corrección: {savedValue(local)}</dd></div>)}</dl>;
+}
+
 function comparisonSavedLabel(label: string): string {
   switch (label) {
     case 'Nombre visible': return 'Nombre visible guardado';
@@ -191,14 +196,9 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
   const checking = attemptMatches && state.attempt.status === 'checking';
   const canResubmitClaimWhileChecking = editor?.kind === 'claim' && state.attempt.status === 'checking'
     && state.attempt.intent.kind === 'claim' && state.attempt.intent.editorKey === editor.key;
-  const addDraftHasNoOptionsToSave = editor?.kind === 'link-placement' && editor.pendingAddDraft
-    && !editor.editable && !editor.pendingDirectoryOptionDecision
-    && editor.draft.selectedForDirectory === editor.baseLink.selectedForDirectory
-    && editor.draft.featured === editor.baseLink.featured;
   const canWrite = state.runtimeReady && state.session.state === 'ready'
-    && state.attempt.status !== 'sending' && (state.attempt.status !== 'checking' || canResubmitClaimWhileChecking)
-    && !(attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict'))
-    && !addDraftHasNoOptionsToSave;
+    && (state.attempt.status === 'idle' || state.attempt.status === 'confirmed' || canResubmitClaimWhileChecking);
+  const canSubmit = canWrite && creatorOwnerCanSubmitEditor(state);
   const dialogTitle = !editor ? 'Tu página' : editor.kind === 'create-profile' ? 'Prepara tu página' : editor.kind === 'profile' ? editor.section === 'datos' ? 'Editar datos' : 'Editar redes'
     : editor.kind === 'photo' ? 'Editar foto'
       : editor.kind === 'series' ? editor.baseSeries ? 'Editar serie' : 'Crear serie'
@@ -235,6 +235,18 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
   const addDraftTextDiffers = editor?.kind === 'link-placement' && editor.pendingAddDraft
     && (editor.pendingAddDraft.title !== editor.baseLink.title || editor.pendingAddDraft.url !== editor.baseLink.url
       || editor.pendingAddDraft.description !== (editor.baseLink.description ?? ''));
+  const returningFromSavedCardDiscardsOptions = editor?.kind === 'link-placement' && editor.pendingAddDraft
+    && creatorOwnerLinkOptionsAreDirty(editor);
+  const returningFromSavedCardDiscardsMetadata = editor?.kind === 'link-placement' && editor.pendingAddDraft && editor.editable
+    && (editor.draft.title !== editor.baseLink.title || editor.draft.url !== editor.baseLink.url
+      || editor.draft.description !== (editor.baseLink.description ?? ''));
+  const returnToAddLabel = returningFromSavedCardDiscardsOptions && returningFromSavedCardDiscardsMetadata
+    ? 'Volver al borrador sin guardar los cambios'
+    : returningFromSavedCardDiscardsOptions ? 'Volver al borrador sin guardar las opciones'
+      : returningFromSavedCardDiscardsMetadata ? 'Volver al borrador sin guardar la ficha'
+        : 'Volver al borrador del alta';
+  const referenceSubmissionStatus = editor?.kind === 'reference'
+    ? creatorOwnerReferenceSubmissionStatus(state, editor.selected) : 'ready';
   const moveContext = editor?.kind === 'move-chapter'
     ? `En «${editor.baseSeries.name}», «${state.observed.links.find(({ placementId }) => placementId === editor.placementId)?.title ?? 'Capítulo'}» ocupa la posición actual ${editor.baseOrder.indexOf(editor.placementId) + 1} de ${editor.baseOrder.length}.` : '';
 
@@ -275,7 +287,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
           onInput={(event) => onUpdateProfile({ bio: (event.currentTarget as HTMLTextAreaElement).value })} /><small>Hasta 2000 caracteres.</small></div>
         <input name="version" type="hidden" value={editor.base.version} />
         <p class="creator-owner__status" data-owner-form-status="datos" role="status" aria-live="polite">{statusText}</p>
-        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canWrite}>Guardar datos</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
+        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar datos</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
         {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
       </form>}
 
@@ -289,7 +301,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         </div>)}
         <input name="version" type="hidden" value={editor.base.version} />
         <p class="creator-owner__status" data-owner-form-status="redes" role="status" aria-live="polite">{statusText}</p>
-        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canWrite}>Guardar redes</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
+        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar redes</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
         {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
       </form>}
 
@@ -299,7 +311,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         <div class="creator-owner__field"><label htmlFor="owner-photo-file">Elegir una foto</label><input id="owner-photo-file" name="photo" type="file" accept="image/jpeg,image/png,image/webp" required data-busy-control
           onChange={(event) => onSetPhoto((event.currentTarget as HTMLInputElement).files?.[0])} /></div>
         <p class="creator-owner__status" data-owner-form-status="foto" role="status" aria-live="polite">{statusText}</p>
-        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canWrite || !editor.file}>Subir y guardar foto</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
+        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Subir y guardar foto</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
         {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <button class="button button--outline" type="button" data-owner-check-photo disabled={checking} onClick={onCheck}>{checkLabel(editor)}</button>}
       </form>}
 
@@ -318,7 +330,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         <p class="creator-owner__status" data-owner-form-status="serie" role="status" aria-live="polite">{statusText}</p>
         {editor.baseSeries && <input name="version" type="hidden" value={editor.baseSeries.version} />}
         {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
-        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canWrite}>Guardar serie</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
+        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar serie</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
       {editorIsDialog && editor.kind === 'move-chapter' && <form class="creator-owner__form" hidden={prompt} data-owner-form="mover-capitulo" data-chapter-move-form aria-label="Mover capítulo en la serie" onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
@@ -328,7 +340,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         <p class="creator-owner__status" data-owner-form-status="mover-capitulo" role="status" aria-live="polite">{statusText}</p>
         {editor.suggestionPosition && <div data-chapter-move-suggestion-shell><button class="button button--outline" type="button" data-chapter-move-suggestion data-viable-position={editor.suggestionPosition} onClick={() => { onUpdateMove(String(editor.suggestionPosition)); onSetMoveSuggestion(undefined); }}>Usar posición intermedia {editor.suggestionPosition}</button></div>}
         {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
-        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canWrite}>Guardar posición</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
+        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar posición</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
       {editorIsDialog && editor.kind === 'link-placement' && <form class="creator-owner__form" hidden={prompt} data-owner-form="enlace" data-link-edit-form onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
@@ -358,10 +370,10 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         <p class="creator-owner__status" data-owner-form-status="enlace" role="status" aria-live="polite">{statusText}</p>
         {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
         <div class="creator-owner__dialog-actions">
-          <button class="button button--dark" type="submit" disabled={!canWrite}>Guardar cambios</button>
+          <button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar cambios</button>
           {editor.pendingAddDraft && <button class="button button--outline" type="button"
             disabled={state.attempt.status !== 'confirmed' && state.attempt.status !== 'idle'} onClick={onResumeSharedAdd}>
-            {editor.pendingDirectoryOptionDecision ? 'Volver al borrador sin guardar las opciones' : 'Volver al borrador del alta'}
+            {returnToAddLabel}
           </button>}
           <button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button>
         </div>
@@ -377,7 +389,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         </fieldset>
         <p class="creator-owner__status" data-owner-form-status="enlace" role="status" aria-live="polite">{statusText}</p>
         {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
-        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canWrite}>Guardar ficha</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
+        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar ficha</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
       {editorIsDialog && editor.kind === 'add-link' && <form class="creator-owner__form" hidden={prompt} data-owner-form="alta-enlace" data-link-add-form onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
@@ -389,7 +401,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Quitarla no quita el enlace de tu página; la actualización del directorio puede demorar.</p></details>
         <p class="creator-owner__status" data-link-add-status role="status" aria-live="polite">{statusText}</p>
         {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} onAdoptAddPlacement={onAdoptAddPlacement} />}
-        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canWrite}>Agregar enlace</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
+        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Agregar enlace</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
       {editorIsDialog && editor.kind === 'move-link' && <form class="creator-owner__form" hidden={prompt} data-owner-form="mover-enlace" data-link-move-form aria-label="Mover enlace a una posición" onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
@@ -398,7 +410,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         <p class="creator-owner__status" data-owner-form-status="mover-enlace" role="status" aria-live="polite">{statusText}</p>
         {editor.suggestionPosition && <div data-link-move-suggestion-shell><button class="button button--outline" type="button" data-link-move-suggestion data-viable-position={editor.suggestionPosition} onClick={() => { onUpdateMoveLink(String(editor.suggestionPosition)); onSetMoveSuggestion(undefined); }}>Usar posición intermedia {editor.suggestionPosition}</button></div>}
         {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
-        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canWrite}>Guardar posición</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
+        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar posición</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
       {editorIsDialog && editor.kind === 'reference' && <form class="creator-owner__form" hidden={prompt} data-owner-form="referencia" data-catalog-reference-form onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
@@ -409,7 +421,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         {editor.selected && <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Agregar una referencia no concede permiso para editar la ficha compartida.</p></details>}
         <p class="creator-owner__status" data-catalog-status role="status" aria-live="polite">{statusText || state.catalog.message}</p>
         {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
-        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" data-catalog-reference disabled={!canWrite || !editor.selected || state.catalog.status !== 'ready' || state.catalog.needsRefresh || attemptMatches && state.attempt.status !== 'idle' && state.attempt.status !== 'confirmed'}>Agregar a mi página</button><button class="button button--outline" type="button" data-owner-cancel data-catalog-cancel onClick={onRequestClose}>Cancelar</button></div>
+        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" data-catalog-reference disabled={!canSubmit}>Agregar a mi página</button><button class="button button--outline" type="button" data-owner-cancel data-catalog-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
       {editorIsDialog && editor.kind === 'claim' && <form class="creator-owner__form" hidden={prompt} data-owner-form="reclamacion" data-claim-form onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
@@ -426,27 +438,40 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         <div class="creator-owner__field"><label htmlFor="owner-claim-evidence">Contexto privado <span>(opcional)</span></label><textarea id="owner-claim-evidence" name="evidence" rows={3} maxLength={2000} data-claim-evidence value={editor.evidence} onInput={(event) => onUpdateClaim({ evidence: (event.currentTarget as HTMLTextAreaElement).value })} /><small>Hasta 2000 caracteres. Sólo lo ven quienes gestionan esta solicitud.</small></div>
         <p class="creator-owner__status" data-claim-status role="status" aria-live="polite">{statusText}</p>
         {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <section class="creator-owner__conflict" data-claim-recovery aria-live="polite"><p>{state.attempt.status === 'checking' ? 'Comprobando solicitudes…' : attemptMessage}</p><button class="button button--outline" type="button" data-claim-check disabled={checking} onClick={onCheckClaim}>Comprobar solicitudes</button></section>}
-        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" data-claim-submit disabled={!canWrite || !(editor.selected.length || editor.knownUrls.trim())}>Enviar solicitud</button><button class="button button--outline" type="button" data-owner-cancel data-claim-cancel onClick={onRequestClose}>Cancelar</button></div>
+        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" data-claim-submit disabled={!canSubmit}>Enviar solicitud</button><button class="button button--outline" type="button" data-owner-cancel data-claim-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
       {prompt && <div class="creator-owner__exit" data-owner-exit-prompt role="alertdialog" aria-labelledby="owner-exit-title" aria-describedby="owner-exit-copy">
-        <h3 id="owner-exit-title">Tienes cambios sin guardar</h3>
-        <p id="owner-exit-copy">Puedes guardar esta corrección, descartarla o seguir editando.</p>
+        <h3 id="owner-exit-title">{editor ? 'Tienes cambios sin guardar' : promptRecovery ? 'Hay una acción por comprobar' : 'La acción está confirmada'}</h3>
+        <p id="owner-exit-copy">{editor ? 'Puedes guardar esta corrección, descartarla o seguir editando.'
+          : promptRecovery ? 'Comprueba el estado guardado y decide si sigues a la página solicitada o te quedas aquí.'
+            : 'La acción quedó confirmada. Puedes seguir a la página solicitada o quedarte aquí.'}</p>
+        {editor?.kind === 'reference' && canWrite && referenceSubmissionStatus !== 'ready' && <p class="creator-owner__status" role="status" data-owner-exit-save-blocked>
+          {referenceSubmissionStatus === 'needs-selection' ? 'Vuelve a la selección y elige una ficha vigente antes de guardar.'
+            : 'Vuelve a la selección, actualiza el catálogo si hace falta y elige un par vigente antes de guardar.'}
+        </p>}
         {promptRecovery && <section class="creator-owner__conflict" data-exit-recovery>
           <p>{'message' in state.attempt ? state.attempt.message : 'Comprobando el estado guardado…'}</p>
-          {state.attempt.status === 'uncertain' && state.attempt.comparison?.canAdopt && <button class="button button--outline" type="button" data-owner-adopt
+          {editor && activeComparison && rows.length > 0 && <div class="creator-owner__comparison" data-owner-comparison>
+            <ComparisonRows rows={rows} />
+          </div>}
+          {!promptListAttempt && state.attempt.status === 'uncertain' && state.attempt.comparison?.canAdopt && <button id="owner-adopt" class="button button--outline" type="button" data-owner-adopt
             onClick={() => onAdopt(state.attempt.status === 'uncertain' ? state.attempt.comparison?.id ?? '' : '')}>
-            {promptListAttempt ? 'Usar la lista guardada' : editor ? adoptLabel(editor) : 'Usar los datos guardados'}
+            {editor ? adoptLabel(editor) : 'Usar los datos guardados'}
           </button>}
-          {(state.attempt.status === 'uncertain' || state.attempt.status === 'conflict') && !state.attempt.comparison && <button id="owner-exit-compare" class="button button--outline" type="button" data-owner-compare onClick={onCheck}>{editor ? recoveryActionLabel(editor, state.attempt.status) : 'Comprobar'}</button>}
+          {(state.attempt.status === 'uncertain' || state.attempt.status === 'conflict') && <button id="owner-exit-compare" class="button button--outline" type="button" data-owner-compare onClick={onCheck}>{editor ? activeComparison ? 'Comparar otra vez' : recoveryActionLabel(editor, state.attempt.status) : 'Comprobar'}</button>}
           {state.attempt.status === 'checking' && <p role="status" aria-live="polite">Comprobando…</p>}
         </section>}
         <div class="creator-owner__dialog-actions">
-          {editor && <button class="button button--dark" type="button" data-owner-exit-save disabled={!canWrite} onClick={() => onExit('save')}>
+          {editor && <button class="button button--dark" type="button" data-owner-exit-save disabled={!canSubmit} onClick={() => onExit('save')}>
             {editor.kind === 'link-placement' && editor.pendingAddDraft ? 'Guardar opciones y volver al borrador' : 'Guardar y salir'}
           </button>}
-          <button class="button button--outline" type="button" data-owner-exit-discard disabled={state.attempt.status === 'sending'} onClick={() => onExit('discard')}>Descartar cambios</button>
-          <button class="button button--outline" type="button" data-owner-exit-continue onClick={() => onExit('continue')}>Seguir editando</button>
+          <button id="owner-exit-discard" class="button button--outline" type="button" data-owner-exit-discard disabled={state.attempt.status === 'sending'} onClick={() => onExit('discard')}>
+            {editor ? 'Descartar cambios' : promptRecovery ? 'Descartar y seguir' : 'Seguir a la página solicitada'}
+          </button>
+          <button id="owner-exit-continue" class="button button--outline" type="button" data-owner-exit-continue onClick={() => onExit('continue')}>
+            {editor ? 'Seguir editando' : 'Quedarme aquí'}
+          </button>
         </div>
       </div>}
     </div>
@@ -477,7 +502,7 @@ function Recovery({ state, editor, rows, canAdopt, onCheck, onAdopt, onAdoptAddP
     {comparison && <>
       <div class="creator-owner__comparison" data-owner-comparison>
         <p>{comparison.message}</p>
-        {rows.length > 0 && <dl>{rows.map(([label, saved, local]) => <div key={label}><dt>{label}</dt><dd>{comparisonSavedLabel(label)}: {savedValue(saved)} | Tu corrección: {savedValue(local)}</dd></div>)}</dl>}
+        {rows.length > 0 && <ComparisonRows rows={rows} />}
       </div>
       {canAdopt && <button class="button button--outline" type="button" data-owner-adopt onClick={() => onAdopt(comparison.id)}>{comparisonActionLabel}</button>}
       {onAdoptAddPlacement && savedAddPlacement && <button class="button button--outline" type="button" data-owner-adopt-link={savedAddPlacement.placementId}

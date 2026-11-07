@@ -228,6 +228,13 @@ test('one session evidence policy separates provisional history denials from ter
   assert.equal(newerRead.session.message, 'La lectura confirmó esta página. Comprueba la sesión para habilitar cambios.');
   assert.equal(newerRead.sessionEvidence.latestBoundOperationId, 2, 'a newer bound 200 makes the old history result obsolete');
 
+  const readyRead = evidence(initialState(), 'bound', 'read-confirmed', { operationId: 2, message: 'Bound read confirmed while ready' });
+  assert.equal(readyRead.session.state, 'ready', 'a successful bound comparison does not require a prior mismatch');
+  assert.equal(readyRead.sessionEvidence.latestBoundOperationId, 2, 'a ready-state 200 still owns its operation order');
+  const delayedHistory = reduce(readyRead, { type: 'session-evidence', operationId: 1, source: 'history', outcome: 'recoverable',
+    reason: 'different-principal', message: 'Old role warning' });
+  assert.strictEqual(delayedHistory, readyRead, 'the older denial cannot supersede the ready-state comparison');
+
   const olderHistoryAfterBound = reduce(newerMismatch, { type: 'session-evidence', operationId: 1, source: 'history', outcome: 'recoverable', reason: 'disabled', message });
   assert.equal(olderHistoryAfterBound.session.reason, 'different-principal', 'both response delivery orders preserve newer bound evidence');
   assert.strictEqual(olderHistoryAfterBound, newerMismatch, 'older session feedback has no authority after a newer bound result');
@@ -287,6 +294,37 @@ test('matching session restoration changes session state and CSRF only, then ena
   const sending = reduce(state, { type: 'begin-write', intent });
   assert.equal(sending.attempt.status, 'sending', 'the restored session permits a separately initiated manual save');
   assert.equal(sending.attempt.intent.id, intent.id);
+});
+
+test('a matching retry replaces a failed explicit session check without clearing the pending attempt', () => {
+  let state = profileEditorState();
+  const intent = commands.creatorOwnerWriteIntent('pending-profile-save', state.editor);
+  state = reduce(state, { type: 'begin-write', intent });
+  state = reduce(state, { type: 'write-uncertain', intentId: intent.id, status: 'uncertain', message: 'Check saved content first.' });
+  const firstCheckId = 'first-session-check';
+  state = reduce(state, { type: 'begin-check', intentId: intent.id, checkId: 'content-check' });
+  const mismatchId = nextOperationId(state);
+  state = evidence(state, 'bound', 'recoverable', { operationId: mismatchId, reason: 'different-principal', message: changedPrincipalMessage });
+  state = reduce(state, { type: 'check-failed', intentId: intent.id, checkId: 'content-check', message: changedPrincipalMessage, sessionDerived: true });
+
+  const firstSessionOperationId = nextOperationId(state);
+  state = reduce(state, { type: 'session-check-started', operationId: firstSessionOperationId, checkId: firstCheckId });
+  state = evidence(state, 'session-check', 'recoverable', { operationId: firstSessionOperationId, checkId: firstCheckId,
+    reason: 'different-principal', message: 'La cuenta original aún no está activa.' });
+  assert.equal(state.attempt.sessionDerived, true, 'a current mismatch remains replaceable');
+  assert.equal(state.attempt.message, 'La cuenta original aún no está activa.');
+
+  const matchingCheckId = 'matching-session-check';
+  const matchingOperationId = nextOperationId(state);
+  state = reduce(state, { type: 'session-check-started', operationId: matchingOperationId, checkId: matchingCheckId });
+  state = evidence(state, 'session-check', 'renewed', { operationId: matchingOperationId, checkId: matchingCheckId,
+    csrfToken: 'csrf-restored', message: 'Session checked' });
+  assert.equal(state.session.state, 'ready');
+  assert.equal(state.session.csrfToken, 'csrf-restored');
+  assert.equal(state.attempt.status, 'uncertain', 'session restoration does not resolve the pending content attempt');
+  assert.equal(state.attempt.intent.id, intent.id);
+  assert.match(state.attempt.message, /El resultado del intento sigue pendiente/u);
+  assert.equal(state.attempt.sessionDerived, undefined, 'the obsolete session failure no longer owns the attempt feedback');
 });
 
 test('a session check started after a content read owns later evidence, while a genuinely newer bound mismatch can supersede it', () => {
