@@ -90,9 +90,10 @@ function adoptSnapshot(state, intent, checkId, snapshot) {
   state = ownerState.creatorOwnerReducer(state, {
     type: 'check-compared', intentId: intent.id, checkId, comparison,
   });
-  assert.equal(state.attempt.status, 'uncertain');
+  assert.equal(state.attempt.status, 'confirmed', 'the valid list check adopts its complete snapshot in one reducer action');
+  const afterCheck = state;
   state = ownerState.creatorOwnerReducer(state, { type: 'adopt-comparison', comparisonId: comparison.id });
-  assert.equal(state.attempt.status, 'confirmed', 'adoption completes the current list attempt without a second write');
+  assert.equal(state, afterCheck, 'a list snapshot cannot be adopted through the separate editor adoption action');
   assert.deepEqual(snapshot, originalSnapshot, 'comparison/adoption does not mutate the supplied owner snapshot');
   assert.deepEqual(state.observed, snapshot, 'the state adopts the authoritative snapshot');
   return state;

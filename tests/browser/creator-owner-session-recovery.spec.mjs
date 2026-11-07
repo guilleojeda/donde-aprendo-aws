@@ -8,8 +8,37 @@ function deferred() {
   return { promise, resolve };
 }
 
+function heldResponse() {
+  return { arrived: deferred(), gate: deferred(), done: deferred() };
+}
+
+async function fetchAndHold(route, held) {
+  const response = await route.fetch();
+  const body = await response.json();
+  held.active = true;
+  held.arrived.resolve({ status: response.status(), body });
+  try {
+    await held.gate.promise;
+    await route.fulfill({ response, json: body });
+  } finally {
+    held.done.resolve();
+  }
+}
+
 const pathOf = (request) => new URL(request.url()).pathname.replace(/\/$/u, '');
 const sessionCheck = (page) => page.locator('[data-owner-dialog] [data-session-recovery-check]');
+const sessionClaimResource = { id: 'session-feedback-resource', title: 'Session feedback resource', url: 'https://session-feedback.example/item' };
+
+async function openSessionClaimForm(page, fixture, evidence) {
+  await seedResource(fixture.creatorStore, { ...sessionClaimResource, kind: 'community', category: 'Comunidad', format: 'community', published: true });
+  await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+  await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+  await page.locator('[data-claim-section-open]').click();
+  const form = page.locator('[data-owner-form="reclamacion"]');
+  await form.locator('[data-claim-urls]').fill(sessionClaimResource.url);
+  await form.locator('[data-claim-evidence]').fill(evidence);
+  return form;
+}
 
 async function setupCatalog(fixture, page, suffix) {
   const entries = [
@@ -112,6 +141,7 @@ test('claim mismatch restores the same draft, then checks history and permits a 
     assert.equal(ownerBindings.filter((item) => item.path === '/api/creador/sesion').at(-1)?.binding, originalBinding,
       'session renewal remains bound to the original page context');
     await expect(page.locator('[data-account-logout] input[name="csrfToken"]')).toHaveValue(sessionRead.responseBody.csrfToken);
+    await expect(form.locator('[data-claim-recovery]')).not.toContainText('La cuenta o el rol activo no coinciden');
     assert.equal(capture.records.filter((item) => item.method === 'GET' && item.path === '/api/creador/perfil').length,
       ownerReadsBeforeSessionCheck, 'session restoration does not perform the separate claim-history read');
     await expect(evidence).toHaveValue('Correction retained across role restoration');
@@ -1897,5 +1927,267 @@ test('a provisional Solicitudes denial yields to a bound read, then an explicit 
     failedWrite.release.resolve();
     if (boundReadStarted) await boundRead.done.promise;
     await page.unroute('**/api/creador/perfil/', interceptProfile);
+  }
+});
+
+test('a discarded claim-history check cannot cancel the newer explicit session renewal', async ({ fixture, page }) => {
+  const originalCookie = await loggedInOwner(fixture, page);
+  const capture = await captureCreatorApi(page, { ignoreReads: true, skipErrorBodies: true });
+  const pendingSession = heldResponse();
+  const pendingClaim = heldResponse();
+  let holdClaim = false;
+  let lostAcknowledgement = false;
+  const transport = async (route) => {
+    const request = route.request();
+    const path = pathOf(request);
+    if (request.method() === 'POST' && path === '/api/creador/reclamaciones' && !lostAcknowledgement) {
+      lostAcknowledgement = true;
+      const response = await route.fetch();
+      assert.equal(response.status(), 202, 'the first claim is committed before its reply is lost');
+      await route.fulfill({ response, status: 503 });
+    } else if (path === '/api/creador/sesion') {
+      await fetchAndHold(route, pendingSession);
+    } else if (holdClaim && request.method() === 'GET' && path === '/api/creador/perfil') {
+      await fetchAndHold(route, pendingClaim);
+    } else await route.continue();
+  };
+  await page.route('**/api/creador/**', transport);
+
+  try {
+    const form = await openSessionClaimForm(page, fixture, 'Committed original session claim');
+    const lost = apiResponse(page, 'POST', '/api/creador/reclamaciones', 503);
+    await form.locator('[data-claim-submit]').click();
+    await lost;
+    await expect(form.locator('[data-claim-check]')).toBeEnabled();
+
+    await page.context().clearCookies({ name: originalCookie.name });
+    const expired = apiResponse(page, 'GET', '/api/creador/perfil', 401);
+    await form.locator('[data-claim-check]').click();
+    assert.equal((await (await expired).json()).error, 'AUTH_REQUIRED');
+    await expect(sessionCheck(page)).toBeEnabled();
+    const restoredCookie = await fixture.login();
+    await addCookie(page.context(), fixture, restoredCookie);
+    const nextToken = (await fixture.principal(restoredCookie)).csrfToken;
+    assert.notEqual(nextToken, await page.locator('[data-account-logout] input[name="csrfToken"]').inputValue());
+
+    await sessionCheck(page).click();
+    assert.deepEqual(await pendingSession.arrived.promise, { status: 200, body: { csrfToken: nextToken } });
+    holdClaim = true;
+    await form.locator('[data-claim-check]').click();
+    const claim = await pendingClaim.arrived.promise;
+    assert.equal(claim.status, 200);
+    assert.ok(claim.body.claims.some(({ evidence }) => evidence === 'Committed original session claim'));
+    await form.locator('[data-claim-cancel]').click();
+    await page.locator('[data-owner-exit-discard]').click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    pendingClaim.gate.resolve();
+    await pendingClaim.done.promise;
+    await expect(page.locator('[data-claim-index-status]')).toContainText('Solicitudes comprobadas');
+    pendingSession.gate.resolve();
+    await pendingSession.done.promise;
+    await expect(page.locator('[data-account-logout] input[name="csrfToken"]')).toHaveValue(nextToken);
+    await expect(page.locator('main [data-session-recovery-check]')).toHaveCount(0);
+
+    await page.locator('[data-claim-section-open]').click();
+    const manualForm = page.locator('[data-owner-form="reclamacion"]');
+    await manualForm.locator('[data-claim-urls]').fill(sessionClaimResource.url);
+    await manualForm.locator('[data-claim-evidence]').fill('Separate manual claim after renewal');
+    const manual = apiResponse(page, 'POST', '/api/creador/reclamaciones', 202);
+    await manualForm.locator('[data-claim-submit]').click();
+    await manual;
+    const persistedResponse = await fixture.request(restoredCookie, '/api/creador/perfil');
+    assert.equal(persistedResponse.status, 200);
+    const persisted = await persistedResponse.json();
+    assert.ok(persisted.claims.some(({ evidence }) => evidence === 'Separate manual claim after renewal'));
+    assert.equal(capture.writes().filter(({ path }) => path === '/api/creador/reclamaciones').length, 2,
+      'only the original and separately initiated manual claim were written');
+  } finally {
+    pendingClaim.gate.resolve();
+    pendingSession.gate.resolve();
+    if (pendingClaim.active) await pendingClaim.done.promise;
+    if (pendingSession.active) await pendingSession.done.promise;
+    await page.unroute('**/api/creador/**', transport).catch(() => {});
+    await capture.stop();
+  }
+});
+
+test('a matching check replaces the expired-session message on the pending claim attempt', async ({ fixture, page }) => {
+  const originalCookie = await loggedInOwner(fixture, page);
+  const capture = await captureCreatorApi(page, { ignoreReads: true, skipErrorBodies: true });
+  let lostAcknowledgement = false;
+  const transport = async (route) => {
+    if (route.request().method() !== 'POST' || pathOf(route.request()) !== '/api/creador/reclamaciones' || lostAcknowledgement) {
+      await route.continue();
+      return;
+    }
+    lostAcknowledgement = true;
+    const response = await route.fetch();
+    assert.equal(response.status(), 202);
+    await route.fulfill({ response, status: 503 });
+  };
+  await page.route('**/api/creador/**', transport);
+  try {
+    const form = await openSessionClaimForm(page, fixture, 'Claim attempt retained after expiration');
+    const uncertain = apiResponse(page, 'POST', '/api/creador/reclamaciones', 503);
+    await form.locator('[data-claim-submit]').click();
+    await uncertain;
+    await page.context().clearCookies({ name: originalCookie.name });
+    const expired = apiResponse(page, 'GET', '/api/creador/perfil', 401);
+    await form.locator('[data-claim-check]').click();
+    assert.equal((await (await expired).json()).error, 'AUTH_REQUIRED');
+    await expect(form.locator('[data-claim-recovery]')).toContainText('La sesión terminó.');
+
+    const restoredCookie = await fixture.login();
+    await addCookie(page.context(), fixture, restoredCookie);
+    const nextToken = (await fixture.principal(restoredCookie)).csrfToken;
+    const renewed = apiResponse(page, 'GET', '/api/creador/sesion', 200);
+    await sessionCheck(page).click();
+    await renewed;
+    await expect(page.locator('[data-account-logout] input[name="csrfToken"]')).toHaveValue(nextToken);
+    await expect(form.locator('[data-claim-recovery]')).not.toContainText('La sesión terminó.');
+    await expect(form.locator('[data-claim-check]')).toBeEnabled();
+    await expect(form.locator('[data-claim-submit]')).toBeDisabled();
+    assert.equal(capture.writes().filter(({ path }) => path === '/api/creador/reclamaciones').length, 1,
+      'renewal does not replay the uncertain claim');
+  } finally {
+    await page.unroute('**/api/creador/**', transport);
+    await capture.stop();
+  }
+});
+
+async function verifyTerminalDenialPrecedence(fixture, page, denialFirst) {
+  await loggedInOwner(fixture, page);
+  const account = [...fixture.accountStore.accounts.values()][0];
+  const pendingHistory = heldResponse();
+  const pendingWrite = heldResponse();
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const transport = async (route) => {
+    const request = route.request();
+    const path = pathOf(request);
+    if (request.method() === 'POST' && path === '/api/creador/reclamaciones') await fetchAndHold(route, pendingWrite);
+    else if (request.method() === 'GET' && path === '/api/creador/perfil') await fetchAndHold(route, pendingHistory);
+    else await route.continue();
+  };
+  await page.route('**/api/creador/**', transport);
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+    await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+    fixture.accountStore.seedAccount({ ...account, isAdmin: !account.isAdmin });
+    await page.locator('[data-claim-history-refresh]').click();
+    const old = await pendingHistory.arrived.promise;
+    assert.equal(old.status, 409);
+    assert.equal(old.body.error, 'SESSION_CONTEXT_CHANGED');
+
+    fixture.accountStore.seedAccount({ ...account, active: false });
+    await page.locator('[data-claim-section-open]').click();
+    const form = page.locator('[data-owner-form="reclamacion"]');
+    await form.locator('[data-claim-urls]').fill(sessionClaimResource.url);
+    await form.locator('[data-claim-evidence]').fill('Terminal denial follows older role warning');
+    await form.locator('[data-claim-submit]').click();
+    const denied = await pendingWrite.arrived.promise;
+    assert.equal(denied.status, 403);
+    assert.equal(denied.body.error, 'ACCOUNT_DISABLED');
+
+    if (denialFirst) {
+      pendingWrite.gate.resolve();
+      await pendingWrite.done.promise;
+      await expect(page.locator('[data-owner-dialog] [data-session-recovery-status]')).toContainText('Esta cuenta está desactivada');
+      pendingHistory.gate.resolve();
+      await pendingHistory.done.promise;
+      await expect(page.locator('[data-claim-index-status]')).toContainText('La lectura empezó antes');
+      await expect(page.locator('[data-claim-index-status]')).not.toContainText('La cuenta o el rol activo no coinciden');
+    } else {
+      pendingHistory.gate.resolve();
+      await pendingHistory.done.promise;
+      await expect(page.locator('[data-claim-index-status]')).toContainText('La cuenta o el rol activo no coinciden');
+      pendingWrite.gate.resolve();
+      await pendingWrite.done.promise;
+    }
+    await expect(page.locator('[data-owner-dialog] [data-session-recovery-status]')).toContainText('Esta cuenta está desactivada');
+    await expect(page.locator('[data-owner-dialog] [data-session-recovery-check]')).toHaveCount(0);
+    if (!denialFirst) await expect(page.locator('[data-claim-index-status]')).toHaveCount(0);
+    await expect(form.locator('[data-claim-submit]')).toBeDisabled();
+    assert.equal(capture.writes().filter(({ path }) => path === '/api/creador/reclamaciones').length, 1,
+      'the terminal denial does not replay the claim');
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    pendingHistory.gate.resolve();
+    pendingWrite.gate.resolve();
+    if (pendingHistory.active) await pendingHistory.done.promise;
+    if (pendingWrite.active) await pendingWrite.done.promise;
+    await page.unroute('**/api/creador/**', transport);
+    await capture.stop();
+  }
+}
+
+test('a terminal bound write denial clears an older ordinary-history warning', async ({ fixture, page }) => {
+  await verifyTerminalDenialPrecedence(fixture, page, false);
+});
+
+test('a late ordinary-history denial cannot replace a newer terminal bound write denial', async ({ fixture, page }) => {
+  await verifyTerminalDenialPrecedence(fixture, page, true);
+});
+
+test('a ready-state bound comparison supersedes an older history denial without a prior bound mismatch', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const originalProfile = (await fixture.rawOwner(cookie)).profile;
+  const account = [...fixture.accountStore.accounts.values()][0];
+  const pendingHistory = heldResponse();
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  let holdHistory = true;
+  const transport = async (route) => {
+    const request = route.request();
+    if (holdHistory && request.method() === 'GET' && pathOf(request) === '/api/creador/perfil') {
+      holdHistory = false;
+      await fetchAndHold(route, pendingHistory);
+    } else await route.continue();
+  };
+  await page.route('**/api/creador/**', transport);
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+    await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+    fixture.accountStore.seedAccount({ ...account, isAdmin: !account.isAdmin });
+    await page.locator('[data-claim-history-refresh]').click();
+    const old = await pendingHistory.arrived.promise;
+    assert.equal(old.status, 409);
+    assert.equal(old.body.error, 'SESSION_CONTEXT_CHANGED');
+
+    fixture.accountStore.seedAccount(account);
+    await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
+    const form = page.locator('[data-owner-form="datos"]');
+    const name = form.getByLabel('Nombre visible');
+    await name.fill('Persisted after ready bound comparison');
+    fixture.creatorStore.failNext('transact');
+    const uncertain = apiResponse(page, 'PUT', '/api/creador/perfil', 503);
+    await form.getByRole('button', { name: 'Guardar datos' }).click();
+    await uncertain;
+    const compared = apiResponse(page, 'GET', '/api/creador/perfil', 200);
+    await form.locator('[data-owner-compare]').click();
+    await compared;
+    await expect(form.locator('[data-owner-adopt]')).toBeEnabled();
+    await expect(page.locator('main [data-session-recovery-check]')).toHaveCount(0);
+
+    pendingHistory.gate.resolve();
+    await pendingHistory.done.promise;
+    await expect(page.locator('[data-claim-index-status]')).toContainText('La lectura empezó antes');
+    await expect(page.locator('main [data-session-recovery-check]')).toHaveCount(0);
+    await form.locator('[data-owner-adopt]').click();
+    await name.fill('Persisted after ready bound comparison');
+    const saved = apiResponse(page, 'PUT', '/api/creador/perfil', 200);
+    await form.getByRole('button', { name: 'Guardar datos' }).click();
+    await saved;
+    const final = (await fixture.rawOwner(cookie)).profile;
+    assert.equal(final.displayName, 'Persisted after ready bound comparison');
+    assert.equal(final.version, originalProfile.version + 1);
+    assert.equal(capture.writes().length, 2, 'the failure and later manual save are the only writes');
+    assert.equal(capture.records.filter(({ path }) => path === '/api/creador/sesion').length, 0,
+      'the ready-state comparison does not require session renewal');
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    pendingHistory.gate.resolve();
+    if (pendingHistory.active) await pendingHistory.done.promise;
+    await page.unroute('**/api/creador/**', transport);
+    await capture.stop();
   }
 });

@@ -471,7 +471,7 @@ test('Enlaces conserva el texto escrito si la búsqueda y la adopción terminan 
   }
 });
 
-test('Series conserva la búsqueda, pertenencia y página de capítulos durante la recuperación y permite el siguiente alta manual', async ({ fixture, page }) => {
+test('Series conserva la búsqueda, la paginación, el foco al buscar y el siguiente alta manual durante la recuperación', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const series = await createSeries(fixture, cookie, { name: 'Ruta para filtrar capítulos', slug: 'ruta-filtros-capitulos' });
   const links = [];
@@ -506,7 +506,7 @@ test('Series conserva la búsqueda, pertenencia y página de capítulos durante 
     await page.locator('[data-series-back]').click();
     const contextPrompt = page.locator('[data-owner-exit-prompt]');
     await expect(contextPrompt).toBeVisible();
-    await contextPrompt.getByRole('button', { name: 'Seguir editando', exact: true }).click();
+    await contextPrompt.getByRole('button', { name: 'Quedarme aquí', exact: true }).click();
     await expect(contextPrompt).toHaveCount(0);
     await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0,
       'wait for the native modal to close before interacting with the chapter filters');
@@ -514,11 +514,12 @@ test('Series conserva la búsqueda, pertenencia y página de capítulos durante 
       'leaving the selected series remains guarded while the list check is pending');
     await filters.getByRole('searchbox', { name: 'Buscar en tus enlaces' }).fill('Phase2 capítulo');
     await filters.getByLabel('Pertenencia').selectOption('disponibles');
-    const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+    const initialDocument = await page.evaluateHandle(() => document);
+    const isSameDocument = () => page.evaluate((initial) => initial === document, initialDocument);
     await filters.getByRole('button', { name: 'Aplicar filtros', exact: true }).click();
     await expect(page.locator('[data-owner-exit-prompt]')).toHaveCount(0,
       'submitting chapter search and membership keeps the current recovery attempt');
-    assert.equal(await page.evaluate(() => performance.timeOrigin), timeOrigin,
+    assert.equal(await isSameDocument(), true,
       'the Series GET filter stays in the original owner document');
     await expect(page).toHaveURL((url) => url.searchParams.get('serie') === series.id
       && url.searchParams.get('buscarCapitulos') === 'Phase2 capítulo'
@@ -540,28 +541,40 @@ test('Series conserva la búsqueda, pertenencia y página de capítulos durante 
       'keyboard pagination keeps focus on the visible chapter pager before adopting the held recovery response');
 
     const pageTwoIds = await page.locator('[data-chapter-row]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-placement-id')));
-    await page.goBack();
+    const chapterSearch = chapterFilters(page).getByRole('searchbox', { name: 'Buscar en tus enlaces' });
+    await chapterSearch.fill('capítulo');
+    await chapterSearch.press('Enter');
     await expect(page).toHaveURL((url) => url.searchParams.get('serie') === series.id
-      && url.searchParams.get('buscarCapitulos') === 'Phase2 capítulo'
-      && url.searchParams.get('pertenencia') === 'disponibles'
-      && url.searchParams.get('paginaCapitulos') !== '2');
-    await expect(page.locator('[data-owner-exit-prompt]')).toHaveCount(0,
-      'native back navigation within the same chapter list does not trigger the exit guard');
-    await expect(page.locator('[data-chapter-row]')).toHaveCount(25,
-      'the previous history entry restores the first page of the same chapter query');
-    assert.equal(await page.evaluate(() => performance.timeOrigin), timeOrigin,
-      'history traversal keeps the same owner document');
-    await page.goForward();
+      && url.searchParams.get('buscarCapitulos') === 'capítulo'
+      && url.searchParams.get('paginaCapitulos') === '1');
+    await expect(chapterSearch).toBeFocused();
+    await expect(chapterSearch).toBeInViewport({ ratio: 1 },
+      'submitting a chapter search on page two keeps visible focus on the search field');
+
+    await page.goBack();
     await expect(page).toHaveURL((url) => url.searchParams.get('serie') === series.id
       && url.searchParams.get('buscarCapitulos') === 'Phase2 capítulo'
       && url.searchParams.get('pertenencia') === 'disponibles'
       && url.searchParams.get('paginaCapitulos') === '2');
     await expect(page.locator('[data-owner-exit-prompt]')).toHaveCount(0,
-      'native forward navigation restores page two without prompting');
+      'Back restores the prior page-two chapter query without triggering the exit guard');
+    await expect(page.locator('[data-chapter-row]')).toHaveCount(25,
+      'the previous history entry restores the same page-two rows');
+    assert.equal(await isSameDocument(), true,
+      'history traversal keeps the same owner document');
+    await page.goForward();
+    await expect(page).toHaveURL((url) => url.searchParams.get('serie') === series.id
+      && url.searchParams.get('buscarCapitulos') === 'capítulo'
+      && url.searchParams.get('paginaCapitulos') === '1');
+    await expect(page.locator('[data-owner-exit-prompt]')).toHaveCount(0,
+      'Forward restores the page-one search result without prompting');
     await expect(page.locator('[data-chapter-row]')).toHaveCount(25);
+    assert.equal(await isSameDocument(), true);
+    await page.goBack();
+    await expect(page).toHaveURL((url) => url.searchParams.get('buscarCapitulos') === 'Phase2 capítulo'
+      && url.searchParams.get('paginaCapitulos') === '2');
     assert.deepEqual(await page.locator('[data-chapter-row]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-placement-id'))), pageTwoIds,
-      'forward history restores the same page-two rows');
-    assert.equal(await page.evaluate(() => performance.timeOrigin), timeOrigin);
+      'Back restores the original page-two rows after the new search entry');
 
     await page.evaluate(() => document.querySelector('[data-series-chapter-page]').scrollIntoView({ block: 'center' }));
     const scrollBeforeAdoption = await page.evaluate(() => scrollY);
@@ -575,7 +588,6 @@ test('Series conserva la búsqueda, pertenencia y página de capítulos durante 
     await expect(chapterFilters(page).getByRole('searchbox', { name: 'Buscar en tus enlaces' }))
       .toHaveValue('Phase2 capítulo');
     await expect(chapterFilters(page).getByLabel('Pertenencia')).toHaveValue('disponibles');
-    const chapterSearch = chapterFilters(page).getByRole('searchbox', { name: 'Buscar en tus enlaces' });
     await expect(chapterSearch).toBeFocused();
     const focus = await chapterSearch.evaluate((input) => {
       const rect = input.getBoundingClientRect();
@@ -677,7 +689,7 @@ test('Series limpia el contexto eliminado después de recuperar la lista y permi
     await expect(contextPrompt).toBeVisible();
     await expect(page).toHaveURL(contextUrl,
       'leaving the selected series remains guarded while the recovery read is pending');
-    await contextPrompt.getByRole('button', { name: 'Seguir editando', exact: true }).click();
+    await contextPrompt.getByRole('button', { name: 'Quedarme aquí', exact: true }).click();
     await expect(contextPrompt).toHaveCount(0);
     await expect(page).toHaveURL(contextUrl);
 
@@ -1195,7 +1207,7 @@ test('la adopción no reemplaza el destino de Back mientras se restaura la entra
     await page.evaluate(() => window.restoreGuardedHistory());
     await expect(page).toHaveURL(chapterHref);
     await expect.poll(() => page.evaluate(() => history.state.creatorOwnerIndex)).toBe(chapterIndex);
-    await prompt.getByRole('button', { name: 'Seguir editando', exact: true }).click();
+    await prompt.getByRole('button', { name: 'Quedarme aquí', exact: true }).click();
     await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0,
       'the native exit dialog has closed before checking list focus');
     const chapterSearch = page.locator('#owner-chapter-search');
@@ -1259,7 +1271,7 @@ test('la recuperación conserva el foco solicitado hasta cerrar el diálogo de s
       'the actual owner snapshot is adopted while the exit prompt remains open');
     await expect(prompt).toBeVisible();
 
-    await prompt.getByRole('button', { name: 'Seguir editando', exact: true }).click();
+    await prompt.getByRole('button', { name: 'Quedarme aquí', exact: true }).click();
     await expect(prompt).toHaveCount(0);
     await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0,
       'the native modal is closed before recovery focus is asserted');
@@ -1443,6 +1455,7 @@ test('Enlaces conserva la URL propia al adoptar durante la restauración de Back
     transport.read(0).gate.resolve();
     await checkClick;
     await expect(page.locator('[data-owner-list-recovery="links"]')).toHaveCount(0);
+    await expect(prompt.locator('[data-owner-exit-continue]')).toBeFocused();
     await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const duringRestore = await page.evaluate(() => ({ href: location.href, index: history.state.creatorOwnerIndex,
       writes: window.reviewHistoryWrites }));
@@ -1453,8 +1466,10 @@ test('Enlaces conserva la URL propia al adoptar durante la restauración de Back
     await page.evaluate(() => window.reviewRestoreGuardedBack());
     await expect.poll(() => page.evaluate(() => history.state.creatorOwnerIndex)).toBe(ownedIndex);
     await expect(page).toHaveURL(ownedHref);
-    await prompt.getByRole('button', { name: 'Seguir editando', exact: true }).click();
+    await prompt.getByRole('button', { name: 'Quedarme aquí', exact: true }).click();
     await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0);
+    await expect(page.locator('#owner-link-search')).toBeFocused();
+    await expect(page.locator('#owner-link-search')).toBeInViewport({ ratio: 1 });
     await expect(page).toHaveURL(ownedHref,
       'Seguir editando cancels the pending cross-view exit after the guarded Back entry is restored');
 
@@ -1546,7 +1561,8 @@ test('Escape cancela la salida pendiente después de adoptar y conserva el foco 
     assert.equal((await fixture.rawOwner(cookie)).profile.version, beforeManual.profile.version + 1);
 
     const editSeries = page.locator(`[data-owner-series-chapters] [data-series-edit][data-series-id="${series.id}"]`);
-    await editSeries.click();
+    await editSeries.focus();
+    await page.keyboard.press('Enter');
     const seriesEditor = page.locator('[data-owner-dialog] form[data-owner-form="serie"]');
     await expect(seriesEditor).toBeVisible();
     await page.keyboard.press('Escape');
@@ -2314,6 +2330,9 @@ test('native keyboard skip before hydration preserves physical entries and guard
 test('pre-hydration Links sort keeps the later native skip entry, focus, and traversal', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const link = await addLink(fixture, cookie, { title: 'Pre-hydration ordering', url: 'https://early-owner-sort.example/item' });
+  for (let index = 0; index < 24; index++) await addLink(fixture, cookie, {
+    title: `Pre-hydration order row ${index}`, url: `https://early-owner-sort.example/item-${index}`,
+  });
   const original = `${fixture.origin}/cuenta/?vista=enlaces`;
   const requested = deferred();
   const release = deferred();
@@ -2354,11 +2373,18 @@ test('pre-hydration Links sort keeps the later native skip entry, focus, and tra
     await expect(page).toHaveURL((url) => url.searchParams.get('orden') === 'titulo-desc' && url.hash === '#contenido');
     await expect(page.locator('#owner-link-order')).toHaveValue('titulo-desc');
     await expect(page.locator('.creator-owner__filter-note')).toContainText('El orden de consulta sólo organiza esta tabla');
-    await expect(page.locator('#contenido')).toBeFocused();
+    const main = page.locator('#contenido');
+    await expect(main).toBeFocused();
+    await expect.poll(() => main.evaluate((target) => {
+      const padding = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop);
+      const margin = parseFloat(getComputedStyle(target).scrollMarginTop);
+      return Math.abs(target.getBoundingClientRect().top - (padding + margin));
+    }), { message: 'the native skip reaches its anchor after smooth scrolling' }).toBeLessThanOrEqual(2);
+    const beforeBack = await page.evaluate(() => window.scrollY);
     assert.deepEqual(hydrationMismatches, [], 'the pre-hydration control value does not change the SSR structure before hydration');
     assert.deepEqual(await page.evaluate(() => ({ index: history.state?.creatorOwnerIndex, length: history.length })), skipEntry,
       'the earlier sort updates the native skip entry without adding a slot or replacing its owner index');
-    const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+    const initialDocument = await page.evaluateHandle(() => document);
 
     await page.goBack();
     await expect(page).toHaveURL(original);
@@ -2369,7 +2395,12 @@ test('pre-hydration Links sort keeps the later native skip entry, focus, and tra
     await expect(page.locator('#contenido')).toBeFocused();
     assert.deepEqual(await page.evaluate(() => ({ index: history.state?.creatorOwnerIndex, length: history.length })), skipEntry,
       'Forward restores the same sorted native skip slot');
-    assert.equal(await page.evaluate(() => performance.timeOrigin), timeOrigin,
+    const distanceFromSavedViewport = () => page.evaluate((saved) => Math.abs(window.scrollY - saved), beforeBack);
+    const viewportMessage = 'Forward restores the native skip viewport rather than centering the full-height main element';
+    await expect.poll(distanceFromSavedViewport, { message: viewportMessage }).toBeLessThan(5);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve)))));
+    assert.ok(await distanceFromSavedViewport() < 5, viewportMessage);
+    assert.equal(await page.evaluate((initial) => initial === document, initialDocument), true,
       'query and fragment traversal stays in the hydrated owner document');
 
     capture = await captureCreatorApi(page, { ignoreReads: true, skipErrorBodies: true });
@@ -2430,7 +2461,7 @@ test('discarding a list check makes its held session error body obsolete', async
     await page.evaluate(() => history.back());
     const prompt = page.locator('[data-owner-exit-prompt]');
     await expect(prompt).toBeVisible();
-    await prompt.getByRole('button', { name: 'Descartar cambios', exact: true }).click();
+    await prompt.getByRole('button', { name: 'Descartar y seguir', exact: true }).click();
     await expect(page).toHaveURL(listHref);
     await page.locator('[data-owner-series-list-view] [data-series-edit]').click();
     const form = page.locator('[data-owner-dialog] form[data-owner-form="serie"]');
@@ -2451,6 +2482,77 @@ test('discarding a list check makes its held session error body obsolete', async
   } finally {
     await page.evaluate(() => window.phase2ReleaseBody?.()).catch(() => {});
     await page.unroute('**/api/creador/**', blockWrite).catch(() => {});
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+
+
+test('fragment-only Back cancels a pending Links search during a held recovery read', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const target = await addLink(fixture, cookie, { title: 'To be removed', url: 'https://skip-back-recovery.example/removed' });
+  const manual = await addLink(fixture, cookie, { title: 'Superseded term', url: 'https://skip-back-recovery.example/item' });
+  await addLink(fixture, cookie, { title: 'Other surviving link', url: 'https://skip-back-recovery.example/other' });
+  await openLinksView(page, fixture);
+  const base = page.url();
+  await page.evaluate(() => { window.auditOwnerDocument = true; });
+  const recovery = page.locator('[data-owner-list-recovery="links"]');
+  const content = page.locator('#contenido');
+  const removePath = `/api/creador/enlaces/${target.placementId}`;
+  const transport = await installListTransport(page, { writeMethod: 'DELETE', writePath: removePath,
+    readResponses: [{ kind: 'actual', hold: true }] });
+  const capture = await captureCreatorApi(page, { ignoreReads: true, skipErrorBodies: true });
+  try {
+    await expect.poll(() => page.evaluate(() => history.state?.creatorOwnerIndex)).toBe(0);
+    page.once('dialog', (dialog) => dialog.accept());
+    const removal = page.locator(`[data-link-row="${target.placementId}"]`)
+      .getByRole('button', { name: 'Quitar de tu página', exact: true }).click();
+    await transport.writeArrived.promise;
+    assert.equal(transport.actualWrite.status, 204);
+    transport.writeGate.resolve();
+    await removal;
+    await recovery.getByRole('button', { name: 'Comprobar', exact: true }).click();
+    const actualRead = await transport.read(0).arrived.promise;
+    assert.equal(actualRead.status, 200);
+    assert.equal(actualRead.body.links.length, 2);
+
+    await page.addStyleTag({ content: 'html { scroll-behavior: auto; }' });
+    await page.getByRole('link', { name: 'Saltar al contenido' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(content).toBeFocused();
+    await expect(page).toHaveURL(base + '#contenido');
+    await expect.poll(() => page.evaluate(() => history.state?.creatorOwnerIndex)).toBe(1);
+    const start = new Date();
+    await page.clock.install({ time: start });
+    await page.clock.pauseAt(new Date(start.getTime() + 1000));
+    await page.locator('#owner-link-search').fill('Superseded');
+    await expect(page).toHaveURL(base + '#contenido');
+    await page.goBack();
+    await expect.poll(() => page.evaluate(() => history.state?.creatorOwnerIndex)).toBe(0);
+    await expect(page).toHaveURL(base);
+    await expect(recovery).toContainText('Consultando el estado guardado');
+    await expect(page.locator('[data-owner-exit-prompt]')).toHaveCount(0);
+    await page.clock.runFor(140);
+    await page.clock.resume();
+
+    transport.read(0).gate.resolve();
+    await expect(recovery).toHaveCount(0);
+    const observed = await page.evaluate(() => ({ url: location.href, index: history.state?.creatorOwnerIndex,
+      query: document.querySelector('#owner-link-search').value, count: document.querySelectorAll('[data-link-row]').length }));
+    const editPath = `/api/creador/enlaces/${manual.placementId}/editar`;
+    const description = 'Manual save after fragment Back';
+    await page.locator(`[data-link-row="${manual.placementId}"]`).getByRole('button', { name: 'Editar ficha', exact: true }).click();
+    await linkEditForm(page).getByLabel(/Descripción/).fill(description);
+    await linkEditForm(page).getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(async () => (await fixture.rawResource(manual.resourceId)).description).toBe(description);
+    await capture.settle({ skipErrorBodies: true });
+    assert.equal(writesTo(capture, 'DELETE', removePath).length, 1);
+    assert.equal(writesTo(capture, 'PATCH', editPath).length, 1);
+    assert.equal(await page.evaluate(() => window.auditOwnerDocument), true,
+      'fragment traversal and list recovery stay in the owner document');
+    assert.deepEqual(observed, { url: base, index: 0, query: '', count: 2 });
+  } finally {
+    await page.clock.resume().catch(() => {});
+    await transport.close();
     await capture.stop({ skipErrorBodies: true }).catch(() => {});
   }
 });

@@ -142,6 +142,69 @@ test('una edición lista con el mismo cookie rechaza el cambio de rol y se recup
   }
 });
 
+test('a confirmed bound write supersedes an older Solicitudes role denial', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const original = await fixture.rawOwner(cookie);
+  const account = originalAccount(fixture);
+  const history = { arrived: deferred(), gate: deferred(), done: deferred() };
+  let holdHistory = true;
+  let writes = 0;
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const transport = async (route) => {
+    const request = route.request();
+    if (request.method() === 'GET' && pathOf(request) === ownerPath && holdHistory) {
+      holdHistory = false;
+      const response = await route.fetch();
+      assert.equal(response.status(), 409);
+      const body = await response.json();
+      assert.equal(body.error, 'SESSION_CONTEXT_CHANGED');
+      history.arrived.resolve();
+      try {
+        await history.gate.promise;
+        await route.fulfill({ response, json: body });
+      } finally {
+        history.done.resolve();
+      }
+      return;
+    }
+    if (request.method() === 'PUT' && pathOf(request) === ownerPath) writes += 1;
+    await route.continue();
+  };
+  await page.route('**/api/creador/**', transport);
+
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+    await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+    fixture.accountStore.seedAccount({ ...account, isAdmin: !account.isAdmin });
+    await page.getByRole('button', { name: 'Actualizar solicitudes' }).click();
+    await history.arrived.promise;
+
+    fixture.accountStore.seedAccount(account);
+    await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
+    const form = dataForm(page);
+    await form.getByLabel('Nombre visible').fill('Persisted after confirmed bound write');
+    const saved = ownerResponse(page, 'PUT', ownerPath, 200);
+    await form.getByRole('button', { name: 'Guardar datos', exact: true }).click();
+    await saved;
+    assert.equal((await fixture.rawOwner(cookie)).profile.displayName, 'Persisted after confirmed bound write');
+
+    history.gate.resolve();
+    await history.done.promise;
+    await expect(page.locator('[data-claim-index-status]')).toContainText('La lectura empezó antes');
+    await expect(page.locator('[data-claim-index-status]')).not.toContainText('La cuenta o el rol activo no coinciden');
+    await expect(page.locator('main [data-session-recovery-check]')).toHaveCount(0);
+    assert.equal(writes, 1, 'only the separately confirmed profile command wrote');
+    assert.equal(capture.writes().length, 1);
+    assert.equal((await fixture.rawOwner(cookie)).profile.version, original.profile.version + 1);
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    history.gate.resolve();
+    if (!holdHistory) await history.done.promise;
+    await page.unroute('**/api/creador/**', transport);
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
 test('la autorización de foto rechaza el mismo cambio de rol, conserva el archivo y sólo sube tras comprobar la sesión', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const original = await fixture.rawOwner(cookie);

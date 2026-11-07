@@ -8,6 +8,7 @@ import {
 
 const OWNER_PATH = '/api/creador/perfil';
 const REFERENCE_PATH = '/api/creador/referencias';
+const prompt = (page) => page.locator('[data-owner-exit-prompt]');
 
 function deferred() {
   let release;
@@ -1358,3 +1359,129 @@ for (const { removalTiming, guarded } of [
     }
   });
 }
+
+test('la guarda de opciones muestra los valores guardado y local y conserva foco visible tras adoptar', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const item = catalogEntry('review-guard-options-compare', 'Referencia para comparar opciones', 'https://review.example/guard-options-compare');
+  await seedCatalogRecord(fixture, item);
+  const placement = await seedReferencePlacement(fixture, cookie, item, true);
+  const removeIndexRoute = await serveSelectionIndex(page, [item]);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const transport = await installReferenceTransport(page, { loseReferenceAcknowledgement: false });
+  let submitted;
+  let pendingBack;
+  try {
+    await openLinksWithManagedHistory(page, fixture);
+    await openCatalog(page);
+    const reference = page.locator('[data-owner-form="referencia"]');
+    await catalogRadio(page, item).check();
+    submitted = reference.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+    const actual = await transport.writeArrived.promise;
+    assert.equal(actual.status, 200);
+    assert.equal(actual.body.created, false);
+    assert.equal(actual.body.link.placementId, placement.link.placementId);
+    await reference.getByRole('checkbox', { name: 'Proponer al directorio', exact: true }).uncheck();
+    transport.writeGate.release();
+    await submitted;
+
+    const options = page.locator('[data-link-edit-form]');
+    await expect(options).toBeVisible();
+    const before = await freshOwner(fixture, cookie);
+    const changed = await fixture.request(cookie, OWNER_PATH, { method: 'PUT', body: {
+      displayName: 'Nombre concurrente para comparar opciones', version: before.profile.version,
+    } });
+    assert.equal(changed.status, 200);
+    await options.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(() => optionWrites(capture, placement.link.placementId)[0]?.status).toBe(409);
+
+    const guardedUrl = page.url();
+    pendingBack = page.goBack();
+    const exit = prompt(page);
+    await expect(exit).toBeVisible();
+    await expect(page).toHaveURL(guardedUrl);
+    await exit.locator('[data-owner-compare]').click();
+    await expect(exit.locator('[data-owner-comparison]')).toBeVisible();
+    const optionRow = exit.locator('[data-owner-comparison] dd').filter({ hasText: 'Opción guardada de la selección actual:' });
+    await expect(optionRow).toHaveText('Opción guardada de la selección actual: Sí | Tu corrección: No');
+    const comparisonSentence = (await exit.locator('[data-exit-recovery] > p').innerText()).trim();
+    await expect(exit.getByText(comparisonSentence, { exact: true })).toHaveCount(1);
+    await exit.locator('[data-owner-adopt]').click();
+    await expect(exit).toBeVisible();
+    await expect(page).toHaveURL(guardedUrl, 'adopting the comparison does not authorize the pending Back');
+    const continueButton = exit.getByRole('button', { name: 'Seguir editando', exact: true });
+    await expect(continueButton).toBeFocused();
+    await expect(continueButton).toBeVisible();
+    await expect(continueButton).toBeEnabled();
+    await continueButton.click();
+
+    await expect(options).toBeVisible();
+    await expect(options.getByRole('checkbox', { name: 'Proponer al directorio', exact: true })).not.toBeChecked();
+    await options.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(() => optionWrites(capture, placement.link.placementId)[1]?.status).toBe(200);
+    const saved = await freshOwner(fixture, cookie);
+    assert.equal(saved.links[0].selectedForDirectory, false);
+    assert.equal(referenceWrites(capture).length, 1, 'comparison and adoption never repeat the reference');
+    assert.equal(optionWrites(capture, placement.link.placementId).length, 2, 'the late option is sent only by the second explicit save');
+    await expect(page).toHaveURL(guardedUrl, 'canceling the proposed Back keeps the editor in the current location');
+    await pendingBack;
+  } finally {
+    transport.writeGate.release();
+    await submitted?.catch(() => {});
+    await pendingBack?.catch(() => {});
+    await transport.close();
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+    await removeIndexRoute();
+  }
+});
+
+test('returning to the Add draft names the current saved-card option that will be discarded', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const shared = { id: 'review-guard-return-option', title: 'Saved shared card', url: 'https://shared-review.example/guard-return-option',
+    description: 'Catalog description', kind: 'source', format: 'Canal de YouTube', category: 'Canal de YouTube',
+    published: true, directoryControl: 'editorial', version: 4, order: 1 };
+  await seedResource(fixture.creatorStore, shared);
+  const placed = await seedReferencePlacement(fixture, cookie, catalogEntry(shared.id, shared.title, shared.url), true);
+  const before = await freshOwner(fixture, cookie);
+  const resourceBefore = await fixture.rawResource(shared.id);
+  await openLinksWithManagedHistory(page, fixture);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  let duplicate;
+  const drop = async (route) => {
+    if (route.request().method() !== 'POST' || duplicate) return route.continue();
+    const response = await route.fetch();
+    duplicate = { status: response.status(), body: await response.json() };
+    await route.abort('failed');
+  };
+  await page.route('**/api/creador/enlaces/', drop);
+  try {
+    await page.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    const add = page.locator('[data-owner-dialog] form[data-owner-form="alta-enlace"]');
+    await add.getByLabel('Título', { exact: true }).fill('Independent draft title');
+    await add.getByLabel('URL', { exact: true }).fill(shared.url);
+    await add.getByLabel(/Descripción/u).fill('Independent draft description');
+    const directory = add.getByRole('checkbox', { name: 'Proponer al directorio', exact: true });
+    await expect(directory).toBeChecked();
+    await add.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    await add.getByRole('button', { name: 'Comprobar si se agregó la URL original', exact: true }).click();
+    assert.equal(duplicate.status, 200);
+    assert.equal(duplicate.body.created, false);
+    assert.deepEqual(duplicate.body.versionChanges, []);
+    await add.getByRole('button', { name: `Abrir ficha guardada: ${shared.title}`, exact: true }).click();
+
+    const savedCard = page.locator('[data-link-edit-form]');
+    await expect(savedCard).toBeVisible();
+    await savedCard.getByRole('checkbox', { name: 'Proponer al directorio', exact: true }).uncheck();
+    const returnButton = savedCard.getByRole('button', { name: /^Volver al borrador/u });
+    await expect(returnButton).toHaveText('Volver al borrador sin guardar las opciones');
+    await returnButton.click();
+    await expect(add.getByLabel('Título', { exact: true })).toHaveValue('Independent draft title');
+    await expect(prompt(page)).toHaveCount(0);
+    assert.deepEqual(await freshOwner(fixture, cookie), before, 'returning to Add discards no server state');
+    assert.deepEqual(await fixture.rawResource(shared.id), resourceBefore);
+    assert.equal(placed.link.selectedForDirectory, true);
+    assert.deepEqual(capture.writes().map(({ method }) => method), ['POST'], 'the named local discard does not save options or repeat Add');
+  } finally {
+    await page.unroute('**/api/creador/enlaces/', drop);
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
