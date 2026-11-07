@@ -1485,3 +1485,100 @@ test('returning to the Add draft names the current saved-card option that will b
     await capture.stop({ skipErrorBodies: true }).catch(() => {});
   }
 });
+
+test('guarded Back cannot save a cleared stale reference selection', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const original = catalogEntry('guard-stale-reference-a', 'Ficha A original', 'https://guard-reference.example/original');
+  const replacement = catalogEntry('guard-stale-reference-b', 'Ficha B vigente', 'https://guard-reference.example/replacement');
+  await seedCatalogRecord(fixture, original);
+  await seedCatalogRecord(fixture, replacement);
+  await grantReferenceEditorship(fixture, cookie, original);
+  let removeIndexRoute = await serveSelectionIndex(page, [original, replacement]);
+  const capture = await captureCreatorApi(page);
+  const transport = await installReferenceTransport(page, { loseReferenceAcknowledgement: false });
+  let submission;
+  let back;
+  try {
+    await openLinksWithManagedHistory(page, fixture);
+    await openCatalog(page);
+    const reference = page.locator('[data-owner-form="referencia"]');
+    const add = reference.getByRole('button', { name: 'Agregar a mi página', exact: true });
+    const directory = reference.getByRole('checkbox', { name: 'Proponer al directorio', exact: true });
+    await catalogRadio(page, original).check();
+    submission = add.click();
+    const receipt = await transport.writeArrived.promise;
+    assert.equal(receipt.status, 200);
+    assert.equal(receipt.body.created, false);
+    await directory.uncheck();
+    transport.writeGate.release();
+    await submission;
+
+    const placement = receipt.body.link;
+    const options = page.locator('[data-link-edit-form]');
+    await expect(options).toBeVisible();
+    const owner = await freshOwner(fixture, cookie);
+    const removed = await fixture.request(cookie, `/api/creador/enlaces/${placement.placementId}`, {
+      method: 'DELETE', body: { profileVersion: owner.profile.version },
+    });
+    assert.equal(removed.status, 204);
+    await options.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(() => optionWrites(capture, placement.placementId)[0]?.status).toBe(404);
+    await options.locator('[data-owner-compare]').click();
+    await options.locator('[data-owner-adopt]').click();
+    await expect(reference).toBeVisible();
+    await expect(catalogRadio(page, original)).toBeChecked();
+
+    const retained = (await freshOwner(fixture, cookie)).editableResources.find(({ id }) => id === original.id);
+    assert.ok(retained);
+    const moved = { ...original, title: 'Ficha A actualizada', url: 'https://guard-reference.example/moved' };
+    const edit = await fixture.request(cookie, `/api/creador/recursos/${original.id}`, {
+      method: 'PATCH', body: { url: moved.url, title: moved.title, version: retained.version },
+    });
+    assert.equal(edit.status, 200);
+    await removeIndexRoute();
+    removeIndexRoute = await serveSelectionIndex(page, [moved, replacement]);
+
+    await add.click();
+    await expect.poll(() => referenceWrites(capture).at(-1)?.status).toBe(409);
+    assert.equal(referenceWrites(capture).at(-1).responseBody.error, 'RESOURCE_CONFLICT');
+    await reference.getByRole('button', { name: 'Actualizar catálogo', exact: true }).click();
+    await expect(catalogRadio(page, moved)).not.toBeChecked();
+    await reference.locator('[data-owner-compare]').click();
+    await reference.locator('[data-owner-adopt]').click();
+    await expect(reference.locator('[data-owner-adopt]')).toHaveCount(0);
+    await expect(add).toBeDisabled();
+    await expect(catalogRadio(page, replacement)).not.toBeChecked();
+
+    const guardedUrl = page.url();
+    back = page.goBack();
+    const exit = prompt(page);
+    await expect(exit).toBeVisible();
+    await expect(page).toHaveURL(guardedUrl);
+    await expect(exit.getByRole('button', { name: 'Guardar y salir', exact: true })).toBeDisabled();
+    await expect(exit.getByText('Vuelve a la selección y elige una ficha vigente antes de guardar.')).toBeVisible();
+    await exit.getByRole('button', { name: 'Seguir editando', exact: true }).click();
+    await back;
+    await expect(page).toHaveURL(guardedUrl);
+    await expect(add).toBeDisabled();
+    assert.deepEqual(referenceWrites(capture).map(({ status }) => status), [200, 409]);
+    assert.deepEqual((await freshOwner(fixture, cookie)).links, [], 'guarding and comparing do not re-add the stale reference');
+
+    await catalogRadio(page, replacement).check();
+    await expect(directory).not.toBeChecked();
+    await add.click();
+    await expect.poll(() => referenceWrites(capture).at(-1)?.status).toBe(201);
+    const final = await freshOwner(fixture, cookie);
+    assert.deepEqual(final.links.map(({ resourceId, url, selectedForDirectory }) => ({ resourceId, url, selectedForDirectory })), [
+      { resourceId: replacement.id, url: replacement.url, selectedForDirectory: false },
+    ]);
+    assert.deepEqual(referenceWrites(capture).map(({ status }) => status), [200, 409, 201]);
+    assert.equal(optionWrites(capture, placement.placementId).length, 1);
+  } finally {
+    transport.writeGate.release();
+    await submission?.catch(() => {});
+    await back?.catch(() => {});
+    await transport.close();
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+    await removeIndexRoute();
+  }
+});
