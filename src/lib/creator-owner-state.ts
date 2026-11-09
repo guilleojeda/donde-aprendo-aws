@@ -1195,7 +1195,7 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         return action.comparison.canAdopt ? completeListCheck(state, action.intentId, action.comparison) : state;
       }
       return { ...state, attempt: { status: 'uncertain', intent: state.attempt.intent, message: action.comparison.message, comparison: action.comparison },
-        message: { text: action.comparison.message, kind: 'info' },
+        message: action.comparison.missingTarget ? undefined : { text: action.comparison.message, kind: 'info' },
         location: state.location.prompt === 'exit' ? { ...state.location,
           focusAfterRender: action.comparison.canAdopt ? '#owner-adopt' : '#owner-exit-compare' } : state.location };
     }
@@ -1319,7 +1319,7 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       const adoptionMessage = referenceCompletion?.message ?? (missingTarget?.kind === 'series-removed'
         ? 'La serie ya no está en la lista. Usaste el estado actual y conservaste la búsqueda de Series.'
         : missingTarget?.kind === 'retained-resource'
-          ? 'Continúas con la ficha propia retirada. Guardar actualiza título, URL y descripción; el enlace no vuelve a tu página.'
+          ? undefined
           : missingTarget?.kind === 'reference' || missingTarget?.kind === 'options-only'
             ? 'Conservamos la referencia exacta y su propuesta para una decisión manual. No repetimos ni volvemos a agregar el enlace.'
             : missingTarget?.kind === 'replacement'
@@ -1336,7 +1336,7 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
                 : 'Usaste los datos guardados. Puedes iniciar otra corrección cuando quieras.');
       return {
         ...state, observed: snapshot, editor, attempt: { status: 'confirmed', intentId: state.attempt.intent.id },
-        message: { text: adoptionMessage, kind: 'success' },
+        message: adoptionMessage ? { text: adoptionMessage, kind: 'success' } : undefined,
         location: { ...state.location, query: { ...state.location.query, serie: selectedSeriesStillExists ? state.location.query.serie : '', paginaCapitulos: 1,
           ...(selectedSeriesStillExists ? {} : { buscarCapitulos: '', pertenencia: 'todos' }) },
           linksQuery: selectCreatorOwnerLinks(snapshot.links, snapshot.series, state.location.linksQuery).query,
