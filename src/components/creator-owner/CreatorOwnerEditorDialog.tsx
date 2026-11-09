@@ -274,7 +274,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
     ? comparisonRows(editor, activeComparison.snapshot, activeComparison, state.attempt.intent) : [];
   const canAdopt = Boolean(activeComparison?.canAdopt && editor?.kind !== 'photo');
   const attemptMessage = attemptMatches && 'message' in state.attempt ? state.attempt.message : undefined;
-  const statusText = attemptMessage ?? state.message?.text ?? '';
+  const statusText = activeComparison?.missingTarget ? '' : attemptMessage ?? state.message?.text ?? '';
   const promptListAttempt = !editor && 'intent' in state.attempt && state.attempt.intent.capture.kind === 'list-command';
   const promptRecoveryMatches = promptListAttempt || Boolean(editor && attemptMatches);
   const promptRecovery = promptRecoveryMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || state.attempt.status === 'checking');
@@ -556,7 +556,7 @@ function Recovery({ state, editor, rows, canAdopt, onCheck, onAdopt, onAdoptAddP
       ? 'Usar la versión actual del perfil' : adoptLabel(editor));
   return <section class="creator-owner__conflict" data-owner-conflict={true} data-series-conflict={editor.kind === 'series' ? true : undefined} aria-live="polite">
     <h3>{editor.kind === 'move-chapter' || editor.kind === 'move-link' ? 'El orden cambió' : editor.kind === 'series' ? 'La serie cambió' : editor.kind === 'add-link' ? 'Comprueba la URL original' : 'Compara con lo guardado'}</h3>
-    <p data-owner-conflict-copy>{attempt.status === 'checking' ? 'Consultando el estado guardado…' : attempt.message}</p>
+    {!comparison?.missingTarget && <p data-owner-conflict-copy>{attempt.status === 'checking' ? 'Consultando el estado guardado…' : attempt.message}</p>}
     {comparison && <>
       <div class="creator-owner__comparison" data-owner-comparison>
         <p>{comparison.message}</p>

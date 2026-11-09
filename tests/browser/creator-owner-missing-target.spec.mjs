@@ -168,6 +168,9 @@ test('edición propia tras retirar la colocación conserva metadatos y exige una
     await editor.locator('[data-owner-compare]').click();
     const comparison = editor.locator('[data-owner-comparison]');
     await expect(comparison).toBeVisible();
+    const retainedComparisonMessage = 'La ficha propia sigue disponible, pero el enlace ya no está en tu página. Puedes continuar con título, URL y descripción; Guardar no lo vuelve a agregar.';
+    await expect(page.getByText(retainedComparisonMessage, { exact: true })).toHaveCount(1,
+      'the F1 explanation appears once across the page status, form status and comparison');
     const continueRetained = editor.getByRole('button', { name: 'Continuar editando la ficha retirada', exact: true });
     await expect(continueRetained).toBeVisible();
     await expectDepartedOptionsNotice(page.locator('[data-owner-dialog]'));
@@ -185,6 +188,9 @@ test('edición propia tras retirar la colocación conserva metadatos y exige una
     await expect(editor.getByLabel('Título', { exact: true })).toHaveValue(local.title);
     await expect(editor.getByLabel('URL', { exact: true })).toHaveValue(local.url);
     await expect(editor.getByLabel('Descripción', { exact: false })).toHaveValue(local.description);
+    await expect(editor.getByText('Editas una ficha propia que ya no está colocada en tu página. Guardar aquí no la reincorpora.', { exact: true })).toHaveCount(1);
+    await expect(page.locator('[data-owner-status]')).toHaveCount(0,
+      'the retained editor intro is the single explanation; adoption does not add a duplicate global status');
     await expectFocusInsideEditor(page, editor);
     await expect(editor.locator('[data-link-options]')).toHaveCount(0,
       'the retained-resource continuation carries metadata only');
