@@ -140,8 +140,8 @@ test('una carrera de retiro no restaura la ficha compartida y continúa con el a
     await expect.poll(() => writesTo(capture, 'PATCH', `/api/creador/enlaces/${placementId}/editar`)[0]?.status).toBe(409);
     assert.equal(removal?.response.status, 204);
     await edit.locator('[data-owner-compare]').click();
-    await expect(edit.getByRole('button', { name: 'Usar los datos guardados', exact: true })).toBeVisible();
-    await edit.getByRole('button', { name: 'Usar los datos guardados', exact: true }).click();
+    await expect(edit.getByRole('button', { name: 'Continuar con el borrador del alta', exact: true })).toBeVisible();
+    await edit.getByRole('button', { name: 'Continuar con el borrador del alta', exact: true }).click();
 
     await expect(add).toBeVisible();
     await expect(add.getByLabel('Título', { exact: true })).toHaveValue('Alta separada después del retiro');
@@ -218,8 +218,8 @@ for (const guarded of [false, true]) {
       const exit = page.locator('[data-owner-exit-prompt]');
       const recovery = guarded ? exit : options;
       await recovery.locator('[data-owner-compare]').click();
-      await expect(recovery).toContainText('La colocación ya no está en tu página');
-      await recovery.locator('[data-owner-adopt]').click();
+      await expect(recovery).toContainText('El enlace ya no está en tu página');
+      await recovery.getByRole('button', { name: 'Continuar con el borrador del alta', exact: true }).click();
       await pendingBack;
 
       await expect(exit).toHaveCount(0);
