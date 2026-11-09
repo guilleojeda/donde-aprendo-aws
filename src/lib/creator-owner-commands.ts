@@ -206,7 +206,11 @@ export function prepareCreatorOwnerRequest(intent: CreatorOwnerWriteIntent): Cre
   }
   if (intent.kind === 'reinclude-resource') {
     if (capture.kind !== 'list-command' || !capture.baseResource) throw new TypeError('Reincorporar el enlace no contiene su ficha observada.');
-    return { path: '/api/creador/enlaces/', method: 'POST', body: { resourceId: capture.baseResource.id, resourceVersion: capture.baseResource.version } };
+    return { path: '/api/creador/enlaces/', method: 'POST', body: {
+      resourceId: capture.baseResource.id,
+      resourceVersion: capture.baseResource.version,
+      profileVersion: capture.baseProfile.version,
+    } };
   }
   if (intent.kind === 'reference') {
     if (capture.kind !== 'reference' || !capture.selected) throw new TypeError('La referencia no contiene una ficha del catálogo seleccionada.');

@@ -1486,10 +1486,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
   async function readdEditableResource(principal, body) {
     for (const field of Object.keys(body)) {
-      if (field !== 'resourceId' && field !== 'resourceVersion') {
+      if (field !== 'resourceId' && field !== 'resourceVersion' && field !== 'profileVersion') {
         fail(400, 'MIXED_RESOURCE_INPUT', 're-adding an existing resource cannot include new-resource fields');
       }
     }
+    const expectedProfileVersion = validVersion(body.profileVersion, { optional: true });
     if (typeof body.resourceId !== 'string' || !body.resourceId) {
       fail(422, 'INVALID_RESOURCE_ID', 'resourceId must identify an editable resource');
     }
@@ -1497,6 +1498,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (body.resourceVersion === undefined) fail(400, 'RESOURCE_VERSION_REQUIRED', 'resourceVersion is required when re-adding an existing resource');
     const expectedVersion = validVersion(body.resourceVersion);
     const profile = await getRequiredOwnerProfile(principal);
+    requireAddProfileVersion(profile, expectedProfileVersion);
     const resource = await store.get(`resource:${body.resourceId}`);
     if (!resource || resource.id !== body.resourceId || !isCatalogResource(resource)) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
     if (resource.editorProfileId !== profile.id || resource.directoryControl !== 'creator') {
