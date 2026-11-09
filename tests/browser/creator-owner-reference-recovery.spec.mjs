@@ -1231,10 +1231,17 @@ test('retirar y reincorporar tras una referencia confirmada usa la versión vige
     await row.getByRole('button', { name: 'Quitar de tu página', exact: true }).click();
     await expect.poll(() => capture.writes().find(({method}) => method === 'DELETE')?.status).toBe(204);
     await expect(retained).toContainText('retained-new.review.example');
+    const beforeReadd = await freshOwner(fixture, cookie);
+    assert.equal(beforeReadd.profile.version, changed.profile.version + 2,
+      'the real reference and removal each advance the owner profile before manual Re-add');
     await retained.getByRole('button', { name: 'Volver a agregar', exact: true }).click();
     const readds = () => capture.writes().filter(({ method, path }) => method === 'POST' && path === '/api/creador/enlaces');
     await expect.poll(() => readds()[0]?.status).toBe(201);
-    assert.deepEqual(readds()[0].body, { resourceId: item.id, resourceVersion: changed.editableResources[0].version });
+    assert.deepEqual(readds()[0].body, {
+      resourceId: item.id,
+      resourceVersion: changed.editableResources[0].version,
+      profileVersion: beforeReadd.profile.version,
+    });
     const final = await freshOwner(fixture, cookie);
     assert.deepEqual(final.links.map(({ placementId, resourceId, title, url, series }) => ({ placementId, resourceId, title, url, series })),
       [{ placementId: placement.placementId, resourceId: item.id, title: moved.title, url: moved.url, series: [] }]);
