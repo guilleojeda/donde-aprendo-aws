@@ -252,8 +252,10 @@ test('referencia compartida retirada conserva su par vigente y la propuesta para
   const placementId = created.body.link.placementId;
   const resourceBefore = await fixture.rawResource(item.id);
   const entry = catalogEntry(item.id, item.title, item.url);
+  let indexReads = 0;
   const indexRoute = async (route) => {
     if (route.request().method() !== 'GET') return route.continue();
+    indexReads += 1;
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([entry]) });
   };
   await page.route('**/catalog-selection.json', indexRoute);
@@ -301,9 +303,24 @@ test('referencia compartida retirada conserva su par vigente y la propuesta para
     assert.equal(capture.writes().length, writesBeforeCompare,
       'the comparison GET writes nothing and does not submit a reference');
 
+    await editor.getByRole('checkbox', { name: 'Destacar en tu página', exact: true }).uncheck();
+    await expect(editor.getByRole('checkbox', { name: 'Destacar en tu página', exact: true })).not.toBeChecked();
+    await continueReference.click();
+    await expect(editor.locator('[data-owner-comparison]')).toHaveCount(0,
+      'adopting the stale comparison only clears recovery controls and keeps the new local option');
+    await expect(editor.locator('[data-owner-compare]')).toBeVisible();
+    assert.equal(indexReads, 0, 'a reducer-rejected stale continuation must not fetch or mutate catalog state');
+    assert.equal(capture.writes().length, writesBeforeCompare);
+
+    await editor.locator('[data-owner-compare]').click();
+    await expect(editor.locator('[data-owner-comparison]')).toBeVisible();
+    await expect(continueReference).toBeVisible();
+    assert.equal(indexReads, 0, 'a fresh comparison does not itself fetch or submit the reference');
     await continueReference.click();
     const referenceForm = page.locator('[data-owner-dialog] form[data-owner-form="referencia"]');
     await expect(referenceForm).toBeVisible();
+    await expect.poll(() => indexReads).toBe(1,
+      'the catalog loads only after the reducer commits the recovered-reference editor');
     await expect(referenceForm.locator('[data-catalog-index-status]')).toContainText('1 resultado');
     await expect(referenceForm.getByRole('radio', { name: `Seleccionar ${item.title}`, exact: true })).toBeChecked();
     await expect(referenceForm.getByLabel('Proponer al directorio', { exact: true })).not.toBeChecked();
@@ -488,16 +505,21 @@ test('opciones de referencia retirada conservan candidato rechazado y exigen ree
     assert.equal(referenceWrites[0].body.url, original.url);
     assert.equal(referenceWrites[0].body.selectedForDirectory, false,
       'the original directory decision remains local until this explicit request');
-    await expect(referenceForm.getByRole('radio', { name: `Seleccionar ${original.title}`, exact: true })).toBeDisabled();
+    const recoveredCandidate = referenceForm.locator('[data-recovered-candidate]');
+    await expect(recoveredCandidate).toBeVisible();
+    await expect(recoveredCandidate).toContainText(original.title);
+    await expect(recoveredCandidate).toContainText(original.url);
+    await expect(recoveredCandidate.locator('[data-recovered-candidate-status]')).toContainText('rechazada');
+    await expect(referenceForm.getByRole('button', { name: 'Agregar a mi página', exact: true })).toBeDisabled();
     await expect(referenceForm.getByRole('button', { name: 'Actualizar catálogo', exact: true })).toBeVisible();
     const writesAfterRejectedPair = capture.writes().length;
 
     await referenceForm.getByRole('button', { name: 'Actualizar catálogo', exact: true }).click();
     await expect.poll(() => indexReads).toBe(2);
     await expect(referenceForm.locator('[data-catalog-index-status]')).toContainText('resultados');
-    await expect(referenceForm.getByText(original.title, { exact: true })).toBeVisible();
-    await expect(referenceForm.getByText(original.url, { exact: true })).toBeVisible();
-    await expect(referenceForm.getByText(/desactualizada|no disponible|rechazada/i)).toBeVisible();
+    await expect(recoveredCandidate).toContainText(original.title);
+    await expect(recoveredCandidate).toContainText(original.url);
+    await expect(recoveredCandidate.locator('[data-recovered-candidate-status]')).toContainText(/desactualizada|no disponible|rechazada/i);
     await expect(referenceForm.getByRole('button', { name: 'Agregar a mi página', exact: true })).toBeDisabled();
     const alternate = referenceForm.getByRole('radio', { name: `Seleccionar ${sameUrlOtherId.title}`, exact: true });
     await expect(alternate).not.toBeChecked();

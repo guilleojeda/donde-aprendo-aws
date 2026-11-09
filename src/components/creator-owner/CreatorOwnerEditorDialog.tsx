@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from 'preact/hooks';
 import type { CreatorCatalogSelectionDTO, CreatorEditorDTO, CreatorProfileDTO } from '../../types/creators';
 import { normalizeCreatorText } from '../../lib/creator-values.mjs';
 import { creatorOwnerCanSubmitEditor, creatorOwnerLinkOptionsAreDirty, creatorOwnerReferenceSubmissionStatus } from '../../lib/creator-owner-state';
-import type { CreatorOwnerAttempt, CreatorOwnerComparison, CreatorOwnerEditor, CreatorOwnerLinkDraft, CreatorOwnerLinkEditor, CreatorOwnerState, CreatorOwnerWriteIntent } from '../../lib/creator-owner-state';
+import type { CreatorOwnerAttempt, CreatorOwnerComparison, CreatorOwnerEditor, CreatorOwnerLinkDraft, CreatorOwnerLinkEditor, CreatorOwnerReferenceCandidate, CreatorOwnerState, CreatorOwnerWriteIntent } from '../../lib/creator-owner-state';
 import { pageCreatorOwnerCatalog } from '../../lib/creator-owner-catalog';
 
 interface Props {
@@ -17,7 +17,7 @@ interface Props {
   onResumeSharedAdd(): void;
   onAdoptAddPlacement(comparisonId: string, placementId: string): void;
   onUpdateMoveLink(value: string): void;
-  onUpdateReference(value: { selected?: CreatorCatalogSelectionDTO; selectedForDirectory?: boolean }): void;
+  onUpdateReference(value: { selected?: CreatorOwnerReferenceCandidate; selectedForDirectory?: boolean }): void;
   onUpdateClaim(value: { selected?: Array<{ resourceId: string; url: string; title: string }>; knownUrls?: string; evidence?: string }): void;
   onCatalogSearch(value: string): void;
   onCatalogPage(value: number): void;
@@ -83,6 +83,46 @@ function comparisonRows(
     return [['Posición guardada', savedPosition > 0 ? `${savedPosition} de ${order.length}` : 'El capítulo ya no está en la serie', `${editor.targetPosition} en ${name}`]];
   }
   if (editor.kind === 'link-placement') {
+    const recovery = comparison?.missingTarget;
+    const submittedLink = intent?.capture.kind === 'link-placement' ? intent.capture.baseLink : editor.baseLink;
+    if (recovery?.kind === 'retained-resource') {
+      const saved = data.editableResources.find(({ id }) => id === submittedLink.resourceId);
+      return [
+        ['Título', saved?.title ?? 'Ficha propia ya no disponible', editor.draft.title],
+        ['URL', saved?.url ?? '—', editor.draft.url],
+        ['Descripción', saved?.description ?? '', editor.draft.description],
+        ['Enlace en tu página', 'Ya no está en tu página', 'No se vuelve a agregar al guardar la ficha'],
+      ];
+    }
+    if (recovery?.kind === 'reference' || recovery?.kind === 'options-only') {
+      return [
+        ['Referencia exacta', `${submittedLink.title} · ${submittedLink.url}`, `${editor.draft.title} · ${editor.draft.url}`],
+        ['Descripción', submittedLink.description ?? '', editor.draft.description],
+        ['Propuesta al directorio', submittedLink.selectedForDirectory ? 'Sí' : 'No', editor.draft.selectedForDirectory ? 'Sí' : 'No'],
+        ['Enlace en tu página', 'Ya no está en tu página', 'La siguiente referencia requiere una elección manual'],
+      ];
+    }
+    if (recovery?.kind === 'replacement') {
+      const saved = data.links.find(({ placementId }) => placementId === recovery.targetPlacementId);
+      if (saved) return [
+        ['Enlace actual', `${saved.title} · ${saved.url}`, `${editor.draft.title} · ${editor.draft.url}`],
+        ['Descripción', saved.description ?? '', editor.draft.description],
+        ['Destacado', saved.featured ? 'Sí' : 'No', editor.draft.featured ? 'Sí' : 'No'],
+        ['Propuesta al directorio', saved.selectedForDirectory ? 'Sí' : 'No', editor.draft.selectedForDirectory ? 'Sí' : 'No'],
+      ];
+    }
+    if (recovery?.kind === 'ambiguous-replacement') {
+      const matches = data.links.filter(({ resourceId }) => resourceId === submittedLink.resourceId);
+      return [
+        ['Enlaces actuales', matches.map(({ title, url }) => `${title} · ${url}`).join(' | '), 'No se eligió un enlace automáticamente'],
+        ['Corrección local', `${editor.draft.title} · ${editor.draft.url}`, editor.draft.description],
+      ];
+    }
+    if (recovery?.kind === 'pending-add') {
+      const pending = intent?.capture.kind === 'link-placement' ? intent.capture.pendingAddDraft : editor.pendingAddDraft;
+      return [['Enlace en tu página', 'Ya no está en tu página', 'No se volverá a agregar'],
+        ['Borrador del alta', pending?.url ?? 'Sin borrador', pending?.url ?? 'Sin borrador']];
+    }
     const saved = data.links.find(({ placementId }) => placementId === editor.baseLink.placementId);
     if (!saved) return [['Enlace', 'Ya no está en tu página', editor.draft.title]];
     return [
@@ -180,6 +220,12 @@ function comparisonSavedLabel(label: string): string {
     case 'Posición guardada': return 'Posición guardada';
     case 'URL del intento': return 'URL enviada';
     case 'Referencia enviada': return 'Resultado de A';
+    case 'Referencia exacta': return 'Referencia retirada';
+    case 'Enlace actual': return 'Enlace actual del recurso';
+    case 'Enlaces actuales': return 'Enlaces actuales del recurso';
+    case 'Enlace en tu página': return 'Estado del enlace';
+    case 'Corrección local': return 'Corrección conservada';
+    case 'Borrador del alta': return 'Borrador del alta';
     case 'Selección actual': return 'Estado en la página guardada';
     case 'Propuesta al directorio': return 'Opción guardada de la selección actual';
     default: return `Valor guardado (${label})`;
@@ -415,7 +461,17 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
 
       {editorIsDialog && editor.kind === 'reference' && <form class="creator-owner__form" hidden={prompt} data-owner-form="referencia" data-catalog-reference-form onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
         <p>Busca por título o URL y agrega una ficha existente. Esto crea una referencia; no concede permiso para editarla.</p>
-        <CatalogPicker state={state} mode="reference" selected={editor.selected ? [editor.selected.id] : []} onSearch={onCatalogSearch} onPage={onCatalogPage} onRetry={onCatalogRetry}
+        {editor.selected && editor.recoveredCandidate && <section class="creator-owner__catalog-selected" data-recovered-candidate aria-label="Referencia retirada conservada">
+          <p>{editor.selected.title} · {editor.selected.url}</p>
+          {referenceSubmissionStatus !== 'ready' && <p role="status" data-recovered-candidate-status>
+            {referenceSubmissionStatus === 'rejected' ? 'Esta referencia exacta fue rechazada; elige un par vigente para continuar.'
+              : referenceSubmissionStatus === 'catalog-unavailable' ? 'Actualiza el catálogo para comprobar esta referencia exacta.'
+                : 'Esta referencia exacta no está disponible en el catálogo actual. Elige otra ficha o quítala.'}
+          </p>}
+          <button class="button button--outline" type="button" data-recovered-candidate-remove
+            onClick={() => onUpdateReference({ selected: undefined })}>Quitar referencia guardada</button>
+        </section>}
+        <CatalogPicker state={state} mode="reference" selected={[]} selectedReference={editor.selected} onSearch={onCatalogSearch} onPage={onCatalogPage} onRetry={onCatalogRetry}
           onSelect={(item, checked) => onUpdateReference({ selected: checked ? item : undefined })} />
         {editor.selected && <label class="creator-owner__link-checkbox creator-owner__catalog-directory"><input id="owner-link-directory-option" type="checkbox" name="selectedForDirectory" checked={editor.selectedForDirectory} onChange={(event) => onUpdateReference({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>}
         {editor.selected && <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Agregar una referencia no concede permiso para editar la ficha compartida.</p></details>}
@@ -452,12 +508,13 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         </p>}
         {promptRecovery && <section class="creator-owner__conflict" data-exit-recovery>
           <p>{'message' in state.attempt ? state.attempt.message : 'Comprobando el estado guardado…'}</p>
-          {editor && activeComparison && rows.length > 0 && <div class="creator-owner__comparison" data-owner-comparison>
-            <ComparisonRows rows={rows} />
+          {editor && activeComparison && (rows.length > 0 || activeComparison.missingTarget?.notice) && <div class="creator-owner__comparison" data-owner-comparison>
+            {rows.length > 0 && <ComparisonRows rows={rows} />}
+            {activeComparison.missingTarget?.notice && <p data-owner-missing-target-notice>{activeComparison.missingTarget.notice}</p>}
           </div>}
           {!promptListAttempt && state.attempt.status === 'uncertain' && state.attempt.comparison?.canAdopt && <button id="owner-adopt" class="button button--outline" type="button" data-owner-adopt
             onClick={() => onAdopt(state.attempt.status === 'uncertain' ? state.attempt.comparison?.id ?? '' : '')}>
-            {editor ? adoptLabel(editor) : 'Usar los datos guardados'}
+            {state.attempt.comparison?.missingTarget?.actionLabel ?? (editor ? adoptLabel(editor) : 'Usar los datos guardados')}
           </button>}
           {(state.attempt.status === 'uncertain' || state.attempt.status === 'conflict') && <button id="owner-exit-compare" class="button button--outline" type="button" data-owner-compare onClick={onCheck}>{editor ? activeComparison ? 'Comparar otra vez' : recoveryActionLabel(editor, state.attempt.status) : 'Comprobar'}</button>}
           {state.attempt.status === 'checking' && <p role="status" aria-live="polite">Comprobando…</p>}
@@ -494,14 +551,17 @@ function Recovery({ state, editor, rows, canAdopt, onCheck, onAdopt, onAdoptAddP
   const comparison = attempt.status === 'uncertain' ? attempt.comparison : undefined;
   const savedAddPlacement = canAdopt && comparison?.savedAddPlacementId
     ? comparison.snapshot.links.find(({ placementId }) => placementId === comparison.savedAddPlacementId) : undefined;
-  const comparisonActionLabel = editor.kind === 'series' && !editor.baseSeries && comparison && !comparison.seriesId
-    ? 'Usar la versión actual del perfil' : adoptLabel(editor);
+  const comparisonActionLabel = comparison?.missingTarget?.actionLabel
+    ?? (editor.kind === 'series' && !editor.baseSeries && comparison && !comparison.seriesId
+      ? 'Usar la versión actual del perfil' : adoptLabel(editor));
   return <section class="creator-owner__conflict" data-owner-conflict={true} data-series-conflict={editor.kind === 'series' ? true : undefined} aria-live="polite">
     <h3>{editor.kind === 'move-chapter' || editor.kind === 'move-link' ? 'El orden cambió' : editor.kind === 'series' ? 'La serie cambió' : editor.kind === 'add-link' ? 'Comprueba la URL original' : 'Compara con lo guardado'}</h3>
     <p data-owner-conflict-copy>{attempt.status === 'checking' ? 'Consultando el estado guardado…' : attempt.message}</p>
     {comparison && <>
       <div class="creator-owner__comparison" data-owner-comparison>
         <p>{comparison.message}</p>
+        {comparison.missingTarget?.notice && state.location.prompt !== 'exit'
+          && <p data-owner-missing-target-notice>{comparison.missingTarget.notice}</p>}
         {rows.length > 0 && <ComparisonRows rows={rows} />}
       </div>
       {canAdopt && <button class="button button--outline" type="button" data-owner-adopt onClick={() => onAdopt(comparison.id)}>{comparisonActionLabel}</button>}
@@ -513,10 +573,11 @@ function Recovery({ state, editor, rows, canAdopt, onCheck, onAdopt, onAdoptAddP
   </section>;
 }
 
-function CatalogPicker({ state, mode, selected, onSearch, onPage, onRetry, onSelect }: {
+function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onPage, onRetry, onSelect }: {
   state: CreatorOwnerState;
   mode: 'reference' | 'claim';
   selected: string[];
+  selectedReference?: CreatorOwnerReferenceCandidate;
   onSearch(value: string): void;
   onPage(value: number): void;
   onRetry(): void;
@@ -554,7 +615,9 @@ function CatalogPicker({ state, mode, selected, onSearch, onPage, onRetry, onSel
           const rejected = mode === 'reference' && catalog.rejectedReferenceSelections.some(({ id, url }) => id === item.id && url === item.url);
           return <li class="creator-owner__catalog-row" data-catalog-row={item.id} key={item.id}>
           <label><input type={mode === 'reference' ? 'radio' : 'checkbox'} name={mode === 'reference' ? 'catalogReference' : undefined}
-            data-catalog-select data-resource-id={item.id} checked={selected.includes(item.id)}
+            data-catalog-select data-resource-id={item.id} checked={mode === 'reference'
+              ? selectedReference?.id === item.id && selectedReference.url === item.url
+              : selected.includes(item.id)}
             disabled={rejected}
             aria-label={`${mode === 'claim' ? 'Solicitar edición de' : 'Seleccionar'} ${item.title}`}
             onChange={(event) => onSelect(item, event.currentTarget.checked)} />

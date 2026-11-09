@@ -495,6 +495,65 @@ test('an options-only continuation does not gain metadata rights, and an indepen
   assert.equal(optionsState.editor.selectedForDirectory, false);
   assert.deepEqual(optionsState.observed.editableResources, current.editableResources);
 
+  let sharedState = ownerState.creatorOwnerReducer(stateFor(before), { type: 'catalog-load-ready', entries: [selection] });
+  sharedState = openLinkEditor(sharedState, link, { editable: false });
+  sharedState = ownerState.creatorOwnerReducer(sharedState, { type: 'update-link-draft', value: { selectedForDirectory: false } });
+  const sharedIntent = commands.creatorOwnerWriteIntent('shared-origin-gained-rights', sharedState.editor);
+  sharedState = ownerState.creatorOwnerReducer(sharedState, { type: 'begin-write', intent: sharedIntent });
+  sharedState = ownerState.creatorOwnerReducer(sharedState, { type: 'write-uncertain', intentId: sharedIntent.id,
+    status: 'conflict', code: 'PLACEMENT_NOT_FOUND', message: 'Compare.' });
+  sharedState = ownerState.creatorOwnerReducer(sharedState, { type: 'begin-check', intentId: sharedIntent.id, checkId: 'shared-gained-rights-check' });
+  const sharedComparison = commands.createCreatorOwnerComparison(sharedIntent, current, sharedState.editor);
+  assert.equal(sharedComparison.canAdopt, true);
+  sharedState = ownerState.creatorOwnerReducer(sharedState, { type: 'check-compared', intentId: sharedIntent.id,
+    checkId: 'shared-gained-rights-check', comparison: sharedComparison });
+  assert.equal(sharedState.attempt.status, 'uncertain');
+  assert.equal(sharedState.attempt.comparison.id, sharedComparison.id);
+  sharedState = ownerState.creatorOwnerReducer(sharedState, { type: 'adopt-comparison', comparisonId: sharedComparison.id });
+  assert.equal(sharedState.editor.kind, 'reference', 'a shared editor does not become a retained edit when authority appears in the fresh snapshot');
+  assertCandidateIdentity(sharedState.editor.selected, { id: link.resourceId, url: link.url, title: link.title });
+  assert.equal(sharedState.editor.selectedForDirectory, false);
+  const sharedRequest = commands.prepareCreatorOwnerRequest(commands.creatorOwnerWriteIntent('manual-shared-reference', sharedState.editor));
+  assert.equal(sharedRequest.method, 'POST');
+  assert.deepEqual(sharedRequest.body, { resourceId: link.resourceId, url: link.url,
+    profileVersion: current.profile.version, selectedForDirectory: false });
+
+  const replacement = { ...link, placementId: 'placement-mode-replacement', title: 'Current replacement',
+    url: 'https://shared.example/current', description: 'Current description', selectedForDirectory: true,
+    resourceVersion: 2, placementVersion: 2 };
+  const replacementCurrent = { ...current, links: [replacement], editableResources: [
+    { id: link.resourceId, title: replacement.title, url: replacement.url,
+      description: replacement.description, version: replacement.resourceVersion },
+  ] };
+  let replacedShared = openLinkEditor(stateFor({ ...before, editableResources: [] }), link, { editable: false });
+  const replaceIntent = commands.creatorOwnerWriteIntent('shared-replacement-gained-rights', replacedShared.editor);
+  replacedShared = ownerState.creatorOwnerReducer(replacedShared, { type: 'begin-write', intent: replaceIntent });
+  replacedShared = ownerState.creatorOwnerReducer(replacedShared, { type: 'write-uncertain', intentId: replaceIntent.id,
+    status: 'conflict', code: 'PLACEMENT_NOT_FOUND', message: 'Compare.' });
+  replacedShared = ownerState.creatorOwnerReducer(replacedShared, { type: 'begin-check', intentId: replaceIntent.id,
+    checkId: 'shared-replacement-gained-rights-check' });
+  const replacementComparison = commands.createCreatorOwnerComparison(replaceIntent, replacementCurrent, replacedShared.editor);
+  replacedShared = ownerState.creatorOwnerReducer(replacedShared, { type: 'check-compared', intentId: replaceIntent.id,
+    checkId: 'shared-replacement-gained-rights-check', comparison: replacementComparison });
+  assert.equal(replacedShared.attempt.status, 'uncertain');
+  assert.equal(replacedShared.attempt.comparison.id, replacementComparison.id);
+  replacedShared = ownerState.creatorOwnerReducer(replacedShared, { type: 'adopt-comparison', comparisonId: replacementComparison.id });
+  assert.equal(replacedShared.editor.kind, 'link-placement');
+  assert.equal(replacedShared.editor.editable, true, 'current authority may enable a new edit after adoption');
+  assert.equal(replacedShared.editor.baseLink.placementId, replacement.placementId);
+  assert.equal(replacedShared.editor.draft.title, replacement.title, 'read-only metadata from the shared editor is not sent as a correction');
+  assert.equal(replacedShared.editor.draft.url, replacement.url);
+  assert.equal(replacedShared.editor.draft.description, replacement.description);
+  assert.equal(replacedShared.editor.draft.selectedForDirectory, replacement.selectedForDirectory);
+  const replacementRequest = commands.prepareCreatorOwnerRequest(commands.creatorOwnerWriteIntent('current-shared-replacement', replacedShared.editor));
+  assert.equal(Object.hasOwn(replacementRequest.body, 'title'), false);
+  assert.equal(Object.hasOwn(replacementRequest.body, 'url'), false);
+  assert.equal(Object.hasOwn(replacementRequest.body, 'description'), false,
+    'the read-only old values are now the replacement base, not a metadata correction');
+  const explicitlyEditedShared = ownerState.creatorOwnerReducer(replacedShared, { type: 'update-link-draft', value: { title: 'New authorized title' } });
+  const explicitReplacementRequest = commands.prepareCreatorOwnerRequest(commands.creatorOwnerWriteIntent('explicit-current-replacement', explicitlyEditedShared.editor));
+  assert.equal(explicitReplacementRequest.body.title, 'New authorized title', 'current rights permit a later explicit correction');
+
   const independentDraft = { title: 'Independent Add draft', url: 'https://new.example/', description: 'Keep this',
     featured: false, selectedForDirectory: true };
   let combined = openLinkEditor(stateFor(before), link, { editable: false, optionsOnly: true, pendingAddDraft: independentDraft });
@@ -630,6 +689,8 @@ test('real stale-reference rejection plus ordinary remove/options adoption retai
   state = ownerState.creatorOwnerReducer(state, { type: 'adopt-comparison', comparisonId: comparison.id });
   assert.equal(state.editor.kind, 'reference');
   assertCandidateIdentity(state.editor.selected, rejectedCandidate);
+  assert.equal(Object.hasOwn(state.editor.selected, 'tipo'), false,
+    'the old LinkDTO recovery candidate has no catalog type; do not fabricate a field that was not observed');
   assert.equal(state.editor.selected.url, oldPlacement.url, 'same resource ID at a new URL does not rewrite the captured candidate');
   assert.equal(state.editor.selectedForDirectory, false);
   assert.equal(ownerState.creatorOwnerReferenceSubmissionStatus(state, state.editor.selected), 'rejected');
@@ -642,6 +703,8 @@ test('real stale-reference rejection plus ordinary remove/options adoption retai
   state = ownerState.creatorOwnerReducer(state, { type: 'catalog-load-started' });
   state = ownerState.creatorOwnerReducer(state, { type: 'catalog-load-ready', entries: [currentCatalogEntry] });
   assertCandidateIdentity(state.editor.selected, rejectedCandidate);
+  assert.equal(Object.hasOwn(state.editor.selected, 'tipo'), false,
+    'refreshing a different URL for the same ID must not fabricate a type on the preserved old candidate');
   assert.deepEqual(state.catalog.rejectedReferenceSelections, [{ id: rejectedCandidate.id, url: rejectedCandidate.url }]);
   assert.equal(ownerState.creatorOwnerReferenceSubmissionStatus(state, state.editor.selected), 'rejected');
   assert.equal(ownerState.creatorOwnerCanSubmitEditor(state), false);
@@ -662,4 +725,100 @@ test('real stale-reference rejection plus ordinary remove/options adoption retai
   assert.equal(after.links[0].resourceId, targetResourceId);
   assert.equal(after.links[0].url, movedUrl);
   assert.deepEqual(after.editableResources, []);
+});
+
+test('a stale POST after recovered-reference adoption keeps its rejected candidate through Compare and Adopt', async () => {
+  const harness = await createCreatorPagesHarness();
+  await createProfile(harness, 'creator-a', 'recovered-reference-owner');
+  await createProfile(harness, 'creator-b', 'recovered-reference-source');
+  const created = await api(harness, '/api/creador/enlaces', { session: 'creator-b', method: 'POST',
+    body: { title: 'Shared source', url: 'https://shared.example/before-move' } });
+  assert.equal(created.status, 201);
+  const sourceLink = (await responseJson(created)).link;
+  let before = await ownerSnapshot(harness);
+  const added = await api(harness, '/api/creador/referencias', { method: 'POST', body: {
+    resourceId: sourceLink.resourceId, url: sourceLink.url, profileVersion: before.profile.version, selectedForDirectory: true,
+  } });
+  assert.equal(added.status, 201);
+  before = await ownerSnapshot(harness);
+  const oldPlacement = before.links[0];
+  const oldSelection = catalogSelection(oldPlacement);
+  let state = ownerState.creatorOwnerReducer(stateFor(before), { type: 'catalog-load-ready', entries: [oldSelection] });
+  state = openLinkEditor(state, oldPlacement, { editable: false });
+  state = ownerState.creatorOwnerReducer(state, { type: 'update-link-draft', value: { selectedForDirectory: false } });
+  const optionsIntent = commands.creatorOwnerWriteIntent('shared-options-before-recovery', state.editor);
+  const optionsRequest = commands.prepareCreatorOwnerRequest(optionsIntent);
+  state = ownerState.creatorOwnerReducer(state, { type: 'begin-write', intent: optionsIntent });
+
+  const removed = await api(harness, `/api/creador/enlaces/${encodeURIComponent(oldPlacement.placementId)}`, {
+    method: 'DELETE', body: { profileVersion: before.profile.version },
+  });
+  assert.equal(removed.status, 204);
+  const failedOptions = await api(harness, optionsRequest.path, { method: optionsRequest.method, body: optionsRequest.body });
+  assert.equal(failedOptions.status, 404);
+  const optionsOutcome = await commands.interpretCreatorOwnerResponse(failedOptions, optionsIntent, before);
+  assert.equal(optionsOutcome.kind, 'conflict');
+  assert.equal(optionsOutcome.code, 'PLACEMENT_NOT_FOUND');
+  if (optionsOutcome.kind !== 'conflict') return;
+  const withoutPlacement = await ownerSnapshot(harness);
+  state = ownerState.creatorOwnerReducer(state, { type: 'write-uncertain', intentId: optionsIntent.id,
+    status: 'conflict', code: optionsOutcome.code, message: optionsOutcome.message });
+  state = ownerState.creatorOwnerReducer(state, { type: 'begin-check', intentId: optionsIntent.id, checkId: 'removed-shared-check' });
+  const comparison = commands.createCreatorOwnerComparison(optionsIntent, withoutPlacement, state.editor);
+  state = ownerState.creatorOwnerReducer(state, { type: 'check-compared', intentId: optionsIntent.id,
+    checkId: 'removed-shared-check', comparison });
+  assert.equal(state.attempt.status, 'uncertain');
+  assert.equal(state.attempt.comparison.id, comparison.id);
+  state = ownerState.creatorOwnerReducer(state, { type: 'adopt-comparison', comparisonId: comparison.id });
+  assert.equal(state.editor.kind, 'reference');
+  assert.equal(state.editor.recoveredCandidate, true);
+  assertCandidateIdentity(state.editor.selected, { id: oldSelection.id, url: oldSelection.url, title: oldSelection.title });
+  assert.equal(ownerState.creatorOwnerReferenceSubmissionStatus(state, state.editor.selected), 'ready');
+  assert.equal(ownerState.creatorOwnerCanSubmitEditor(state), true,
+    'the user may submit the recovered pair while it is still the current catalog pair');
+
+  const sourceResource = (await ownerSnapshot(harness, 'creator-b')).editableResources.find(({ id }) => id === sourceLink.resourceId);
+  const movedUrl = 'https://shared.example/after-recovery';
+  const sourceMove = await api(harness, `/api/creador/recursos/${encodeURIComponent(sourceLink.resourceId)}`, {
+    session: 'creator-b', method: 'PATCH', body: { version: sourceResource.version, url: movedUrl },
+  });
+  assert.equal(sourceMove.status, 200);
+
+  const staleReferenceIntent = commands.creatorOwnerWriteIntent('manual-recovered-reference', state.editor);
+  const staleReferenceRequest = commands.prepareCreatorOwnerRequest(staleReferenceIntent);
+  state = ownerState.creatorOwnerReducer(state, { type: 'begin-write', intent: staleReferenceIntent });
+  const staleReference = await api(harness, staleReferenceRequest.path, {
+    method: staleReferenceRequest.method, body: staleReferenceRequest.body,
+  });
+  assert.equal(staleReference.status, 409);
+  assert.equal((await responseJson(staleReference.clone())).error, 'RESOURCE_CONFLICT');
+  const staleReferenceOutcome = await commands.interpretCreatorOwnerResponse(staleReference, staleReferenceIntent, withoutPlacement);
+  assert.equal(staleReferenceOutcome.kind, 'conflict');
+  assert.equal(staleReferenceOutcome.code, 'RESOURCE_CONFLICT');
+  if (staleReferenceOutcome.kind !== 'conflict') return;
+  state = ownerState.creatorOwnerReducer(state, { type: 'write-uncertain', intentId: staleReferenceIntent.id,
+    status: 'conflict', code: staleReferenceOutcome.code, message: staleReferenceOutcome.message });
+  state = ownerState.creatorOwnerReducer(state, { type: 'catalog-require-refresh', message: 'La referencia cambió. Actualiza el catálogo.' });
+  assert.equal(ownerState.creatorOwnerReferenceSubmissionStatus(state, state.editor.selected), 'rejected');
+  assert.equal(ownerState.creatorOwnerCanSubmitEditor(state), false,
+    'the rejected candidate is blocked before the next comparison; the test does not resubmit it');
+  const current = await ownerSnapshot(harness);
+  assert.deepEqual(current.links, [], 'the real stale reference request added no placement');
+
+  state = ownerState.creatorOwnerReducer(state, { type: 'begin-check', intentId: staleReferenceIntent.id, checkId: 'rejected-reference-check' });
+  const rejectedComparison = commands.createCreatorOwnerComparison(staleReferenceIntent, current, state.editor);
+  assert.equal(rejectedComparison.canAdopt, true);
+  state = ownerState.creatorOwnerReducer(state, { type: 'check-compared', intentId: staleReferenceIntent.id,
+    checkId: 'rejected-reference-check', comparison: rejectedComparison });
+  assert.equal(state.attempt.status, 'uncertain');
+  assert.equal(state.attempt.comparison.id, rejectedComparison.id);
+  state = ownerState.creatorOwnerReducer(state, { type: 'adopt-comparison', comparisonId: rejectedComparison.id });
+  assert.equal(state.attempt.status, 'confirmed');
+  assert.equal(state.editor.kind, 'reference');
+  assert.equal(state.editor.recoveredCandidate, true);
+  assertCandidateIdentity(state.editor.selected, { id: oldSelection.id, url: oldSelection.url, title: oldSelection.title });
+  assert.deepEqual(state.catalog.rejectedReferenceSelections, [{ id: oldSelection.id, url: oldSelection.url }]);
+  assert.equal(ownerState.creatorOwnerReferenceSubmissionStatus(state, state.editor.selected), 'rejected');
+  assert.equal(ownerState.creatorOwnerCanSubmitEditor(state), false);
+  assert.deepEqual(state.observed.links, []);
 });
