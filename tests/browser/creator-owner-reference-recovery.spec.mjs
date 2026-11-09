@@ -1316,9 +1316,10 @@ for (const { removalTiming, guarded } of [
       const recovery = guarded ? exit : options;
       await expect(recovery.locator('[data-owner-compare]')).toBeVisible();
       await recovery.locator('[data-owner-compare]').click();
-      await expect(recovery).toContainText('La colocación ya no está en tu página');
-      await expect(recovery.locator('[data-owner-adopt]')).toBeEnabled();
-      await recovery.locator('[data-owner-adopt]').click();
+      await expect(recovery).toContainText('El enlace ya no está en tu página');
+      const chooseReference = recovery.getByRole('button', { name: 'Volver a elegir una referencia', exact: true });
+      await expect(chooseReference).toBeEnabled();
+      await chooseReference.click();
       await pendingBack;
       await expect(exit).toHaveCount(0);
       await expect(page).toHaveURL(originalUrl);
@@ -1486,7 +1487,7 @@ test('returning to the Add draft names the current saved-card option that will b
   }
 });
 
-test('guarded Back cannot save a cleared stale reference selection', async ({ fixture, page }) => {
+test('guarded Back cannot save a preserved rejected reference candidate', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const original = catalogEntry('guard-stale-reference-a', 'Ficha A original', 'https://guard-reference.example/original');
   const replacement = catalogEntry('guard-stale-reference-b', 'Ficha B vigente', 'https://guard-reference.example/replacement');
@@ -1546,6 +1547,12 @@ test('guarded Back cannot save a cleared stale reference selection', async ({ fi
     await reference.locator('[data-owner-compare]').click();
     await reference.locator('[data-owner-adopt]').click();
     await expect(reference.locator('[data-owner-adopt]')).toHaveCount(0);
+    const recovered = reference.locator('[data-recovered-candidate]');
+    await expect(recovered).toBeVisible();
+    await expect(recovered).toContainText(original.title);
+    await expect(recovered).toContainText(original.url);
+    await expect(recovered.locator('[data-recovered-candidate-status]')).toContainText('rechazada');
+    await expect(recovered.getByRole('button', { name: 'Quitar referencia guardada', exact: true })).toBeVisible();
     await expect(add).toBeDisabled();
     await expect(catalogRadio(page, replacement)).not.toBeChecked();
 
@@ -1555,15 +1562,19 @@ test('guarded Back cannot save a cleared stale reference selection', async ({ fi
     await expect(exit).toBeVisible();
     await expect(page).toHaveURL(guardedUrl);
     await expect(exit.getByRole('button', { name: 'Guardar y salir', exact: true })).toBeDisabled();
-    await expect(exit.getByText('Vuelve a la selección y elige una ficha vigente antes de guardar.')).toBeVisible();
+    await expect(exit.getByText('Vuelve a la selección, actualiza el catálogo si hace falta y elige un par vigente antes de guardar.')).toBeVisible();
     await exit.getByRole('button', { name: 'Seguir editando', exact: true }).click();
     await back;
     await expect(page).toHaveURL(guardedUrl);
+    await expect(recovered).toBeVisible();
+    await expect(recovered.locator('[data-recovered-candidate-status]')).toContainText('rechazada');
     await expect(add).toBeDisabled();
     assert.deepEqual(referenceWrites(capture).map(({ status }) => status), [200, 409]);
     assert.deepEqual((await freshOwner(fixture, cookie)).links, [], 'guarding and comparing do not re-add the stale reference');
 
     await catalogRadio(page, replacement).check();
+    await expect(recovered).toHaveCount(0, 'choosing B explicitly replaces the preserved rejected candidate');
+    await expect(catalogRadio(page, replacement)).toBeChecked();
     await expect(directory).not.toBeChecked();
     await add.click();
     await expect.poll(() => referenceWrites(capture).at(-1)?.status).toBe(201);

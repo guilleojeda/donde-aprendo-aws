@@ -689,7 +689,7 @@ export default function CreatorOwnerApp(props: Props) {
         if (!entries) throw new Error('catalog-malformed');
         const currentEditor = stateRef.current.editor;
         let message: string | undefined;
-        if (currentEditor?.kind === 'reference' && currentEditor.selected) {
+        if (currentEditor?.kind === 'reference' && currentEditor.selected && !currentEditor.recoveredCandidate) {
           const refreshed = entries.find(({ id }) => id === currentEditor.selected?.id);
           if (!refreshed || refreshed.url !== currentEditor.selected.url) {
             dispatch({ type: 'update-reference-draft', selected: undefined });
@@ -731,6 +731,12 @@ export default function CreatorOwnerApp(props: Props) {
   useEffect(() => {
     if (props.view === 'solicitudes') void loadCatalog();
   }, [props.view]);
+
+  useEffect(() => {
+    if (state.attempt.status === 'confirmed' && state.editor?.kind === 'reference' && state.editor.recoveredCandidate) {
+      void loadCatalog(true);
+    }
+  }, [state.attempt.status === 'confirmed' ? state.attempt.intentId : undefined, state.editor?.key]);
 
   async function refreshClaimHistory(options?: { intentId: string; checkId: string; profileId: string }) {
     const latest = stateRef.current;

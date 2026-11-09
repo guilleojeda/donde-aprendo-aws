@@ -28,6 +28,7 @@ import {
 import { parseCreatorOwnerClaimUrls } from './creator-owner-catalog';
 import { creatorOwnerChapterOrder } from './creator-owner-series';
 import { creatorOwnerLinkGroup } from './creator-owner-links';
+import { resolveCreatorOwnerMissingTarget } from './creator-owner-missing-target';
 
 export type CreatorOwnerRequestPath = `/api/creador/${string}/` | `/api/creador/recursos/?id=${'.' | '..'}`;
 
@@ -747,6 +748,10 @@ export async function interpretCreatorOwnerResponse(
       && intent.kind === 'save-link' && intent.capture.kind === 'link-placement') {
       return { kind: 'conflict', message: 'La colocación ya no está en tu página. Compara el estado guardado antes de decidir cómo seguir.', code: 'PLACEMENT_NOT_FOUND' };
     }
+    if (response.status === 404 && code === 'SERIES_NOT_FOUND'
+      && intent.kind === 'save-series' && intent.capture.kind === 'series' && intent.capture.baseSeries) {
+      return { kind: 'conflict', message: 'La serie que editabas ya no está disponible. Comprueba el estado guardado antes de decidir cómo seguir.', code: 'SERIES_NOT_FOUND' };
+    }
     if (response.status === 408 || response.status >= 500) {
       return { kind: 'uncertain', message: 'No pudimos confirmar el resultado. Comprueba lo guardado antes de volver a intentar; no repetiremos la escritura.', ...(typeof code === 'string' ? { code } : {}) };
     }
@@ -826,7 +831,12 @@ export function createCreatorOwnerComparison(
   let savedAddPlacementId: string | undefined;
   let canAdopt = profileMatches;
   let message: string | undefined;
-  if (intent.kind === 'save-series' && intent.capture.kind === 'series') {
+  const missingTarget = resolveCreatorOwnerMissingTarget(intent, snapshot, profileMatches);
+  if (missingTarget) {
+    canAdopt = missingTarget.canAdopt;
+    message = missingTarget.message;
+  }
+  if (!missingTarget && intent.kind === 'save-series' && intent.capture.kind === 'series') {
     const capture = intent.capture;
     const matches = capture.baseSeries
       ? snapshot.series.filter(({ id }) => id === capture.baseSeries?.id)
@@ -850,12 +860,7 @@ export function createCreatorOwnerComparison(
   }
   if (intent.kind === 'save-link' && capture.kind === 'link-placement') {
     const placementPresent = snapshot.links.some(({ placementId }) => placementId === capture.baseLink.placementId);
-    canAdopt = profileMatches && (placementPresent || Boolean(capture.pendingAddDraft) || Boolean(capture.optionsOnly));
-    if (!placementPresent && (capture.pendingAddDraft || capture.optionsOnly)) {
-      message = capture.pendingAddDraft
-        ? 'La colocación ya no está en tu página. Puedes adoptar la versión actual y continuar con el borrador del alta sin reincorporarla.'
-        : 'La colocación ya no está en tu página. Puedes adoptar la versión actual y decidir manualmente si quieres agregar una referencia.';
-    }
+    if (!missingTarget) canAdopt = profileMatches && placementPresent;
   }
   if (intent.kind === 'save-link' && capture.kind === 'link-resource') {
     canAdopt = snapshot.editableResources.some(({ id }) => id === capture.baseResource.id)
@@ -892,6 +897,7 @@ export function createCreatorOwnerComparison(
     ...(seriesId ? { seriesId } : {}),
     ...(recoveredLinkId ? { recoveredLinkId } : {}),
     ...(savedAddPlacementId ? { savedAddPlacementId } : {}),
+    ...(missingTarget ? { missingTarget } : {}),
     canAdopt,
     message: message ?? compareLabel(intent, seriesId ? snapshot.series.find(({ id }) => id === seriesId) : undefined, snapshot,
       recoveredLinkId ? snapshot.links.find(({ placementId }) => placementId === recoveredLinkId) : undefined),
