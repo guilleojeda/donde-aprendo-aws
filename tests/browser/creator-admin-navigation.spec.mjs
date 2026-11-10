@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { CLIENT_ID, COGNITO_DOMAIN, completeLogin, cookiePair, makeAccount, makeIdentity } from '../fixtures/account-auth.mjs';
 import { expect, test, addCookie } from '../fixtures/creator-browser-test.mjs';
-import { seedResource } from '../fixtures/creator-pages.mjs';
+import { adminResourceCommandMatches, seedResource } from '../fixtures/creator-pages.mjs';
 
 const adminPath = '/cuenta/administracion/';
 const root = (page) => page.locator('[data-creator-admin]');
@@ -144,7 +144,7 @@ async function reloadWithoutDialog(page) {
 
 async function saveClassificationAndWaitForCleanReload(page, id) {
   const responsePromise = page.waitForResponse((response) => response.request().method() === 'PATCH'
-    && new URL(response.url()).pathname === `/api/admin/recursos/${id}/`);
+    && adminResourceCommandMatches(response.url(), id));
   const navigation = cleanNativeTransition(page,
     () => row(page, id).getByRole('button', { name: 'Guardar clasificación' }).click());
   const response = await responsePromise;
@@ -169,7 +169,7 @@ test('structural moderation keeps a different draft through GET filter Cancel, s
   try {
     await row(page, ids[0]).getByLabel('Categoría').fill('Seguridad');
     const moderationResponse = page.waitForResponse((response) => response.request().method() === 'POST'
-      && new URL(response.url()).pathname === `/api/admin/recursos/${ids[1]}/ocultar/`);
+      && adminResourceCommandMatches(response.url(), ids[1], 'ocultar'));
     await row(page, ids[1]).getByRole('button', { name: 'Ocultar recurso' }).click();
     assert.equal((await moderationResponse).status(), 200, 'the real structural moderation request succeeds');
     await expect(page.locator('[data-view-transition-shell]')).toBeVisible();
@@ -241,7 +241,7 @@ test('an SSR correction made before the real admin module loads remains dirty af
     allowModule();
     await page.waitForLoadState('load');
     const moderationResponse = page.waitForResponse((response) => response.request().method() === 'POST'
-      && new URL(response.url()).pathname === `/api/admin/recursos/${ids[1]}/ocultar/`);
+      && adminResourceCommandMatches(response.url(), ids[1], 'ocultar'));
     await row(page, ids[1]).getByRole('button', { name: 'Ocultar recurso' }).click();
     assert.equal((await moderationResponse).status(), 200, 'the real structural write still succeeds');
     await expect(page.locator('[data-view-transition-shell]')).toBeVisible();
@@ -270,7 +270,7 @@ test('refresh, paging, and reload use the native guard and discard only after Le
 
   await row(page, ids[0]).getByLabel('Categoría').fill('Cambio antes de refrescar');
   const moderationResponse = page.waitForResponse((response) => response.request().method() === 'POST'
-    && new URL(response.url()).pathname === `/api/admin/recursos/${ids[1]}/ocultar/`);
+    && adminResourceCommandMatches(response.url(), ids[1], 'ocultar'));
   await row(page, ids[1]).getByRole('button', { name: 'Ocultar recurso' }).click();
   assert.equal((await moderationResponse).status(), 200, 'a real structural action makes the contextual refresh control available');
   await expect(page.locator('[data-view-transition-shell]')).toBeVisible();
@@ -326,7 +326,9 @@ test('a reverted field is clean; own saves commit a baseline and late correction
   const held = new Promise((resolve) => { responseHeld = resolve; });
   const gate = new Promise((resolve) => { releaseResponse = resolve; });
   const holdActualWrite = async (route) => {
-    if (route.request().method() !== 'PATCH' || !route.request().postData()?.includes('Valor enviado')) {
+    if (route.request().method() !== 'PATCH'
+      || !adminResourceCommandMatches(route.request().url(), id)
+      || !route.request().postData()?.includes('Valor enviado')) {
       await route.continue();
       return;
     }
@@ -336,7 +338,7 @@ test('a reverted field is clean; own saves commit a baseline and late correction
     await gate;
     await route.fulfill({ response });
   };
-  await page.route(`**/api/admin/recursos/${id}/`, holdActualWrite);
+  await page.route('**/api/admin/recursos**', holdActualWrite);
   try {
     await category.fill('Valor enviado');
     await row(page, id).getByRole('button', { name: 'Guardar clasificación' }).click();
@@ -354,7 +356,7 @@ test('a reverted field is clean; own saves commit a baseline and late correction
     fixture.creatorStore.failNext('transact', new Error('controlled storage failure after the real route reaches the store'));
     await category.fill('Cambio con guardado fallido');
     const failedSave = page.waitForResponse((response) => response.request().method() === 'PATCH'
-      && new URL(response.url()).pathname === `/api/admin/recursos/${id}/`);
+      && adminResourceCommandMatches(response.url(), id));
     await row(page, id).getByRole('button', { name: 'Guardar clasificación' }).click();
     assert.equal((await failedSave).status(), 503, 'the actual admin endpoint reports the controlled storage failure');
     await expect(category).toHaveValue('Cambio con guardado fallido');
@@ -371,7 +373,7 @@ test('a reverted field is clean; own saves commit a baseline and late correction
     ], 'the failure and explicit retry are two distinct real writes');
   } finally {
     releaseResponse();
-    await page.unroute(`**/api/admin/recursos/${id}/`, holdActualWrite).catch(() => {});
+    await page.unroute('**/api/admin/recursos**', holdActualWrite).catch(() => {});
     writes.stop();
   }
 });
@@ -516,7 +518,7 @@ test('dirty logout is cancelled before its real request; clean logout revokes th
     // same-account login and the bound session check before saving or logging out.
     for (const key of fixture.accountStore.sessions.keys()) fixture.accountStore.sessions.delete(key);
     const expiredWrite = page.waitForResponse((response) => response.request().method() === 'PATCH'
-      && new URL(response.url()).pathname === `/api/admin/recursos/${id}/`);
+      && adminResourceCommandMatches(response.url(), id));
     await row(page, id).getByRole('button', { name: 'Guardar clasificación' }).click();
     assert.equal((await expiredWrite).status(), 401, 'the actual admin endpoint observes the expired session');
     await expect(root(page).locator('[data-session-recovery-check]')).toBeVisible();

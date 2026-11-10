@@ -7,6 +7,26 @@ const PRODUCT_MODULE = new URL('../../src/lib/creator-pages.mjs', import.meta.ur
 
 export const SITE_ORIGIN = 'https://dondeaprendoaws.com';
 
+export function adminResourceCommandMatches(target, id, action) {
+  const url = target instanceof URL ? target : new URL(target, SITE_ORIGIN);
+  const pathname = url.pathname.replace(/\/+$/u, '') || '/';
+  const collection = '/api/admin/recursos';
+  const queryPath = action ? `${collection}/${action}` : collection;
+  const queryKeys = [...url.searchParams.keys()];
+  if (pathname === queryPath) {
+    const ids = url.searchParams.getAll('id');
+    return queryKeys.length === 1 && queryKeys[0] === 'id' && ids.length === 1 && ids[0] === id;
+  }
+  if (queryKeys.length > 0) return false;
+  const legacy = pathname.match(/^\/api\/admin\/recursos\/([^/]+)(?:\/(aprobar|revocar|ocultar|restaurar))?$/u);
+  if (!legacy || (legacy[2] ?? undefined) !== action) return false;
+  try {
+    return decodeURIComponent(legacy[1]) === id;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Acceptance contract for the future creator-page service:
  *

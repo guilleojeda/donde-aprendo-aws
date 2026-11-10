@@ -9,7 +9,13 @@ import { transform } from '@astrojs/compiler-rs';
 import { experimental_AstroContainer } from 'astro/container';
 import { createCreatorHttpHandler } from '../src/lib/creator-http.mjs';
 import { creatorPageSessionBinding } from '../src/lib/creator-session-context.mjs';
-import { callApi, createCreatorPagesHarness, seedResource, SITE_ORIGIN } from './fixtures/creator-pages.mjs';
+import {
+  adminResourceCommandMatches,
+  callApi,
+  createCreatorPagesHarness,
+  seedResource,
+  SITE_ORIGIN,
+} from './fixtures/creator-pages.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const scratchParent = path.join(root, '.work/creator-pages');
@@ -690,7 +696,7 @@ test('R11 partial claim with one receipt gap pauses only stale records and recov
     fetchImpl: async (url, init = {}) => {
       const target = new URL(url, SITE_ORIGIN);
       if (target.pathname === '/api/admin/reclamaciones/vincular/' && init.method === 'POST') return actualPartial;
-      if (target.pathname === '/api/admin/recursos/resource-r11-b/' && init.method === 'PATCH' && rejectFirstSave) {
+      if (adminResourceCommandMatches(target, 'resource-r11-b') && init.method === 'PATCH' && rejectFirstSave) {
         rejectFirstSave = false;
         return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
       }
@@ -1046,7 +1052,7 @@ test('R12 successful claim receipt gap pauses only the stale row and preserves B
   const page = await executeAdminScript(html, {
     fetchImpl: async (url, init = {}) => {
       const target = new URL(url, SITE_ORIGIN);
-      if (target.pathname === '/api/admin/recursos/resource-r12-b/' && init.method === 'PATCH' && expireFirstSave) {
+      if (adminResourceCommandMatches(target, 'resource-r12-b') && init.method === 'PATCH' && expireFirstSave) {
         expireFirstSave = false;
         statuses.push({ method: init.method, path: target.pathname, status: 401 });
         return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
