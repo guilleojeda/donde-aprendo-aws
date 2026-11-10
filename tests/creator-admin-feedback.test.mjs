@@ -896,10 +896,10 @@ test('la clasificación conserva una corrección durante el guardado y recarga c
   const itemStatus = new TestElement();
   resourceRow.status = itemStatus;
   const fields = [
-    { tagName: 'INPUT', type: 'text', name: 'category', value: 'Otros' },
-    { tagName: 'INPUT', type: 'text', name: 'kind', value: 'content' },
-    { tagName: 'INPUT', type: 'text', name: 'format', value: 'Artículo' },
-    { tagName: 'INPUT', type: 'text', name: 'topics', value: '' },
+    { tagName: 'INPUT', type: 'text', name: 'category', value: 'Otros', defaultValue: 'Otros' },
+    { tagName: 'INPUT', type: 'text', name: 'kind', value: 'content', defaultValue: 'content' },
+    { tagName: 'INPUT', type: 'text', name: 'format', value: 'Artículo', defaultValue: 'Artículo' },
+    { tagName: 'INPUT', type: 'text', name: 'topics', value: '', defaultValue: '' },
   ];
   const form = new TestForm({ rowType: 'resource', rowId: 'resource-feedback', row: resourceRow, controls: [] });
   form.fields = fields;
@@ -926,7 +926,7 @@ test('la clasificación conserva una corrección durante el guardado y recarga c
       querySelector: (selector) => selector === '[data-creator-admin]' ? root
         : selector === '#creator-admin-data' ? initial : null,
     },
-    window: { location: { reload() { reloads += 1; } } },
+    window: Object.assign(new EventTarget(), { location: { reload() { reloads += 1; } } }),
     HTMLElement: TestElement,
     FormData: TestFormData,
     Response,

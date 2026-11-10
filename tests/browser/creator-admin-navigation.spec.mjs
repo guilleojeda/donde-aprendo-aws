@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { completeLogin, cookiePair, makeAccount, makeIdentity } from '../fixtures/account-auth.mjs';
+import { CLIENT_ID, COGNITO_DOMAIN, completeLogin, cookiePair, makeAccount, makeIdentity } from '../fixtures/account-auth.mjs';
 import { expect, test, addCookie } from '../fixtures/creator-browser-test.mjs';
 import { seedResource } from '../fixtures/creator-pages.mjs';
 
@@ -469,6 +469,16 @@ test('dirty logout is cancelled before its real request; clean logout revokes th
   await page.route('**/src/scripts/creator-admin.ts', holdAdminModule);
 
   const logoutRequests = [];
+  let providerLogoutVisited = false;
+  const followFixtureProviderLogout = async (route) => {
+    const url = new URL(route.request().url());
+    assert.equal(url.pathname, '/logout', 'the real account service sends the browser to the provider logout endpoint');
+    assert.equal(url.searchParams.get('client_id'), CLIENT_ID);
+    const logoutUri = url.searchParams.get('logout_uri');
+    assert.equal(logoutUri, `${fixture.origin}/cuenta/`, 'the provider returns to the application account page');
+    providerLogoutVisited = true;
+    await route.fulfill({ status: 302, headers: { location: logoutUri } });
+  };
   const onRequest = (request) => {
     if (request.method() === 'POST' && new URL(request.url()).pathname === '/cuenta/salir/') logoutRequests.push(request);
   };
@@ -531,17 +541,20 @@ test('dirty logout is cancelled before its real request; clean logout revokes th
     await saveClassificationAndWaitForCleanReload(page, id);
     assert.equal((await fixture.rawResource(id)).category, 'Antes de salir');
 
+    await page.route(`${COGNITO_DOMAIN}/logout**`, followFixtureProviderLogout);
     const logoutResponse = page.waitForResponse((response) => response.request().method() === 'POST'
       && new URL(response.url()).pathname === '/cuenta/salir/');
     await logoutButton.click();
     assert.equal((await logoutResponse).status(), 200, 'clean logout uses the real account script and endpoint');
     await expect(page).toHaveURL((url) => url.pathname === '/cuenta/');
+    assert.equal(providerLogoutVisited, true, 'the browser follows the actual logout destination through the fixture provider boundary');
     assert.equal(logoutRequests.length, 1, 'only the later clean logout reaches account-auth');
     assert.equal((await fixture.principal(renewedCookie)).state, 'anonymous', 'the clean logout actually revokes the renewed fixture session');
   } finally {
     releaseModule();
     await moduleSettled;
     await page.unroute('**/src/scripts/creator-admin.ts', holdAdminModule).catch(() => {});
+    await page.unroute(`${COGNITO_DOMAIN}/logout**`, followFixtureProviderLogout).catch(() => {});
     page.off('request', onRequest);
   }
 });

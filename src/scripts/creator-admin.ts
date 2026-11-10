@@ -41,7 +41,11 @@ let csrfToken = root?.dataset.csrf;
 const sessionRecovery = root ? createCreatorSessionRecovery({
   root,
   isWriteActive: () => writeGuard?.isActive() ?? false,
-  updateCsrf: (token) => { csrfToken = token; },
+  updateCsrf: (token) => {
+    csrfToken = token;
+    const logoutToken = root.querySelector<HTMLInputElement>('[data-account-logout] input[name="csrfToken"]');
+    if (logoutToken) logoutToken.value = token;
+  },
 }) : undefined;
 
 function announce(target: Element | null | undefined, message: string, kind: 'error' | 'success' = 'success') {
@@ -49,6 +53,43 @@ function announce(target: Element | null | undefined, message: string, kind: 'er
   target.hidden = false;
   target.textContent = message;
   target.dataset.kind = kind;
+}
+
+let beforeUnloadInstalled = false;
+
+function onBeforeUnload(event: BeforeUnloadEvent) {
+  if (!formState?.hasPendingChanges()) return;
+  event.preventDefault();
+  event.returnValue = '';
+}
+
+function syncBeforeUnload(): boolean {
+  const pending = formState?.hasPendingChanges() ?? false;
+  if (pending === beforeUnloadInstalled) return pending;
+  if (pending) window.addEventListener('beforeunload', onBeforeUnload);
+  else window.removeEventListener('beforeunload', onBeforeUnload);
+  beforeUnloadInstalled = pending;
+  return pending;
+}
+
+function onFormStateChange() {
+  syncBeforeUnload();
+}
+
+function onAdminLogout(event: Event) {
+  if (!formState?.hasPendingChanges()) return;
+  event.preventDefault();
+  syncBeforeUnload();
+  announce(root?.querySelector('[data-admin-status]'),
+    'Guarda o revierte los cambios pendientes antes de cerrar sesión.', 'error');
+}
+
+if (root) {
+  root.addEventListener('input', onFormStateChange);
+  root.addEventListener('change', onFormStateChange);
+  root.addEventListener('account:logout', onAdminLogout);
+  syncBeforeUnload();
+  root.querySelector<HTMLElement>('[data-admin-logout-shell]')?.removeAttribute('inert');
 }
 
 function observedVersion(record: Record<string, unknown> | undefined): number | undefined {
@@ -237,7 +278,7 @@ async function finishAdminWrite(
   const payload = await responsePayload(response);
   if (!receiptGap) updateOwnedContent(payload, options.entity, options.id);
   formState?.commit(submittedValues);
-  const hasPendingChanges = formState?.hasPendingChanges() ?? false;
+  const hasPendingChanges = syncBeforeUnload();
   if (hasPendingChanges) {
     let message = `${successMessage} Conservamos los cambios que aún no enviaste; puedes seguir editándolos y guardarlos.`;
     if (receiptGap) {
@@ -259,13 +300,7 @@ function busy(form: HTMLFormElement, value: boolean) {
 
 if (root && state && csrfToken) {
   const refreshViewButton = root.querySelector<HTMLButtonElement>('[data-refresh-view]');
-  refreshViewButton?.addEventListener('click', () => {
-    if (formState?.hasPendingChanges()) {
-      announce(root.querySelector('[data-view-transition]'), 'Guarda los cambios pendientes o revierte manualmente tus campos antes de actualizar la vista.', 'error');
-      return;
-    }
-    window.location.reload();
-  });
+  refreshViewButton?.addEventListener('click', () => window.location.reload());
   root.querySelectorAll<HTMLFormElement>('[data-classification-form]').forEach((form) => {
     onWrite(form, 'submit', async (event) => {
       event.preventDefault();
@@ -415,6 +450,7 @@ if (root && state && csrfToken) {
             markAdminActionsStale('[data-claim-resolution] button', item ?? form);
             markAdminActionsStale('[data-claim-resolution] input[name="resourceIds"]', item ?? form);
             formState?.commit(formState.capture(form));
+            syncBeforeUnload();
             const remainingIds = selectedIds.filter((id) => !linked.has(id));
             showViewTransition('La vinculación se completó parcialmente. Actualiza la vista antes de resolver otra vez esta solicitud.');
             announce(itemStatus(item), remainingIds.length > 0

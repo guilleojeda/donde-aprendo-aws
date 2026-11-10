@@ -25,6 +25,24 @@ function valueOf(control: EditableControl): ControlValue {
   return control.value;
 }
 
+function defaultValueOf(control: EditableControl): ControlValue {
+  if (control.tagName === 'INPUT') {
+    const input = control as HTMLInputElement;
+    if (['checkbox', 'radio'].includes(input.type)) return input.defaultChecked;
+    if (input.type === 'file') return [];
+    return input.defaultValue;
+  }
+  if (control.tagName === 'SELECT') {
+    const select = control as HTMLSelectElement;
+    if (select.multiple) {
+      return [...select.options].filter((option) => option.defaultSelected).map((option) => option.value);
+    }
+    const selected = [...select.options].find((option) => option.defaultSelected) ?? select.options[0];
+    return selected?.value ?? '';
+  }
+  return (control as HTMLTextAreaElement).defaultValue;
+}
+
 function sameValue(left: ControlValue, right: ControlValue): boolean {
   if (Array.isArray(left) && Array.isArray(right)) {
     return left.length === right.length && left.every((value, index) => value === right[index]);
@@ -33,6 +51,7 @@ function sameValue(left: ControlValue, right: ControlValue): boolean {
 }
 
 function shouldTrack(control: EditableControl): boolean {
+  if (control.tagName === 'INPUT' && (control as HTMLInputElement).type === 'hidden') return false;
   const form = control.form;
   return form?.getAttribute('method')?.toLowerCase() !== 'get';
 }
@@ -40,7 +59,7 @@ function shouldTrack(control: EditableControl): boolean {
 export function createCreatorFormState(root: ParentNode) {
   const baseline = new WeakMap<EditableControl, ControlValue>();
   const allControls = () => controlsWithin(root).filter(shouldTrack);
-  allControls().forEach((control) => baseline.set(control, valueOf(control)));
+  allControls().forEach((control) => baseline.set(control, defaultValueOf(control)));
 
   return {
     capture(scope: ParentNode): FormValueSnapshot {

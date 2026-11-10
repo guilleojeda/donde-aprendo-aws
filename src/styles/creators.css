@@ -354,6 +354,12 @@
   line-height: 1.6;
 }
 
+.creator-admin__logout-shell {
+  max-width: 760px;
+  margin: -14px auto 22px;
+  text-align: right;
+}
+
 .creator-account__nav {
   display: flex;
   align-items: center;
