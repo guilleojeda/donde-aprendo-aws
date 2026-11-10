@@ -151,13 +151,21 @@ function itemStatus(item: Element | null | undefined) {
   return item?.querySelector<HTMLElement>('[data-item-status]');
 }
 
-async function api(path: string, method: string, body?: unknown): Promise<Response> {
+function adminResourceCommandUrl(resourceId: string, action?: string): string {
+  const pathname = action
+    ? `/api/admin/recursos/${action}/`
+    : '/api/admin/recursos/';
+  const query = new URLSearchParams({ id: resourceId });
+  return `${pathname}?${query.toString()}`;
+}
+
+async function api(url: string, method: string, body?: unknown): Promise<Response> {
   if (!csrfToken) throw new Error('missing-csrf');
   const serializedBody = body === undefined ? undefined : JSON.stringify(body);
   if (serializedBody !== undefined && new TextEncoder().encode(serializedBody).byteLength > MAX_REQUEST_BYTES) {
     throw new Error(REQUEST_TOO_LARGE);
   }
-  const response = await fetch(`${path.replace(/\/$/, '')}/`, {
+  const response = await fetch(url, {
     method,
     credentials: 'same-origin',
     headers: {
@@ -328,7 +336,7 @@ if (root && state && csrfToken) {
       const submittedValues = formState?.capture(form);
       busy(form, true);
       try {
-        const response = await api(`/api/admin/recursos/${encodeURIComponent(resourceId)}`, 'PATCH', body);
+        const response = await api(adminResourceCommandUrl(resourceId), 'PATCH', body);
         if (!response.ok) {
           announce(itemStatus(item), await responseErrorMessage(response), 'error');
           return;
@@ -353,7 +361,7 @@ if (root && state && csrfToken) {
       button.disabled = true;
       try {
         const version = observedVersion(resource);
-        const response = await api(`/api/admin/recursos/${encodeURIComponent(resourceId)}/${action}`, 'POST', {
+        const response = await api(adminResourceCommandUrl(resourceId, action), 'POST', {
           ...(version === undefined ? {} : { version }),
         });
         if (!response.ok) {
@@ -387,7 +395,7 @@ if (root && state && csrfToken) {
       button.disabled = true;
       try {
         const version = observedVersion(profile);
-        const response = await api(`/api/admin/perfiles/${encodeURIComponent(profileId)}/${action}`, 'POST', {
+        const response = await api(`/api/admin/perfiles/${encodeURIComponent(profileId)}/${action}/`, 'POST', {
           ...(version === undefined ? {} : { version }),
         });
         if (!response.ok) {
@@ -428,7 +436,7 @@ if (root && state && csrfToken) {
       selectionControls.forEach((control) => { control.disabled = true; });
       busy(form, true);
       try {
-        const response = await api('/api/admin/reclamaciones/vincular', 'POST', {
+        const response = await api('/api/admin/reclamaciones/vincular/', 'POST', {
           accountId: claim.accountId,
           ...(typeof claim.sourceId === 'string' && claim.sourceId ? { sourceId: claim.sourceId } : {}),
           resourceIds: selectedIds,

@@ -469,6 +469,7 @@ async function executeAdminScript(html, { fetchImpl, initialData } = {}) {
     FormData: TestFormData,
     Response,
     TextEncoder,
+    URLSearchParams,
     fetch: async (url, init) => {
       requests.push({ url, init });
       if (fetchImpl) return fetchImpl(url, init);
@@ -565,7 +566,7 @@ test('la moderación de eventos muestra fallos recuperables y conserva los formu
 
   assert.ok(page.requests.every(({ init }) => init.method === 'POST'));
   assert.ok(page.requests.every(({ init }) => init.headers['x-csrf-token'] === 'csrf-feedback'));
-  assert.deepEqual(JSON.parse(page.requests.find(({ url }) => url.includes('/recursos/resource-feedback/')).init.body), { version: 1 });
+  assert.deepEqual(JSON.parse(page.requests.find(({ url }) => adminResourceCommandMatches(url, 'resource-feedback', 'aprobar')).init.body), { version: 1 });
   assert.deepEqual(JSON.parse(page.requests.find(({ url }) => url.includes('/perfiles/profile-feedback/')).init.body), { version: 1 });
 });
 
@@ -937,6 +938,7 @@ test('la clasificación conserva una corrección durante el guardado y recarga c
     FormData: TestFormData,
     Response,
     TextEncoder,
+    URLSearchParams,
     fetch: async (url, options) => {
       requests.push({ url, options });
       if (requests.filter((request) => request.options.method === 'PATCH').length === 1) {

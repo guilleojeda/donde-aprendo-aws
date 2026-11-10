@@ -137,7 +137,7 @@ test('query-ID admin classification and moderation preserve exact IDs through th
     assert.equal(moderationBody.resource.id, id);
     assert.deepEqual(moderationBody.versionChanges, versionChange(id, 2, 3));
 
-    const final = await readAdminRecord(harness, 'resource', id);
+    const final = await harness.store.get(`resource:${id}`);
     assert.equal(final.id, id, 'an action cannot target the decoded or neighboring ID');
     assert.equal(final.category, 'Certificaciones');
     assert.equal(final.version, 3);
@@ -146,10 +146,10 @@ test('query-ID admin classification and moderation preserve exact IDs through th
     assert.equal(final.hidden, action === 'ocultar' ? true : action === 'restaurar' ? false : entry.initial?.hidden === true);
   }
 
-  const dot = await readAdminRecord(harness, 'resource', '.');
-  const decodedDotDecoy = await readAdminRecord(harness, 'resource', '%2E');
-  const dotDot = await readAdminRecord(harness, 'resource', '..');
-  const decodedDotDotDecoy = await readAdminRecord(harness, 'resource', '%2E%2E');
+  const dot = await harness.store.get('resource:.');
+  const decodedDotDecoy = await harness.store.get('resource:%2E');
+  const dotDot = await harness.store.get('resource:..');
+  const decodedDotDotDecoy = await harness.store.get('resource:%2E%2E');
   assert.equal(dot.id, '.');
   assert.equal(dot.published, true);
   assert.equal(decodedDotDecoy.id, '%2E');
@@ -294,7 +294,7 @@ test('query-ID commands retain admin, Origin/CSRF, size, version, and legacy pat
   });
   assert.equal(tooLong.response.status, 422, 'IDs above the existing 256-byte domain limit remain invalid');
   assert.equal((await responseJson(tooLong.response)).error, 'INVALID_RESOURCE_ID');
-  assert.equal(await harness.store.get(`resource:${'x'.repeat(257)}`), undefined);
+  assert.equal(await harness.store.get(`resource:${'x'.repeat(257)}`), null);
 
   assert.deepEqual(await harness.store.get('resource:query-guarded'), before);
 });
