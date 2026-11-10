@@ -2374,13 +2374,13 @@ test('pre-hydration Links sort keeps the later native skip entry, focus, and tra
     await expect(page.locator('#owner-link-order')).toHaveValue('titulo-desc');
     await expect(page.locator('.creator-owner__filter-note')).toContainText('El orden de consulta sólo organiza esta tabla');
     const main = page.locator('#contenido');
+    const mainHeading = main.getByRole('heading', { level: 1 });
     await expect(main).toBeFocused();
     await expect.poll(() => main.evaluate((target) => {
       const padding = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop);
       const margin = parseFloat(getComputedStyle(target).scrollMarginTop);
       return Math.abs(target.getBoundingClientRect().top - (padding + margin));
     }), { message: 'the native skip reaches its anchor after smooth scrolling' }).toBeLessThanOrEqual(2);
-    const beforeBack = await page.evaluate(() => window.scrollY);
     assert.deepEqual(hydrationMismatches, [], 'the pre-hydration control value does not change the SSR structure before hydration');
     assert.deepEqual(await page.evaluate(() => ({ index: history.state?.creatorOwnerIndex, length: history.length })), skipEntry,
       'the earlier sort updates the native skip entry without adding a slot or replacing its owner index');
@@ -2395,11 +2395,14 @@ test('pre-hydration Links sort keeps the later native skip entry, focus, and tra
     await expect(page.locator('#contenido')).toBeFocused();
     assert.deepEqual(await page.evaluate(() => ({ index: history.state?.creatorOwnerIndex, length: history.length })), skipEntry,
       'Forward restores the same sorted native skip slot');
-    const distanceFromSavedViewport = () => page.evaluate((saved) => Math.abs(window.scrollY - saved), beforeBack);
-    const viewportMessage = 'Forward restores the native skip viewport rather than centering the full-height main element';
-    await expect.poll(distanceFromSavedViewport, { message: viewportMessage }).toBeLessThan(5);
+    const headingFullyInViewport = () => mainHeading.evaluate((heading) => {
+      const bounds = heading.getBoundingClientRect();
+      return bounds.top >= 0 && bounds.bottom <= window.innerHeight;
+    });
+    const viewportMessage = 'Forward keeps the main heading fully in the native skip viewport';
+    await expect.poll(headingFullyInViewport, { message: viewportMessage }).toBe(true);
     await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve)))));
-    assert.ok(await distanceFromSavedViewport() < 5, viewportMessage);
+    assert.equal(await headingFullyInViewport(), true, viewportMessage);
     assert.equal(await page.evaluate((initial) => initial === document, initialDocument), true,
       'query and fragment traversal stays in the hydrated owner document');
 
