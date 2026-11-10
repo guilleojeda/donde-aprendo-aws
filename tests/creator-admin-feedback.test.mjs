@@ -9,7 +9,13 @@ import { transform } from '@astrojs/compiler-rs';
 import { experimental_AstroContainer } from 'astro/container';
 import { createCreatorHttpHandler } from '../src/lib/creator-http.mjs';
 import { creatorPageSessionBinding } from '../src/lib/creator-session-context.mjs';
-import { callApi, createCreatorPagesHarness, seedResource, SITE_ORIGIN } from './fixtures/creator-pages.mjs';
+import {
+  adminResourceCommandMatches,
+  callApi,
+  createCreatorPagesHarness,
+  seedResource,
+  SITE_ORIGIN,
+} from './fixtures/creator-pages.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const scratchParent = path.join(root, '.work/creator-pages');
@@ -463,6 +469,7 @@ async function executeAdminScript(html, { fetchImpl, initialData } = {}) {
     FormData: TestFormData,
     Response,
     TextEncoder,
+    URLSearchParams,
     fetch: async (url, init) => {
       requests.push({ url, init });
       if (fetchImpl) return fetchImpl(url, init);
@@ -559,7 +566,7 @@ test('la moderación de eventos muestra fallos recuperables y conserva los formu
 
   assert.ok(page.requests.every(({ init }) => init.method === 'POST'));
   assert.ok(page.requests.every(({ init }) => init.headers['x-csrf-token'] === 'csrf-feedback'));
-  assert.deepEqual(JSON.parse(page.requests.find(({ url }) => url.includes('/recursos/resource-feedback/')).init.body), { version: 1 });
+  assert.deepEqual(JSON.parse(page.requests.find(({ url }) => adminResourceCommandMatches(url, 'resource-feedback', 'aprobar')).init.body), { version: 1 });
   assert.deepEqual(JSON.parse(page.requests.find(({ url }) => url.includes('/perfiles/profile-feedback/')).init.body), { version: 1 });
 });
 
@@ -690,7 +697,7 @@ test('R11 partial claim with one receipt gap pauses only stale records and recov
     fetchImpl: async (url, init = {}) => {
       const target = new URL(url, SITE_ORIGIN);
       if (target.pathname === '/api/admin/reclamaciones/vincular/' && init.method === 'POST') return actualPartial;
-      if (target.pathname === '/api/admin/recursos/resource-r11-b/' && init.method === 'PATCH' && rejectFirstSave) {
+      if (adminResourceCommandMatches(target, 'resource-r11-b') && init.method === 'PATCH' && rejectFirstSave) {
         rejectFirstSave = false;
         return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
       }
@@ -931,6 +938,7 @@ test('la clasificación conserva una corrección durante el guardado y recarga c
     FormData: TestFormData,
     Response,
     TextEncoder,
+    URLSearchParams,
     fetch: async (url, options) => {
       requests.push({ url, options });
       if (requests.filter((request) => request.options.method === 'PATCH').length === 1) {
@@ -1046,7 +1054,7 @@ test('R12 successful claim receipt gap pauses only the stale row and preserves B
   const page = await executeAdminScript(html, {
     fetchImpl: async (url, init = {}) => {
       const target = new URL(url, SITE_ORIGIN);
-      if (target.pathname === '/api/admin/recursos/resource-r12-b/' && init.method === 'PATCH' && expireFirstSave) {
+      if (adminResourceCommandMatches(target, 'resource-r12-b') && init.method === 'PATCH' && expireFirstSave) {
         expireFirstSave = false;
         statuses.push({ method: init.method, path: target.pathname, status: 401 });
         return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });

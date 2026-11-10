@@ -65,6 +65,17 @@ function requireCatalogResourceIdWithinLimit(id) {
   }
 }
 
+function adminResourceIdFromQuery(searchParams) {
+  const ids = searchParams.getAll('id');
+  if (ids.length !== 1 || [...searchParams.keys()].length !== 1) {
+    fail(400, 'INVALID_RESOURCE_ID', 'exactly one resource id is required');
+  }
+  const [id] = ids;
+  // URLSearchParams already decoded this value; do not decode it again.
+  requireCatalogResourceIdWithinLimit(id);
+  return id;
+}
+
 function isRecord(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -2838,6 +2849,26 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       return writeJsonResponse(await createClaim(principal, await parseRequestBody(request)), 202);
     }
 
+    const adminResourceCollectionPath = '/api/admin/recursos';
+    if (url.searchParams.has('id')
+      && (path === adminResourceCollectionPath || path.startsWith(`${adminResourceCollectionPath}/`))) {
+      requireAdmin(principal);
+      const commandPath = path.slice(adminResourceCollectionPath.length);
+      if (commandPath === '') {
+        requireMethod(request, 'PATCH');
+        requireWriteRequest(request, principal);
+        const resourceId = adminResourceIdFromQuery(url.searchParams);
+        return writeJsonResponse(await patchAdminResource(resourceId, await parseRequestBody(request)));
+      }
+
+      const actionMatch = commandPath.match(/^\/(aprobar|revocar|ocultar|restaurar)$/);
+      if (!actionMatch) fail(404, 'NOT_FOUND', 'route not found');
+      requireMethod(request, 'POST');
+      requireWriteRequest(request, principal);
+      const resourceId = adminResourceIdFromQuery(url.searchParams);
+      const body = request.body ? await parseRequestBody(request) : {};
+      return writeJsonResponse(await adminResourceAction(resourceId, actionMatch[1], body));
+    }
     if (path === '/api/admin/recursos' || path === '/api/admin/perfiles' || path === '/api/admin/reclamaciones') {
       requireMethod(request, 'GET');
       requireAdmin(principal);
