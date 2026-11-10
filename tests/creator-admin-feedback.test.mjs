@@ -347,6 +347,8 @@ async function executeAdminScript(html, { fetchImpl, initialData } = {}) {
       checkbox.name = 'resourceIds';
       checkbox.value = value;
       checkbox.checked = true;
+      checkbox.defaultValue = value;
+      checkbox.defaultChecked = true;
       return checkbox;
     });
     const submit = new TestElement();
@@ -380,7 +382,14 @@ async function executeAdminScript(html, { fetchImpl, initialData } = {}) {
       form.querySelectorAll = (selector) => selector === 'input, textarea, select' ? fields
         : selector === 'button' ? form.controls : [];
       form.querySelector = (selector) => selector === '[data-item-status]' ? form.row?.status ?? null : null;
-      for (const field of fields) field.form = form;
+      for (const field of fields) {
+        field.form = form;
+        if (field.tagName === 'SELECT') {
+          field.options = [{ value: field.value, selected: true, defaultSelected: true }];
+        } else {
+          field.defaultValue = field.value;
+        }
+      }
       return form;
     });
   for (const { id, row } of resourcesRows) {
@@ -447,7 +456,9 @@ async function executeAdminScript(html, { fetchImpl, initialData } = {}) {
   const source = await loadAdminScript();
   runInNewContext(source, {
     document,
-    window: { location: { reload() { reloads += 1; } } },
+    // These focused controller cases observe automatic reload requests only.
+    // Native Cancel/Leave behavior is exercised by creator-admin-navigation.spec.mjs.
+    window: Object.assign(new EventTarget(), { location: { reload() { reloads += 1; } } }),
     HTMLElement: TestElement,
     FormData: TestFormData,
     Response,
@@ -599,10 +610,8 @@ test('R9 partial claim freezes only that form, retains receipts, and allows safe
   assert.equal(page.transition.hidden, false, 'partial-link recovery instructions are visible');
   assert.equal(page.transitionShell.hidden, false, 'the transition container is visible too');
 
-  await page.refreshButton.dispatch('click');
-  assert.equal(page.reloads(), 0, 'the unrelated classification edit still blocks refresh');
-  assert.equal(page.transition.hidden, false, 'the blocked-refresh reason is visible');
-  assert.match(page.transition.textContent, /Guarda los cambios pendientes o revierte/);
+  assert.equal(page.reloads(), 0, 'the partial write does not automatically discard the unrelated classification edit');
+  assert.equal(page.transition.hidden, false, 'the partial-write recovery reason is visible');
 
   page.responses.push({ status: 200, body: {
     resource: { id: 'resource-feedback', version: 3 },
@@ -712,9 +721,7 @@ test('R11 partial claim with one receipt gap pauses only stale records and recov
   assert.equal(page.sessionRecovery.check.disabled, false, 'the receipt gap does not freeze session recovery');
   assert.equal(page.transition.hidden, false, 'partial-write instructions stay visible');
 
-  await page.refreshButton.dispatch('click');
-  assert.equal(page.reloads(), 0, 'the pending B correction still blocks refresh until it is resolved');
-  assert.match(page.transition.textContent, /Guarda los cambios pendientes o revierte/);
+  assert.equal(page.reloads(), 0, 'the partial write retains B without requesting automatic navigation');
 
   await rowBClassification.dispatch('submit');
   assert.equal(page.sessionRecovery.check.hidden, false, 'the simulated expired session exposes recovery');
@@ -985,9 +992,7 @@ test('resolver una reclamación deja editables y guardables las selecciones exac
   assert.equal(resourceB2.checked, false, 'the exact reviewed subset remains selected');
   assert.equal(resourceB2.disabled, false, 'another claim selection remains editable');
   assert.equal(submitB.disabled, false, 'another claim can still be submitted');
-  await page.refreshButton.dispatch('click');
-  assert.equal(page.reloads(), 0, 'the safe refresh preserves the pending selection');
-  assert.match(page.transition.textContent, /Guarda los cambios pendientes o revierte/);
+  assert.equal(page.reloads(), 0, 'resolving A does not automatically discard the pending selection in B');
 
   await claimB.dispatch('submit');
   assert.deepEqual(JSON.parse(page.requests[0].init.body).resourceIds, ['resource-a']);
