@@ -2,6 +2,7 @@
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import SiteHeader from '../../../components/SiteHeader.astro';
 import SiteFooter from '../../../components/SiteFooter.astro';
+import AccountLogout from '../../../components/AccountLogout.astro';
 import '../../../styles/account.css';
 import '../../../styles/creators.css';
 import { CREATOR_PRIVATE_HEADERS, loadCreatorAdmin, safeJsonForScript } from '../_creator-page';
@@ -43,6 +44,9 @@ const message = result.status === 401
         <h1>Creadores y recursos</h1>
         <p>Revisa la clasificación y visibilidad del directorio, las páginas y las solicitudes de vinculación.</p>
       </header>
+      <div class="creator-admin__logout-shell" data-admin-logout-shell inert>
+        <AccountLogout csrfToken={result.principal.csrfToken} buttonClass="button button--outline" />
+      </div>
       <div class="creator-account__status" data-admin-status role="status" aria-live="polite" hidden></div>
       <div class="creator-account__status" data-session-recovery-shell hidden>
         <p data-session-recovery-status role="status" aria-live="polite" hidden></p>
