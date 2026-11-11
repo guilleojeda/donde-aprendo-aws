@@ -17,7 +17,8 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test
-      - run: npx playwright install --with-deps chromium
+      # Hosted Ubuntu supplies Chromium libraries; application fonts are bundled.
+      - run: npx playwright install chromium
       - run: npm run test:browser
       - name: Upload browser diagnostics on failure
         if: failure()
