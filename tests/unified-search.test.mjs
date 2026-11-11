@@ -1,7 +1,28 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { projectPublishedCatalog } from '../src/lib/catalog.mjs';
 import { aggregateSearchData, buildSearchIndex, searchIndex } from '../src/lib/unified-search.mjs';
 import { landingSearchPages } from '../src/lib/landing-search.mjs';
+import { unifiedSearchLifecycleFixture } from './fixtures/unified-search-lifecycle.mjs';
+
+const lifecycleCommunities = ['community-cordoba', 'community-rosario'];
+
+function projectLifecycleCatalog(ids, { includeCompetitor = false } = {}) {
+  const selected = new Set([...ids, ...lifecycleCommunities, ...(includeCompetitor ? ['search-competitor'] : [])]);
+  return projectPublishedCatalog(
+    unifiedSearchLifecycleFixture.items.filter(({ id }) => selected.has(id)),
+    {
+      profiles: unifiedSearchLifecycleFixture.profiles,
+      placements: unifiedSearchLifecycleFixture.placements.filter(({ resourceId }) => selected.has(resourceId)),
+      series: unifiedSearchLifecycleFixture.series,
+    },
+  );
+}
+
+function downloadedSearchIndex(catalog) {
+  const index = JSON.parse(JSON.stringify(buildSearchIndex([], catalog)));
+  return { index, snapshot: JSON.stringify(index) };
+}
 
 const posts = [{
   id: 'seguridad-de-s3',
@@ -123,4 +144,144 @@ test('course collection search indexes the same resolved free-study FAQ as the r
   assert.ok(fallbackLanding.search.includes('¿Cómo compruebo si un curso de AWS es gratis?'));
   assert.ok(fallbackLanding.search.includes('página del proveedor antes de inscribirte'));
   assert.equal(fallbackLanding.search.includes('AWS Certification Challenge 2026'), false);
+});
+
+test('a serialized event index switches to the surviving representative using only its active public facts', () => {
+  const catalog = projectLifecycleCatalog([
+    'event-a-old-representative', 'event-z-current-representative', 'event-unpublished-private',
+  ], { includeCompetitor: true });
+  const eventIds = catalog.filter(({ recordType }) => recordType === 'event').map(({ id }) => id).sort();
+  assert.deepEqual(eventIds, ['event-a-old-representative', 'event-z-current-representative']);
+
+  const { index, snapshot } = downloadedSearchIndex(catalog);
+  assert.doesNotMatch(snapshot, /private-event-field|private-profile@example\.invalid|private-series-field/);
+
+  assert.deepEqual(searchIndex(index, 'Taller AWS', 'event', Date.parse('2100-01-01T10:30:00Z'))
+    .map(({ title, url, meta }) => [title, url, meta]), [
+    ['Taller AWS', '/eventos/argentina/#event-event-a-old-representative', 'Comunidad Norte'],
+  ]);
+
+  const afterFirstEnd = Date.parse('2100-01-01T11:30:00Z');
+  const survivingResult = searchIndex(index, 'Taller AWS', 'event', afterFirstEnd)[0];
+  assert.deepEqual({
+    title: survivingResult?.title,
+    description: survivingResult?.description,
+    url: survivingResult?.url,
+    meta: survivingResult?.meta,
+    endsAt: survivingResult?.endsAt,
+  }, {
+    title: 'TALLER ÁWS',
+    description: 'Arquitectura AWS en español',
+    url: '/eventos/argentina/#event-event-z-current-representative',
+    meta: 'Comunidad Sur Confidencial',
+    endsAt: '2100-01-01T12:00:00Z',
+  });
+  assert.deepEqual(searchIndex(index, 'Comunidad Sur PE Rosario', 'event', afterFirstEnd)
+    .map(({ url }) => url), ['/eventos/argentina/#event-event-z-current-representative']);
+  assert.deepEqual(searchIndex(index, 'Comunidad Norte', 'event', afterFirstEnd), []);
+  assert.deepEqual(searchIndex(index, 'Taller AWS', 'event', Date.parse('2100-01-01T12:00:00Z')), []);
+  assert.equal(JSON.stringify(index), snapshot, 'searching later does not mutate the downloaded index');
+});
+
+test('active representative fields rank against a literal content competitor', () => {
+  const catalog = projectLifecycleCatalog([
+    'event-a-old-representative', 'event-z-current-representative',
+  ], { includeCompetitor: true });
+  const { index } = downloadedSearchIndex(catalog);
+  const afterFirstEnd = Date.parse('2100-01-01T11:30:00Z');
+
+  assert.deepEqual(searchIndex(index, 'Taller secreto', '', afterFirstEnd)
+    .map(({ type, url }) => [type, url]), [['content', '/aprender/#resource-search-competitor']]);
+  assert.deepEqual(searchIndex(index, 'Taller confidencial', '', afterFirstEnd)
+    .map(({ type, url }) => [type, url]), [
+    ['content', '/aprender/#resource-search-competitor'],
+    ['event', '/eventos/argentina/#event-event-z-current-representative'],
+  ]);
+});
+
+test('event member and association additions are allowlisted before index serialization', () => {
+  const catalog = projectLifecycleCatalog(['event-series-active', 'event-series-expired']);
+  const expiredMember = catalog.find(({ id }) => id === 'event-series-expired');
+  expiredMember.unknownLifecycleSentinel = 'private-lifecycle-sentinel';
+  expiredMember.series[0].unknownAssociationSentinel = 'private-association-sentinel';
+  const serialized = JSON.stringify(buildSearchIndex([], catalog));
+
+  assert.doesNotMatch(serialized, /private-profile@example\.invalid|private-series-field|private-lifecycle-sentinel|private-association-sentinel|Serie Oculta/);
+});
+
+test('a serialized cohost index drops ended-only creator facts and keeps a shared series once', () => {
+  const catalog = projectLifecycleCatalog(['event-series-active', 'event-series-expired']);
+  const { index, snapshot } = downloadedSearchIndex(catalog);
+  assert.doesNotMatch(snapshot, /private-profile@example\.invalid|private-series-field|Serie Oculta/);
+
+  const beforeExpiry = Date.parse('2100-02-01T10:30:00Z');
+  const afterExpiry = Date.parse('2100-02-01T11:30:00Z');
+  assert.deepEqual(searchIndex(index, 'Creador Efímero', 'event', beforeExpiry)
+    .map(({ url }) => url), ['/eventos/argentina/#event-event-series-active']);
+  assert.deepEqual(searchIndex(index, 'Creador Efímero', 'event', afterExpiry), []);
+
+  const sharedSeriesResults = searchIndex(index, 'Serie Compartida', 'event', afterExpiry);
+  assert.equal(sharedSeriesResults.length, 1);
+  assert.equal(sharedSeriesResults[0].url, '/eventos/argentina/#event-event-series-active');
+  assert.deepEqual(sharedSeriesResults[0].series, [{
+    seriesId: 'series-shared',
+    name: 'Serie Compartida',
+    creatorName: 'Creador Compartido',
+    href: '/c/creador-compartido/series/serie-compartida/',
+  }]);
+  assert.equal(JSON.stringify(index), snapshot, 'the cached event facts remain unchanged after expiry');
+});
+
+test('serialized event groups merge across prior groups after a venue representative expires', () => {
+  const mergeCatalog = projectLifecycleCatalog(['event-merge-a', 'event-merge-b', 'event-merge-c']);
+  const merge = downloadedSearchIndex(mergeCatalog);
+  const beforeMergeMemberEnds = Date.parse('2100-03-01T10:30:00Z');
+  const afterMergeMemberEnds = Date.parse('2100-03-01T11:30:00Z');
+
+  assert.deepEqual(searchIndex(merge.index, 'Taller AWS', 'event', beforeMergeMemberEnds)
+    .map(({ url }) => url), [
+    '/eventos/argentina/#event-event-merge-a',
+    '/eventos/argentina/#event-event-merge-c',
+  ]);
+  assert.deepEqual(searchIndex(merge.index, 'Taller AWS', 'event', afterMergeMemberEnds)
+    .map(({ url }) => url), ['/eventos/argentina/#event-event-merge-b']);
+  assert.deepEqual(searchIndex(merge.index, 'Auditorio Córdoba', 'event', afterMergeMemberEnds)
+    .map(({ url }) => url), ['/eventos/argentina/#event-event-merge-b']);
+  assert.deepEqual(searchIndex(merge.index, 'Serie B Serie C', 'event', afterMergeMemberEnds)
+    .map(({ url, series }) => [url, series.map(({ seriesId }) => seriesId)]), [[
+    '/eventos/argentina/#event-event-merge-b', ['series-merge-b', 'series-merge-c'],
+  ]]);
+  assert.equal(JSON.stringify(merge.index), merge.snapshot);
+});
+
+test('serialized event groups split after an early representative expires', () => {
+  const splitCatalog = projectLifecycleCatalog(['event-split-a', 'event-split-b', 'event-split-c']);
+  const split = downloadedSearchIndex(splitCatalog);
+  assert.deepEqual(searchIndex(split.index, 'Puente', 'event', Date.parse('2100-04-01T10:30:00Z'))
+    .map(({ url }) => url), ['/eventos/argentina/#event-event-split-a']);
+  assert.deepEqual(searchIndex(split.index, 'Puente', 'event', Date.parse('2100-04-01T11:30:00Z'))
+    .map(({ url }) => url), [
+    '/eventos/argentina/#event-event-split-b',
+    '/eventos/argentina/#event-event-split-c',
+  ]);
+  assert.equal(JSON.stringify(split.index), split.snapshot);
+});
+
+test('downloaded legacy entries remain single events and distinct starts remain separate', () => {
+  const legacyEntry = {
+    type: 'event', title: 'Evento legado', description: 'Evento anterior',
+    url: '/eventos/#event-evento-legado', meta: 'Organizador legado', metadata: 'AR',
+    endsAt: '2100-06-01T12:00:00Z',
+  };
+  assert.deepEqual(searchIndex([legacyEntry], 'Evento legado', 'event', Date.parse('2100-06-01T11:30:00Z'))
+    .map(({ url }) => url), ['/eventos/#event-evento-legado']);
+  assert.deepEqual(searchIndex([legacyEntry], 'Evento legado', 'event', Date.parse('2100-06-01T12:00:00Z')), []);
+
+  const catalog = projectLifecycleCatalog(['event-distinct-start-a', 'event-distinct-start-b']);
+  const { index } = downloadedSearchIndex(catalog);
+  assert.deepEqual(searchIndex(index, 'Sesión con doble horario', 'event', Date.parse('2100-05-01T10:30:00Z'))
+    .map(({ url }) => url), [
+    '/eventos/argentina/#event-event-distinct-start-a',
+    '/eventos/argentina/#event-event-distinct-start-b',
+  ]);
 });
