@@ -2221,6 +2221,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
     if (['category', 'kind', 'format', 'topics'].every((field) =>
       JSON.stringify(updated[field]) === JSON.stringify(resource[field]))) {
+      if (!await store.transact({ checks: [{ key, version: resource.version ?? 0 }] })) {
+        fail(409, 'RESOURCE_CONFLICT', 'resource changed while saving');
+      }
       return { resource: cleanAdminResource(resource), versionChanges: [] };
     }
     updated.version = resource.version + 1;
@@ -2258,6 +2261,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     else if (action === 'restaurar') updated.hidden = false;
     else fail(404, 'ACTION_NOT_FOUND', 'action does not exist');
     if (['published', 'approvalRevoked', 'hidden'].every((field) => updated[field] === resource[field])) {
+      if (!await store.transact({ checks: [{ key, version: observedVersion }] })) {
+        fail(409, 'RESOURCE_CONFLICT', 'resource changed while applying action');
+      }
       return { resource: cleanAdminResource(resource), versionChanges: [] };
     }
     updated.version = observedVersion + 1;
@@ -2279,7 +2285,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (observedVersion !== currentVersion) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before applying action');
     if (action !== 'ocultar' && action !== 'restaurar') fail(404, 'ACTION_NOT_FOUND', 'action does not exist');
     const hidden = action === 'ocultar';
-    if ((profile.hidden === true) === hidden) return { profile: cleanPublicProfile(profile), versionChanges: [] };
+    if ((profile.hidden === true) === hidden) {
+      if (!await store.transact({ checks: [{ key, version: observedVersion }] })) {
+        fail(409, 'PROFILE_CONFLICT', 'profile changed while applying action');
+      }
+      return { profile: cleanPublicProfile(profile), versionChanges: [] };
+    }
     const updated = { ...profile, hidden, version: observedVersion + 1, updatedAt: timestamp() };
     const ok = await store.transact({ checks: [{ key, version: observedVersion }], puts: [{ key, value: updated }] });
     if (!ok) fail(409, 'PROFILE_CONFLICT', 'profile changed while applying action');

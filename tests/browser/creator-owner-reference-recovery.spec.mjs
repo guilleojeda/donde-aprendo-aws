@@ -1543,12 +1543,11 @@ test('guarded Back cannot save a preserved rejected reference candidate', async 
       method: 'PATCH', body: { url: moved.url, title: moved.title, version: retained.version },
     });
     assert.equal(edit.status, 200);
-    await removeIndexRoute();
-    removeIndexRoute = await serveSelectionIndex(page, [moved, replacement]);
-
     await add.click();
     await expect.poll(() => referenceWrites(capture).at(-1)?.status).toBe(409);
     assert.equal(referenceWrites(capture).at(-1).responseBody.error, 'RESOURCE_CONFLICT');
+    await removeIndexRoute();
+    removeIndexRoute = await serveSelectionIndex(page, [moved, replacement]);
     await reference.getByRole('button', { name: 'Actualizar catálogo', exact: true }).click();
     await expect(catalogRadio(page, moved)).not.toBeChecked();
     await reference.locator('[data-owner-compare]').click();
