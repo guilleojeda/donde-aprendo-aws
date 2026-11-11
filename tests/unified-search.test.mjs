@@ -257,9 +257,9 @@ test('serialized event groups merge across prior groups after a venue representa
 test('serialized event groups split after an early representative expires', () => {
   const splitCatalog = projectLifecycleCatalog(['event-split-a', 'event-split-b', 'event-split-c']);
   const split = downloadedSearchIndex(splitCatalog);
-  assert.deepEqual(searchIndex(split.index, 'Puente', 'event', Date.parse('2100-04-01T10:30:00Z'))
+  assert.deepEqual(searchIndex(split.index, 'AWS', 'event', Date.parse('2100-04-01T10:30:00Z'))
     .map(({ url }) => url), ['/eventos/argentina/#event-event-split-a']);
-  assert.deepEqual(searchIndex(split.index, 'Puente', 'event', Date.parse('2100-04-01T11:30:00Z'))
+  assert.deepEqual(searchIndex(split.index, 'AWS', 'event', Date.parse('2100-04-01T11:30:00Z'))
     .map(({ url }) => url), [
     '/eventos/argentina/#event-event-split-b',
     '/eventos/argentina/#event-event-split-c',
