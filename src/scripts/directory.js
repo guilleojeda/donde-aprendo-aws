@@ -117,6 +117,12 @@ if (controls && list) {
     };
   });
   const recordsById = new Map(records.map((record) => [record.card.id.replace(/^resource-/u, ''), record]));
+  let fragmentTargetCard;
+  const setFragmentTarget = (id) => {
+    if (fragmentTargetCard) delete fragmentTargetCard.dataset.resourceFragmentTarget;
+    fragmentTargetCard = id === undefined ? undefined : recordsById.get(id)?.card;
+    if (fragmentTargetCard) fragmentTargetCard.dataset.resourceFragmentTarget = '';
+  };
   const allowed = Object.fromEntries(Object.entries(selects).map(([key, select]) => [
     key, new Set([...(select?.options ?? [])].map((option) => option.value).filter(Boolean)),
   ]));
@@ -190,6 +196,7 @@ if (controls && list) {
     const query = serializeDirectorySearch(location.search, state);
     const url = `${location.pathname}${query ? `?${query}` : ''}`;
     history[method](null, '', url);
+    setFragmentTarget(undefined);
   };
 
   const change = (method = 'pushState') => {
@@ -201,6 +208,7 @@ if (controls && list) {
   const revealRecord = (id) => {
     const record = recordsById.get(id);
     if (!record) return;
+    setFragmentTarget(id);
     state = resetDirectorySearchForReveal(state, allowed, defaultSort);
     limit = Infinity;
     applyControls();
@@ -237,6 +245,7 @@ if (controls && list) {
   window.addEventListener('hashchange', () => {
     const id = resolveResourceFragment(location.hash, recordsById);
     if (id !== undefined) revealRecord(id);
+    else setFragmentTarget(undefined);
   });
   window.addEventListener('popstate', () => {
     state = parseDirectorySearch(location.search, allowed, defaultSort);
@@ -245,10 +254,12 @@ if (controls && list) {
     update();
     const id = resolveResourceFragment(location.hash, recordsById);
     if (id !== undefined) revealRecord(id);
+    else setFragmentTarget(undefined);
   });
 
   applyControls();
   update();
   const initialResourceId = resolveResourceFragment(location.hash, recordsById);
   if (initialResourceId !== undefined) revealRecord(initialResourceId);
+  list.dataset.directoryReady = '';
 }
