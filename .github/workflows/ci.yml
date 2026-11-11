@@ -17,6 +17,10 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test
+      - name: Use the official Ubuntu archive for browser dependencies
+        run: |
+          # Avoid the hosted runner mirror list after repeated Azure DNS failures.
+          sudo sed -i 's|mirror+file:/etc/apt/apt-mirrors\.txt|https://archive.ubuntu.com/ubuntu/|g' /etc/apt/sources.list.d/ubuntu.sources
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
       - name: Upload browser diagnostics on failure
