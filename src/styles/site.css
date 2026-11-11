@@ -743,7 +743,8 @@ h3 {
   border-radius: 9px;
 }
 
-.directory-section .resource-card:target {
+.directory-section .resource-list:not([data-directory-ready]) .resource-card:target,
+.directory-section .resource-list[data-directory-ready] .resource-card[data-resource-fragment-target] {
   border-color: var(--color-focus);
   box-shadow: 0 0 0 2px var(--color-focus);
 }

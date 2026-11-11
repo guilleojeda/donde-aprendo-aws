@@ -311,6 +311,60 @@ test('same-document Unicode and literal-percent fragments restore exact targets 
   ], 'actual same-document navigation, Back/Forward, and reload retain exact raw IDs and canonical fragments');
 });
 
+test('a colliding fragment highlights only the resolved card through navigation and clears with the fragment', async ({ fixture, page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const firstHash = '#resource-history:module-%C3%A9';
+  const secondHash = '#resource-history:module-%25C3%25A9';
+  const ids = [historyUnicodeContentId, historyPercentContentId];
+  const expectHighlight = async (expected) => expect.poll(() => page.evaluate((resourceIds) => resourceIds.map((id) => {
+    const card = document.getElementById(`resource-${id}`);
+    return Boolean(card && getComputedStyle(card).boxShadow !== 'none');
+  }), ids)).toEqual(expected);
+
+  await page.goto(`${fixture.origin}/aprender/?campaign=highlight&sort=directory${firstHash}`);
+  await expectFocused(page, historyUnicodeContentId);
+  await expectHighlight([true, false]);
+  await page.locator('[data-resource-search]').focus();
+  await expectHighlight([true, false]);
+
+  await page.evaluate((hash) => { location.hash = hash; }, secondHash);
+  await expectFocused(page, historyPercentContentId);
+  await expectHighlight([false, true]);
+  await page.goBack();
+  await expectFocused(page, historyUnicodeContentId);
+  await expectHighlight([true, false]);
+  await page.goForward();
+  await expectFocused(page, historyPercentContentId);
+  await expectHighlight([false, true]);
+  await page.reload();
+  await expectFocused(page, historyPercentContentId);
+  await expectHighlight([false, true]);
+
+  await page.evaluate(() => { location.hash = '#resource-%E0%A4%A'; });
+  await expectHighlight([false, false]);
+  await page.goBack();
+  await expectFocused(page, historyPercentContentId);
+  await expectHighlight([false, true]);
+  await page.locator('[data-filter-disclosure] summary').click();
+  await page.locator('[data-format-filter]').selectOption('Curso');
+  await expect(page).toHaveURL(`${fixture.origin}/aprender/?campaign=highlight&format=Curso&sort=directory`);
+  await expectHighlight([false, false]);
+});
+
+test('without JavaScript, an ordinary resource fragment retains its native highlight and static links', async ({ fixture, browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  try {
+    const page = await context.newPage();
+    await page.goto(`${fixture.origin}/aprender/#resource-related-jump-content`);
+    const card = resourceCard(page, 'related-jump-content');
+    await expect(card).toBeVisible();
+    await expect(card).not.toHaveCSS('box-shadow', 'none');
+    await expect(card.locator('.resource-card__main-link')).toHaveAttribute('href', 'https://resources.example.invalid/related-jump-content');
+  } finally {
+    await context.close();
+  }
+});
+
 test('a homepage hash decodes before legacy fallback lookup when Unicode and percent-spelled IDs collide', async ({ fixture, page }) => {
   await page.goto(`${fixture.origin}/#resource-import:material-%C3%A9`);
 
