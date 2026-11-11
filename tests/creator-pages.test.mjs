@@ -859,22 +859,23 @@ test('admin moderation validates observed versions for every resource and profil
     assert.equal(transaction?.input.checks.find((check) => check.key === `${type}:${id}`)?.version, observedVersion,
       'the transaction compares the version that the administrator observed');
 
-    const writesAfterChange = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+    const logicalKey = `${type}:${id}`;
+    const stateBeforeRepeat = await harness.store.get(logicalKey);
     const idempotent = await api(harness, actionPath(type, id, action), 'admin', {
       method: 'POST', body: { version: observedVersion + 1 },
     });
     assert.equal(idempotent.status, 200, `${type} ${action} accepts a valid repeat`);
     assert.deepEqual((await responseJson(idempotent)).versionChanges, []);
-    assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length, writesAfterChange,
-      'a valid idempotent repeat does not create another version');
+    assert.deepEqual(await harness.store.get(logicalKey), stateBeforeRepeat,
+      'a valid repeat preserves stored fields, version, and timestamps');
 
-    const staleWrites = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+    const stateBeforeStaleRepeat = await harness.store.get(logicalKey);
     const staleIdempotent = await api(harness, actionPath(type, id, action), 'admin', {
       method: 'POST', body: { version: observedVersion },
     });
     assert.equal(staleIdempotent.status, 409, `${type} ${action} rejects a stale request even when its target state is current`);
-    assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length, staleWrites,
-      'a stale action is rejected before writing');
+    assert.deepEqual(await harness.store.get(logicalKey), stateBeforeStaleRepeat,
+      'a stale request preserves stored fields, version, and timestamps');
   }
 
   await seedResource(harness.store, {
