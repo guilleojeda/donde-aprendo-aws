@@ -50,7 +50,7 @@ function setEnvironment(values) {
   };
 }
 
-export async function startCreatorBrowserApp() {
+export async function startCreatorBrowserApp({ catalogFixture = path.join(ROOT, 'tests/fixtures/catalog.json') } = {}) {
   const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), 'donde-aprendo-creator-browser-'));
   let restoreEnv = () => {};
   let server;
@@ -70,7 +70,7 @@ export async function startCreatorBrowserApp() {
     restoreEnv = setEnvironment({
       ACCOUNT_ORIGIN: origin,
       PUBLIC_SITE_ORIGIN: origin,
-      CATALOG_FIXTURE: path.join(ROOT, 'tests/fixtures/catalog.json'),
+      CATALOG_FIXTURE: catalogFixture,
       CATALOG_TABLE: undefined,
       CREATOR_PROFILES_TABLE: undefined,
     });

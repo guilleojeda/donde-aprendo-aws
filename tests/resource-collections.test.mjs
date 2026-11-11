@@ -11,6 +11,15 @@ import {
   resourceCollectionResources,
   resolveResourceCollectionFaq,
 } from '../src/lib/resource-collections.mjs';
+import { resourceHref } from '../src/lib/catalog-routes.mjs';
+
+test('resource links encode Unicode ID bytes and preserve the readable colon delimiter', () => {
+  assert.equal(resourceHref({ kind: 'content', id: 'import:material-é' }), '/aprender/#resource-import:material-%C3%A9');
+});
+
+test('resource links encode literal percent text without collapsing it into Unicode', () => {
+  assert.equal(resourceHref({ kind: 'content', id: 'import:material-%C3%A9' }), '/aprender/#resource-import:material-%25C3%25A9');
+});
 
 test('registry exposes each approved collection route once', () => {
   const expectedPaths = [

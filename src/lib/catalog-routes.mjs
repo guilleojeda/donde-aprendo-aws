@@ -1,5 +1,6 @@
 import { communityCountryPath, eventCountryPath } from './community-country-pages.mjs';
 import { effectiveEventLocation } from './event-location.mjs';
+import { resourceFragment } from './resource-fragments.mjs';
 
 export const RESOURCE_PATHS = Object.freeze({
   content: '/aprender/',
@@ -12,7 +13,7 @@ export function resourceHref(resource) {
     ? communityCountryPath(resource.country) ?? RESOURCE_PATHS.community
     : RESOURCE_PATHS[resource.kind];
   if (!path) throw new Error(`Unknown resource kind: ${resource.kind}`);
-  return `${path}#resource-${resource.id}`;
+  return `${path}${resourceFragment(resource.id)}`;
 }
 
 export function eventHref(event, countryPages = [], resources = [], communityById = new Map(

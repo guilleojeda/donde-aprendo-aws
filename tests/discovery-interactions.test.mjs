@@ -5,6 +5,7 @@ import test from 'node:test';
 import { directoryGroupMembership, directoryListEntries, filterResources, sortResources } from '../src/lib/directory-filter.mjs';
 import { parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch } from '../src/lib/directory-url.mjs';
 import { COUNTRY_LABELS, LEVEL_LABELS } from '../src/lib/resource-discovery.mjs';
+import { resourceFragment, resolveResourceFragment } from '../src/lib/resource-fragments.mjs';
 import { aggregateSearchData, searchIndex, TYPE_LABELS } from '../src/lib/unified-search.mjs';
 import { positionDirectoryOverlay } from '../src/scripts/directory-overlay.js';
 
@@ -167,8 +168,9 @@ function createDirectory({
   defaultSort = 'recommended', resourceGroups = [],
 } = {}) {
   resources ??= Array.from({ length: count }, (_, index) => ({
-    title: `recurso ${index}`, category: 'Curso', format: 'Curso', topics: [],
+    id: `fixture-${index}`, title: `recurso ${index}`, category: 'Curso', format: 'Curso', topics: [],
   }));
+  resources = resources.map((resource, index) => ({ ...resource, id: resource.id ?? `fixture-${index}` }));
   const document = { activeElement: null, body: null, listeners: new Map() };
   document.body = new MockElement(document, { tagName: 'BODY' });
   document.activeElement = document.body;
@@ -210,7 +212,7 @@ function createDirectory({
   const cards = resources.map((resource, index) => {
     const card = new MockElement(document, {
       tagName: 'LI',
-      id: `resource-${index}`,
+      id: `resource-${resource.id}`,
       dataset: {
         resourceIndex: String(index), category: resource.category ?? '', topics: (resource.topics ?? []).join('|'),
         country: resource.country ?? '', level: resource.level ?? '', featured: resource.featured ? 'true' : undefined,
@@ -319,6 +321,7 @@ function createDirectory({
     },
     sortResources, COUNTRY_LABELS, LEVEL_LABELS,
     parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch,
+    resourceFragment, resolveResourceFragment,
     requestAnimationFrame: (callback) => callback(), URL, Set, positionDirectoryOverlay,
   });
 
@@ -486,7 +489,7 @@ test('directory search reconstructs searchable text from static card content and
     },
     { title: 'Recurso sin descripción', description: null, category: 'Videos', format: 'Video', topics: [] },
   ] });
-  const reconstructed = directory.records.find(({ card }) => card.id === 'resource-0');
+  const reconstructed = directory.records.find(({ card }) => card.id === 'resource-fixture-0');
   assert.equal(reconstructed.search,
     '¿Cómo leer CloudTrail? Introducción práctica a AWS. Guías y laboratorios Curso Seguridad Auditoría Certificaciones Perú Inicial AWS Academy (oficial) Mujeres AWS Perú re:Invent 2025');
   assert.deepEqual([...reconstructed.topics], ['Seguridad', 'Auditoría', 'Certificaciones'], 'All topics remain available to filters and search.');
@@ -535,9 +538,9 @@ test('directory search keeps the former empty-field slots for the published miss
 
 test('certification directory filters start closed and count its applicable active facets', () => {
   const resourceGroups = [
-    { id: 'exam-a', label: 'Examen A', resourceIds: ['1'], filterResourceIds: ['0', '1'] },
-    { id: 'exam-b', label: 'Examen B', resourceIds: ['2'], filterResourceIds: ['0', '2'] },
-    { id: 'multiple-exams', label: 'Varios exámenes', resourceIds: ['0'] },
+    { id: 'exam-a', label: 'Examen A', resourceIds: ['fixture-1'], filterResourceIds: ['fixture-0', 'fixture-1'] },
+    { id: 'exam-b', label: 'Examen B', resourceIds: ['fixture-2'], filterResourceIds: ['fixture-0', 'fixture-2'] },
+    { id: 'multiple-exams', label: 'Varios exámenes', resourceIds: ['fixture-0'] },
   ];
   const directory = createDirectory({
     facets: ['format', 'country', 'level'],
@@ -732,8 +735,8 @@ test('directory sort choices flatten and restore exam headings using the product
   const directory = createDirectory({
     defaultSort: 'purpose',
     resourceGroups: [
-      { id: 'exam-a', label: 'Examen A', description: 'Grupo A', resourceIds: ['0', '2'] },
-      { id: 'exam-b', label: 'Examen B', description: 'Grupo B', resourceIds: ['1'] },
+      { id: 'exam-a', label: 'Examen A', description: 'Grupo A', resourceIds: ['fixture-0', 'fixture-2'] },
+      { id: 'exam-b', label: 'Examen B', description: 'Grupo B', resourceIds: ['fixture-1'] },
     ],
     resources: [
       { title: 'Primero', format: 'Curso', topics: [], addedAt: '2026-10-01' },
@@ -748,7 +751,7 @@ test('directory sort choices flatten and restore exam headings using the product
   directory.sort.value = 'recent';
   directory.sort.emit('change');
   assert.equal(headings().length, 0, 'an alternative sort flattens exam headings');
-  assert.deepEqual(directory.list.children.map((child) => child.id), ['resource-1', 'resource-2', 'resource-0']);
+  assert.deepEqual(directory.list.children.map((child) => child.id), ['resource-fixture-1', 'resource-fixture-2', 'resource-fixture-0']);
   directory.sort.value = 'purpose';
   directory.sort.emit('change');
   assert.equal(headings().length, 2, 'returning to the default exam sort restores headings');
@@ -756,19 +759,22 @@ test('directory sort choices flatten and restore exam headings using the product
 
 test('directory resource hashes reveal and focus hidden cards while preserving sort; unknown hashes preserve filters', () => {
   const resources = Array.from({ length: 25 }, (_, index) => ({
+    id: `cloudtrail-guide-${index}`,
     title: `CloudTrail recurso ${index}`, format: 'Curso', topics: ['Seguridad'], country: 'AR',
     level: 'intermedio', addedAt: `2026-10-${String(index + 1).padStart(2, '0')}`,
   }));
   const resourceGroups = [{
-    id: 'exam-a', label: 'Examen A', resourceIds: resources.map((_, index) => String(index)),
+    id: 'exam-a', label: 'Examen A', resourceIds: resources.map(({ id }) => id),
   }];
   const activeSearch = '?campaign=hash-test&q=CloudTrail&format=Curso&topic=Seguridad&country=AR&level=intermedio&group=exam-a&sort=recent';
-  const initialHash = createDirectory({ resources, resourceGroups, initialSearch: `${activeSearch}#resource-24` });
+  const targetId = 'cloudtrail-guide-24';
+  const initialHash = createDirectory({ resources, resourceGroups, initialSearch: `${activeSearch}#resource-${targetId}` });
 
   assert.equal(initialHash.cards[24].hidden, false, 'a deep-linked resource past the first page becomes visible on load');
   assert.equal(initialHash.document.activeElement, initialHash.cards[24], 'the loaded hash target receives focus');
+  assert.equal(initialHash.cards[24].id, `resource-${targetId}`, 'the DOM/map key retains the catalog resource ID');
   assert.equal(initialHash.cards[24].scrollIntoViewCalls.length, 1, 'the loaded hash target is brought into view');
-  assert.equal(initialHash.location.hash, '#resource-24');
+  assert.equal(initialHash.location.hash, `#resource-${targetId}`);
   assert.equal(initialHash.details.open, false, 'revealing a hash target leaves secondary filters closed');
   let params = new URLSearchParams(initialHash.location.search);
   assert.equal(params.get('campaign'), 'hash-test');
@@ -779,7 +785,7 @@ test('directory resource hashes reveal and focus hidden cards while preserving s
   assert.equal(visibleDirectoryCards(initialHash).length, 25);
 
   const changedHash = createDirectory({ resources, resourceGroups, initialSearch: activeSearch });
-  changedHash.location.hash = '#resource-24';
+  changedHash.location.hash = `#resource-${targetId}`;
   changedHash.window.emit('hashchange');
   assert.equal(changedHash.cards[24].hidden, false, 'a later hash change reveals a target outside the initial page');
   assert.equal(changedHash.document.activeElement, changedHash.cards[24]);
@@ -791,6 +797,98 @@ test('directory resource hashes reveal and focus hidden cards while preserving s
   assert.equal(unknownHash.format.value, 'Curso', 'an unknown hash does not clear selected filters');
   assert.equal(visibleDirectoryCards(unknownHash).length, 12, 'an unknown resource hash does not reveal a later page');
   assert.equal(unknownHash.cards[12].hidden, true);
+});
+
+test('directory fragments prefer one decoded Unicode identity over a legacy literal-percent identity', () => {
+  const unicodeId = 'import:material-é';
+  const percentId = 'import:material-%C3%A9';
+  const resources = [
+    { id: unicodeId, title: 'Material Unicode', format: 'Curso', topics: [] },
+    { id: percentId, title: 'Material con porcentaje literal', format: 'Curso', topics: [] },
+  ];
+  const unicodeFragment = createDirectory({
+    resources,
+    initialSearch: '?campaign=fragment&q=Material&format=Curso&sort=recent#resource-import:material-%C3%A9',
+  });
+
+  assert.equal(unicodeFragment.document.activeElement.id, `resource-${unicodeId}`,
+    'one decode resolves the canonical Unicode ID before any raw legacy fallback');
+  assert.equal(unicodeFragment.location.hash, '#resource-import:material-%C3%A9');
+  assert.equal(unicodeFragment.search.value, '', 'revealing the target clears the incompatible query');
+  assert.equal(unicodeFragment.format.value, '', 'revealing the target clears the incompatible facet');
+  assert.equal(new URLSearchParams(unicodeFragment.location.search).get('campaign'), 'fragment');
+  assert.equal(new URLSearchParams(unicodeFragment.location.search).get('sort'), 'recent');
+});
+
+test('directory fragments resolve a literal percent sequence after one decode', () => {
+  const percentId = 'import:material-%C3%A9';
+  const resources = [
+    { id: 'import:material-é', title: 'Material Unicode', format: 'Curso', topics: [] },
+    { id: percentId, title: 'Material con porcentaje literal', format: 'Curso', topics: [] },
+  ];
+  const literalPercentFragment = createDirectory({
+    resources,
+    initialSearch: '#resource-import:material-%25C3%25A9',
+  });
+  assert.equal(literalPercentFragment.document.activeElement.id, `resource-${percentId}`,
+    'a percent-encoded literal percent sequence remains distinct after one decode');
+  assert.equal(literalPercentFragment.location.hash, '#resource-import:material-%25C3%25A9');
+});
+
+test('an unambiguous raw legacy fragment falls back to its exact ID and rewrites canonically', () => {
+  const legacyId = 'import:legacy%20text';
+  const directory = createDirectory({
+    resources: [{ id: legacyId, title: 'Legacy resource', format: 'Curso', topics: [] }],
+    initialSearch: '?campaign=legacy&q=legacy&format=Curso&sort=recent#resource-import:legacy%20text',
+  });
+
+  assert.equal(directory.document.activeElement.id, `resource-${legacyId}`,
+    'when one decode has no exact ID match, the legacy raw identity remains reachable');
+  assert.equal(directory.search.value, '');
+  assert.equal(directory.format.value, '');
+  const params = new URLSearchParams(directory.location.search);
+  assert.equal(params.get('campaign'), 'legacy');
+  assert.equal(params.get('sort'), 'recent');
+  assert.equal(directory.location.hash, '#resource-import:legacy%2520text',
+    'the replacement URL encodes the literal percent and does not reinterpret it as a space');
+});
+
+for (const eventType of ['hashchange', 'popstate']) {
+  test(`directory resolves an encoded later resource ID from ${eventType} and resets only incompatible search state`, () => {
+    const resources = Array.from({ length: 25 }, (_, index) => ({
+      id: index === 24 ? 'import:material-é' : `cloudtrail-guide-${index}`,
+      title: `CloudTrail recurso ${index}`,
+      format: 'Curso', topics: ['Seguridad'], country: 'AR', level: 'intermedio',
+    }));
+    const targetId = resources[24].id;
+    const activeSearch = '?campaign=hash-test&q=CloudTrail&format=Curso&sort=recent';
+    const directory = createDirectory({ resources, initialSearch: activeSearch });
+
+    assert.equal(directory.cards[24].hidden, true, 'the later target starts beyond the first page');
+    directory.location.hash = '#resource-import:material-%C3%A9';
+    directory.window.emit(eventType);
+
+    assert.equal(directory.cards[24].hidden, false);
+    assert.equal(directory.document.activeElement.id, `resource-${targetId}`);
+    assert.equal(directory.cards[24].scrollIntoViewCalls.length, 1);
+    assert.equal(directory.search.value, '');
+    assert.equal(directory.format.value, '');
+    const params = new URLSearchParams(directory.location.search);
+    assert.equal(params.get('campaign'), 'hash-test');
+    assert.equal(params.get('sort'), 'recent');
+  });
+}
+
+test('malformed resource fragments do not throw, reveal a different card, or clear search state', () => {
+  const directory = createDirectory({
+    count: 13,
+    initialSearch: '?campaign=fragment&q=recurso&sort=recent#resource-%E0%A4%A',
+  });
+
+  assert.equal(directory.search.value, 'recurso');
+  assert.equal(new URLSearchParams(directory.location.search).get('campaign'), 'fragment');
+  assert.equal(visibleDirectoryCards(directory).length, 12);
+  assert.equal(directory.cards[12].hidden, true);
 });
 
 test('search Show More focuses each new page while initial short results stay unfocused', async () => {

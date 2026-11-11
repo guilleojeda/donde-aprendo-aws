@@ -1,6 +1,7 @@
 import { directoryGroupMembership, directoryListEntries, filterResources, sortResources } from '../lib/directory-filter.mjs';
 import { parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch } from '../lib/directory-url.mjs';
 import { COUNTRY_LABELS, LEVEL_LABELS } from '../lib/resource-discovery.mjs';
+import { resourceFragment, resolveResourceFragment } from '../lib/resource-fragments.mjs';
 import { positionDirectoryOverlay } from './directory-overlay.js';
 
 const controls = document.querySelector('[data-directory-controls]');
@@ -115,7 +116,7 @@ if (controls && list) {
       groupIds: groupMembership.get(resourceId) ?? [],
     };
   });
-  const recordsById = new Map(records.map((record) => [record.card.id, record]));
+  const recordsById = new Map(records.map((record) => [record.card.id.replace(/^resource-/u, ''), record]));
   const allowed = Object.fromEntries(Object.entries(selects).map(([key, select]) => [
     key, new Set([...(select?.options ?? [])].map((option) => option.value).filter(Boolean)),
   ]));
@@ -198,13 +199,13 @@ if (controls && list) {
   };
 
   const revealRecord = (id) => {
-    const record = recordsById.get(`resource-${id}`);
+    const record = recordsById.get(id);
     if (!record) return;
     state = resetDirectorySearchForReveal(state, allowed, defaultSort);
     limit = Infinity;
     applyControls();
     const query = serializeDirectorySearch(location.search, state);
-    history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}#resource-${id}`);
+    history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}${resourceFragment(id)}`);
     update();
     requestAnimationFrame(() => {
       record.card.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -233,28 +234,21 @@ if (controls && list) {
     const matching = update();
     matching[previousLimit]?.card.focus();
   });
-  document.querySelectorAll('[data-resource-jump]').forEach((link) => {
-    link.addEventListener('click', (event) => {
-      const url = new URL(link.href);
-      const id = link.dataset.resourceJump;
-      if (url.pathname !== location.pathname || !id || !recordsById.has(`resource-${id}`)) return;
-      event.preventDefault();
-      history.pushState(null, '', `${location.pathname}${location.search}#resource-${id}`);
-      revealRecord(id);
-    });
-  });
   window.addEventListener('hashchange', () => {
-    if (location.hash.startsWith('#resource-')) revealRecord(location.hash.slice('#resource-'.length));
+    const id = resolveResourceFragment(location.hash, recordsById);
+    if (id !== undefined) revealRecord(id);
   });
   window.addEventListener('popstate', () => {
     state = parseDirectorySearch(location.search, allowed, defaultSort);
     limit = pageSize;
     applyControls();
     update();
-    if (location.hash.startsWith('#resource-')) revealRecord(location.hash.slice('#resource-'.length));
+    const id = resolveResourceFragment(location.hash, recordsById);
+    if (id !== undefined) revealRecord(id);
   });
 
   applyControls();
   update();
-  if (location.hash.startsWith('#resource-')) revealRecord(location.hash.slice('#resource-'.length));
+  const initialResourceId = resolveResourceFragment(location.hash, recordsById);
+  if (initialResourceId !== undefined) revealRecord(initialResourceId);
 }

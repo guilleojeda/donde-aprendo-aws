@@ -29,13 +29,17 @@ const routeData = JSON.stringify(legacyResourceRoutes).replaceAll('<', '\\u003c'
 <BaseLayout title="Aprende AWS en español | ¿Dónde Aprendo AWS?" description="Encuentra recursos, rutas de aprendizaje, comunidades y próximos eventos para aprender AWS en español." canonical="https://dondeaprendoaws.com/">
   <SiteHeader />
   <script type="application/json" id="legacy-resource-routes" set:html={routeData} />
-  <script is:inline>
-    const routes = JSON.parse(document.getElementById('legacy-resource-routes').textContent);
+  <script>
+    import { resourceFragment, resolveResourceFragment } from '../lib/resource-fragments.mjs';
+
+    const routeDataElement = document.getElementById('legacy-resource-routes');
+    const routes = JSON.parse(routeDataElement?.textContent ?? '{}');
     const redirectLegacyHash = () => {
       const hash = location.hash;
-      if (hash.startsWith('#resource-')) {
-        const path = routes[hash.slice('#resource-'.length)];
-        if (path) location.replace(`${path}${hash}`);
+      const resourceId = resolveResourceFragment(hash, routes);
+      if (resourceId !== undefined) {
+        const path = routes[resourceId];
+        if (path) location.replace(`${path}${resourceFragment(resourceId)}`);
       } else if (hash === '#eventos' || hash.startsWith('#event-')) {
         location.replace(`/eventos/${hash}`);
       } else if (hash === '#directory') {
