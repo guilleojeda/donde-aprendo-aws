@@ -397,6 +397,31 @@ class MeetupEventsTests(unittest.TestCase):
                 with patch.object(meetup, 'get_text', return_value=EMPTY_ICAL):
                     self.assert_lambda_aborts_without_mutation(table)
 
+    def test_unreadable_present_approved_source_facts_cannot_authorize_membership_changes(self):
+        cases = (
+            ('id', 'meetup-' + '9' * 122),
+            ('url', None),
+            ('title', 123),
+            ('country', 999),
+        )
+        for field, value in cases:
+            with self.subTest(field=field):
+                community = {
+                    'id': 'meetup-123', 'title': GROUP['name'], 'url': GROUP['url'],
+                    'country': 'CO', 'kind': 'community', 'published': True,
+                }
+                community[field] = value
+                current = existing_event(published=True, starts_at='2099-01-01T18:00:00-05:00',
+                                         ends_at='2099-01-01T20:00:00-05:00')
+                unrelated = existing_event(published=True, starts_at='2099-01-02T18:00:00-05:00',
+                                           ends_at='2099-01-02T20:00:00-05:00')
+                unrelated['id'] = 'meetup-event-789'
+                unrelated['sourceGroupId'] = 'meetup-456'
+                table = FakeTable([community, current, unrelated])
+                with patch.object(meetup, 'get_text', return_value=ICAL), \
+                        patch.object(meetup, 'fetch_event_page', return_value=PAGE):
+                    self.assert_lambda_aborts_without_mutation(table)
+
     def test_paginated_inventory_does_not_remove_source_approved_on_a_later_page(self):
         approved = {
             'id': 'meetup-123', 'title': GROUP['name'], 'url': GROUP['url'],
@@ -568,11 +593,12 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertEqual(table.updates, [])
 
         table = FakeTable()
-        with patch.object(meetup, 'timezone_from_feed', return_value=[{'id': '456', 'url': EVENT_URL}]), \
-                patch.object(meetup, 'fetch_event_page', return_value=PAGE):
+        with patch.object(meetup, 'get_text', return_value=EMPTY_ICAL), \
+                patch.object(meetup, 'fetch_event_page', return_value=PAGE) as fetch_event_page:
             result = meetup.synchronize(table=table, groups=[invalid_group])
         self.assertEqual(result['changed'], 0)
         self.assertEqual(len(result['failures']), 1)
+        fetch_event_page.assert_not_called()
         self.assertEqual(table.puts, [])
         self.assertEqual(table.transactions, [])
         self.assertEqual(table.updates, [])
@@ -1251,6 +1277,20 @@ class MeetupEventsTests(unittest.TestCase):
 
                 self.assertEqual((table.existing, table.updates), (before, []))
                 self.assertIsNotNone(failure, 'malformed group containers must be rejected')
+
+    def test_malformed_explicit_group_facts_cannot_authorize_source_removal(self):
+        for field, value in (('id', None), ('url', None), ('name', []), ('country', [])):
+            with self.subTest(field=field):
+                group = dict(GROUP, id='999')
+                group[field] = value
+                table = FakeTable([existing_event(published=True)])
+                before = copy.deepcopy(table.existing)
+                with patch.object(meetup, 'get_text', return_value=EMPTY_ICAL):
+                    result = meetup.synchronize(table=table, groups=[group])
+
+                self.assertEqual((table.existing, table.updates), (before, []))
+                self.assertEqual(result['changed'], 0)
+                self.assertEqual(len(result['failures']), 1)
 
     def test_lambda_processes_successful_empty_inventory_and_notifies_only_for_changes(self):
         table = removed_source_catalog()
