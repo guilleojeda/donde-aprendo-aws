@@ -1243,16 +1243,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   }
 
   async function changeSeriesChapter(principal, seriesId, placementId, body, operation) {
-    const allowed = operation === 'move' ? new Set(['profileVersion', 'direction']) : new Set(['profileVersion']);
-    assertKnownFields(body, allowed);
+    assertKnownFields(body, new Set(['profileVersion']));
     if (Object.hasOwn(body, 'version')) fail(400, 'UNKNOWN_FIELD', 'unsupported field: version');
     const profile = await getRequiredOwnerProfile(principal);
     requireCurrentProfileVersion(body, profile);
     const series = await getSeries(profile.id, seriesId);
     if (!series) fail(404, 'SERIES_NOT_FOUND', 'series does not belong to this profile');
-    if (operation === 'move' && body.direction !== 'up' && body.direction !== 'down') {
-      fail(422, 'INVALID_DIRECTION', 'direction must be up or down');
-    }
     const key = placementKey(profile.id, placementId);
     const placement = await store.get(key);
     if (!placement || placement.recordType !== 'placement' || placement.id !== placementId || placement.profileId !== profile.id) {
@@ -1264,7 +1260,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const currentMap = placementSeriesMap(placement, activeIds);
     const hadStaleReferences = isRecord(placement.series) && Object.keys(placement.series).some((id) => !activeIds.has(id));
     const hasMembership = Object.hasOwn(currentMap, seriesId);
-    if (operation !== 'add' && !hasMembership) fail(404, 'SERIES_MEMBERSHIP_NOT_FOUND', 'placement is not in this series');
+    if (operation === 'remove' && !hasMembership) fail(404, 'SERIES_MEMBERSHIP_NOT_FOUND', 'placement is not in this series');
 
     const placements = await getPlacements(profile.id);
     const members = [];
@@ -1297,44 +1293,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (Object.keys(targetMap).length > 0) updated.series = targetMap;
       else delete updated.series;
       updatedPlacements.set(placementId, updated);
-    } else if (operation === 'move') {
-      const index = members.findIndex((member) => member.placement.id === placementId);
-      const neighborIndex = index + (body.direction === 'up' ? -1 : 1);
-      if (neighborIndex < 0 || neighborIndex >= members.length) {
-        if (!hadStaleReferences) {
-          return {
-            status: 200,
-            profileVersion: profile.version,
-            links: await prepareCanonicalLinks([placement], allSeries),
-          };
-        }
-        updatedPlacements.set(placementId, { ...placement, series: targetMap });
-      } else {
-        const target = members[index];
-        const neighbor = members[neighborIndex];
-        const targetOld = target.map[seriesId].position;
-        const neighborOld = neighbor.map[seriesId].position;
-        let targetNext = neighborOld;
-        let neighborNext = targetOld;
-        if (targetOld === neighborOld) {
-          if (body.direction === 'up') {
-            targetNext = Math.max(0, targetOld - 1);
-            neighborNext = targetNext === targetOld ? targetOld + 1 : targetOld;
-          } else {
-            neighborNext = targetOld;
-            targetNext = targetOld + 1;
-          }
-        }
-        if (!Number.isSafeInteger(targetNext) || !Number.isSafeInteger(neighborNext) || targetNext < 0 || neighborNext < 0) {
-          fail(503, 'INVALID_PLACEMENT', 'series chapter order is malformed');
-        }
-        const updatedTargetMap = target.map;
-        const updatedNeighborMap = neighbor.map;
-        updatedTargetMap[seriesId] = { position: targetNext };
-        updatedNeighborMap[seriesId] = { position: neighborNext };
-        updatedPlacements.set(target.placement.id, { ...target.placement, series: updatedTargetMap });
-        updatedPlacements.set(neighbor.placement.id, { ...neighbor.placement, series: updatedNeighborMap });
-      }
     }
 
     const nextVersion = profile.version + 1;
@@ -1795,22 +1753,33 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
   // Both public commands share the same integer problem and physical facts.
   // The optional series changes only the order scope and its extra CAS check.
-  async function moveCreatorOrder(principal, placementId, body, seriesId = null) {
+  async function moveCreatorOrder(principal, placementId, body, seriesId = null, { legacyAdjacent = false } = {}) {
     const chapter = seriesId !== null;
-    const allowed = new Set(['profileVersion', 'placementVersion', 'targetPosition', ...(chapter ? ['seriesVersion'] : [])]);
+    const adjacentDirection = chapter && legacyAdjacent;
+    const allowed = adjacentDirection
+      ? new Set(['profileVersion', 'direction'])
+      : new Set(['profileVersion', 'placementVersion', 'targetPosition', ...(chapter ? ['seriesVersion'] : [])]);
     assertKnownFields(body, allowed);
+    if (adjacentDirection && Object.hasOwn(body, 'version')) {
+      fail(400, 'UNKNOWN_FIELD', 'unsupported field: version');
+    }
     for (const field of allowed) {
+      if (field === 'direction' && body[field] === undefined) continue;
       if (body[field] === undefined) {
-        const code = chapter ? `${field.toUpperCase()}_REQUIRED`
+        const code = adjacentDirection && field === 'profileVersion' ? 'INVALID_VERSION'
+          : chapter ? `${field.toUpperCase()}_REQUIRED`
           : field === 'profileVersion' ? 'PROFILE_VERSION_REQUIRED'
             : field === 'placementVersion' ? 'PLACEMENT_VERSION_REQUIRED' : 'INVALID_POSITION';
         fail(400, code, `${field} is required`);
       }
     }
     const expectedProfileVersion = validVersion(body.profileVersion);
-    const expectedPlacementVersion = validVersion(body.placementVersion);
-    const expectedSeriesVersion = chapter ? validVersion(body.seriesVersion) : null;
-    if (!Number.isSafeInteger(body.targetPosition) || body.targetPosition < 1) {
+    const expectedPlacementVersion = adjacentDirection ? undefined : validVersion(body.placementVersion);
+    const expectedSeriesVersion = chapter && !adjacentDirection ? validVersion(body.seriesVersion) : null;
+    if (adjacentDirection && body.direction !== 'up' && body.direction !== 'down') {
+      fail(422, 'INVALID_DIRECTION', 'direction must be up or down');
+    }
+    if (!adjacentDirection && (!Number.isSafeInteger(body.targetPosition) || body.targetPosition < 1)) {
       fail(422, 'INVALID_POSITION', 'targetPosition must be a positive ordinal');
     }
 
@@ -1828,7 +1797,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         const stored = seriesObservation.value;
         if (!stored || stored.profileId !== profile.id || stored.id !== seriesId) fail(404, 'SERIES_NOT_FOUND', 'series does not belong to this profile');
         selectedSeries = cleanSeries(stored, profile.id, seriesId);
-        if (selectedSeries.version !== expectedSeriesVersion) fail(409, 'SERIES_CONFLICT', 'series changed; reload before moving');
+        if (!adjacentDirection && selectedSeries.version !== expectedSeriesVersion) fail(409, 'SERIES_CONFLICT', 'series changed; reload before moving');
       }
       const { placements, observations } = await getPlacements(profile.id, { budget, includeObservations: true });
       budget.spendWork(placements.length);
@@ -1836,7 +1805,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (!target) fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
       if (expectedProfileVersion !== profileVersion) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before moving');
       const targetVersion = storedVersion(target.version, 'placement', { legacyZero: true });
-      if (targetVersion !== expectedPlacementVersion) fail(409, 'PLACEMENT_CONFLICT', 'placement changed; reload before moving');
+      if (!adjacentDirection && targetVersion !== expectedPlacementVersion) fail(409, 'PLACEMENT_CONFLICT', 'placement changed; reload before moving');
 
       const series = await seriesForProfile(profile.id, { budget });
       const seriesById = new Map(series.map((item) => [item.id, item]));
@@ -1871,7 +1840,14 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       budget.spendWork(group.length);
       const currentIndex = group.findIndex(({ placement }) => placement.id === placementId);
       if (currentIndex < 0) fail(chapter ? 404 : 503, chapter ? 'SERIES_MEMBERSHIP_NOT_FOUND' : 'INVALID_PLACEMENT', 'placement is not in this order');
-      if (body.targetPosition > group.length) fail(422, 'INVALID_POSITION', 'targetPosition exceeds the order group');
+      const currentOrdinal = currentIndex + 1;
+      // Legacy direction carries adjacent intent only; its neighbor ordinal comes from this complete observation.
+      const targetPosition = adjacentDirection
+        ? body.direction === 'up'
+          ? Math.max(1, currentOrdinal - 1)
+          : Math.min(group.length, currentOrdinal + 1)
+        : body.targetPosition;
+      if (targetPosition > group.length) fail(422, 'INVALID_POSITION', 'targetPosition exceeds the order group');
 
       const targetCheck = { key: placementKey(profile.id, placementId), version: targetVersion };
       const fixedChecks = [{ key: profileKey(profile.id), version: profileVersion },
@@ -1891,6 +1867,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         budget.retainValue(link);
         return link;
       };
+      const successBody = (links, changes, commandProfileVersion) => ({
+        ...(adjacentDirection ? { status: 200, profileVersion: commandProfileVersion } : {}),
+        links,
+        versionChanges: changes,
+      });
       const prepareResponse = (value) => {
         budget.retainValue(value);
         // JSON DTOs contain only plain containers and scalar values. Six
@@ -1927,10 +1908,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         if (!await prepared.commit()) fail(409, chapter ? 'SERIES_CONFLICT' : 'ORDER_CONFLICT', 'profile, series or placement changed while moving');
         return response;
       };
-      if (body.targetPosition === currentIndex + 1) {
+      if (targetPosition === currentOrdinal) {
         const prepared = await store.prepareTransaction({ checks: [...fixedChecks, targetCheck] }, allObservations, { budget });
         if (!prepared.metrics.fits) throw orderLimitError();
-        const response = prepareResponse({ links: [await makeResponseLink(target)], versionChanges: [] });
+        const response = prepareResponse(successBody([await makeResponseLink(target)], [], profileVersion));
         return await commit(prepared, response);
       }
 
@@ -1987,7 +1968,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
           budget.releaseMemory(256 + desired.length * 16);
         }
       };
-      const plan = await findPlan(body.targetPosition);
+      const plan = await findPlan(targetPosition);
       if (plan) {
         const updated = new Map(plan.mutations.map(({ placement }) => [placement.id, placement]));
         budget.retainValue(updated);
@@ -1999,14 +1980,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
           versionChange('profile', profile.id, profileVersion, updatedProfile.version),
           ...plan.mutations.map((mutation) => versionChange('placement', mutation.placement.id, mutation.before, mutation.placement.version)),
         );
-        const response = prepareResponse({ links, versionChanges: changes });
+        const response = prepareResponse(successBody(links, changes, updatedProfile.version));
         return await commit(plan.prepared, response);
       }
-      const currentOrdinal = currentIndex + 1;
-      const direction = Math.sign(body.targetPosition - currentOrdinal);
+      const direction = Math.sign(targetPosition - currentOrdinal);
       // Adjacent first usually proves a useful intermediate cheaply. Every
       // strict intermediate is still considered before a complete rejection.
-      for (let ordinal = currentOrdinal + direction; ordinal !== body.targetPosition; ordinal += direction) {
+      for (let ordinal = currentOrdinal + direction; ordinal !== targetPosition; ordinal += direction) {
         if (await findPlan(ordinal)) throw orderLimitError(ordinal);
       }
       // A frozen row elsewhere does not explain a physical rejection. Only
@@ -2016,7 +1996,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       try {
         const requested = [...facts];
         const [moving] = requested.splice(currentIndex, 1);
-        requested.splice(body.targetPosition - 1, 0, moving);
+        requested.splice(targetPosition - 1, 0, moving);
         let minimum = 0;
         let previous;
         for (const row of requested) {
@@ -2775,7 +2755,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (!['PUT', 'PATCH', 'DELETE'].includes(request.method)) fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
       requireWriteRequest(request, principal);
       const body = await parseRequestBody(request);
-      const operation = request.method === 'PUT' ? 'add' : request.method === 'DELETE' ? 'remove' : 'move';
+      if (request.method === 'PATCH') {
+        return moveCreatorOrder(principal, chapterId, body, seriesId, { legacyAdjacent: true });
+      }
+      const operation = request.method === 'PUT' ? 'add' : 'remove';
       const result = await changeSeriesChapter(principal, seriesId, chapterId, body, operation);
       return request.method === 'DELETE' ? writeEmptyResponse(result.versionChanges) : writeJsonResponse(result);
     }

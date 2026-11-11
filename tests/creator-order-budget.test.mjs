@@ -83,6 +83,14 @@ async function move(h, kind, targetId, ordinal) {
   return { status: response.status, body: await responseJson(response) };
 }
 
+async function legacyChapterMove(h, targetId, direction) {
+  const response = await callApi(h, `/api/creador/series/${SERIES}/capitulos/${targetId}`, {
+    session: 'creator-a', csrf: sessionCsrf['creator-a'], method: 'PATCH',
+    body: { profileVersion: 1, direction },
+  });
+  return { status: response.status, body: await responseJson(response) };
+}
+
 function assertBounded(budget) {
   assert.ok(budget, 'the actual command exposes its ledger to its physical observation dependency');
   const snapshot = budget.snapshot();
@@ -135,7 +143,7 @@ for (const kind of ['link', 'chapter']) {
     assert.ok(atCommit, 'the real command submits its prepared transaction');
     const afterResponse = observedBudget().snapshot();
     assert.equal(afterResponse.workUsed, atCommit.workUsed,
-      'response/receipt construction and other budget-sensitive work are paid before sending');
+      'the calculation ledger has no additional work charges after commit');
     assert.ok(afterResponse.memoryUsed <= atCommit.memoryUsed,
       'post-commit cleanup may release memory, but cannot require another reservation');
     assert.equal(afterResponse.peakMemory, atCommit.peakMemory);
@@ -227,3 +235,50 @@ for (const kind of ['link', 'chapter']) {
     });
   }
 }
+
+test('legacy chapter direction cannot reset exhausted observation work and reports unavailable without mutation', async () => {
+  await budgetModule();
+  const h = await setup('chapter', [0, 10, 20]);
+  const before = digest(h);
+  const observedBudget = trackObservedBudget(h, { exhaustWorkAfterObservation: true });
+  const result = await legacyChapterMove(h, h.ids.at(-1), 'up');
+  assert.equal(result.status, 503, JSON.stringify(result));
+  assert.equal(result.body.error, 'ORDER_MOVE_CALCULATION_UNAVAILABLE');
+  assert.equal(Object.hasOwn(result.body, 'viablePosition'), false);
+  assert.equal(h.mock.transactions.length, 0);
+  assert.equal(digest(h), before);
+  assertBounded(observedBudget());
+});
+
+test('legacy chapter direction pays all budget-sensitive work before its physical transaction', async () => {
+  await budgetModule();
+  const h = await setup('chapter', [0, 10, 20]);
+  const observedBudget = trackObservedBudget(h);
+  assert.equal(typeof h.store.prepareTransaction, 'function');
+  const prepare = h.store.prepareTransaction.bind(h.store);
+  let atCommit;
+  h.store.prepareTransaction = async (...args) => {
+    const prepared = await prepare(...args);
+    return {
+      ...prepared,
+      async commit() {
+        atCommit = observedBudget().snapshot();
+        return prepared.commit();
+      },
+    };
+  };
+  const result = await legacyChapterMove(h, h.ids.at(-1), 'up');
+  assert.equal(result.status, 200, JSON.stringify(result));
+  assert.equal(h.mock.transactions.length, 1);
+  assert.ok(atCommit, 'the legacy request prepares and commits through the shared command');
+  const afterResponse = observedBudget().snapshot();
+  assert.equal(afterResponse.workUsed, atCommit.workUsed,
+    'the calculation ledger has no additional work charges after commit');
+  assert.ok(afterResponse.memoryUsed <= atCommit.memoryUsed,
+    'post-commit cleanup can release memory but cannot require another reservation');
+  assert.equal(afterResponse.peakMemory, atCommit.peakMemory);
+  const rank = (row) => row.series[SERIES].position;
+  const order = h.ids.map((id) => h.mock.read('profiles-test', key(id)))
+    .sort((a, b) => rank(a) - rank(b) || a.id.localeCompare(b.id)).map(({ id }) => id);
+  assert.deepEqual(order, [h.ids[0], h.ids[2], h.ids[1]]);
+});

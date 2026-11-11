@@ -214,7 +214,7 @@ test('repeated chapter add returns canonical links and receipts when it cleans a
     unrelatedSeries.series.version, 'the other series record stays untouched');
 });
 
-test('adjacent chapter tie swap returns target and changed neighbor with matching receipts', async () => {
+test('adjacent chapter tie move returns the target and every changed placement with matching receipts', async () => {
   const harness = await createCreatorPagesHarness();
   await createProfile(harness);
   const first = await addLink(harness, 'Capítulo A', 'canonical-tie-a');
@@ -248,12 +248,22 @@ test('adjacent chapter tie swap returns target and changed neighbor with matchin
   assert.equal(moved.status, 200);
   assert.equal(moved.profileVersion, after.profile.version, 'adjacent move returns its committed profile version');
   assertReceiptsMatchRawMutations(moved, before, after);
-  const expectedSeriesByPlacement = new Map([targetId, leader].map((id) => {
-    const memberships = [];
-    if (id === first.link.placementId) memberships.push({
-      seriesId: otherSeries.series.id, position: before.placements.get(id).series[otherSeries.series.id].position,
-    });
-    memberships.push({ seriesId: series.series.id, position: after.placements.get(id).series[series.series.id].position });
+  const changedIds = [...before.placements.entries()]
+    .filter(([id, previous]) => {
+      const next = after.placements.get(id);
+      const rankChanged = previous.series?.[series.series.id]?.position
+        !== next.series?.[series.series.id]?.position;
+      const versionChanged = (previous.version ?? 0) !== (next.version ?? 0);
+      assert.equal(versionChanged, rankChanged, `${id} advances only when its selected-series rank changes`);
+      return rankChanged || versionChanged;
+    })
+    .map(([id]) => id);
+  const expectedIds = [...new Set([targetId, ...changedIds])].sort();
+  const expectedSeriesByPlacement = new Map(expectedIds.map((id) => {
+    const placement = after.placements.get(id);
+    const memberships = [series.series.id, otherSeries.series.id]
+      .filter((seriesId) => Object.hasOwn(placement.series ?? {}, seriesId))
+      .map((seriesId) => ({ seriesId, position: placement.series[seriesId].position }));
     return [id, memberships.sort((a, b) => a.position - b.position || a.seriesId.localeCompare(b.seriesId))];
   }));
   assertCanonicalLinks(moved, after, expectedSeriesByPlacement);
