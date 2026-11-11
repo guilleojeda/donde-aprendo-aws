@@ -67,7 +67,14 @@ function seriesForRecords(records) {
   const byId = new Map();
   for (const record of records) {
     for (const association of record.series ?? []) {
-      if (association?.seriesId && !byId.has(association.seriesId)) byId.set(association.seriesId, association);
+      if (association?.seriesId && !byId.has(association.seriesId)) {
+        byId.set(association.seriesId, {
+          seriesId: association.seriesId,
+          name: association.name,
+          creatorName: association.creatorName,
+          href: association.href,
+        });
+      }
     }
   }
   return [...byId.values()].sort((left, right) => left.seriesId < right.seriesId ? -1 : left.seriesId > right.seriesId ? 1 : 0);
@@ -75,6 +82,74 @@ function seriesForRecords(records) {
 
 function seriesSearchText(associations) {
   return associations.map(({ name, creatorName }) => `${name} ${creatorName}`).join(' ');
+}
+
+function projectEventMember(record, { communityById, countryPages, catalog }) {
+  const location = effectiveEventLocation(record, communityById);
+  const series = seriesForRecords([record]);
+  return {
+    id: record.id,
+    startsAt: record.startsAt,
+    endsAt: record.endsAt,
+    title: record.title,
+    description: record.description,
+    registrationUrl: record.registrationUrl,
+    mode: record.mode,
+    place: record.place,
+    country: record.country,
+    ...(location.country ? { venueCountry: location.country } : {}),
+    ...(location.city ? { city: location.city } : {}),
+    organizer: record.organizer,
+    url: eventHref(record, countryPages, catalog, communityById),
+    ...(series.length ? { series } : {}),
+  };
+}
+
+function eventMetadata(member) {
+  const location = effectiveEventLocation(member);
+  return [...new Set([
+    member.place,
+    location.city || member.city,
+    location.country,
+    member.country,
+  ].filter(Boolean))].join(' ');
+}
+
+function eventSearchEntry(members, { includeMembers = false } = {}) {
+  const representative = members[0];
+  const series = seriesForRecords(members);
+  return {
+    type: 'event',
+    title: representative.title,
+    description: representative.description,
+    url: representative.url,
+    meta: representative.organizer,
+    metadata: eventMetadata(representative),
+    endsAt: representative.endsAt,
+    ...(series.length ? { series, search: seriesSearchText(series) } : {}),
+    ...(includeMembers ? { members } : {}),
+  };
+}
+
+function eventEntriesForSearch(index, now) {
+  const members = [];
+  const sourceOrderByMemberId = new Map();
+  for (const [order, entry] of index.entries()) {
+    if (entry.type !== 'event' || !Array.isArray(entry.members)) continue;
+    for (const member of entry.members) {
+      members.push(member);
+      if (!sourceOrderByMemberId.has(member.id)) sourceOrderByMemberId.set(member.id, order);
+    }
+  }
+
+  const entriesByOrder = new Map();
+  for (const group of uniqueUpcomingEventGroups(members, new Date(now))) {
+    const order = Math.min(...group.events.map((member) => sourceOrderByMemberId.get(member.id) ?? index.length));
+    const entries = entriesByOrder.get(order) ?? [];
+    entries.push(eventSearchEntry(group.events));
+    entriesByOrder.set(order, entries);
+  }
+  return entriesByOrder;
 }
 
 /** Only public, bounded text is written to the downloadable index. */
@@ -93,30 +168,15 @@ export function buildSearchIndex(posts, catalog, learningPaths = [], landingPage
   const eventRecords = catalog.filter((record) => record.recordType === 'event');
   const communityById = new Map(catalog.filter((record) => record.kind === 'community')
     .map((community) => [community.id, community]));
-  const eventGroups = new Map(uniqueUpcomingEventGroups(eventRecords, undefined, communityById)
-    .map((group) => [group.event, group]));
-  const visibleEvents = new Set(eventGroups.keys());
   const countryPages = communityCountryPages(catalog);
-  const records = catalog.filter((record) => record.recordType !== 'event' || visibleEvents.has(record))
+  const eventContext = { communityById, countryPages, catalog };
+  const projectedEvents = eventRecords.map((record) => projectEventMember(record, eventContext));
+  const eventEntriesByRepresentativeId = new Map(uniqueUpcomingEventGroups(projectedEvents)
+    .map((group) => [group.event.id, eventSearchEntry(group.events, { includeMembers: true })]));
+  const records = catalog.filter((record) => record.recordType !== 'event' || eventEntriesByRepresentativeId.has(record.id))
     .map((record) => {
       if (record.recordType === 'event') {
-        const location = effectiveEventLocation(record, communityById);
-        const series = seriesForRecords(eventGroups.get(record)?.events ?? [record]);
-        return {
-          type: 'event',
-          title: record.title,
-          description: record.description,
-          url: eventHref(record, countryPages, catalog, communityById),
-          meta: record.organizer,
-          metadata: [...new Set([
-          record.place,
-          location.city || record.city,
-          location.country,
-          record.country,
-          ].filter(Boolean))].join(' '),
-          endsAt: record.endsAt,
-          ...(series.length ? { series, search: seriesSearchText(series) } : {}),
-        };
+        return eventEntriesByRepresentativeId.get(record.id);
       }
       const series = record.series ?? [];
       return {
@@ -164,14 +224,21 @@ export function aggregateSearchData(query, type, count) {
 export function searchIndex(index, query, type = '', now = Date.now()) {
   const words = [...new Set(searchWords(query).filter((word) => !SEARCH_STOP_WORDS.has(word)))];
   if (!words.length) return [];
-  const candidates = index.map((entry, order) => {
-    if ((type && entry.type !== type) || (entry.type === 'event' && Date.parse(entry.endsAt) <= now)) return null;
+  const eventEntries = type && type !== 'event' ? new Map() : eventEntriesForSearch(index, now);
+  const candidateEntries = index.flatMap((entry, order) => {
+    if (entry.type === 'event' && Array.isArray(entry.members)) {
+      return eventEntries.get(order) ?? [];
+    }
+    if ((type && entry.type !== type) || (entry.type === 'event' && Date.parse(entry.endsAt) <= now)) return [];
+    return [entry];
+  }).filter((entry) => !type || entry.type === type);
+  const candidates = candidateEntries.map((entry, order) => {
     const fields = Object.fromEntries(Object.keys(SEARCH_FIELD_WEIGHTS).map((field) => [
       field,
       new Set(searchWords(entry[field])),
     ]));
     return { entry, order, fields };
-  }).filter(Boolean);
+  });
   const inverseDocumentFrequency = new Map(words.map((word) => {
     const documentFrequency = candidates.filter(({ fields }) => Object.values(fields)
       .some((fieldWords) => hasSearchWord(fieldWords, word))).length;
