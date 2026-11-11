@@ -554,7 +554,7 @@ test('legacy PATCH returns its prepared profile version, canonical links, and re
 });
 
 test('legacy PATCH serializes its matching success before commit and does not serialize it again afterward', async () => {
-  const { harness, ids, tied, profileId, seriesId } = await prepareUpTie();
+  const { harness, ids, tied, profileId, seriesId, otherSeriesId } = await prepareUpTie();
   const targetId = ids[2];
   const expectedOrder = [ids[0], ids[2], ids[1]];
   const originalDescriptor = Object.getOwnPropertyDescriptor(JSON, 'stringify');
@@ -602,7 +602,7 @@ test('legacy PATCH serializes its matching success before commit and does not se
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(harness.mock.transactions.length, transactionCount + 1);
   assertLastTransactionFits(harness);
-  const after = rawSnapshot(harness, ids, { profileId, seriesIds: [seriesId] });
+  const after = rawSnapshot(harness, ids, { profileId, seriesIds: [seriesId, otherSeriesId] });
   assert.deepEqual(orderFromRaw(after.placements, seriesId), expectedOrder);
   assert.deepEqual(await publicOrder(harness), expectedOrder);
   assert.deepEqual(await ownerOrder(harness, seriesId), expectedOrder);
