@@ -345,6 +345,7 @@ test('a colliding fragment highlights only the resolved card through navigation 
   await page.goBack();
   await expectFocused(page, historyPercentContentId);
   await expectHighlight([false, true]);
+  await page.locator('[data-filter-disclosure] summary').click();
   await page.locator('[data-format-filter]').selectOption('Curso');
   await expect(page).toHaveURL(`${fixture.origin}/aprender/?campaign=highlight&format=Curso&sort=directory`);
   await expectHighlight([false, false]);
