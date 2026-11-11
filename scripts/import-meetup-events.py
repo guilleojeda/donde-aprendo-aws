@@ -7,6 +7,7 @@ and venue. Existing DynamoDB IDs are preserved by conditional writes.
 """
 
 import argparse
+from collections.abc import Mapping
 from hashlib import sha256
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
@@ -128,6 +129,21 @@ def group_feed_url(group):
     if url.scheme != 'https' or url.hostname != MEETUP_HOST or not re.fullmatch(r'/[A-Za-z0-9_-]+/?', url.path):
         raise ValueError(f'Unsafe Meetup group URL: {group["id"]}')
     return f'https://{MEETUP_HOST}{url.path.rstrip("/")}/events/ical/'
+
+
+def validate_meetup_group(group):
+    if not isinstance(group, Mapping):
+        raise ValueError('Invalid Meetup group record')
+    group_id = group.get('id')
+    if not isinstance(group_id, str):
+        raise ValueError('Invalid Meetup community ID')
+    validate_event_resource_id(f'meetup-{group_id}', 'Meetup community ID')
+    if not isinstance(group.get('name'), str):
+        raise ValueError(f'Invalid Meetup community name: {group_id}')
+    if not isinstance(group.get('country'), str):
+        raise ValueError(f'Invalid Meetup community country: {group_id}')
+    group_feed_url(group)
+    return group
 
 
 def unfold_ical(text):
@@ -334,22 +350,45 @@ def load_groups_from_file(path):
              'timeZone': None} for item in directory['groups']]
 
 
+def scan_items(table, params):
+    """Yield validated DynamoDB Scan items across every page."""
+    while True:
+        page = table.scan(**params)
+        if not isinstance(page, Mapping):
+            raise ValueError('Invalid DynamoDB Scan response')
+        items = page.get('Items')
+        if not isinstance(items, list) or any(not isinstance(item, Mapping) for item in items):
+            raise ValueError('Invalid DynamoDB Scan Items')
+        yield from items
+
+        if 'LastEvaluatedKey' not in page:
+            return
+        cursor = page['LastEvaluatedKey']
+        if not isinstance(cursor, Mapping):
+            raise ValueError('Invalid DynamoDB Scan LastEvaluatedKey')
+        if not cursor:
+            return
+        params['ExclusiveStartKey'] = cursor
+
+
 def load_groups_from_dynamodb(table):
     groups = []
     params = {'ProjectionExpression': '#id,#title,#url,#country,#kind,published',
               'Select': 'SPECIFIC_ATTRIBUTES',
               'ExpressionAttributeNames': {'#id': 'id', '#title': 'title', '#url': 'url',
                                            '#country': 'country', '#kind': 'kind'}}
-    while True:
-        page = table.scan(**params)
-        for item in page['Items']:
-            if (item.get('id', '').startswith('meetup-') and item.get('kind') == 'community'
-                    and item.get('published') is True and item.get('country') not in {'BR', 'JM'}):
-                groups.append({'id': item['id'][7:], 'url': item['url'], 'name': item['title'],
-                               'country': item['country'], 'timeZone': None})
-        if 'LastEvaluatedKey' not in page:
-            break
-        params['ExclusiveStartKey'] = page['LastEvaluatedKey']
+    for item in scan_items(table, params):
+        if not (item.get('id', '').startswith('meetup-') and item.get('kind') == 'community'):
+            continue
+        if item.get('country') in {'BR', 'JM'}:
+            continue
+        if 'published' in item and not isinstance(item['published'], bool):
+            raise ValueError(f"Invalid published flag for Meetup community {item['id']}")
+        if item.get('published') is True:
+            group = {'id': item['id'][7:], 'url': item['url'], 'name': item['title'],
+                     'country': item['country'], 'timeZone': None}
+            validate_meetup_group(group)
+            groups.append(group)
     return groups
 
 
@@ -377,18 +416,13 @@ def load_existing_events(table):
         'Select': 'SPECIFIC_ATTRIBUTES',
         'ExpressionAttributeNames': {f'#{field}': field for field in projection_fields},
     }
-    while True:
-        page = table.scan(**params)
-        for item in page['Items']:
-            if item.get('id', '').startswith('meetup-event-'):
-                validate_meetup_event_record(item)
-                resource_version(item)
-                if 'approvalRevoked' in item and not isinstance(item['approvalRevoked'], bool):
-                    raise ValueError(f'Invalid approvalRevoked flag for {item["id"]}')
-                events[item['id']] = item
-        if 'LastEvaluatedKey' not in page:
-            break
-        params['ExclusiveStartKey'] = page['LastEvaluatedKey']
+    for item in scan_items(table, params):
+        if item.get('id', '').startswith('meetup-event-'):
+            validate_meetup_event_record(item)
+            resource_version(item)
+            if 'approvalRevoked' in item and not isinstance(item['approvalRevoked'], bool):
+                raise ValueError(f'Invalid approvalRevoked flag for {item["id"]}')
+            events[item['id']] = item
     return events
 
 
@@ -782,8 +816,17 @@ def synchronize(table=None, groups=None, dry_run=False):
     """Sync public events. A failed feed never retracts that group's prior events."""
     if groups is None:
         groups = load_groups_from_dynamodb(table)
-    if not groups:
-        raise RuntimeError('No approved Meetup communities found')
+    else:
+        if not isinstance(groups, list):
+            raise ValueError('Meetup groups must be a list of group records')
+        for group in groups:
+            try:
+                validate_meetup_group(group)
+            except ValueError as error:
+                group_id = group.get('id', 'unknown') if isinstance(group, Mapping) else 'unknown'
+                return {'groups': len(groups), 'feedsRead': 0, 'upcomingEvents': 0,
+                        'changed': 0, 'skipped': 0, 'failures': [f'Feed {group_id}: {error}'],
+                        'dryRun': dry_run}
     existing = load_existing_events(table) if table is not None else {}
     active_group_ids = {f'meetup-{group["id"]}' for group in groups}
     feeds = {}
@@ -903,15 +946,15 @@ def main():
     table = None
     if args.dry_run:
         groups = load_groups_from_file(args.source_file)
+        if not groups:
+            raise RuntimeError('No approved Meetup communities found')
     else:
         import boto3
         identity = boto3.client('sts').get_caller_identity()
         if identity['Account'] != ACCOUNT_ID:
             raise RuntimeError(f'Wrong AWS account: {identity["Account"]}')
         table = boto3.resource('dynamodb', region_name='us-east-1').Table(args.table)
-        groups = load_groups_from_dynamodb(table)
-    if not groups:
-        raise RuntimeError('No approved Meetup communities found')
+        groups = None
     result = synchronize(table=table, groups=groups, dry_run=args.dry_run)
     print(json.dumps(result))
     if result['failures']:

@@ -1,12 +1,16 @@
 import importlib.util
+import copy
 import json
 import os
 import pathlib
 import re
 import sys
+import tempfile
 import unittest
+from contextlib import redirect_stdout
 from datetime import datetime, timezone
 from decimal import Decimal
+from io import StringIO
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -38,6 +42,7 @@ PAGE = {'@type': 'Event', 'name': 'AWS en acción', 'url': EVENT_URL,
         'eventAttendanceMode': 'https://schema.org/OfflineEventAttendanceMode',
         'location': {'@type': 'Place', 'name': 'Auditorio',
                      'address': {'streetAddress': 'Calle 1', 'addressLocality': 'Bogotá'}}}
+EMPTY_ICAL = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nTZID:America/Bogota\r\nEND:VCALENDAR\r\n'
 GIRLS_GROUP = {'id': '36431225', 'url': 'https://www.meetup.com/aws-girls-argentina/',
                'name': 'AWS Girls Argentina', 'country': 'AR',
                'timeZone': 'America/Argentina/Cordoba'}
@@ -85,10 +90,16 @@ class FakeTable:
         self.transactions = []
         self.gets = []
         self.before_update = None
+        self.scan_responses = None
         self.name = 'catalog-test'
         self.meta = SimpleNamespace(client=SimpleNamespace(transact_write_items=self.transact_write_items))
 
     def scan(self, **_kwargs):
+        if self.scan_responses:
+            response = self.scan_responses.pop(0)
+            if isinstance(response, BaseException):
+                raise response
+            return response
         return {'Items': [dict(item) for item in self.existing.values()]}
 
     def get_item(self, **kwargs):
@@ -242,12 +253,17 @@ def existing_event(published=True, starts_at='2000-01-01T18:00:00-05:00',
     return record
 
 
-def fake_boto3(table, invocations):
+def fake_boto3(table, invocations, before_invoke=None):
     def client(service, **_kwargs):
         if service == 'sts':
             return SimpleNamespace(get_caller_identity=lambda: {'Account': meetup.ACCOUNT_ID})
         if service == 'lambda':
-            return SimpleNamespace(invoke=lambda **kwargs: invocations.append(kwargs))
+            def invoke(**kwargs):
+                if before_invoke is not None:
+                    before_invoke(table)
+                invocations.append(kwargs)
+
+            return SimpleNamespace(invoke=invoke)
         raise AssertionError(f'unexpected AWS client: {service}')
 
     return SimpleNamespace(
@@ -256,7 +272,52 @@ def fake_boto3(table, invocations):
     )
 
 
+def removed_source_catalog():
+    community = {
+        'id': 'meetup-123', 'title': GROUP['name'], 'url': GROUP['url'],
+        'country': 'CO', 'kind': 'community', 'published': True,
+    }
+    past = existing_event(published=True)
+    past['version'] = 4
+    past['editorNotes'] = {'private': 'keep this value'}
+    past['unrelatedField'] = ['unchanged']
+    future = existing_event(published=True, starts_at='2099-01-02T18:00:00-05:00',
+                            ends_at='2099-01-02T20:00:00-05:00')
+    future['id'] = 'meetup-event-789'
+    future['version'] = 8
+    future['editorNotes'] = {'private': 'also keep this value'}
+    manual = existing_event(published=True, auto_sync=False)
+    manual['id'] = 'meetup-event-manual'
+    manual['version'] = 11
+    revoked = existing_event(published=False)
+    revoked['id'] = 'meetup-event-revoked'
+    revoked['version'] = 3
+    revoked['approvalRevoked'] = True
+
+    table = FakeTable([community, past, future, manual, revoked])
+    # Simulate the independent approval edit before synchronization observes inventory.
+    table.existing[community['id']]['published'] = False
+    return table
+
+
 class MeetupEventsTests(unittest.TestCase):
+    def assert_lambda_aborts_without_mutation(self, table, expected_failure=None):
+        before = copy.deepcopy(table.existing)
+        invocations = []
+        boto3 = fake_boto3(table, invocations)
+        with patch.dict(sys.modules, {'boto3': boto3}), \
+                patch.dict(os.environ, {'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication'}):
+            raised = None
+            try:
+                meetup.lambda_handler({}, None)
+            except Exception as error:
+                raised = error
+
+        self.assertEqual((table.existing, table.updates, invocations), (before, [], []))
+        self.assertIsNotNone(raised, 'malformed or failed observations must stop synchronization')
+        if expected_failure is not None:
+            self.assertIs(raised, expected_failure)
+
     def assert_source_update_guards(self, call):
         expression = call['ConditionExpression']
         names = call['ExpressionAttributeNames']
@@ -291,7 +352,7 @@ class MeetupEventsTests(unittest.TestCase):
         loaded = meetup.load_existing_events(table)
         self.assertEqual(meetup.resource_version(loaded['meetup-event-456']), 0)
 
-    def test_live_sync_skips_brazil_and_english_language_group(self):
+    def test_inventory_excludes_brazil_and_jamaica(self):
         groups = [
             {'id': 'meetup-1', 'title': 'Brasil', 'url': 'https://www.meetup.com/brasil/',
              'country': 'BR', 'kind': 'community', 'published': True},
@@ -301,6 +362,166 @@ class MeetupEventsTests(unittest.TestCase):
              'country': 'CO', 'kind': 'community', 'published': True},
         ]
         self.assertEqual([group['id'] for group in meetup.load_groups_from_dynamodb(FakeTable(groups))], ['3'])
+
+    def test_missing_community_approval_flag_remains_unapproved(self):
+        community = {
+            'id': 'meetup-123', 'title': GROUP['name'], 'url': GROUP['url'],
+            'country': 'CO', 'kind': 'community',
+        }
+        self.assertEqual(meetup.load_groups_from_dynamodb(FakeTable([community])), [])
+
+    def test_nonboolean_present_approval_flags_abort_inventory_before_source_removal(self):
+        healthy = {
+            'id': 'meetup-999', 'title': 'AWS Test', 'url': 'https://www.meetup.com/aws-test/',
+            'country': 'CO', 'kind': 'community', 'published': True,
+        }
+        for approval in ('true', 1, None):
+            with self.subTest(approval=approval):
+                invalid = {
+                    'id': 'meetup-123', 'title': GROUP['name'], 'url': GROUP['url'],
+                    'country': 'CO', 'kind': 'community', 'published': approval,
+                }
+                table = FakeTable([invalid, healthy, existing_event(published=True)])
+                with patch.object(meetup, 'timezone_from_feed', return_value=[]):
+                    self.assert_lambda_aborts_without_mutation(table)
+
+    def test_unreadable_approved_source_fields_abort_before_source_removal(self):
+        for missing in ('title', 'url', 'country'):
+            with self.subTest(missing=missing):
+                community = {
+                    'id': 'meetup-123', 'title': GROUP['name'], 'url': GROUP['url'],
+                    'country': 'CO', 'kind': 'community', 'published': True,
+                }
+                del community[missing]
+                table = FakeTable([community, existing_event(published=True)])
+                with patch.object(meetup, 'get_text', return_value=EMPTY_ICAL):
+                    self.assert_lambda_aborts_without_mutation(table)
+
+    def test_unreadable_present_approved_source_facts_cannot_authorize_membership_changes(self):
+        cases = (
+            ('id', 'meetup-' + '9' * 122),
+            ('url', None),
+            ('title', 123),
+            ('country', 999),
+        )
+        for field, value in cases:
+            with self.subTest(field=field):
+                community = {
+                    'id': 'meetup-123', 'title': GROUP['name'], 'url': GROUP['url'],
+                    'country': 'CO', 'kind': 'community', 'published': True,
+                }
+                community[field] = value
+                current = existing_event(published=True, starts_at='2099-01-01T18:00:00-05:00',
+                                         ends_at='2099-01-01T20:00:00-05:00')
+                unrelated = existing_event(published=True, starts_at='2099-01-02T18:00:00-05:00',
+                                           ends_at='2099-01-02T20:00:00-05:00')
+                unrelated['id'] = 'meetup-event-789'
+                unrelated['sourceGroupId'] = 'meetup-456'
+                table = FakeTable([community, current, unrelated])
+                with patch.object(meetup, 'get_text', return_value=ICAL), \
+                        patch.object(meetup, 'fetch_event_page', return_value=PAGE):
+                    self.assert_lambda_aborts_without_mutation(table)
+
+    def test_paginated_inventory_does_not_remove_source_approved_on_a_later_page(self):
+        approved = {
+            'id': 'meetup-123', 'title': GROUP['name'], 'url': GROUP['url'],
+            'country': 'CO', 'kind': 'community', 'published': True,
+        }
+        unapproved = {
+            'id': 'meetup-999', 'title': 'AWS Test', 'url': 'https://www.meetup.com/aws-test/',
+            'country': 'CO', 'kind': 'community', 'published': False,
+        }
+        for first_items in ([], [unapproved]):
+            with self.subTest(first_page='empty' if not first_items else 'unapproved'):
+                prior = existing_event(published=True, starts_at='2099-01-01T18:00:00-05:00',
+                                       ends_at='2099-01-01T20:00:00-05:00')
+                prior['version'] = 5
+                table = FakeTable([approved, unapproved, prior])
+                table.scan_responses = [
+                    {'Items': first_items, 'LastEvaluatedKey': {'id': 'inventory-page-1'}},
+                    {'Items': [approved]},
+                ]
+
+                def feed(group):
+                    group['timeZone'] = GROUP['timeZone']
+                    return meetup.parse_feed(ICAL, group)
+
+                with patch.object(meetup, 'timezone_from_feed', side_effect=feed), \
+                        patch.object(meetup, 'fetch_event_page', return_value=PAGE):
+                    result = meetup.synchronize(table=table)
+
+                self.assertEqual((result['groups'], result['feedsRead'], result['changed'], result['failures']),
+                                 (1, 1, 0, []))
+                self.assertEqual(table.existing[prior['id']], prior)
+
+    def test_empty_last_evaluated_key_terminates_both_catalog_scans(self):
+        approved = {
+            'id': 'meetup-123', 'title': GROUP['name'], 'url': GROUP['url'],
+            'country': 'CO', 'kind': 'community', 'published': True,
+        }
+        prior = existing_event(published=True)
+        cases = (
+            (meetup.load_groups_from_dynamodb, approved, '123'),
+            (meetup.load_existing_events, prior, 'meetup-event-456'),
+        )
+        for loader, item, expected_id in cases:
+            with self.subTest(loader=loader.__name__):
+                table = FakeTable([approved, prior])
+                table.scan_responses = [
+                    {'Items': [item], 'LastEvaluatedKey': {}},
+                    RuntimeError('empty cursor must terminate this scan'),
+                ]
+
+                result = loader(table)
+
+                if loader is meetup.load_groups_from_dynamodb:
+                    self.assertEqual([group['id'] for group in result], [expected_id])
+                else:
+                    self.assertIn(expected_id, result)
+
+    def test_malformed_inventory_cursor_cannot_become_authoritative_empty(self):
+        for cursor in (None, ''):
+            with self.subTest(cursor=cursor):
+                table = removed_source_catalog()
+                approved = {
+                    'id': 'meetup-999', 'title': 'AWS Test', 'url': 'https://www.meetup.com/aws-test/',
+                    'country': 'CO', 'kind': 'community', 'published': True,
+                }
+                table.existing[approved['id']] = approved
+                table.scan_responses = [{'Items': [], 'LastEvaluatedKey': cursor}]
+                with patch.object(meetup, 'get_text', return_value=EMPTY_ICAL):
+                    self.assert_lambda_aborts_without_mutation(table)
+
+    def test_malformed_existing_event_cursor_cannot_authorize_source_removal(self):
+        table = removed_source_catalog()
+        approved = {
+            'id': 'meetup-999', 'title': 'AWS Test', 'url': 'https://www.meetup.com/aws-test/',
+            'country': 'CO', 'kind': 'community', 'published': True,
+        }
+        table.existing[approved['id']] = approved
+        first_event_page = dict(table.existing['meetup-event-456'])
+        table.scan_responses = [
+            {'Items': [approved]},
+            {'Items': [first_event_page], 'LastEvaluatedKey': None},
+        ]
+        with patch.object(meetup, 'get_text', return_value=EMPTY_ICAL):
+            self.assert_lambda_aborts_without_mutation(table)
+
+    def test_hidden_published_source_remains_approved_when_directory_selection_is_off(self):
+        community = {
+            'id': 'meetup-123', 'title': GROUP['name'], 'url': GROUP['url'],
+            'country': 'CO', 'kind': 'community', 'published': True,
+            'hidden': True, 'directoryControl': 'creator',
+        }
+        prior = existing_event(published=True)
+        table = FakeTable([community, prior])
+        with patch.object(meetup, 'get_text', return_value=EMPTY_ICAL):
+            result = meetup.synchronize(table=table)
+
+        self.assertEqual((result['groups'], result['feedsRead'], result['changed'], result['failures']),
+                         (1, 1, 0, []))
+        self.assertTrue(table.existing['meetup-event-456']['published'])
+        self.assertEqual(table.existing['meetup-event-456'].get('version', 0), prior.get('version', 0))
 
     def test_feed_and_structured_event_map_public_fields(self):
         entries = meetup.parse_feed(ICAL, GROUP)
@@ -372,11 +593,12 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertEqual(table.updates, [])
 
         table = FakeTable()
-        with patch.object(meetup, 'timezone_from_feed', return_value=[{'id': '456', 'url': EVENT_URL}]), \
-                patch.object(meetup, 'fetch_event_page', return_value=PAGE):
+        with patch.object(meetup, 'get_text', return_value=EMPTY_ICAL), \
+                patch.object(meetup, 'fetch_event_page', return_value=PAGE) as fetch_event_page:
             result = meetup.synchronize(table=table, groups=[invalid_group])
         self.assertEqual(result['changed'], 0)
         self.assertEqual(len(result['failures']), 1)
+        fetch_event_page.assert_not_called()
         self.assertEqual(table.puts, [])
         self.assertEqual(table.transactions, [])
         self.assertEqual(table.updates, [])
@@ -1002,7 +1224,7 @@ class MeetupEventsTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'database unavailable'):
                 meetup.synchronize(table=table, groups=[dict(GROUP)])
 
-    def test_removed_approved_group_retracts_its_past_and_future_events(self):
+    def test_removed_group_retracts_its_past_and_future_events_while_another_group_remains(self):
         past = existing_event(published=True)
         future = existing_event(published=True, starts_at='2099-01-02T18:00:00-05:00',
                                 ends_at='2099-01-02T20:00:00-05:00')
@@ -1018,6 +1240,209 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertEqual(result['changed'], 2)
         self.assertFalse(table.existing['meetup-event-456']['published'])
         self.assertFalse(table.existing['meetup-event-789']['published'])
+
+    def test_explicit_empty_inventory_retracts_removed_source_past_and_future_events(self):
+        approved_community = {
+            'id': 'meetup-123', 'title': GROUP['name'], 'url': GROUP['url'],
+            'country': 'CO', 'kind': 'community', 'published': True,
+        }
+        past = existing_event(published=True)
+        future = existing_event(published=True, starts_at='2099-01-02T18:00:00-05:00',
+                                ends_at='2099-01-02T20:00:00-05:00')
+        future['id'] = 'meetup-event-789'
+        table = FakeTable([approved_community, past, future])
+        with patch.object(meetup, 'get_text', return_value=EMPTY_ICAL):
+            result = meetup.synchronize(table=table, groups=[])
+
+        self.assertEqual(result['changed'], 2)
+        self.assertFalse(table.existing['meetup-event-456']['published'])
+        self.assertFalse(table.existing['meetup-event-789']['published'])
+
+    def test_malformed_empty_group_containers_are_not_authoritative_inventories(self):
+        for groups in ({}, ''):
+            with self.subTest(groups=groups):
+                community = {
+                    'id': 'meetup-123', 'title': GROUP['name'], 'url': GROUP['url'],
+                    'country': 'CO', 'kind': 'community', 'published': True,
+                }
+                table = FakeTable([community, existing_event(published=True)])
+                before = copy.deepcopy(table.existing)
+
+                failure = None
+                with patch.object(meetup, 'get_text', return_value=EMPTY_ICAL):
+                    try:
+                        meetup.synchronize(table=table, groups=groups)
+                    except Exception as error:
+                        failure = error
+
+                self.assertEqual((table.existing, table.updates), (before, []))
+                self.assertIsNotNone(failure, 'malformed group containers must be rejected')
+
+    def test_malformed_explicit_group_facts_cannot_authorize_source_removal(self):
+        for field, value in (('id', None), ('url', None), ('name', []), ('country', [])):
+            with self.subTest(field=field):
+                group = dict(GROUP, id='999')
+                group[field] = value
+                table = FakeTable([existing_event(published=True)])
+                before = copy.deepcopy(table.existing)
+                with patch.object(meetup, 'get_text', return_value=EMPTY_ICAL):
+                    result = meetup.synchronize(table=table, groups=[group])
+
+                self.assertEqual((table.existing, table.updates), (before, []))
+                self.assertEqual(result['changed'], 0)
+                self.assertEqual(len(result['failures']), 1)
+
+    def test_lambda_processes_successful_empty_inventory_and_notifies_only_for_changes(self):
+        table = removed_source_catalog()
+        before = copy.deepcopy(table.existing)
+        invocations = []
+        state_when_notified = []
+        boto3 = fake_boto3(
+            table, invocations,
+            before_invoke=lambda source: state_when_notified.append(
+                copy.deepcopy(source.existing)),
+        )
+        with patch.dict(sys.modules, {'boto3': boto3}), \
+                patch.dict(os.environ, {'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication'}):
+            first = meetup.lambda_handler({}, None)
+            after_first = copy.deepcopy(table.existing)
+            second = meetup.lambda_handler({}, None)
+
+        self.assertEqual((first['groups'], first['feedsRead'], first['changed'], first['failures']),
+                         (0, 0, 2, []))
+        self.assertEqual((second['groups'], second['feedsRead'], second['changed'], second['failures']),
+                         (0, 0, 0, []))
+        expected = copy.deepcopy(before)
+        for event_id in ('meetup-event-456', 'meetup-event-789'):
+            expected_event = expected[event_id]
+            expected_event['published'] = False
+            expected_event['version'] += 1
+        self.assertEqual(after_first, expected)
+        self.assertEqual(len(state_when_notified), 1)
+        self.assertEqual(state_when_notified[0], expected)
+        self.assertEqual(table.existing, expected)
+        self.assertEqual(invocations, [{
+            'FunctionName': 'fake-publication', 'InvocationType': 'Event', 'Payload': b'{}',
+        }])
+
+    def test_non_dry_run_cli_processes_successful_empty_inventory(self):
+        table = removed_source_catalog()
+        before = copy.deepcopy(table.existing)
+        invocations = []
+        boto3 = fake_boto3(table, invocations)
+        output = StringIO()
+        with patch.dict(sys.modules, {'boto3': boto3}), \
+                patch.object(sys, 'argv', ['import-meetup-events.py', '--table', 'fake-table']), \
+                redirect_stdout(output):
+            meetup.main()
+
+        result = json.loads(output.getvalue())
+        self.assertEqual((result['groups'], result['feedsRead'], result['changed'], result['failures']),
+                         (0, 0, 2, []))
+        expected = copy.deepcopy(before)
+        for event_id in ('meetup-event-456', 'meetup-event-789'):
+            expected[event_id]['published'] = False
+            expected[event_id]['version'] += 1
+        self.assertEqual(table.existing, expected)
+
+    def test_empty_dry_run_source_file_keeps_its_diagnostic_without_aws_access(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            source_file = pathlib.Path(temporary_directory) / 'empty-communities.json'
+            source_file.write_text(json.dumps({'groups': []}), encoding='utf-8')
+
+            def unexpected_aws_access(*_args, **_kwargs):
+                raise AssertionError('file-based dry-run must not access AWS')
+
+            boto3 = SimpleNamespace(client=unexpected_aws_access, resource=unexpected_aws_access)
+            with patch.dict(sys.modules, {'boto3': boto3}), \
+                    patch.object(sys, 'argv', [
+                        'import-meetup-events.py', '--dry-run', '--source-file', str(source_file),
+                    ]), \
+                    self.assertRaisesRegex(RuntimeError, 'No approved Meetup communities found'):
+                meetup.main()
+
+    def test_failed_later_inventory_page_cannot_authorize_source_removal_or_notification(self):
+        table = removed_source_catalog()
+        approved = {
+            'id': 'meetup-999', 'title': 'AWS Test', 'url': 'https://www.meetup.com/aws-test/',
+            'country': 'CO', 'kind': 'community', 'published': True,
+        }
+        table.existing[approved['id']] = approved
+        failure = RuntimeError('inventory page unavailable')
+        table.scan_responses = [
+            {'Items': [approved], 'LastEvaluatedKey': {'id': 'inventory-page-1'}},
+            failure,
+        ]
+        self.assert_lambda_aborts_without_mutation(table, failure)
+
+    def test_malformed_later_inventory_items_cannot_authorize_source_removal_or_notification(self):
+        table = removed_source_catalog()
+        approved = {
+            'id': 'meetup-999', 'title': 'AWS Test', 'url': 'https://www.meetup.com/aws-test/',
+            'country': 'CO', 'kind': 'community', 'published': True,
+        }
+        table.existing[approved['id']] = approved
+        table.scan_responses = [
+            {'Items': [approved], 'LastEvaluatedKey': {'id': 'inventory-page-1'}},
+            {'Items': {}},
+        ]
+        with patch.object(meetup, 'get_text', return_value=EMPTY_ICAL):
+            self.assert_lambda_aborts_without_mutation(table)
+
+    def test_failed_later_existing_event_page_cannot_authorize_removal_or_notification(self):
+        table = removed_source_catalog()
+        approved = {
+            'id': 'meetup-999', 'title': 'AWS Test', 'url': 'https://www.meetup.com/aws-test/',
+            'country': 'CO', 'kind': 'community', 'published': True,
+        }
+        table.existing[approved['id']] = approved
+        first_event_page = dict(table.existing['meetup-event-456'])
+        failure = RuntimeError('existing event page unavailable')
+        table.scan_responses = [
+            {'Items': [approved]},
+            {'Items': [first_event_page], 'LastEvaluatedKey': {'id': 'events-page-1'}},
+            failure,
+        ]
+        with patch.object(meetup, 'get_text', return_value=EMPTY_ICAL):
+            self.assert_lambda_aborts_without_mutation(table, failure)
+
+    def test_malformed_later_existing_event_items_cannot_authorize_removal_or_notification(self):
+        table = removed_source_catalog()
+        approved = {
+            'id': 'meetup-999', 'title': 'AWS Test', 'url': 'https://www.meetup.com/aws-test/',
+            'country': 'CO', 'kind': 'community', 'published': True,
+        }
+        table.existing[approved['id']] = approved
+        first_event_page = dict(table.existing['meetup-event-456'])
+        table.scan_responses = [
+            {'Items': [approved]},
+            {'Items': [first_event_page], 'LastEvaluatedKey': {'id': 'events-page-1'}},
+            {'Items': {}},
+        ]
+        with patch.object(meetup, 'get_text', return_value=EMPTY_ICAL):
+            self.assert_lambda_aborts_without_mutation(table)
+
+    def test_source_removal_guard_skips_concurrent_owner_version_and_revocation_changes(self):
+        changes = (
+            ('sourceGroupId', 'meetup-999'),
+            ('autoSync', False),
+            ('version', 9),
+            ('approvalRevoked', True),
+        )
+        for field, value in changes:
+            with self.subTest(field=field, value=value):
+                prior = existing_event(published=True)
+                prior['version'] = 5
+                table = FakeTable([prior])
+                expected = copy.deepcopy(table.existing)
+                expected[prior['id']][field] = value
+                table.before_update = lambda item, _call, changed_field=field, changed_value=value: \
+                    item.update({changed_field: changed_value})
+
+                result = meetup.synchronize(table=table, groups=[])
+
+                self.assertEqual(result['changed'], 0)
+                self.assertEqual(table.existing, expected)
 
     def test_noop_historical_sync_does_not_invoke_publication(self):
         community = {
