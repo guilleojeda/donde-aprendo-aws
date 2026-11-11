@@ -5,6 +5,7 @@ import test from 'node:test';
 import { directoryGroupMembership, directoryListEntries, filterResources, sortResources } from '../src/lib/directory-filter.mjs';
 import { parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch } from '../src/lib/directory-url.mjs';
 import { COUNTRY_LABELS, LEVEL_LABELS } from '../src/lib/resource-discovery.mjs';
+import { resourceFragment, resolveResourceFragment } from '../src/lib/resource-fragments.mjs';
 import { aggregateSearchData, searchIndex, TYPE_LABELS } from '../src/lib/unified-search.mjs';
 import { positionDirectoryOverlay } from '../src/scripts/directory-overlay.js';
 
@@ -320,6 +321,7 @@ function createDirectory({
     },
     sortResources, COUNTRY_LABELS, LEVEL_LABELS,
     parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch,
+    resourceFragment, resolveResourceFragment,
     requestAnimationFrame: (callback) => callback(), URL, Set, positionDirectoryOverlay,
   });
 

@@ -76,8 +76,8 @@ const addedAtLabel = (date: string) => new Intl.DateTimeFormat('es', {
   </a>
   <div class="resource-card__related">
     {resource.featured && <a href="#directory-criteria" class="resource-card__recommendation">Recomendado</a>}
-    {relatedSource && <a href={resourceHref(relatedSource)} data-resource-jump={relatedSource.id}>Autor o fuente: {relatedSource.title}</a>}
-    {relatedCommunity && <a href={resourceHref(relatedCommunity)} data-resource-jump={relatedCommunity.id}>Comunidad: {relatedCommunity.title}</a>}
+    {relatedSource && <a href={resourceHref(relatedSource)}>Autor o fuente: {relatedSource.title}</a>}
+    {relatedCommunity && <a href={resourceHref(relatedCommunity)}>Comunidad: {relatedCommunity.title}</a>}
     {event && <a href={eventHref(event, countryPages, catalogResources)}>Grabación de: {event.title}</a>}
     {agendaPath && <a href={agendaPath}>Consultar agenda de {countryLabel(resource.country)}</a>}
     {resource.kind === 'community' && hasUpcomingCommunityEvents && <a href={`/eventos/?community=${encodeURIComponent(resource.id)}`}>
