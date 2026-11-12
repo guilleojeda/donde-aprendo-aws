@@ -114,7 +114,7 @@ async function tabToCatalogControl(page, control) {
   assert.fail(`Keyboard Tab did not reach ${await control.getAttribute('aria-label') ?? 'the requested catalog control'}`);
 }
 
-async function expectPagerFocus(page, button) {
+async function expectPagerFocus(button) {
   await expect(button).toBeVisible();
   await expect(button).toBeEnabled();
   await expect(button).toBeInViewport();
@@ -312,24 +312,24 @@ for (const mode of ['reference', 'claim']) {
     await tabToCatalogControl(page, next);
     await page.keyboard.press('Enter');
     await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 2 de 3');
-    await expectPagerFocus(page, next);
+    await expectPagerFocus(next);
 
     await page.keyboard.press('Shift+Tab');
-    await expectPagerFocus(page, previous);
+    await expectPagerFocus(previous);
     await page.keyboard.press('Enter');
     await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 1 de 3');
     await expect(previous).toBeDisabled();
-    await expectPagerFocus(page, next);
+    await expectPagerFocus(next);
     await expect(selected).toBeChecked();
 
     await page.keyboard.press('Enter');
     await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 2 de 3');
-    await expectPagerFocus(page, next);
+    await expectPagerFocus(next);
 
     await page.keyboard.press('Shift+Tab');
     await page.keyboard.press('Enter');
     await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 1 de 3');
-    await expectPagerFocus(page, next);
+    await expectPagerFocus(next);
     await typeCatalogSearch(page, 'F10');
     await expect(page.locator('[data-catalog-count]')).toHaveText('51 resultados');
     await clearCatalogSearch(page);
@@ -350,7 +350,7 @@ for (const mode of ['reference', 'claim']) {
     await tabToCatalogControl(page, next);
     await page.keyboard.press('Enter');
     await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 2 de 3');
-    await expectPagerFocus(page, next);
+    await expectPagerFocus(next);
 
     const selected = catalogPickerSelection(page, entries[25], mode);
     await selected.check();
@@ -358,17 +358,17 @@ for (const mode of ['reference', 'claim']) {
     await page.keyboard.press('Enter');
     await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 3 de 3');
     await expect(next).toBeDisabled();
-    await expectPagerFocus(page, previous);
+    await expectPagerFocus(previous);
 
     await page.keyboard.press('Enter');
     await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 2 de 3');
-    await expectPagerFocus(page, previous);
+    await expectPagerFocus(previous);
     await expect(selected).toBeChecked();
 
     await page.keyboard.press('Tab');
     await page.keyboard.press('Enter');
     await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 3 de 3');
-    await expectPagerFocus(page, previous);
+    await expectPagerFocus(previous);
     await typeCatalogSearch(page, 'F10');
     await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 1 de 3');
     await expect(page.locator('[data-catalog-count]')).toHaveText('51 resultados');
@@ -390,9 +390,9 @@ for (const mode of ['reference', 'claim']) {
     await tabToCatalogControl(page, next);
     await page.keyboard.press('Enter');
     await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 2 de 3');
-    await expectPagerFocus(page, next);
+    await expectPagerFocus(next);
 
-    const search = await typeCatalogSearch(page, entries[0].title);
+    await typeCatalogSearch(page, entries[0].title);
     await expect(page.locator('[data-catalog-count]')).toHaveText('1 resultado');
     await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 1 de 1');
     await expect(catalogPickerSelection(page, entries[0], mode)).toBeChecked();
