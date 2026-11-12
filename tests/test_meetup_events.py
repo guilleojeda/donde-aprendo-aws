@@ -1499,7 +1499,7 @@ class MeetupEventsTests(unittest.TestCase):
         invocations = []
         boto3 = fake_boto3(table, invocations)
 
-        def feed(group):
+        def feed(group, _budget=None):
             if group['id'] == '123':
                 # timezone_from_feed sets this from the feed's TZID header.
                 group['timeZone'] = GROUP['timeZone']
@@ -1895,18 +1895,28 @@ class MeetupUpdateTransportTests(unittest.TestCase):
                 table = self.table_for(prior)
                 expected = copy.deepcopy(table.existing)
                 attempts = []
+                elapsed = [0.0]
 
                 def mutate(item):
                     attempts.append(item['version'])
                     item['version'] += 1
                     item['editorNote'] = 'Independent correction'
+                    if len(attempts) == 2:
+                        elapsed[0] = 136.0  # A follow-up SDK read no longer fits the remaining budget.
                     self.arrange_competing_write(table, prior['id'], moved, mutate)
 
                 self.arrange_competing_write(table, prior['id'], moved, mutate)
-                self.assertIs(meetup.update_source_event(table, record, prior), False)
+                with patch.object(meetup, 'monotonic', side_effect=lambda: elapsed[0]):
+                    budget = meetup.InvocationBudget(180_000)
+                    self.assertIs(meetup.update_source_event(table, record, prior, budget=budget), False)
                 expected[prior['id']].update(version=6, editorNote='Independent correction')
                 self.assertEqual(table.existing, expected)
                 self.assertEqual(attempts, [4, 5])
+                conflict_refreshes = [request for request in table.gets
+                                      if request['Key']['id'] == prior['id']
+                                      and 'version' in request.get('ExpressionAttributeNames', {}).values()]
+                self.assertEqual(len(conflict_refreshes), 1,
+                                 'The first conflict is refreshed; the final conflict must not issue an unused GetItem')
 
     def test_url_move_rejects_reserved_and_colliding_destinations_without_partial_changes(self):
         for collision in (False, True):

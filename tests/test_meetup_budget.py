@@ -48,19 +48,22 @@ class MeetupBudgetTests(unittest.TestCase):
             fixtures.mapped_prior(self.group, event_id) for event_id in ids])
 
     def run_handler(self, table, *ids, remaining=180_000, after_identity=None,
-                    before_invoke=None, moved=False):
+                    after_client_creation=None, before_invoke=None, moved=False):
         invocations, creations = [], []
         sdk = support.fake_boto3(table, invocations, before_invoke=before_invoke)
         base_client, base_resource = sdk.client, sdk.resource
 
         def client(service, **kwargs):
             creations.append((service, kwargs))
+            client_instance = base_client(service, **kwargs)
+            if after_client_creation:
+                after_client_creation(service)
             if service == 'sts' and after_identity:
                 def identity():
                     after_identity()
                     return {'Account': support.meetup.ACCOUNT_ID}
                 return SimpleNamespace(get_caller_identity=identity)
-            return base_client(service, **kwargs)
+            return client_instance
 
         def resource(service, **kwargs):
             creations.append((service, kwargs))
@@ -107,12 +110,42 @@ class MeetupBudgetTests(unittest.TestCase):
         self.assertEqual(outcome[3], [])
         self.assertEqual(table.scans, [])
 
+    def test_non_finite_context_budgets_are_rejected_before_aws_or_catalog_work(self):
+        for remaining in (float('nan'), float('inf'), float('-inf')):
+            with self.subTest(remaining=remaining):
+                table = self.table('456')
+                before = copy.deepcopy(table.existing)
+                outcome = self.run_handler(table, '456', remaining=remaining)
+                self.assert_stopped_without_effects(table, before, outcome)
+                self.assertEqual(outcome[3], [], 'Invalid context must fail before client creation')
+                self.assertEqual(table.scans, [])
+
     def test_account_lookup_time_is_not_removed_from_the_invocation_budget(self):
         table = self.table('456')
         before = copy.deepcopy(table.existing)
         outcome = self.run_handler(table, '456', after_identity=lambda: self.clock.set(145.0))
         self.assert_stopped_without_effects(table, before, outcome)
         self.assertEqual(table.scans, [])
+
+    def test_sts_client_setup_time_is_checked_before_account_lookup(self):
+        table = self.table('456')
+        identity_calls = []
+
+        def after_client_creation(service):
+            if service == 'sts':
+                self.clock.set(136.0)
+
+        outcome = self.run_handler(
+            table, '456', after_identity=lambda: identity_calls.append(True),
+            after_client_creation=after_client_creation)
+        _result, error, invocations, creations = outcome
+        self.assertIsNotNone(error)
+        self.assertIn('budget exhausted', str(error))
+        self.assertEqual(identity_calls, [], 'STS identity call must not begin without its SDK allowance')
+        self.assertEqual([kind for kind, _kwargs in creations], ['sts'])
+        self.assertEqual(table.scans, [])
+        self.assertEqual(table.updates, [])
+        self.assertEqual(invocations, [])
 
     def test_inventory_scan_time_cannot_start_a_fresh_budget_for_event_reads(self):
         table = self.table('456')
@@ -157,6 +190,33 @@ class MeetupBudgetTests(unittest.TestCase):
         expected[changed_id] = table.existing[changed_id]
         self.assertEqual(table.existing, expected)
         self.assertEqual(len(invocations), 1)
+
+    def test_notification_tail_allows_small_coordinator_overshoot_after_work_cutoff(self):
+        table = self.table('456')
+        table.after_commit = lambda _count: self.clock.set(145.01)
+        _result, error, invocations, _creations = self.run_handler(table, '456')
+        self.assertIsNotNone(error, 'The final source-removal pass must report its missed work')
+        self.assertEqual(table.commits, ['meetup-event-456'])
+        self.assertEqual(table.existing['meetup-event-456']['title'], 'Fresh source 456')
+        self.assertEqual(table.existing['meetup-event-456']['version'], 5)
+        self.assertEqual(len(invocations), 1,
+                         'Reserved notification time must tolerate ordinary coordinator overshoot')
+
+    def test_publication_client_setup_consumes_the_notification_tail_before_invoke(self):
+        table = self.table('456')
+
+        def after_client_creation(service):
+            if service == 'lambda':
+                self.clock.set(156.0)
+
+        _result, error, invocations, creations = self.run_handler(
+            table, '456', after_client_creation=after_client_creation)
+        self.assertIsNotNone(error)
+        self.assertIn('budget exhausted', str(error))
+        self.assertIn('lambda', [kind for kind, _kwargs in creations])
+        self.assertEqual(invocations, [], 'Publication invoke must not start after setup consumes its tail')
+        self.assertEqual(table.commits, ['meetup-event-456'])
+        self.assertEqual(table.existing['meetup-event-456']['version'], 5)
 
     def test_exhaustion_before_cas_refresh_never_replays_the_stale_write(self):
         table = self.table('456')

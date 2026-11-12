@@ -5,6 +5,7 @@ does not establish TLS interoperability; the opener, redirects, response reads
 and importer decisions remain real, without calling Meetup.
 """
 import http.client
+import io
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import importlib.util
 import os
@@ -225,6 +226,78 @@ class MeetupHttpTests(unittest.TestCase):
                 first.set()
                 rest.set()
                 self.finish(runner)
+
+    def test_each_body_read_timeout_shrinks_to_the_remaining_request_budget(self):
+        clock, headers, first, rest = Clock(), Event(), Event(), Event()
+
+        def route(request):
+            request.send_response(200)
+            request.send_header('Content-Length', '8')
+            request.end_headers()
+            request.wfile.flush()
+            headers.set()
+            if first.wait(30):
+                try:
+                    request.wfile.write(b'x')
+                    request.wfile.flush()
+                    if rest.wait(30):
+                        request.wfile.write(b'y' * 7)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+
+        with patch('time.monotonic', clock), LocalMeetup(route):
+            runner, done, box = start_fetch(load_importer(), 'body')
+            try:
+                self.assertTrue(headers.wait(2))
+                clock.set(18.0)
+                first.set()
+                expired_before_release = done.wait(3)
+            finally:
+                first.set()
+                rest.set()
+                self.finish(runner)
+        self.assertTrue(expired_before_release,
+                        'A later read retained the original 20-second socket timeout')
+        self.assertIn('error', box)
+        self.assertNotIn('value', box)
+
+    def test_deadline_is_checked_after_a_terminal_eof_read(self):
+        clock = Clock()
+
+        class ClockAtEOF(io.BytesIO):
+            def read1(self, size=-1):
+                chunk = super().read1(size)
+                if not chunk:
+                    clock.set(21.0)
+                return chunk
+
+        class Socket:
+            def __init__(self, stream):
+                self.stream = stream
+
+            def makefile(self, _mode):
+                return self.stream
+
+        # Use the real HTTPResponse parser and read1 path, with a close-delimited
+        # body whose final EOF advances the controlled clock past 20 seconds.
+        response = http.client.HTTPResponse(Socket(ClockAtEOF(
+            b'HTTP/1.1 200 OK\r\nConnection: close\r\n\r\nX')))
+        response.begin()
+        response.url = 'https://www.meetup.com/body'
+
+        class Opener:
+            def open(self, _request, timeout):
+                self.timeout = timeout
+                return response
+
+        opener = Opener()
+        with patch('time.monotonic', clock):
+            subject = load_importer()
+            with patch.object(subject, 'build_opener', return_value=opener), \
+                    patch.object(subject, 'set_response_read_timeout'):
+                with self.assertRaises(subject.RequestTimedOut):
+                    subject.get_text('https://www.meetup.com/body')
+        self.assertEqual(clock(), 21.0)
 
     def test_redirect_continuation_timeout_uses_the_remaining_request_time(self):
         clock = Clock()

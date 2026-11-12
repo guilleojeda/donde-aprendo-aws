@@ -1,7 +1,9 @@
 """Acceptance tests for bounded Meetup request coordination and truthful stop."""
 
 import copy
+import http.client
 import importlib.util
+import io
 import json
 import pathlib
 import queue
@@ -529,7 +531,7 @@ class MeetupCoordinationTests(unittest.TestCase):
         started_feed_groups = []
         started_lock = threading.Lock()
 
-        def get_text(url):
+        def get_text(url, **_kwargs):
             group = next((item for item in groups if f'/{item["url"].split("/")[3]}/' in url), None)
             if group is None:
                 raise AssertionError(f'unrecognized controlled Meetup URL: {url}')
@@ -665,6 +667,129 @@ class MeetupCoordinationTests(unittest.TestCase):
         with started_lock:
             self.assertLess(len(set(started_feed_groups)), len(groups),
                             'all source feeds completed admission before controlled stop')
+
+    def test_request_timeout_keeps_queued_healthy_pages_running(self):
+        timed_out = make_group(901)
+        healthy = make_group(902)
+        event_ids = tuple(str(number) for number in range(710, 719))
+        prior_rows = [mapped_prior(timed_out, '999')] + [
+            mapped_prior(healthy, event_id) for event_id in event_ids]
+        table = RecordingTable([community_row(timed_out), community_row(healthy), *prior_rows])
+        before = copy.deepcopy(table.existing)
+        clock = MutableClock()
+        request_eof_reached = threading.Event()
+        release_request_eof = threading.Event()
+        page_gates_started = {event_id: threading.Event() for event_id in event_ids[:7]}
+        release_page_gates = threading.Event()
+        queued_page_started = threading.Event()
+        queued_page_committed = threading.Event()
+
+        class MemorySocket:
+            def __init__(self, stream):
+                self.stream = stream
+
+            def makefile(self, _mode):
+                return self.stream
+
+        def response_for(url, body, late_eof=False):
+            headers = b'HTTP/1.1 200 OK\r\nConnection: close\r\n'
+            if not late_eof:
+                headers += f'Content-Length: {len(body)}\r\n'.encode()
+            headers += b'\r\n'
+
+            class ResponseStream(io.BytesIO):
+                def read1(self, size=-1):
+                    chunk = super().read1(size)
+                    if late_eof and not chunk:
+                        request_eof_reached.set()
+                        if not release_request_eof.wait(30):
+                            raise TimeoutError('test did not release the terminal EOF')
+                        clock.advance(21)
+                    return chunk
+
+            response = http.client.HTTPResponse(
+                MemorySocket(ResponseStream(headers + body)))
+            response.begin()
+            response.url = url
+            return response
+
+        class InMemoryOpener:
+            def open(self, request, timeout):
+                url = request.full_url
+                if url.endswith('/events/ical/'):
+                    if '/aws-901/' in url:
+                        body = calendar_for(timed_out, '999').encode()
+                        return response_for(url, body, late_eof=True)
+                    return response_for(url, calendar_for(healthy, *event_ids).encode())
+                event_id = url.split('/events/')[1].split('/')[0]
+                return response_for(url, json_ld_response(
+                    event_page(healthy, event_id, 'Fresh source ' + event_id)).encode())
+
+        def build_opener(*_handlers):
+            return InMemoryOpener()
+
+        importer_name = f'meetup_events_request_timeout_{id(self)}'
+        original_get_text = None
+
+        with patch('time.monotonic', clock.monotonic):
+            importer = load_fresh_importer(importer_name)
+            original_get_text = importer.get_text
+
+            def gate_healthy_pages(url, budget=None):
+                if '/aws-902/events/' in url and not url.endswith('/events/ical/'):
+                    event_id = url.split('/events/')[1].split('/')[0]
+                    gate_started = page_gates_started.get(event_id)
+                    if gate_started is not None:
+                        gate_started.set()
+                        if not release_page_gates.wait(30):
+                            raise TimeoutError('test did not release a healthy page request')
+                    elif event_id == event_ids[7]:
+                        queued_page_started.set()
+                return original_get_text(url, budget)
+
+            table.after_update = lambda record: (
+                queued_page_committed.set() if record['id'] == 'meetup-event-' + event_ids[7] else None)
+            with patch.object(importer, 'build_opener', side_effect=build_opener), \
+                    patch.object(importer, 'set_response_read_timeout'), \
+                    patch.object(importer, 'get_text', side_effect=gate_healthy_pages):
+                thread, outcome = run_in_thread(lambda: importer.synchronize(table=table))
+                page_gates_ready = False
+                eof_waiting = False
+                queued_work_started = False
+                queued_work_committed = False
+                try:
+                    page_gates_ready = all(gate.wait(4) for gate in page_gates_started.values())
+                    eof_waiting = request_eof_reached.wait(4)
+                    if page_gates_ready and eof_waiting:
+                        release_request_eof.set()
+                        queued_work_started = queued_page_started.wait(4)
+                        queued_work_committed = queued_page_committed.wait(4)
+                finally:
+                    release_request_eof.set()
+                    release_page_gates.set()
+                    thread.join(timeout=8)
+
+        self.assertFalse(thread.is_alive(), 'synchronization did not drain released requests')
+        result, error = outcome.get(timeout=1)
+        self.assertIsNone(error)
+        self.assertTrue(page_gates_ready, 'healthy page requests did not occupy the available slots')
+        self.assertTrue(eof_waiting, 'the real HTTPResponse did not reach its controlled terminal EOF')
+        self.assertTrue(queued_work_started,
+                        'one request timeout stopped queued healthy page admission')
+        self.assertTrue(queued_work_committed,
+                        'queued healthy page did not complete its real parse and guarded write')
+        self.assertEqual(clock.monotonic(), 21.0)
+        self.assertEqual((result['groups'], result['feedsRead'], result['changed']), (2, 1, 9))
+        self.assertEqual(len(result['failures']), 1)
+        self.assertIn('Feed 901:', result['failures'][0])
+        self.assertIn('request budget exhausted', result['failures'][0])
+        self.assertNotIn('invocation reached its work cutoff', result['failures'][0])
+        self.assertEqual(table.existing['meetup-event-999'], before['meetup-event-999'],
+                         'a timed-out source must not prove that its event is absent')
+        for event_id in event_ids:
+            current = table.existing['meetup-event-' + event_id]
+            self.assertEqual(current['title'], 'Fresh source ' + event_id)
+            self.assertEqual(current['version'], 5)
 
 
 if __name__ == '__main__':
