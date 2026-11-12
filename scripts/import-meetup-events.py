@@ -7,19 +7,21 @@ and venue. Existing DynamoDB IDs are preserved by conditional writes.
 """
 
 import argparse
+from collections import deque
 from collections.abc import Mapping
 from hashlib import sha256
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime, timezone
 from decimal import Decimal
 from html import unescape
 from html.parser import HTMLParser
 import json
+import math
 import re
 import os
+from time import monotonic
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 from zoneinfo import ZoneInfo
 
 ACCOUNT_ID = '719535286359'
@@ -47,6 +49,65 @@ NONPUBLISHABLE_EVENT_STATUSES = frozenset((
     'https://schema.org/EventMovedOnline',
     'https://schema.org/EventPostponed',
 ))
+MAX_HTTP_REQUEST_SECONDS = 20
+MAX_HTTP_BODY_BYTES = 2_000_000
+HTTP_READ_CHUNK_BYTES = 64 * 1024
+SDK_CALL_SECONDS = 5
+LAMBDA_DRAIN_SECONDS = 20
+NOTIFICATION_SECONDS = 5
+FINAL_MARGIN_SECONDS = 10
+
+
+class BudgetExhausted(RuntimeError):
+    """The invocation cannot safely admit more work before its reserved tail."""
+
+
+class RequestTimedOut(RuntimeError):
+    """One bounded Meetup request expired while invocation work may continue."""
+
+
+class InvocationBudget:
+    def __init__(self, remaining_milliseconds):
+        if (isinstance(remaining_milliseconds, bool)
+                or not isinstance(remaining_milliseconds, (int, float))
+                or not math.isfinite(remaining_milliseconds)
+                or remaining_milliseconds <= 0):
+            raise RuntimeError('Meetup Lambda context has no usable remaining-time budget')
+        started = monotonic()
+        self.deadline = started + remaining_milliseconds / 1000
+        self.work_deadline = self.deadline - (
+            SDK_CALL_SECONDS + LAMBDA_DRAIN_SECONDS + NOTIFICATION_SECONDS + FINAL_MARGIN_SECONDS)
+
+    def check_sdk_call(self, operation):
+        if monotonic() + SDK_CALL_SECONDS > self.work_deadline:
+            raise BudgetExhausted(f'Meetup invocation budget exhausted before {operation}')
+
+    def check_work(self, operation):
+        if monotonic() >= self.work_deadline:
+            raise BudgetExhausted(f'Meetup invocation budget exhausted before {operation}')
+
+    def request_deadline(self):
+        self.check_work('another Meetup request')
+        return min(monotonic() + MAX_HTTP_REQUEST_SECONDS, self.work_deadline)
+
+    def check_notification(self):
+        if monotonic() + NOTIFICATION_SECONDS + LAMBDA_DRAIN_SECONDS > self.deadline:
+            raise BudgetExhausted('Meetup invocation budget exhausted before publication notification')
+
+    def wait_seconds(self):
+        return max(0.0, self.work_deadline - monotonic())
+
+
+def aws_config():
+    from botocore.config import Config
+
+    return Config(connect_timeout=2, read_timeout=3,
+                  retries={'total_max_attempts': 1})
+
+
+def check_sdk_budget(budget, operation):
+    if budget is not None:
+        budget.check_sdk_call(operation)
 
 
 def validate_catalog_resource_id(value):
@@ -111,16 +172,62 @@ class JsonLdScripts(HTMLParser):
             self.active = False
 
 
-def get_text(url):
+class MeetupRedirectHandler(HTTPRedirectHandler):
+    def __init__(self, request_deadline):
+        super().__init__()
+        self.request_deadline = request_deadline
+
+    def redirect_request(self, request, response, code, message, headers, new_url):
+        try:
+            # urllib's default handler drains the unused redirect response before following it.
+            response.close()
+            remaining = self.request_deadline - monotonic()
+            if remaining <= 0:
+                raise RequestTimedOut('Meetup request budget exhausted before redirect continuation')
+            request.timeout = min(getattr(request, 'timeout', MAX_HTTP_REQUEST_SECONDS), remaining)
+            return super().redirect_request(request, response, code, message, headers, new_url)
+        except BaseException:
+            response.close()
+            raise
+
+
+def set_response_read_timeout(response, timeout):
+    """Tighten urllib's socket timeout as the total request budget shrinks."""
+    response.fp.raw._sock.settimeout(timeout)
+
+
+def get_text(url, budget=None):
+    request_deadline = monotonic() + MAX_HTTP_REQUEST_SECONDS
+    if budget is not None:
+        request_deadline = min(request_deadline, budget.request_deadline())
+    timeout = request_deadline - monotonic()
+    if timeout <= 0:
+        raise RequestTimedOut(f'Meetup request budget exhausted before {url}')
     request = Request(url, headers={'User-Agent': 'DondeAprendoAWS/1.0 (+https://dondeaprendoaws.com/)'})
-    with urlopen(request, timeout=20) as response:
+    opener = build_opener(MeetupRedirectHandler(request_deadline))
+    with opener.open(request, timeout=timeout) as response:
         final_url = urlparse(response.url)
         if final_url.scheme != 'https' or final_url.hostname != MEETUP_HOST:
             raise ValueError(f'Meetup request redirected to another host: {url}')
-        contents = response.read(2_000_001)
-        if len(contents) > 2_000_000:
-            raise ValueError(f'Meetup response too large: {url}')
-        return contents.decode('utf-8')
+        contents = bytearray()
+        while True:
+            remaining_time = request_deadline - monotonic()
+            if remaining_time <= 0:
+                raise RequestTimedOut(f'Meetup request budget exhausted while reading {url}')
+            if response.isclosed():
+                break
+            remaining_bytes = MAX_HTTP_BODY_BYTES + 1 - len(contents)
+            set_response_read_timeout(response, remaining_time)
+            chunk = response.read1(min(HTTP_READ_CHUNK_BYTES, remaining_bytes))
+            if chunk:
+                contents.extend(chunk)
+                if len(contents) > MAX_HTTP_BODY_BYTES:
+                    raise ValueError(f'Meetup response too large: {url}')
+            if monotonic() >= request_deadline:
+                raise RequestTimedOut(f'Meetup request budget exhausted while reading {url}')
+            if not chunk:
+                break
+        return bytes(contents).decode('utf-8')
 
 
 def group_feed_url(group):
@@ -350,9 +457,10 @@ def load_groups_from_file(path):
              'timeZone': None} for item in directory['groups']]
 
 
-def scan_items(table, params):
+def scan_items(table, params, budget=None):
     """Yield validated DynamoDB Scan items across every page."""
     while True:
+        check_sdk_budget(budget, 'catalog scan page')
         page = table.scan(**params)
         if not isinstance(page, Mapping):
             raise ValueError('Invalid DynamoDB Scan response')
@@ -371,13 +479,13 @@ def scan_items(table, params):
         params['ExclusiveStartKey'] = cursor
 
 
-def load_groups_from_dynamodb(table):
+def load_groups_from_dynamodb(table, budget=None):
     groups = []
     params = {'ProjectionExpression': '#id,#title,#url,#country,#kind,published',
               'Select': 'SPECIFIC_ATTRIBUTES',
               'ExpressionAttributeNames': {'#id': 'id', '#title': 'title', '#url': 'url',
                                            '#country': 'country', '#kind': 'kind'}}
-    for item in scan_items(table, params):
+    for item in scan_items(table, params, budget):
         if not (item.get('id', '').startswith('meetup-') and item.get('kind') == 'community'):
             continue
         if item.get('country') in {'BR', 'JM'}:
@@ -392,8 +500,9 @@ def load_groups_from_dynamodb(table):
     return groups
 
 
-def timezone_from_feed(group):
-    text = get_text(group_feed_url(group))
+def timezone_from_feed(group, budget=None):
+    feed_url = group_feed_url(group)
+    text = get_text(feed_url) if budget is None else get_text(feed_url, budget=budget)
     events = parse_feed(text, group)
     match = re.search(r'^TZID:([^\r\n]+)', text, re.M)
     if any(not event.get('cancelled') for event in events) and not match:
@@ -404,11 +513,37 @@ def timezone_from_feed(group):
     return events
 
 
-def fetch_event_page(entry):
-    return parse_event_page(get_text(entry['url']), entry['url'])
+def fetch_event_page(entry, budget=None):
+    text = get_text(entry['url']) if budget is None else get_text(entry['url'], budget=budget)
+    return parse_event_page(text, entry['url'])
 
 
-def load_existing_events(table):
+def read_feed_observation(group, budget=None):
+    worker_group = dict(group)
+    events = timezone_from_feed(worker_group) if budget is None else timezone_from_feed(worker_group, budget)
+    return events, worker_group.get('timeZone')
+
+
+def read_event_observation(entry, budget=None):
+    return fetch_event_page(entry) if budget is None else fetch_event_page(entry, budget)
+
+
+class SourceProgress:
+    def __init__(self, group):
+        self.group = group
+        self.feed_started = False
+        self.feed_done = False
+        self.failed = False
+        self.events = deque()
+        self.pages_in_flight = 0
+        self.seen_ids = set()
+
+    @property
+    def complete(self):
+        return self.feed_done and not self.failed and not self.events and self.pages_in_flight == 0
+
+
+def load_existing_events(table, budget=None):
     events = {}
     projection_fields = ('id', 'version', 'approvalRevoked') + SYNC_OWNED_FIELDS
     params = {
@@ -416,7 +551,7 @@ def load_existing_events(table):
         'Select': 'SPECIFIC_ATTRIBUTES',
         'ExpressionAttributeNames': {f'#{field}': field for field in projection_fields},
     }
-    for item in scan_items(table, params):
+    for item in scan_items(table, params, budget):
         if item.get('id', '').startswith('meetup-event-'):
             validate_meetup_event_record(item)
             resource_version(item)
@@ -490,16 +625,17 @@ def is_conditional_write_conflict(error):
     return False
 
 
-def read_current_event(table, resource_id):
+def read_current_event(table, resource_id, budget=None):
     fields = tuple(dict.fromkeys(('id', 'version', 'approvalRevoked') + SYNC_OWNED_FIELDS))
-    return read_projected_item(table, resource_id, fields)
+    return read_projected_item(table, resource_id, fields, budget)
 
 
-def read_reservation(table, url):
+def read_reservation(table, url, budget=None):
     reservation_id = f'__url#{current_url_hash(url)}'
     item = read_projected_item(
         table, reservation_id,
         ('id', 'recordType', 'url', 'status', 'version', 'resourceId', 'resourceIds'),
+        budget,
     )
     if item is not None:
         if (item.get('recordType') != 'urlReservation' or item.get('url') != url
@@ -523,7 +659,8 @@ def read_reservation(table, url):
         except ValueError as error:
             raise RuntimeError(f'Malformed catalog URL reservation for {url}') from error
         for resource_id in resource_ids:
-            resource = read_projected_item(table, resource_id, ('id', 'recordType', 'url', 'registrationUrl'))
+            resource = read_projected_item(
+                table, resource_id, ('id', 'recordType', 'url', 'registrationUrl'), budget)
             if resource is None:
                 raise RuntimeError(f'Catalog URL reservation for {url} points to a missing or inconsistent resource')
             current_url = resource.get('registrationUrl') if resource.get('recordType') == 'event' else resource.get('url')
@@ -532,9 +669,10 @@ def read_reservation(table, url):
     return item
 
 
-def read_projected_item(table, item_id, fields):
+def read_projected_item(table, item_id, fields, budget=None):
     names = {f'#field{index}': field for index, field in enumerate(fields)}
     expression = ','.join(names)
+    check_sdk_budget(budget, f'catalog item read {item_id}')
     return table.get_item(
         Key={'id': item_id},
         ConsistentRead=True,
@@ -543,7 +681,7 @@ def read_projected_item(table, item_id, fields):
     ).get('Item')
 
 
-def transact_catalog(table, operations):
+def transact_catalog(table, operations, budget=None):
     """Send document-form values through the DynamoDB resource's client handlers."""
     client = table.meta.client
     request = []
@@ -570,6 +708,7 @@ def transact_catalog(table, operations):
             request.append({'Delete': delete})
         else:
             raise ValueError(f'Unknown catalog transaction operation: {kind}')
+    check_sdk_budget(budget, 'catalog transaction')
     return client.transact_write_items(TransactItems=request)
 
 
@@ -605,17 +744,17 @@ def update_expression(record, existing, preserve_published):
     return expression, condition, names, values
 
 
-def update_event_and_url_reservation(table, record, existing, preserve_published):
+def update_event_and_url_reservation(table, record, existing, preserve_published, budget=None):
     validate_meetup_event_record(record)
     old_url = existing.get('registrationUrl')
     new_url = record['registrationUrl']
     if not isinstance(old_url, str) or not isinstance(new_url, str):
         raise RuntimeError(f'Meetup event {record["id"]} has an invalid current URL')
-    old_reservation = read_reservation(table, old_url)
+    old_reservation = read_reservation(table, old_url, budget)
     if old_reservation is None:
         raise RuntimeError(f'Missing catalog URL reservation for Meetup event {record["id"]}')
     operations = []
-    new_reservation = read_reservation(table, new_url)
+    new_reservation = read_reservation(table, new_url, budget)
     if new_reservation is None:
         operations.append({'kind': 'put', 'item': current_url_reservation(new_url, record['id']),
                            'condition': 'attribute_not_exists(#id)', 'names': {'#id': 'id'}})
@@ -666,7 +805,7 @@ def update_event_and_url_reservation(table, record, existing, preserve_published
     operations.append({'kind': 'update', 'key': {'id': record['id']}, 'update': expression,
                        'condition': condition, 'names': names, 'values': values})
     try:
-        transact_catalog(table, operations)
+        transact_catalog(table, operations, budget)
         return True
     except Exception as error:
         if is_conditional_write_conflict(error):
@@ -674,10 +813,10 @@ def update_event_and_url_reservation(table, record, existing, preserve_published
         raise
 
 
-def update_source_event(table, record, existing, preserve_published=False):
+def update_source_event(table, record, existing, preserve_published=False, budget=None):
     validate_meetup_event_record(record)
     if existing is None:
-        return create_source_event_with_url_reservation(table, record)
+        return create_source_event_with_url_reservation(table, record, budget)
     current = existing
     for attempt in range(2):
         if current is None or current.get('autoSync') is False:
@@ -695,42 +834,16 @@ def update_source_event(table, record, existing, preserve_published=False):
         old_url = current.get('registrationUrl')
         new_url = record['registrationUrl']
         if old_url != new_url:
-            changed = update_event_and_url_reservation(table, record, current, preserve_now)
+            changed = update_event_and_url_reservation(table, record, current, preserve_now, budget)
             if changed is True or changed is False or isinstance(changed, str):
                 return changed
-            current = read_current_event(table, record['id'])
+            if attempt == 1:
+                return False
+            current = read_current_event(table, record['id'], budget)
             continue
 
-        fields = [(key, record[key]) for key in SYNC_OWNED_FIELDS
-                  if key in record and not (preserve_now and key == 'published')]
-        names = {'#id': 'id', '#owner': 'sourceGroupId', '#sync': 'autoSync',
-                 '#version': 'version', '#revoked': 'approvalRevoked'}
-        expected_version = resource_version(current)
-        values = {':owner': record['sourceGroupId'], ':enabled': True,
-                  ':version': expected_version, ':nextVersion': expected_version + 1,
-                  ':revoked': False}
-        changes = []
-        for index, (key, value) in enumerate(fields):
-            alias = f'#f{index}'
-            parameter = f':v{index}'
-            names[alias] = key
-            values[parameter] = value
-            changes.append(f'{alias} = {parameter}')
-        changes.append('#version = :nextVersion')
-        expression = 'SET ' + ', '.join(changes)
-        removed = []
-        for field in OPTIONAL_SYNC_FIELDS:
-            if field in current and field not in record:
-                alias = f'#old{field[0].upper()}{field[1:]}'
-                names[alias] = field
-                removed.append(alias)
-        if removed:
-            expression += ' REMOVE ' + ', '.join(removed)
-        version_condition = version_condition_expression(expected_version)
-        condition = ('attribute_exists(#id) AND #owner = :owner '
-                     'AND (attribute_not_exists(#sync) OR #sync = :enabled) '
-                     f'AND {version_condition} '
-                     'AND (attribute_not_exists(#revoked) OR #revoked = :revoked)')
+        expression, condition, names, values = update_expression(record, current, preserve_now)
+        check_sdk_budget(budget, f'update Meetup event {record["id"]}')
         try:
             table.update_item(Key={'id': record['id']}, UpdateExpression=expression,
                               ConditionExpression=condition,
@@ -739,16 +852,16 @@ def update_source_event(table, record, existing, preserve_published=False):
         except Exception as error:
             if not is_conditional_write_conflict(error):
                 raise
-            current = read_current_event(table, record['id'])
             if attempt == 1:
                 return False
+            current = read_current_event(table, record['id'], budget)
     return False
 
 
-def create_source_event_with_url_reservation(table, record):
+def create_source_event_with_url_reservation(table, record, budget=None):
     validate_meetup_event_record(record)
     reservation = current_url_reservation(record['registrationUrl'], record['id'])
-    existing_reservation = read_reservation(table, record['registrationUrl'])
+    existing_reservation = read_reservation(table, record['registrationUrl'], budget)
     if existing_reservation is not None:
         if existing_reservation.get('status') == 'collision':
             return 'collision'
@@ -761,21 +874,21 @@ def create_source_event_with_url_reservation(table, record):
         {'kind': 'put', 'item': reservation, 'condition': 'attribute_not_exists(#id)', 'names': {'#id': 'id'}},
     ]
     try:
-        transact_catalog(table, operations)
+        transact_catalog(table, operations, budget)
         return True
     except Exception as error:
         if not is_conditional_write_conflict(error):
             raise
-        current_resource = read_current_event(table, record['id'])
+        current_resource = read_current_event(table, record['id'], budget)
         if current_resource is not None:
             return False
-        current_reservation = read_reservation(table, record['registrationUrl'])
+        current_reservation = read_reservation(table, record['registrationUrl'], budget)
         if current_reservation is not None:
             return 'collision' if current_reservation.get('status') == 'collision' else 'duplicate'
         return False
 
 
-def unpublish_source_event(table, existing, check_ends_at=False):
+def unpublish_source_event(table, existing, check_ends_at=False, budget=None):
     validate_catalog_resource_id(existing.get('id'))
     if existing.get('sourceGroupId'):
         validate_event_resource_id(existing['sourceGroupId'], 'sourceGroupId')
@@ -800,6 +913,7 @@ def unpublish_source_event(table, existing, check_ends_at=False):
         else:
             condition += ' AND attribute_not_exists(#ends)'
     try:
+        check_sdk_budget(budget, f'unpublish Meetup event {existing["id"]}')
         table.update_item(Key={'id': existing['id']},
                           UpdateExpression='SET #published = :false, #version = :nextVersion',
                           ConditionExpression=condition,
@@ -812,10 +926,10 @@ def unpublish_source_event(table, existing, check_ends_at=False):
         raise
 
 
-def synchronize(table=None, groups=None, dry_run=False):
-    """Sync public events. A failed feed never retracts that group's prior events."""
+def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drain=None):
+    """Coordinate read-only source requests and apply their results on this thread."""
     if groups is None:
-        groups = load_groups_from_dynamodb(table)
+        groups = load_groups_from_dynamodb(table) if budget is None else load_groups_from_dynamodb(table, budget)
     else:
         if not isinstance(groups, list):
             raise ValueError('Meetup groups must be a list of group records')
@@ -827,109 +941,376 @@ def synchronize(table=None, groups=None, dry_run=False):
                 return {'groups': len(groups), 'feedsRead': 0, 'upcomingEvents': 0,
                         'changed': 0, 'skipped': 0, 'failures': [f'Feed {group_id}: {error}'],
                         'dryRun': dry_run}
-    existing = load_existing_events(table) if table is not None else {}
-    active_group_ids = {f'meetup-{group["id"]}' for group in groups}
-    feeds = {}
-    failures = []
-    failed_group_ids = set()
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        futures = {executor.submit(timezone_from_feed, group): group for group in groups}
-        for future in as_completed(futures):
-            group = futures[future]
-            try:
-                feeds[group['id']] = (group, future.result())
-            except Exception as error:
-                failures.append(f'Feed {group["id"]}: {error}')
-                failed_group_ids.add(group['id'])
 
-    pending = []
-    seen = set()
+    existing = {}
+    if table is not None:
+        existing = load_existing_events(table) if budget is None else load_existing_events(table, budget)
+
+    sources = [SourceProgress(group) for group in groups]
+    active_group_ids = {f'meetup-{group["id"]}' for group in groups}
+    source_by_id = {state.group['id']: state for state in sources}
+    failures = []
+    conflicts = []
+    globally_seen = set()
     upcoming_event_ids = set()
-    cancelled = []
-    for group, entries in sorted(feeds.values(), key=lambda item: item[0]['id']):
+    feeds_read = 0
+    changed = 0
+    skipped = 0
+    stop_for_budget = False
+    primary_error = None
+    notification_error = None
+    feed_cursor = 0
+    page_cursor = 0
+    last_admitted = 'page'
+    future_work = {}
+    executor = ThreadPoolExecutor(max_workers=8)
+
+    def ready_feed():
+        if not sources:
+            return None
+        for offset in range(len(sources)):
+            index = (feed_cursor + offset) % len(sources)
+            if not sources[index].feed_started:
+                return index, sources[index]
+        return None
+
+    def ready_page():
+        if not sources:
+            return None
+        for offset in range(len(sources)):
+            index = (page_cursor + offset) % len(sources)
+            if sources[index].events:
+                return index, sources[index]
+        return None
+
+    def next_work():
+        feed = ready_feed()
+        page = ready_page()
+        if feed is not None and page is not None:
+            return ('page', page) if last_admitted == 'feed' else ('feed', feed)
+        if page is not None:
+            return 'page', page
+        if feed is not None:
+            return 'feed', feed
+        return None
+
+    def run_read(read):
+        try:
+            return read(), monotonic(), None
+        except Exception as error:
+            return None, monotonic(), error
+
+    def schedule_one():
+        nonlocal feed_cursor, page_cursor, last_admitted
+        work = next_work()
+        if work is None:
+            return False
+        kind, (index, state) = work
+        if budget is not None:
+            budget.check_work('another Meetup source request')
+        if kind == 'feed':
+            state.feed_started = True
+            feed_cursor = (index + 1) % len(sources)
+            if budget is None:
+                future = executor.submit(run_read, lambda: read_feed_observation(state.group))
+            else:
+                future = executor.submit(run_read, lambda: read_feed_observation(state.group, budget))
+            future_work[future] = ('feed', state, None)
+        else:
+            entry = state.events.popleft()
+            state.pages_in_flight += 1
+            page_cursor = (index + 1) % len(sources)
+            if budget is None:
+                future = executor.submit(run_read, lambda: read_event_observation(entry))
+            else:
+                future = executor.submit(run_read, lambda: read_event_observation(entry, budget))
+            future_work[future] = ('page', state, entry)
+        last_admitted = kind
+        return True
+
+    def apply_unpublish(prior, check_ends_at=False):
+        nonlocal changed
+        if dry_run or table is None:
+            return False
+        if budget is None:
+            outcome = unpublish_source_event(table, prior, check_ends_at)
+        else:
+            outcome = unpublish_source_event(table, prior, check_ends_at, budget)
+        if outcome:
+            changed += 1
+            current = existing.get(prior['id'])
+            if current is not None:
+                current['published'] = False
+                current['version'] = resource_version(current) + 1
+        return outcome
+
+    def apply_page(state, entry, page):
+        nonlocal changed, skipped, primary_error, stop_for_budget
+        group = state.group
+        try:
+            record = map_event(group, entry, page)
+        except Exception as error:
+            state.failed = True
+            failures.append(f'Event {entry["id"]} in group {group["id"]}: {error}')
+            return
+
+        record_id = meetup_event_resource_id(entry['id'])
+        prior = existing.get(record_id)
+        if record is None:
+            if (prior is not None and prior.get('sourceGroupId') == f'meetup-{group["id"]}'):
+                try:
+                    apply_unpublish(prior)
+                except BudgetExhausted:
+                    stop_for_budget = True
+                except Exception as error:
+                    primary_error = error
+                    state.failed = True
+                    failures.append(f'Event {entry["id"]} in group {group["id"]}: {error}')
+            return
+
+        if prior is None and event_has_ended(record):
+            return
+        if prior is not None:
+            preserve_published = event_has_ended(record)
+            if sync_fields_equal(record, prior, preserve_published):
+                return
+        else:
+            preserve_published = False
+
+        if dry_run or table is None:
+            return
+        try:
+            if budget is None:
+                outcome = update_source_event(table, record, prior, preserve_published)
+            else:
+                outcome = update_source_event(table, record, prior, preserve_published, budget)
+        except BudgetExhausted:
+            stop_for_budget = True
+            return
+        except Exception as error:
+            primary_error = error
+            state.failed = True
+            failures.append(f'Event {entry["id"]} in group {group["id"]}: {error}')
+            return
+        if outcome is True:
+            changed += 1
+            if prior is None:
+                existing[record_id] = dict(record, version=1)
+        else:
+            skipped += 1
+            if outcome in ('duplicate', 'collision'):
+                conflicts.append({'id': record['id'], 'url': record['registrationUrl'], 'status': outcome})
+
+    def process_feed(state, observation):
+        nonlocal feeds_read, stop_for_budget
+        entries, time_zone = observation
+        state.feed_done = True
+        state.group['timeZone'] = time_zone
+        feeds_read += 1
         for entry in entries:
             try:
                 record_id = meetup_event_resource_id(entry.get('id'))
             except ValueError as error:
-                failures.append(f'Event {entry.get("id", "unknown")} in group {group["id"]}: {error}')
-                failed_group_ids.add(group['id'])
+                state.failed = True
+                failures.append(f'Event {entry.get("id", "unknown")} in group {state.group["id"]}: {error}')
                 continue
-            if record_id in seen:
+            if record_id in state.seen_ids:
                 continue
-            seen.add(record_id)
+            state.seen_ids.add(record_id)
+            globally_seen.add(record_id)
             prior = existing.get(record_id)
+            source_id = f'meetup-{state.group["id"]}'
             if entry.get('cancelled'):
-                if prior is not None:
-                    cancelled.append(prior)
+                if prior is not None and prior.get('sourceGroupId') == source_id:
+                    try:
+                        apply_unpublish(prior)
+                    except BudgetExhausted:
+                        stop_for_budget = True
+                        return
                 continue
             upcoming_event_ids.add(record_id)
-            if prior and prior.get('autoSync') is False:
+            if prior is not None and prior.get('autoSync') is False:
                 continue
-            pending.append((group, entry, prior))
+            state.events.append(entry)
 
-    records = []
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        futures = {executor.submit(fetch_event_page, entry): (group, entry, prior)
-                   for group, entry, prior in pending}
-        for future in as_completed(futures):
-            group, entry, prior = futures[future]
-            try:
-                record = map_event(group, entry, future.result())
-                if record is not None:
-                    preserve_published = event_has_ended(record) and prior is not None
-                    if prior is None:
-                        if not event_has_ended(record):
-                            records.append((record, prior, False))
-                    elif not sync_fields_equal(record, prior, preserve_published):
-                        records.append((record, prior, preserve_published))
-                elif prior is not None:
-                    cancelled.append(prior)
-            except Exception as error:
-                failures.append(f'Event {entry["id"]} in group {group["id"]}: {error}')
-                failed_group_ids.add(group['id'])
-
-    changed = 0
-    skipped = 0
-    conflicts = []
-    if not dry_run and table is not None:
-        for record, prior, preserve_published in records:
-            outcome = update_source_event(table, record, prior, preserve_published)
-            if outcome is True:
-                changed += 1
+    def process_completed(future):
+        nonlocal stop_for_budget, primary_error
+        kind, state, entry = future_work.pop(future)
+        observation, _completed_at, error = future.result()
+        if kind == 'page':
+            state.pages_in_flight -= 1
+        if error is not None:
+            if isinstance(error, BudgetExhausted):
+                stop_for_budget = True
+                return
+            state.failed = True
+            label = f'Feed {state.group["id"]}' if kind == 'feed' else \
+                f'Event {entry["id"]} in group {state.group["id"]}'
+            failures.append(f'{label}: {error}')
+            if kind == 'feed':
+                state.feed_done = True
+            return
+        try:
+            if kind == 'feed':
+                process_feed(state, observation)
             else:
-                skipped += 1
-                if outcome in ('duplicate', 'collision'):
-                    conflicts.append({'id': record['id'], 'url': record['registrationUrl'], 'status': outcome})
-        for prior in cancelled:
-            if unpublish_source_event(table, prior):
-                changed += 1
-        for prior in existing.values():
-            source = prior.get('sourceGroupId', '')
-            group_id = source.removeprefix('meetup-')
-            source_removed = source not in active_group_ids
-            source_absent = group_id in feeds and group_id not in failed_group_ids
-            if prior['id'] not in seen and source_removed:
-                if unpublish_source_event(table, prior):
-                    changed += 1
-            elif prior['id'] not in seen and source_absent and not event_has_ended(prior):
-                if unpublish_source_event(table, prior, check_ends_at=True):
-                    changed += 1
-    result = {'groups': len(groups), 'feedsRead': len(feeds), 'upcomingEvents': len(upcoming_event_ids),
+                apply_page(state, entry, observation)
+        except BudgetExhausted:
+            stop_for_budget = True
+        except Exception as error:
+            primary_error = error
+            state.failed = True
+            label = f'Feed {state.group["id"]}' if kind == 'feed' else \
+                f'Event {entry["id"]} in group {state.group["id"]}'
+            failures.append(f'{label}: {error}')
+
+    def add_incomplete_failures():
+        if stop_for_budget:
+            failures.append('Meetup invocation reached its work cutoff; incomplete observations were retained')
+        elif primary_error is not None:
+            failures.append('Meetup synchronization stopped after an unexpected storage failure')
+        for state in sources:
+            if not state.feed_started:
+                failures.append(f'Feed {state.group["id"]}: not started before synchronization stopped')
+            elif not state.feed_done:
+                failures.append(f'Feed {state.group["id"]}: request unfinished when synchronization stopped')
+            for entry in state.events:
+                failures.append(f'Event {entry["id"]} in group {state.group["id"]}: page not started before stop')
+        for kind, state, entry in future_work.values():
+            if kind == 'page':
+                failures.append(f'Event {entry["id"]} in group {state.group["id"]}: request unfinished at stop')
+            elif not state.feed_done:
+                failures.append(f'Feed {state.group["id"]}: request unfinished at stop')
+
+    try:
+        while True:
+            if budget is not None and not stop_for_budget and monotonic() >= budget.work_deadline:
+                stop_for_budget = True
+
+            if stop_for_budget or primary_error is not None:
+                break
+
+            completed = [future for future in future_work if future.done()]
+            if completed:
+                completed.sort(key=lambda future: (future.result()[1], id(future)))
+                for future in completed:
+                    if stop_for_budget or primary_error is not None:
+                        break
+                    if budget is not None and monotonic() >= budget.work_deadline:
+                        stop_for_budget = True
+                        break
+                    process_completed(future)
+                continue
+
+            while len(future_work) < 8:
+                if budget is not None and monotonic() >= budget.work_deadline:
+                    stop_for_budget = True
+                    break
+                try:
+                    scheduled = schedule_one()
+                except BudgetExhausted:
+                    stop_for_budget = True
+                    break
+                if not scheduled:
+                    break
+
+            if stop_for_budget or primary_error is not None:
+                break
+            if not future_work:
+                break
+
+            timeout = None if budget is None else budget.wait_seconds()
+            completed, _pending = wait(future_work, timeout=timeout, return_when=FIRST_COMPLETED)
+            if not completed and budget is not None:
+                stop_for_budget = True
+
+        if stop_for_budget or primary_error is not None:
+            add_incomplete_failures()
+        elif not dry_run and table is not None:
+            for prior in list(existing.values()):
+                if prior['id'] in globally_seen:
+                    continue
+                source = prior.get('sourceGroupId', '')
+                source_removed = source not in active_group_ids
+                group_id = source.removeprefix('meetup-')
+                source_state = source_by_id.get(group_id)
+                source_absent = source_state is not None and source_state.complete
+                if not source_removed and not source_absent:
+                    continue
+                if not source_removed and event_has_ended(prior):
+                    continue
+                try:
+                    if budget is not None:
+                        budget.check_work('Meetup source-removal pass')
+                    apply_unpublish(prior, check_ends_at=not source_removed)
+                except BudgetExhausted:
+                    stop_for_budget = True
+                    failures.append('Meetup source-removal pass stopped before completion')
+                    add_incomplete_failures()
+                    break
+                except Exception as error:
+                    primary_error = error
+                    failures.append(f'Event {prior["id"]}: source-removal write failed: {error}')
+                    add_incomplete_failures()
+                    break
+
+        for future in future_work:
+            future.cancel()
+
+        if before_drain is not None and changed:
+            try:
+                before_drain()
+            except Exception as error:
+                notification_error = error
+        executor.shutdown(wait=True, cancel_futures=True)
+    except BaseException:
+        for future in future_work:
+            future.cancel()
+        if before_drain is not None and changed and notification_error is None:
+            try:
+                before_drain()
+            except Exception as error:
+                notification_error = error
+        executor.shutdown(wait=True, cancel_futures=True)
+        raise
+
+    if primary_error is not None:
+        if notification_error is not None:
+            raise RuntimeError(
+                f'{primary_error}; publication notification failed: {notification_error}') from primary_error
+        raise primary_error
+    if notification_error is not None:
+        raise notification_error
+
+    result = {'groups': len(groups), 'feedsRead': feeds_read, 'upcomingEvents': len(upcoming_event_ids),
               'changed': changed, 'skipped': skipped, 'failures': failures, 'dryRun': dry_run}
     if conflicts:
         result['conflicts'] = conflicts
     return result
 
 
-def lambda_handler(_event, _context):
+def lambda_handler(_event, context):
+    try:
+        remaining_milliseconds = context.get_remaining_time_in_millis()
+    except (AttributeError, TypeError) as error:
+        raise RuntimeError('Meetup Lambda context has no usable remaining-time budget') from error
+    budget = InvocationBudget(remaining_milliseconds)
     import boto3
-    if boto3.client('sts').get_caller_identity()['Account'] != ACCOUNT_ID:
+    config = aws_config()
+    sts = boto3.client('sts', config=config)
+    check_sdk_budget(budget, 'AWS account identity lookup')
+    if sts.get_caller_identity()['Account'] != ACCOUNT_ID:
         raise RuntimeError('Wrong AWS account for Meetup synchronization')
-    table = boto3.resource('dynamodb', region_name='us-east-1').Table(os.environ['CATALOG_TABLE'])
-    result = synchronize(table=table)
-    if result['changed']:
-        boto3.client('lambda', region_name='us-east-1').invoke(
+    table = boto3.resource('dynamodb', region_name='us-east-1', config=config).Table(
+        os.environ['CATALOG_TABLE'])
+
+    def notify_publication():
+        publisher = boto3.client('lambda', region_name='us-east-1', config=config)
+        budget.check_notification()
+        publisher.invoke(
             FunctionName=os.environ['PUBLICATION_FUNCTION'], InvocationType='Event', Payload=b'{}')
+
+    result = synchronize(table=table, budget=budget, before_drain=notify_publication)
     print(json.dumps(result))
     if result['failures']:
         raise RuntimeError(f'{len(result["failures"])} Meetup sources failed; successful sources were synchronized')
@@ -950,10 +1331,11 @@ def main():
             raise RuntimeError('No approved Meetup communities found')
     else:
         import boto3
-        identity = boto3.client('sts').get_caller_identity()
+        config = aws_config()
+        identity = boto3.client('sts', config=config).get_caller_identity()
         if identity['Account'] != ACCOUNT_ID:
             raise RuntimeError(f'Wrong AWS account: {identity["Account"]}')
-        table = boto3.resource('dynamodb', region_name='us-east-1').Table(args.table)
+        table = boto3.resource('dynamodb', region_name='us-east-1', config=config).Table(args.table)
         groups = None
     result = synchronize(table=table, groups=groups, dry_run=args.dry_run)
     print(json.dumps(result))

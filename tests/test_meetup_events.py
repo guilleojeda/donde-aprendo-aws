@@ -90,6 +90,7 @@ class FakeTable:
         self.transactions = []
         self.gets = []
         self.before_update = None
+        self.before_transact = None
         self.scan_responses = None
         self.name = 'catalog-test'
         self.meta = SimpleNamespace(client=SimpleNamespace(transact_write_items=self.transact_write_items))
@@ -115,6 +116,10 @@ class FakeTable:
     def transact_write_items(self, *, TransactItems):
         """Model the resource client's DynamoDB document-form parameter hook."""
         self.transactions.append(TransactItems)
+        if self.before_transact is not None:
+            before_transact = self.before_transact
+            self.before_transact = None
+            before_transact(self.existing, TransactItems)
         for action in TransactItems:
             kind, operation = next(iter(action.items()))
             self.assert_document_form(operation)
@@ -262,6 +267,9 @@ def fake_boto3(table, invocations, before_invoke=None):
                 if before_invoke is not None:
                     before_invoke(table)
                 invocations.append(kwargs)
+                return {'StatusCode': 202, 'ResponseMetadata': {
+                    'HTTPStatusCode': 202, 'RequestId': 'fixture-publication-request',
+                }}
 
             return SimpleNamespace(invoke=invoke)
         raise AssertionError(f'unexpected AWS client: {service}')
@@ -270,6 +278,20 @@ def fake_boto3(table, invocations, before_invoke=None):
         client=client,
         resource=lambda _service, **_kwargs: SimpleNamespace(Table=lambda _name: table),
     )
+
+
+def fake_aws_modules(boto3):
+    """Substitute SDK creation/configuration, not sync decisions or effects."""
+    class Config:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
+    config = SimpleNamespace(Config=Config)
+    return {'boto3': boto3, 'botocore': SimpleNamespace(config=config), 'botocore.config': config}
+
+
+def lambda_context():
+    return SimpleNamespace(get_remaining_time_in_millis=lambda: 180_000)
 
 
 def removed_source_catalog():
@@ -305,11 +327,11 @@ class MeetupEventsTests(unittest.TestCase):
         before = copy.deepcopy(table.existing)
         invocations = []
         boto3 = fake_boto3(table, invocations)
-        with patch.dict(sys.modules, {'boto3': boto3}), \
+        with patch.dict(sys.modules, fake_aws_modules(boto3)), \
                 patch.dict(os.environ, {'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication'}):
             raised = None
             try:
-                meetup.lambda_handler({}, None)
+                meetup.lambda_handler({}, lambda_context())
             except Exception as error:
                 raised = error
 
@@ -1302,11 +1324,11 @@ class MeetupEventsTests(unittest.TestCase):
             before_invoke=lambda source: state_when_notified.append(
                 copy.deepcopy(source.existing)),
         )
-        with patch.dict(sys.modules, {'boto3': boto3}), \
+        with patch.dict(sys.modules, fake_aws_modules(boto3)), \
                 patch.dict(os.environ, {'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication'}):
-            first = meetup.lambda_handler({}, None)
+            first = meetup.lambda_handler({}, lambda_context())
             after_first = copy.deepcopy(table.existing)
-            second = meetup.lambda_handler({}, None)
+            second = meetup.lambda_handler({}, lambda_context())
 
         self.assertEqual((first['groups'], first['feedsRead'], first['changed'], first['failures']),
                          (0, 0, 2, []))
@@ -1331,7 +1353,7 @@ class MeetupEventsTests(unittest.TestCase):
         invocations = []
         boto3 = fake_boto3(table, invocations)
         output = StringIO()
-        with patch.dict(sys.modules, {'boto3': boto3}), \
+        with patch.dict(sys.modules, fake_aws_modules(boto3)), \
                 patch.object(sys, 'argv', ['import-meetup-events.py', '--table', 'fake-table']), \
                 redirect_stdout(output):
             meetup.main()
@@ -1452,11 +1474,11 @@ class MeetupEventsTests(unittest.TestCase):
         table = FakeTable([community, existing_event(published=True)])
         invocations = []
         boto3 = fake_boto3(table, invocations)
-        with patch.dict(sys.modules, {'boto3': boto3}), \
+        with patch.dict(sys.modules, fake_aws_modules(boto3)), \
                 patch.dict(os.environ, {'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication'}), \
                 patch.object(meetup, 'timezone_from_feed', return_value=[]):
-            first = meetup.lambda_handler({}, None)
-            second = meetup.lambda_handler({}, None)
+            first = meetup.lambda_handler({}, lambda_context())
+            second = meetup.lambda_handler({}, lambda_context())
 
         actual = (first['changed'], second['changed'], table.updates, invocations,
                   table.existing['meetup-event-456']['published'])
@@ -1477,19 +1499,19 @@ class MeetupEventsTests(unittest.TestCase):
         invocations = []
         boto3 = fake_boto3(table, invocations)
 
-        def feed(group):
+        def feed(group, _budget=None):
             if group['id'] == '123':
                 # timezone_from_feed sets this from the feed's TZID header.
                 group['timeZone'] = GROUP['timeZone']
                 return meetup.parse_feed(ICAL, GROUP)
             raise RuntimeError('Meetup feed unavailable')
 
-        with patch.dict(sys.modules, {'boto3': boto3}), \
+        with patch.dict(sys.modules, fake_aws_modules(boto3)), \
                 patch.dict(os.environ, {'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication'}), \
                 patch.object(meetup, 'timezone_from_feed', side_effect=feed), \
                 patch.object(meetup, 'fetch_event_page', return_value=PAGE):
             with self.assertRaisesRegex(RuntimeError, '1 Meetup sources failed'):
-                meetup.lambda_handler({}, None)
+                meetup.lambda_handler({}, lambda_context())
 
         self.assertIn('meetup-event-456', table.existing)
         self.assertEqual(table.existing['meetup-event-456']['timeZone'], GROUP['timeZone'])
@@ -1725,6 +1747,215 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertEqual((preserved['country'], preserved['venueCountry'], preserved['published']),
                          ('CO', 'US', True))
         self.assertEqual(table.updates, [])
+
+
+class MeetupUpdateTransportTests(unittest.TestCase):
+    """Both storage transports enforce the same source-mutation contract.
+
+    Literal source/expected records keep the oracle separate from the update
+    builder. Hooks arrange an independent writer before storage checks the CAS;
+    production update_source_event performs the mutation and conflict refresh.
+    """
+
+    @staticmethod
+    def records(moved=False, ended=False, published=False):
+        start, end = EVENT_DATES['past' if ended else 'future']
+        prior = {
+            'id': 'meetup-event-456', 'recordType': 'event', 'title': 'Before',
+            'description': 'Old description', 'startsAt': start, 'endsAt': end,
+            'timeZone': 'America/Bogota', 'organizer': 'Old organizer',
+            'mode': 'in-person', 'registrationUrl': EVENT_URL, 'country': 'CO',
+            'communityId': 'meetup-123', 'sourceGroupId': 'meetup-123',
+            'sourceModifiedAt': '20981231T000000Z', 'published': published,
+            'autoSync': True, 'place': 'Old venue', 'city': 'Old city',
+            'venueCountry': 'US', 'version': 4,
+            'editorNote': 'Keep this independent field', 'customTags': ['aws'],
+        }
+        record = {
+            'id': 'meetup-event-456', 'recordType': 'event', 'title': 'After',
+            'description': 'Current description', 'startsAt': start, 'endsAt': end,
+            'timeZone': 'America/Bogota', 'organizer': 'Current organizer',
+            'mode': 'online', 'registrationUrl': EVENT_URL + '?updated=1' if moved else EVENT_URL,
+            'country': 'CO', 'communityId': 'meetup-123', 'sourceGroupId': 'meetup-123',
+            'sourceModifiedAt': '20990102T000000Z', 'published': True, 'autoSync': True,
+        }
+        return prior, record
+
+    @staticmethod
+    def reservation(url, resource_id):
+        from hashlib import sha256
+        return {
+            'id': '__url#' + sha256(url.encode('utf-8')).hexdigest(),
+            'recordType': 'urlReservation', 'url': url, 'status': 'reserved',
+            'resourceId': resource_id, 'version': 1,
+        }
+
+    def table_for(self, prior):
+        reservation = self.reservation(prior['registrationUrl'], prior['id'])
+        control = {'id': 'unrelated-resource', 'title': 'Unchanged', 'version': 17}
+        return FakeTable([copy.deepcopy(prior), reservation, control])
+
+    def expected_after(self, before, prior, record, version, publication=None, **extra):
+        expected = copy.deepcopy(before)
+        updated = dict(record, version=version,
+                       editorNote='Keep this independent field', customTags=['aws'])
+        if publication is not None:
+            updated['published'] = publication
+        updated.update(extra)
+        expected[prior['id']] = updated
+        if prior['registrationUrl'] != record['registrationUrl']:
+            expected.pop(self.reservation(prior['registrationUrl'], prior['id'])['id'])
+            reservation = self.reservation(record['registrationUrl'], prior['id'])
+            expected[reservation['id']] = reservation
+        return expected
+
+    def arrange_competing_write(self, table, resource_id, moved, mutation):
+        if moved:
+            table.before_transact = lambda items, _request: mutation(items[resource_id])
+        else:
+            table.before_update = lambda item, _request: mutation(item)
+
+    def test_both_transports_apply_owned_fields_remove_optional_fields_and_preserve_ended_publication(self):
+        for moved in (False, True):
+            for ended, published in ((False, False), (True, False), (True, True)):
+                with self.subTest(moved=moved, ended=ended, published=published):
+                    prior, record = self.records(moved, ended, published)
+                    table = self.table_for(prior)
+                    before = copy.deepcopy(table.existing)
+                    outcome = meetup.update_source_event(table, record, prior)
+                    self.assertIs(outcome, True)
+                    self.assertEqual(table.existing, self.expected_after(
+                        before, prior, record, 5, publication=published if ended else True))
+                    # The next actual sync command is a no-op, with no reservation churn.
+                    current = copy.deepcopy(table.existing[prior['id']])
+                    settled = copy.deepcopy(table.existing)
+                    requests = (len(table.updates), len(table.transactions))
+                    self.assertIs(meetup.update_source_event(table, record, current), False)
+                    self.assertEqual(table.existing, settled)
+                    self.assertEqual((len(table.updates), len(table.transactions)), requests)
+
+    def test_both_transports_accept_missing_or_explicit_legacy_zero_version(self):
+        for moved in (False, True):
+            for version in (None, 0):
+                with self.subTest(moved=moved, version=version):
+                    prior, record = self.records(moved)
+                    if version is None:
+                        prior.pop('version')
+                    else:
+                        prior['version'] = version
+                    table = self.table_for(prior)
+                    before = copy.deepcopy(table.existing)
+                    self.assertIs(meetup.update_source_event(table, record, prior), True)
+                    self.assertEqual(table.existing, self.expected_after(before, prior, record, 1))
+
+    def test_both_transports_reject_observed_manual_other_owner_and_revoked_records(self):
+        for moved in (False, True):
+            for changes in ({'autoSync': False}, {'sourceGroupId': 'meetup-999'},
+                            {'approvalRevoked': True, 'published': False}):
+                with self.subTest(moved=moved, changes=changes):
+                    prior, record = self.records(moved)
+                    prior.update(changes)
+                    table = self.table_for(prior)
+                    before = copy.deepcopy(table.existing)
+                    self.assertIs(meetup.update_source_event(table, record, prior), False)
+                    self.assertEqual(table.existing, before)
+                    self.assertEqual(table.transactions, [])
+                    self.assertEqual(table.updates, [])
+
+    def test_both_transports_guard_concurrent_owner_manual_and_revocation_changes_atomically(self):
+        for moved in (False, True):
+            for changes in ({'autoSync': False}, {'sourceGroupId': 'meetup-999'},
+                            {'approvalRevoked': True, 'published': False}):
+                with self.subTest(moved=moved, changes=changes):
+                    prior, record = self.records(moved)
+                    table = self.table_for(prior)
+                    expected = copy.deepcopy(table.existing)
+                    expected[prior['id']].update(changes)
+                    self.arrange_competing_write(table, prior['id'], moved,
+                                                 lambda item: item.update(changes))
+                    self.assertIs(meetup.update_source_event(table, record, prior), False)
+                    self.assertEqual(table.existing, expected)
+
+    def test_both_transports_refresh_one_conflict_without_losing_independent_fields(self):
+        for moved in (False, True):
+            with self.subTest(moved=moved):
+                prior, record = self.records(moved)
+                table = self.table_for(prior)
+                before = copy.deepcopy(table.existing)
+                self.arrange_competing_write(table, prior['id'], moved, lambda item: item.update(
+                    version=9, editorNote='Independent correction'))
+                self.assertIs(meetup.update_source_event(table, record, prior), True)
+                self.assertEqual(table.existing, self.expected_after(
+                    before, prior, record, 10, editorNote='Independent correction'))
+
+    def test_both_transports_stop_after_the_existing_bounded_conflict_refresh(self):
+        for moved in (False, True):
+            with self.subTest(moved=moved):
+                prior, record = self.records(moved)
+                table = self.table_for(prior)
+                expected = copy.deepcopy(table.existing)
+                attempts = []
+                elapsed = [0.0]
+
+                def mutate(item):
+                    attempts.append(item['version'])
+                    item['version'] += 1
+                    item['editorNote'] = 'Independent correction'
+                    if len(attempts) == 2:
+                        elapsed[0] = 136.0  # A follow-up SDK read no longer fits the remaining budget.
+                    self.arrange_competing_write(table, prior['id'], moved, mutate)
+
+                self.arrange_competing_write(table, prior['id'], moved, mutate)
+                with patch.object(meetup, 'monotonic', side_effect=lambda: elapsed[0]):
+                    budget = meetup.InvocationBudget(180_000)
+                    self.assertIs(meetup.update_source_event(table, record, prior, budget=budget), False)
+                expected[prior['id']].update(version=6, editorNote='Independent correction')
+                self.assertEqual(table.existing, expected)
+                self.assertEqual(attempts, [4, 5])
+                conflict_refreshes = [request for request in table.gets
+                                      if request['Key']['id'] == prior['id']
+                                      and 'version' in request.get('ExpressionAttributeNames', {}).values()]
+                self.assertEqual(len(conflict_refreshes), 1,
+                                 'The first conflict is refreshed; the final conflict must not issue an unused GetItem')
+
+    def test_url_move_rejects_reserved_and_colliding_destinations_without_partial_changes(self):
+        for collision in (False, True):
+            with self.subTest(collision=collision):
+                prior, record = self.records(moved=True)
+                table = self.table_for(prior)
+                other = dict(record, id='meetup-event-789', sourceGroupId='meetup-999', version=2)
+                table.existing[other['id']] = other
+                reservation = self.reservation(record['registrationUrl'], other['id'])
+                if collision:
+                    another = dict(other, id='meetup-event-790')
+                    table.existing[another['id']] = another
+                    reservation.pop('resourceId')
+                    reservation.update(status='collision', resourceIds=[other['id'], another['id']])
+                table.existing[reservation['id']] = reservation
+                before = copy.deepcopy(table.existing)
+                self.assertEqual(meetup.update_source_event(table, record, prior),
+                                 'collision' if collision else 'duplicate')
+                self.assertEqual(table.existing, before)
+                self.assertEqual(table.transactions, [])
+                self.assertEqual(table.updates, [])
+
+    def test_both_transports_propagate_unrelated_storage_errors_without_retry_or_partial_effects(self):
+        for moved in (False, True):
+            with self.subTest(moved=moved):
+                prior, record = self.records(moved)
+                table = self.table_for(prior)
+                before = copy.deepcopy(table.existing)
+                attempts = []
+
+                def unavailable(_item):
+                    attempts.append('write')
+                    raise RuntimeError('storage unavailable')
+
+                self.arrange_competing_write(table, prior['id'], moved, unavailable)
+                with self.assertRaisesRegex(RuntimeError, 'storage unavailable'):
+                    meetup.update_source_event(table, record, prior)
+                self.assertEqual(table.existing, before)
+                self.assertEqual(attempts, ['write'])
 
 
 if __name__ == '__main__':
