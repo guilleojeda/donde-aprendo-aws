@@ -16,13 +16,6 @@ const artifactRoot = resolve(workspaceRoot, '.amplify-hosting');
 const staticRoot = resolve(artifactRoot, 'static');
 const computeRoot = resolve(artifactRoot, 'compute/default');
 const entrypoint = resolve(computeRoot, 'entry.mjs');
-const runtimeEnvironmentNames = [
-  'ACCOUNT_ORIGIN',
-  'COGNITO_ISSUER',
-  'COGNITO_CLIENT_ID',
-  'COGNITO_DOMAIN',
-  'ACCOUNTS_TABLE',
-];
 
 function parseArguments(args) {
   const options = { host: '127.0.0.1', port: 4321 };
@@ -137,11 +130,7 @@ async function main() {
   const options = parseArguments(process.argv.slice(2));
   const computePort = await availablePort();
   const childEnvironment = {
-    ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
-    ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
-    ...Object.fromEntries(runtimeEnvironmentNames
-      .filter((name) => process.env[name] !== undefined)
-      .map((name) => [name, process.env[name]])),
+    ...process.env,
     NODE_ENV: 'production',
     HOST: '127.0.0.1',
     PORT: String(computePort),

@@ -36,6 +36,8 @@ npm run preview
 
 `npm run preview` serves the mixed build locally on `127.0.0.1:4321`, including prerendered pages and Compute routes; use `-- --port PORT` to change the port. It needs a completed build. It rewrites existing static directory paths locally; production hostname redirects and Amplify custom rules must be checked on the deployed site. `npm run verify:preview` exercises this command's built HTTP output after building.
 
+Local Compute inherits your exported environment, including AWS credentials, region/profile selection and runtime configuration overrides. Preview sets only `NODE_ENV=production` and its private `HOST`/`PORT`. Exported values take precedence over the built Compute `.env`; missing settings load from that file. This local inheritance does not change the deployment artifact's configuration allowlist or copy credentials into the artifact.
+
 After either build, run `npm run verify:blog` and `npm run verify:site` to check the featured and archive links, all 196 article routes, search index, owned assets, sitemap, indexing mode, and Analytics tags. The static client is `.amplify-hosting/static`. Pass the same `PUBLIC_PRODUCTION` and `PUBLIC_SITE_ORIGIN` values to the verifiers that you used for the build. CI tests both preview and production build modes; Amplify checks its active mode after each build. The deployment also packages production dependencies in `.amplify-hosting/compute/default/node_modules` and runs `npm run verify:hosting` against the built server, not Astro's development server.
 
 Do not set `CATALOG_FIXTURE` for an Amplify deployment or combine it with `CATALOG_TABLE`. Never commit credentials, submission contact information, or raw database dumps.
