@@ -712,3 +712,108 @@ test('Series eliminada vuelve a la búsqueda válida, cancela la salida antigua 
     await capture.stop({ skipErrorBodies: true }).catch(() => {});
   }
 });
+
+test('edición propia conserva la explicación de varios reemplazos del mismo recurso', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const original = await addLink(fixture, cookie, {
+    title: 'Ficha original con reemplazos ambiguos',
+    url: 'https://f1-ambiguous.example/resource',
+  });
+  const historicalPlacement = await fixture.rawPlacement(cookie, original.placementId);
+  assert.ok(historicalPlacement, 'the editor starts from a real owner placement');
+
+  await openLinksView(page, fixture);
+  await page.locator(`[data-link-row="${original.placementId}"]`)
+    .getByRole('button', { name: 'Editar ficha', exact: true }).click();
+  const editor = linkEditor(page);
+  await expect(editor).toBeVisible();
+  const correction = 'Conservar esta corrección local';
+  await editor.getByLabel('Título', { exact: true }).fill(correction);
+
+  const beforeRemoval = await ownerDto(fixture, cookie);
+  const removed = await api(fixture, cookie, `/api/creador/enlaces/${original.placementId}`, {
+    method: 'DELETE', body: { profileVersion: beforeRemoval.profile.version },
+  });
+  assert.equal(removed.response.status, 204, 'the real owner API removes the edited placement');
+  assert.equal(await fixture.rawPlacement(cookie, original.placementId), null);
+
+  const ownerAfterRemoval = await fixture.rawOwner(cookie);
+  assert.ok(ownerAfterRemoval?.owner && ownerAfterRemoval.profile);
+  const replacementIds = ['f1-ambiguous-historical-a', 'f1-ambiguous-historical-b'];
+  assert.equal(await fixture.creatorStore.transact({
+    checks: [{ key: `profile:${ownerAfterRemoval.profile.id}`, version: ownerAfterRemoval.profile.version }],
+    puts: [
+      {
+        key: `profile:${ownerAfterRemoval.profile.id}`,
+        value: { ...ownerAfterRemoval.profile, version: ownerAfterRemoval.profile.version + 1 },
+      },
+      ...replacementIds.map((id, position) => ({
+        key: `placement:${ownerAfterRemoval.profile.id}:${id}`,
+        value: { ...historicalPlacement, id, position, version: ownerAfterRemoval.profile.version + 1 },
+      })),
+    ],
+  }), true, 'seed the supported historical duplicate placements at the persistence boundary');
+
+  const ownerBeforeRecovery = await fixture.rawOwner(cookie);
+  const resourceBeforeRecovery = await fixture.rawResource(original.resourceId);
+  const placementsBeforeRecovery = await Promise.all(replacementIds.map((id) => fixture.rawPlacement(cookie, id)));
+  assert.ok(placementsBeforeRecovery.every(Boolean));
+
+  // The unit case proves the comparison policy; this exercises the real API read through the app controller and dialog,
+  // where replacing every non-adoptable message used to hide the policy explanation.
+  const capture = await captureCreatorApi(page);
+  try {
+    const stalePath = `/api/creador/enlaces/${original.placementId}/editar`;
+    await editor.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'PATCH', stalePath)[0]?.status).toBe(404);
+    const failedWrites = writesTo(capture, 'PATCH', stalePath);
+    await failedWrites[0].settled;
+    assert.equal(failedWrites.length, 1, 'the failed correction is attempted once');
+    assert.equal(capture.writes().length, 1, 'only the failed placement correction has been written');
+    assert.deepEqual(capture.writes().map(({ method, path, status }) => [method, path, status]), [
+      ['PATCH', stalePath, 404],
+    ]);
+    await expect(editor.getByLabel('Título', { exact: true }),
+      'the local correction survives the failed save').toHaveValue(correction);
+
+    await editor.locator('[data-owner-compare]').click();
+    const comparison = editor.locator('[data-owner-comparison]');
+    await expect(comparison).toBeVisible();
+    const comparisonReads = capture.records.filter(({ method, path }) => method === 'GET' && path === OWNER_PATH);
+    assert.equal(comparisonReads.length, 1, 'comparison uses one real owner snapshot read');
+    await comparisonReads[0].settled;
+    const comparedOwner = comparisonReads[0].responseBody;
+    assert.equal(comparisonReads[0].status, 200, 'the app receives a successful owner read');
+    assert.equal(comparedOwner.profile.id, ownerBeforeRecovery.profile.id,
+      'the app receives a valid snapshot for the profile that opened this edit');
+    assert.equal(comparedOwner.links.some(({ placementId }) => placementId === original.placementId), false,
+      'the compared snapshot keeps the original edited placement missing');
+    assert.deepEqual(comparedOwner.links
+      .filter(({ resourceId }) => resourceId === original.resourceId)
+      .map(({ placementId }) => placementId).sort(), replacementIds.slice().sort(),
+    'the compared snapshot contains the two matching historical placements');
+    await expect(comparison).toContainText(
+      'Hay varios enlaces actuales para el mismo recurso. No elegimos uno automáticamente y conservamos tu corrección.',
+    );
+    await expect(comparison).not.toContainText('La lectura no coincide con la página que abrió esta edición.');
+    await expect(editor.locator('[data-owner-adopt]'),
+      'ambiguous placements do not expose automatic adoption').toHaveCount(0);
+    await expect(editor.getByLabel('Título', { exact: true })).toHaveValue(correction);
+
+    const ownerAfterRecovery = await fixture.rawOwner(cookie);
+    assert.deepEqual(ownerAfterRecovery.owner, ownerBeforeRecovery.owner,
+      'the recovery read and comparison do not change raw owner state');
+    assert.deepEqual(ownerAfterRecovery.profile, ownerBeforeRecovery.profile,
+      'the recovery read and comparison do not change the profile');
+    assert.deepEqual(await Promise.all(replacementIds.map((id) => fixture.rawPlacement(cookie, id))),
+      placementsBeforeRecovery, 'the current placements remain unchanged');
+    assert.deepEqual(await fixture.rawResource(original.resourceId), resourceBeforeRecovery,
+      'the failed correction and comparison do not change shared resource metadata');
+    assert.equal(await fixture.rawPlacement(cookie, original.placementId), null,
+      'recovery does not recreate the original placement');
+    assert.equal(capture.writes().length, 1,
+      'the comparison read does not add a write or replay the failed correction');
+  } finally {
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
