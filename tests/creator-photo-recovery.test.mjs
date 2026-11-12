@@ -523,7 +523,8 @@ test('only a definitive false with a different validated winner may delete the d
       assertHistoricalResult(recovered.value, upload.uploadId);
       assert.deepEqual(transactionResults, [true, false], 'the logical CAS selected exactly one output');
       assert.equal(transactionsCompleting(harness, upload.uploadId, start).length, 2);
-      assert.equal(getsOf(harness, UPLOAD_KEY(upload.uploadId), start).length, 3, 'cleanup does not trigger another confirmation');
+      const uploadReadCount = getsOf(harness, UPLOAD_KEY(upload.uploadId), start).length;
+      assert.equal(uploadReadCount, 3, 'cleanup does not trigger another confirmation');
       const winnerKey = (await harness.store.get(UPLOAD_KEY(upload.uploadId))).finalKey;
       assert.notEqual(firstAttemptKey, winnerKey, 'the controlled pixel images produce different processed digests');
       assert.ok(winnerKey.startsWith(FINAL_PREFIX('creator-a', upload.uploadId)));
@@ -540,7 +541,7 @@ test('only a definitive false with a different validated winner may delete the d
         else assert.ok(await harness.objects.get(firstAttemptKey), 'an undeleted or failed-cleanup loser may remain immutable');
         if (failedCleanupCalls === 1) {
           assert.equal(recovered.ok, true, 'a failed best-effort cleanup cannot replace confirmed success');
-          assert.equal(getsOf(harness, UPLOAD_KEY(upload.uploadId), start).length, 3, 'cleanup failure does not trigger another confirmation');
+          assert.equal(uploadReadCount, 3, 'cleanup failure does not trigger another confirmation');
         }
       }
       const selected = await harness.service.readPhoto({ profileId: 'creator-a', version: upload.uploadId });
@@ -703,6 +704,25 @@ test('a completed record cannot synthesize an unsafe historical receipt', async 
   assert.equal((await harness.store.get(profileStoreKey('creator-a'))).version, version);
 });
 
+test('photo finalization does not write an unsafe next profile version', async () => {
+  const { jpeg } = await rasterPhotoFixtures();
+  const version = Number.MAX_SAFE_INTEGER;
+  const harness = await createCreatorPhotoHarness({ profiles: [{ id: 'creator-a', version }] });
+  const upload = await harness.service.beginUpload({ profileId: 'creator-a', expectedVersion: version });
+  harness.objects.seed(upload.post.fields.key, jpeg);
+  const start = harness.store.calls.length;
+
+  await assert.rejects(
+    harness.service.finalizeUpload(finalizeInput(upload, 'creator-a', version)),
+    (error) => error?.code === 'PROFILE_VERSION_CONFLICT',
+  );
+  assert.equal(getsOf(harness, UPLOAD_KEY(upload.uploadId), start).length, 2, 'the safe-version rejection gets one fresh completion confirmation');
+  assert.equal((await harness.store.get(profileStoreKey('creator-a'))).version, version);
+  assert.equal((await harness.store.get(UPLOAD_KEY(upload.uploadId))).state, 'pending');
+  assert.equal(transactionsCompleting(harness, upload.uploadId, start).length, 0);
+  assert.equal(harness.objects.calls.length, 0, 'the unsafe profile increment is rejected before object work');
+});
+
 test('historical receipts accept version zero and the largest safe after-version', async (t) => {
   const { jpeg } = await rasterPhotoFixtures();
   for (const base of [0, Number.MAX_SAFE_INTEGER - 1]) {
@@ -860,10 +880,10 @@ test('a different upload winning the same profile preserves the original conflic
   assert.equal(rejected.ok, false);
   assert.equal(rejected.error?.code, 'PROFILE_VERSION_CONFLICT');
   assertHistoricalResult(winner, competing.uploadId);
+  assert.equal(getsOf(harness, UPLOAD_KEY(pending.uploadId), start).length, 2, 'one initial observation plus one same-upload confirmation');
   assert.equal((await harness.store.get(UPLOAD_KEY(pending.uploadId))).state, 'pending');
   assert.equal((await harness.store.get(UPLOAD_KEY(competing.uploadId))).state, 'complete');
   assert.equal((await harness.store.get(profileStoreKey('creator-a'))).version, 2);
-  assert.equal(getsOf(harness, UPLOAD_KEY(pending.uploadId), start).length, 2, 'the other upload is not mistaken for confirmation');
   assert.equal(transactionsCompleting(harness, pending.uploadId, start).length, 0);
   assert.equal(transactionsCompleting(harness, competing.uploadId, start).length, 1);
   assert.equal(harness.objects.calls.filter(({ operation }) => operation === 'put').length, 1);
