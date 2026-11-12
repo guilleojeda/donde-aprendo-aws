@@ -1,25 +1,28 @@
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
+import { parseEnv } from 'node:util';
 import { configuredAccountOrigin } from '../src/lib/amplify-security.mjs';
+import { startMixedPreview } from './fixtures/mixed-preview.mjs';
 
 const root = resolve('.');
-const previewScript = resolve(root, 'scripts/preview.mjs');
 const runtimeEntry = resolve(root, '.amplify-hosting/compute/default/entry.mjs');
 const hasBuiltPreview = existsSync(runtimeEntry) && existsSync(resolve(root, '.amplify-hosting/static/index.html'));
 const accountOrigin = configuredAccountOrigin();
+// The production-mode CI fixture build receives these same invalid credentials.
+const dummyCredentials = {
+  AWS_ACCESS_KEY_ID: 'mixed-preview-dummy-access-key-not-valid',
+  AWS_SECRET_ACCESS_KEY: 'mixed-preview-dummy-secret-not-valid',
+  AWS_SESSION_TOKEN: 'mixed-preview-dummy-session-not-valid',
+};
 
 test('the built mixed preview serves prerendered routes and runtime routes over HTTP', async (t) => {
   assert.ok(hasBuiltPreview, 'Run `npm run build` before verifying the built preview.');
   assert.equal(process.versions.node.split('.')[0], '24', 'The mixed preview runs with Node 24.');
 
-  const output = [];
-  const child = spawn(process.execPath, [previewScript, '--host', '127.0.0.1', '--port', '0'], {
-    cwd: root,
+  const { origin: baseUrl } = await startMixedPreview(t, {
+    root,
     env: {
       ...process.env,
       ACCOUNT_ORIGIN: accountOrigin,
@@ -28,36 +31,7 @@ test('the built mixed preview serves prerendered routes and runtime routes over 
       COGNITO_DOMAIN: process.env.COGNITO_DOMAIN ?? 'https://preview.auth.us-east-1.amazoncognito.com',
       ACCOUNTS_TABLE: process.env.ACCOUNTS_TABLE ?? 'preview-accounts',
     },
-    stdio: ['ignore', 'pipe', 'pipe'],
   });
-  for (const stream of [child.stdout, child.stderr]) {
-    stream.setEncoding('utf8');
-    stream.on('data', (chunk) => output.push(chunk));
-  }
-
-  const outputText = () => output.join('');
-  const exited = once(child, 'exit').then(([code, signal]) => ({ code, signal }));
-  t.after(async () => {
-    if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
-    const stopped = await Promise.race([exited, delay(2_000).then(() => null)]);
-    if (!stopped) {
-      child.kill('SIGKILL');
-      await exited;
-    }
-  });
-
-  let baseUrl;
-  const startup = (async () => {
-    const deadline = Date.now() + 12_000;
-    while (Date.now() < deadline) {
-      const ready = /Mixed Astro preview ready at http:\/\/127\.0\.0\.1:(\d+)/u.exec(outputText());
-      if (ready) return `http://127.0.0.1:${ready[1]}`;
-      const exit = await Promise.race([exited, delay(25).then(() => null)]);
-      if (exit) throw new Error(`Preview exited before becoming ready (${exit.code ?? exit.signal}).\n${outputText()}`);
-    }
-    throw new Error(`Preview did not become ready within 12 seconds.\n${outputText()}`);
-  })();
-  baseUrl = await startup;
 
   const home = await fetch(new URL('/', baseUrl));
   assert.equal(home.status, 200);
@@ -108,4 +82,68 @@ test('the built mixed preview serves prerendered routes and runtime routes over 
   const missingCalendar = await fetch(new URL('/eventos/no-such-file.ics', baseUrl), { redirect: 'manual' });
   assert.equal(missingCalendar.status, 404);
   assert.equal(missingCalendar.headers.get('location'), null, 'A missing calendar file remains a direct 404.');
+});
+
+test('the built mixed preview combines artifact defaults with exported overrides without rewriting the artifact', async (t) => {
+  assert.ok(hasBuiltPreview, 'Run `npm run build` before verifying the built preview.');
+  assert.equal(process.versions.node.split('.')[0], '24', 'The mixed preview runs with Node 24.');
+  const environmentFile = resolve(root, '.amplify-hosting/compute/default/.env');
+  const originalEnvironment = readFileSync(environmentFile);
+  const defaults = parseEnv(originalEnvironment.toString('utf8'));
+  for (const name of ['ACCOUNT_ORIGIN', 'COGNITO_ISSUER', 'COGNITO_CLIENT_ID', 'COGNITO_DOMAIN',
+    'ACCOUNTS_TABLE', 'CREATOR_PROFILES_TABLE', 'CREATOR_PHOTOS_BUCKET']) {
+    assert.ok(defaults[name]?.trim(), `The build supplies a nonempty default for ${name}.`);
+  }
+  t.after(() => assert.deepEqual(readFileSync(environmentFile), originalEnvironment,
+    'Local exported configuration must not rewrite the deployment artifact.'));
+
+  // Omit account/profile/photo settings: the actual adapter must load those
+  // defaults. Export the catalog setting required by the actual creator route.
+  // Anonymous authentication returns before any provider or database request.
+  const env = {
+    ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
+    ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
+    ...dummyCredentials,
+    AWS_REGION: 'us-west-2',
+    AWS_EC2_METADATA_DISABLED: 'true',
+    CATALOG_TABLE: 'mixed-preview-dummy-catalog',
+  };
+  const configured = await startMixedPreview(t, { root, env });
+  const response = await fetch(new URL('/api/creador/perfil/', configured.origin), { signal: AbortSignal.timeout(3_000) });
+  assert.equal(response.status, 401, 'Exported configuration reaches the real built creator runtime.');
+  assert.equal((await response.json()).error, 'AUTH_REQUIRED');
+  assert.match(response.headers.get('cache-control') ?? '', /private.*no-store/u);
+  const account = await fetch(new URL('/cuenta/', configured.origin), { signal: AbortSignal.timeout(3_000) });
+  assert.equal(account.status, 200);
+  const html = await account.text();
+  await configured.stop();
+
+  // A fresh child prevents singleton runtime state from masking precedence.
+  // An explicit empty export must win over the artifact's valid profile table.
+  const overridden = await startMixedPreview(t, { root, env: { ...env, CREATOR_PROFILES_TABLE: '' } });
+  const unavailable = await fetch(new URL('/api/creador/perfil/', overridden.origin), { signal: AbortSignal.timeout(3_000) });
+  assert.equal(unavailable.status, 503, 'An explicit empty export is not replaced by an artifact default.');
+  assert.deepEqual(await unavailable.json(), { error: 'SERVICE_UNAVAILABLE' });
+  assert.match(unavailable.headers.get('cache-control') ?? '', /private.*no-store/u);
+  await overridden.stop();
+  for (const value of Object.values(dummyCredentials)) {
+    assert.ok(!html.includes(value), 'Credentials stay out of the rendered account document.');
+    assert.ok(!`${configured.output()}${overridden.output()}`.includes(value), 'Credentials stay out of preview output.');
+  }
+});
+
+test('the built artifact excludes the dummy credentials supplied during the fixture build', () => {
+  assert.ok(hasBuiltPreview, 'Run `npm run build` before verifying the built preview.');
+  const forbidden = Object.values(dummyCredentials).map((value) => Buffer.from(value));
+  function inspect(directory) {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = resolve(directory, entry.name);
+      if (entry.isDirectory()) inspect(path);
+      else if (entry.isFile()) {
+        const content = readFileSync(path);
+        assert.ok(forbidden.every((value) => !content.includes(value)), `Build credentials must not be packaged in ${path}.`);
+      }
+    }
+  }
+  inspect(resolve(root, '.amplify-hosting'));
 });
