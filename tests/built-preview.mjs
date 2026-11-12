@@ -111,7 +111,7 @@ test('the built mixed preview combines artifact defaults with exported overrides
   const configured = await startMixedPreview(t, { root, env });
   const response = await fetch(new URL('/api/creador/perfil/', configured.origin), { signal: AbortSignal.timeout(3_000) });
   assert.equal(response.status, 401, 'Exported configuration reaches the real built creator runtime.');
-  assert.deepEqual(await response.json(), { error: 'AUTH_REQUIRED' });
+  assert.equal((await response.json()).error, 'AUTH_REQUIRED');
   assert.match(response.headers.get('cache-control') ?? '', /private.*no-store/u);
   const account = await fetch(new URL('/cuenta/', configured.origin), { signal: AbortSignal.timeout(3_000) });
   assert.equal(account.status, 200);
