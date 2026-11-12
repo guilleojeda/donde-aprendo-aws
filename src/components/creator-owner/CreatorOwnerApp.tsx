@@ -1342,7 +1342,7 @@ export default function CreatorOwnerApp(props: Props) {
         return;
       }
       const comparison = createCreatorOwnerComparison(intent, snapshot, current.editor);
-      if (!comparison.canAdopt && intent.kind !== 'save-series') {
+      if (!comparison.canAdopt && !comparison.missingTarget && intent.kind !== 'save-series') {
         comparison.message = intent.kind === 'chapter-move'
           ? 'El capítulo o la serie ya no están disponibles. Conservamos el destino para que decidas cómo seguir.'
           : 'La lectura no coincide con la página que abrió esta edición. Conservamos tus cambios.';
