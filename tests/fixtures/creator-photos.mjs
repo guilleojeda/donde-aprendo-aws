@@ -105,6 +105,7 @@ export function createPhotoObjects() {
 export async function createCreatorPhotoHarness({
   profiles = [{ id: 'creator-a', version: 1 }],
   initialTime = TEST_NOW,
+  clock = () => initialTime,
 } = {}) {
   const { createCreatorPhotoService } = await loadCreatorPhotosModule();
   const store = await createPhotoStore(profiles);
@@ -123,7 +124,7 @@ export async function createCreatorPhotoHarness({
     store,
     objects,
     signPost,
-    now: () => initialTime,
+    now: clock,
     createId: () => `fixture-photo-${++id}`,
   });
 
