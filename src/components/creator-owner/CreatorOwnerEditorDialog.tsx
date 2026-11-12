@@ -584,6 +584,9 @@ function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onP
   onSelect(item: CreatorCatalogSelectionDTO, checked: boolean): void;
 }) {
   const resultsRef = useRef<HTMLUListElement>(null);
+  const previousPageRef = useRef<HTMLButtonElement>(null);
+  const nextPageRef = useRef<HTMLButtonElement>(null);
+  const pageFocusRequestRef = useRef<{ direction: 'previous' | 'next'; page: number } | null>(null);
   const catalog = state.catalog;
   const entries = catalog.entries ?? [];
   const selection = pageCreatorOwnerCatalog(entries, catalog.search, catalog.page);
@@ -596,15 +599,44 @@ function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onP
       : catalog.needsRefresh ? catalog.message ?? 'Actualiza el catálogo antes de continuar.'
         : catalog.status === 'ready' ? `${selection.matches.length} ${selection.matches.length === 1 ? 'resultado' : 'resultados'}` : 'Busca contenido existente por título o URL.';
 
+  useLayoutEffect(() => {
+    const request = pageFocusRequestRef.current;
+    if (!request || selection.page !== request.page) return;
+
+    // Consume before focusing so later input or selection renders cannot replay it.
+    pageFocusRequestRef.current = null;
+    const activated = request.direction === 'previous' ? previousPageRef.current : nextPageRef.current;
+    const opposite = request.direction === 'previous' ? nextPageRef.current : previousPageRef.current;
+    const destination = activated && !activated.disabled
+      ? activated
+      : opposite && !opposite.disabled
+        ? opposite
+        : resultsRef.current;
+    if (!destination) return;
+
+    destination.focus();
+    destination.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [selection.page]);
+
+  const changePage = (direction: 'previous' | 'next', page: number) => {
+    pageFocusRequestRef.current = { direction, page };
+    onPage(page);
+  };
+
+  const updateSearch = (value: string) => {
+    pageFocusRequestRef.current = null;
+    onSearch(value);
+  };
+
   return <section class="creator-owner__catalog" data-owner-catalog aria-label="Buscar contenido publicado" aria-busy={catalog.status === 'loading'}>
     <div class="creator-owner__catalog-search" role="search">
       <div class="creator-owner__field"><label htmlFor="owner-catalog-search">Buscar por título o URL</label>
         <input id="owner-catalog-search" type="search" name="buscarCatalogo" data-catalog-search autoComplete="off" value={catalog.search}
-          onInput={(event) => onSearch((event.currentTarget as HTMLInputElement).value)}
-          onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); resultsRef.current?.focus(); } }} />
+          onInput={(event) => updateSearch((event.currentTarget as HTMLInputElement).value)}
+          onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); pageFocusRequestRef.current = null; resultsRef.current?.focus(); } }} />
       </div>
       <button class="button button--outline" type="button" data-catalog-search-submit disabled={catalog.status !== 'ready' || catalog.needsRefresh}
-        onClick={() => { onSearch(catalog.search); resultsRef.current?.focus(); }}>Buscar</button>
+        onClick={() => { updateSearch(catalog.search); resultsRef.current?.focus(); }}>Buscar</button>
     </div>
     <p class="creator-owner__status" data-catalog-index-status role={catalog.status === 'error' ? 'alert' : 'status'} aria-live="polite">{loadLabel}</p>
     {canRefresh && <button class="button button--outline" type="button" data-catalog-retry onClick={onRetry}>{catalog.status === 'error' ? 'Reintentar carga del catálogo' : 'Actualizar catálogo'}</button>}
@@ -631,9 +663,9 @@ function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onP
         {entries.length ? 'No hay recursos que coincidan con la búsqueda.' : 'El catálogo no tiene recursos disponibles en este momento.'}
       </p>
       <nav class="creator-owner__catalog-pagination" aria-label="Páginas del catálogo">
-        <button class="button button--outline" type="button" data-catalog-page="previous" disabled={selection.page <= 1} onClick={() => onPage(selection.page - 1)}>Anterior</button>
+        <button ref={previousPageRef} class="button button--outline" type="button" data-catalog-page="previous" disabled={selection.page <= 1} onClick={() => changePage('previous', selection.page - 1)}>Anterior</button>
         <span data-catalog-page-label aria-live="polite">Página {selection.page} de {selection.pageCount}</span>
-        <button class="button button--outline" type="button" data-catalog-page="next" disabled={selection.page >= selection.pageCount} onClick={() => onPage(selection.page + 1)}>Siguiente</button>
+        <button ref={nextPageRef} class="button button--outline" type="button" data-catalog-page="next" disabled={selection.page >= selection.pageCount} onClick={() => changePage('next', selection.page + 1)}>Siguiente</button>
       </nav>
     </>}
   </section>;
