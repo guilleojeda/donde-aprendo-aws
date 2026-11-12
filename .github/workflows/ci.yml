@@ -69,6 +69,10 @@ jobs:
           PUBLIC_SUBMISSION_API_URL: https://api.example.invalid/submissions
           PUBLIC_PRODUCTION: 'true'
           PUBLIC_SITE_ORIGIN: https://dondeaprendoaws.com
+          # Invalid sentinels: verify:preview checks they never enter the artifact.
+          AWS_ACCESS_KEY_ID: mixed-preview-dummy-access-key-not-valid
+          AWS_SECRET_ACCESS_KEY: mixed-preview-dummy-secret-not-valid
+          AWS_SESSION_TOKEN: mixed-preview-dummy-session-not-valid
           ACCOUNT_ORIGIN: https://dondeaprendoaws.com
           COGNITO_ISSUER: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_EXAMPLE
           COGNITO_CLIENT_ID: example-client-id
