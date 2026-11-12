@@ -73,6 +73,15 @@ async function openOwnerCatalog(page, fixture) {
   await expect(page.getByRole('dialog')).toBeVisible();
 }
 
+async function openOwnerClaimCatalog(page, fixture) {
+  await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByRole('heading', { name: 'Solicitudes', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Solicitar edición', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByLabel(/URLs conocidas/i)).toBeVisible();
+}
+
 function catalogSearch(page) {
   return page.getByRole('dialog').getByRole('searchbox').first();
 }
@@ -80,6 +89,71 @@ function catalogSearch(page) {
 function catalogRadio(page, title) {
   return page.getByRole('dialog').getByRole('radio', {
     name: new RegExp(title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+  });
+}
+
+function catalogPageButton(page, direction) {
+  return page.getByRole('dialog').getByRole('button', {
+    name: direction === 'previous' ? 'Anterior' : 'Siguiente', exact: true,
+  });
+}
+
+function catalogPickerSelection(page, item, mode) {
+  const escapedTitle = item.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return mode === 'reference'
+    ? page.getByRole('dialog').getByRole('radio', { name: new RegExp(escapedTitle) })
+    : page.getByRole('dialog').getByRole('checkbox', { name: new RegExp(`Solicitar edición de ${escapedTitle}`) });
+}
+
+async function tabToCatalogControl(page, control) {
+  await catalogSearch(page).focus();
+  for (let keypress = 0; keypress < 80; keypress += 1) {
+    if (await control.evaluate((element) => element === document.activeElement)) return;
+    await page.keyboard.press('Tab');
+  }
+  assert.fail(`Keyboard Tab did not reach ${await control.getAttribute('aria-label') ?? 'the requested catalog control'}`);
+}
+
+async function expectPagerFocus(button) {
+  await expect(button).toBeVisible();
+  await expect(button).toBeEnabled();
+  await expect(button).toBeInViewport();
+  await expect(button).toBeFocused();
+}
+
+async function typeCatalogSearch(page, query, { replace = false } = {}) {
+  const search = catalogSearch(page);
+  await search.focus();
+  if (replace) await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.type(query);
+  await expect(search).toHaveValue(query);
+  await expect(search).toBeFocused();
+  return search;
+}
+
+async function clearCatalogSearch(page) {
+  const search = catalogSearch(page);
+  await search.focus();
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.press('Backspace');
+  await expect(search).toHaveValue('');
+  await expect(search).toBeFocused();
+}
+
+async function expectNoPickerSideEffects(capture, index) {
+  await capture.stop();
+  assert.deepEqual(capture.writes(), [], 'paging, selecting, and searching make no creator API writes');
+  assert.deepEqual(index.reads, ['/catalog-selection.json'], 'picker interactions reuse the one initial selection-index read');
+}
+
+function focusCatalogEntries() {
+  return Array.from({ length: 51 }, (_, index) => {
+    const ordinal = String(index + 1).padStart(2, '0');
+    return catalogEntry({
+      id: `phase11-picker-${ordinal}`,
+      title: index === 50 ? 'F10 unique search result' : `F10 picker entry ${ordinal}`,
+      url: `https://picker.example.invalid/f10-${ordinal}`,
+    });
   });
 }
 
@@ -218,6 +292,136 @@ test('el catálogo público carga con reintento y busca por título y URL entre 
   assert.deepEqual(linkWrites(capture), [], 'searches and a valid zero-result response do not write owner data');
   await capture.stop();
 });
+
+for (const mode of ['reference', 'claim']) {
+  const openPicker = mode === 'reference' ? openOwnerCatalog : openOwnerClaimCatalog;
+  const pickerLabel = mode === 'reference' ? 'referencias' : 'reclamaciones';
+
+  test(`el selector de ${pickerLabel} enfoca el paginador opuesto al desactivar Anterior en el primer límite`, async ({ fixture, page }) => {
+    await loggedInOwner(fixture, page);
+    const entries = focusCatalogEntries();
+    const index = await serveSelectionIndex(page, entries);
+    await openPicker(page, fixture);
+    await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 1 de 3');
+    const capture = await captureCreatorApi(page);
+
+    const selected = catalogPickerSelection(page, entries[0], mode);
+    await selected.check();
+    const previous = catalogPageButton(page, 'previous');
+    const next = catalogPageButton(page, 'next');
+    await tabToCatalogControl(page, next);
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 2 de 3');
+    await expectPagerFocus(next);
+
+    await page.keyboard.press('Shift+Tab');
+    await expectPagerFocus(previous);
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 1 de 3');
+    await expect(previous).toBeDisabled();
+    await expectPagerFocus(next);
+    await expect(selected).toBeChecked();
+
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 2 de 3');
+    await expectPagerFocus(next);
+
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 1 de 3');
+    await expectPagerFocus(next);
+    await typeCatalogSearch(page, 'F10');
+    await expect(page.locator('[data-catalog-count]')).toHaveText('51 resultados');
+    await clearCatalogSearch(page);
+    await expect(selected).toBeChecked();
+    await expectNoPickerSideEffects(capture, index);
+  });
+
+  test(`el selector de ${pickerLabel} conserva selección y enfoca Anterior al desactivar Siguiente en el último límite`, async ({ fixture, page }) => {
+    await loggedInOwner(fixture, page);
+    const entries = focusCatalogEntries();
+    const index = await serveSelectionIndex(page, entries);
+    await openPicker(page, fixture);
+    await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 1 de 3');
+    const capture = await captureCreatorApi(page);
+
+    const next = catalogPageButton(page, 'next');
+    const previous = catalogPageButton(page, 'previous');
+    await tabToCatalogControl(page, next);
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 2 de 3');
+    await expectPagerFocus(next);
+
+    const selected = catalogPickerSelection(page, entries[25], mode);
+    await selected.check();
+    await tabToCatalogControl(page, next);
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 3 de 3');
+    await expect(next).toBeDisabled();
+    await expectPagerFocus(previous);
+
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 2 de 3');
+    await expectPagerFocus(previous);
+    await expect(selected).toBeChecked();
+
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 3 de 3');
+    await expectPagerFocus(previous);
+    await typeCatalogSearch(page, 'F10');
+    await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 1 de 3');
+    await expect(page.locator('[data-catalog-count]')).toHaveText('51 resultados');
+    await clearCatalogSearch(page);
+    await expectNoPickerSideEffects(capture, index);
+  });
+
+  test(`el selector de ${pickerLabel} conserva el foco y la selección al buscar desde una página interior`, async ({ fixture, page }) => {
+    await loggedInOwner(fixture, page);
+    const entries = focusCatalogEntries();
+    const index = await serveSelectionIndex(page, entries);
+    await openPicker(page, fixture);
+    await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 1 de 3');
+    const capture = await captureCreatorApi(page);
+
+    const selected = catalogPickerSelection(page, entries[0], mode);
+    await selected.check();
+    const next = catalogPageButton(page, 'next');
+    await tabToCatalogControl(page, next);
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 2 de 3');
+    await expectPagerFocus(next);
+
+    await typeCatalogSearch(page, entries[0].title);
+    await expect(page.locator('[data-catalog-count]')).toHaveText('1 resultado');
+    await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 1 de 1');
+    await expect(catalogPickerSelection(page, entries[0], mode)).toBeChecked();
+    await expect(catalogPageButton(page, 'previous')).toBeDisabled();
+    await expect(next).toBeDisabled();
+
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('list', { name: 'Resultados del catálogo' })).toBeFocused();
+    await expect(catalogPickerSelection(page, entries[0], mode)).toBeChecked();
+
+    await typeCatalogSearch(page, 'no matching F10 result', { replace: true });
+    await expect(page.locator('[data-catalog-count]')).toHaveText('0 resultados');
+    await expect(page.locator('[data-catalog-empty]')).toBeVisible();
+    await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 1 de 1');
+    await expect(catalogPageButton(page, 'previous')).toBeDisabled();
+    await expect(next).toBeDisabled();
+
+    await clearCatalogSearch(page);
+    await expect(page.locator('[data-catalog-count]')).toHaveText('51 resultados');
+    await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 1 de 3');
+    await expect(catalogPageButton(page, 'previous')).toBeDisabled();
+    await expect(next).toBeEnabled();
+    await expect(selected).toBeChecked();
+    if (mode === 'claim') {
+      await expect(page.locator('[data-claim-selection]')).toContainText(entries[0].title);
+    }
+    await expectNoPickerSideEffects(capture, index);
+  });
+}
 
 test('referenciar contenido existente conserva la colocación; una referencia nueva respeta la opción sin conceder edición', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
