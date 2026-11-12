@@ -116,6 +116,35 @@ function photoReference(profileId, uploadId) {
   return { version: uploadId, url: `/media/fotos/${profileId}/${uploadId}.webp` };
 }
 
+function recognizeCompletedUpload(upload, { profileId, uploadId, expectedVersion }) {
+  try {
+    if (!upload || typeof upload !== 'object' || Array.isArray(upload)
+      || upload.id !== uploadId
+      || upload.profileId !== profileId
+      || !Number.isSafeInteger(upload.expectedVersion) || upload.expectedVersion < 0
+      || upload.expectedVersion !== expectedVersion
+      || upload.state !== 'complete'
+      || !Number.isSafeInteger(upload.version) || upload.version < 0
+      || !Number.isSafeInteger(expectedVersion + 1)) return null;
+
+    const photo = upload.photo;
+    if (!photo || typeof photo !== 'object' || Array.isArray(photo)
+      || photo.version !== uploadId
+      || photo.url !== photoReference(profileId, uploadId).url
+      || !isExpectedFinalKey(profileId, uploadId, upload.finalKey)) return null;
+
+    return {
+      finalKey: upload.finalKey,
+      result: {
+        photo,
+        versionChanges: [{ entity: 'profile', id: profileId, before: expectedVersion, after: expectedVersion + 1 }],
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
 function photoResult(bytes) {
   return {
     body: bytes,
@@ -196,42 +225,45 @@ export function createCreatorPhotoService(dependencies) {
       if (upload.expectedVersion !== expectedVersion) throw fail('PROFILE_VERSION_CONFLICT', 'upload version does not match');
 
       if (upload.state === 'complete') {
-        return {
-          photo: upload.photo,
-          versionChanges: [{ entity: 'profile', id: profileId, before: expectedVersion, after: expectedVersion + 1 }],
-        };
+        const completed = recognizeCompletedUpload(upload, { profileId, uploadId, expectedVersion });
+        if (completed) return completed.result;
+        throw fail('UPLOAD_NOT_PENDING', 'upload cannot be finalized');
       }
       if (upload.state !== 'pending') throw fail('UPLOAD_NOT_PENDING', 'upload cannot be finalized');
 
-      const timestamp = now();
-      if (!Number.isSafeInteger(timestamp) || timestamp < 0) throw new TypeError('now must return a non-negative millisecond timestamp');
-      if (!Number.isSafeInteger(upload.expiresAt) || upload.expiresAt <= timestamp) {
-        throw fail('UPLOAD_EXPIRED', 'upload authorization has expired');
-      }
-
-      const profile = await getProfile(profileId);
-      if (profile.version !== expectedVersion) throw fail('PROFILE_VERSION_CONFLICT', 'profile changed before upload was finalized');
-
-      const input = await objects.get(upload.key);
-      if (!Buffer.isBuffer(input)) throw fail('TEMPORARY_PHOTO_NOT_FOUND', 'uploaded photo is missing');
-      const output = await prepareCreatorPhoto(input);
-      const finalKey = finalObjectKey(profileId, uploadId, output);
-      const photo = photoReference(profileId, uploadId);
-      await objects.put(finalKey, output);
-
-      // Keep fields owned by the profile editor while atomically changing its photo reference.
-      const nextProfile = { ...profile, version: profile.version + 1, photo };
-      const nextUpload = {
-        ...upload,
-        state: 'complete',
-        version: upload.version + 1,
-        photo,
-        finalKey,
-      };
-
-      let committed;
+      let finalKey;
+      let transactionReturnedFalse = false;
       try {
-        committed = await store.transact({
+        const timestamp = now();
+        if (!Number.isSafeInteger(timestamp) || timestamp < 0) throw new TypeError('now must return a non-negative millisecond timestamp');
+        if (!Number.isSafeInteger(upload.expiresAt) || upload.expiresAt <= timestamp) {
+          throw fail('UPLOAD_EXPIRED', 'upload authorization has expired');
+        }
+
+        const profile = await getProfile(profileId);
+        if (profile.version !== expectedVersion) throw fail('PROFILE_VERSION_CONFLICT', 'profile changed before upload was finalized');
+        if (!Number.isSafeInteger(profile.version + 1)) {
+          throw fail('PROFILE_VERSION_CONFLICT', 'profile version cannot be incremented safely');
+        }
+
+        const input = await objects.get(upload.key);
+        if (!Buffer.isBuffer(input)) throw fail('TEMPORARY_PHOTO_NOT_FOUND', 'uploaded photo is missing');
+        const output = await prepareCreatorPhoto(input);
+        finalKey = finalObjectKey(profileId, uploadId, output);
+        const photo = photoReference(profileId, uploadId);
+        await objects.put(finalKey, output);
+
+        // Keep fields owned by the profile editor while atomically changing its photo reference.
+        const nextProfile = { ...profile, version: profile.version + 1, photo };
+        const nextUpload = {
+          ...upload,
+          state: 'complete',
+          version: upload.version + 1,
+          photo,
+          finalKey,
+        };
+
+        const committed = await store.transact({
           checks: [
             { key: PROFILE_KEY(profileId), version: expectedVersion },
             { key: uploadKey, version: upload.version },
@@ -241,42 +273,42 @@ export function createCreatorPhotoService(dependencies) {
             { key: uploadKey, value: nextUpload },
           ],
         });
-      } catch (error) {
-        const currentUpload = await store.get(uploadKey).catch(() => null);
-        if (currentUpload?.state === 'complete' && currentUpload.finalKey === finalKey) {
-          return {
-            photo: currentUpload.photo,
-            versionChanges: [{ entity: 'profile', id: profileId, before: expectedVersion, after: expectedVersion + 1 }],
-          };
+        if (!committed) {
+          transactionReturnedFalse = true;
+          throw fail('PROFILE_VERSION_CONFLICT', 'profile changed while the photo was being finalized');
         }
-        // An interrupted acknowledgement does not prove that DynamoDB aborted.
-        // Keep this immutable, bounded variant when the outcome is uncertain;
-        // removing it could break a successfully committed profile reference.
+
+        // S3 lifecycle is the fallback if removing the private temporary object fails.
+        try {
+          await objects.delete(upload.key);
+        } catch {
+          // The committed variant is already selected; temporary cleanup is best-effort.
+        }
+        return {
+          photo,
+          versionChanges: [{ entity: 'profile', id: profileId, before: expectedVersion, after: nextProfile.version }],
+        };
+      } catch (error) {
+        let currentUpload = null;
+        try {
+          currentUpload = await store.get(uploadKey);
+        } catch {
+          // Preserve the stage error when the one confirmation read is unavailable.
+        }
+
+        const completed = recognizeCompletedUpload(currentUpload, { profileId, uploadId, expectedVersion });
+        if (completed) {
+          if (transactionReturnedFalse && finalKey && completed.finalKey !== finalKey) {
+            try {
+              await objects.delete(finalKey);
+            } catch {
+              // Best-effort cleanup cannot replace a confirmed historical result.
+            }
+          }
+          return completed.result;
+        }
         throw error;
       }
-
-      if (!committed) {
-        const currentUpload = await store.get(uploadKey).catch(() => null);
-        if (currentUpload?.state === 'complete' && currentUpload.finalKey === finalKey) {
-          return {
-            photo: currentUpload.photo,
-            versionChanges: [{ entity: 'profile', id: profileId, before: expectedVersion, after: expectedVersion + 1 }],
-          };
-        }
-        // A concurrent finalizer can have selected these same processed bytes.
-        // Only discard our variant after observing a different completed one.
-        if (currentUpload?.state === 'complete' && currentUpload.finalKey !== finalKey) {
-          await objects.delete(finalKey).catch(() => {});
-        }
-        throw fail('PROFILE_VERSION_CONFLICT', 'profile changed while the photo was being finalized');
-      }
-
-      // S3 lifecycle is the fallback if removing the private temporary object fails.
-      await objects.delete(upload.key).catch(() => {});
-      return {
-        photo,
-        versionChanges: [{ entity: 'profile', id: profileId, before: expectedVersion, after: nextProfile.version }],
-      };
     },
 
     async readPhoto({ profileId: rawProfileId, version: rawVersion } = {}) {
