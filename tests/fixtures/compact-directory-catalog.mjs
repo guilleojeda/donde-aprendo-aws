@@ -5,8 +5,15 @@ import pathResources from './compact-learning-path-resources.json' with { type: 
 // Keep every existing resource/count while exercising series associations from
 // the same creator-state fixture path used for selection eligibility.
 const resourceId = 'fixture-no-country-reference';
+// Keep counts/types while exercising the complete public identity through
+// HTML attributes and the national agenda's community destination links.
+const identityCommunityId = `fixture: identidad "Córdoba" &amp; AWS  ${'x'.repeat(215)}`;
 const fixture = {
-  items: [...catalog, ...directoryResources, ...pathResources],
+  items: [...catalog, ...directoryResources, ...pathResources].map((record) => ({
+    ...record,
+    ...(record.id === 'fixture-student-argentina' ? { id: identityCommunityId } : {}),
+    ...(record.id === 'directory-security' ? { communityId: identityCommunityId } : {}),
+  })),
   profiles: [
     { id: 'fixture-series-ana', displayName: 'Ana de pruebas', slug: 'fixture-series-ana', published: true, hidden: false },
     { id: 'fixture-series-bea', displayName: 'Bea de pruebas', slug: 'fixture-series-bea', published: true, hidden: false },
