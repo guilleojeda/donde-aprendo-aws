@@ -131,3 +131,52 @@ test('Meetup import rejects overlong IDs before catalog reads or writes', async 
   assert.deepEqual([identityReads, reads, writes], [0, 0, 0],
     'the later invalid group is rejected before a partial import or AWS call');
 });
+
+for (const [label, id, slug] of [
+  ['CR', 'meetup\ridentity', 'cr'],
+  ['NUL', 'meetup\0identity', 'nul'],
+]) {
+  test(`Meetup import rejects public ${label} IDs before identity checks or catalog access`, async () => {
+    let identityReads = 0;
+    let reads = 0;
+    let writes = 0;
+    let accepted = false;
+    try {
+      await importMeetupCommunities([{ id, url: `https://www.meetup.com/${slug}-invalid/` }], {
+        tableName: 'catalog',
+        getIdentity: async () => { identityReads += 1; return { Account: '719535286359' }; },
+        getItem: async () => { reads += 1; return {}; },
+        transactWrite: async () => { writes += 1; },
+      });
+      accepted = true;
+    } catch {
+      // The public identity preflight must reject before reaching these hooks.
+    }
+    assert.deepEqual({ accepted, identityReads, reads, writes }, {
+      accepted: false, identityReads: 0, reads: 0, writes: 0,
+    }, `the Meetup import rejects ${JSON.stringify(id)} before identity, reads, or writes`);
+  });
+}
+
+test('Meetup import preserves allowed LF/TAB and exact 256-byte IDs', async () => {
+  const ids = ['meetup\n\tquoted " &amp; 🧭', 'x'.repeat(256)];
+  const items = new Map();
+  const result = await importMeetupCommunities(ids.map((id, index) => ({
+    id,
+    url: `https://www.meetup.com/accepted-${index + 1}/`,
+  })), {
+    tableName: 'catalog',
+    getIdentity: async () => ({ Account: '719535286359' }),
+    getItem: async ({ Key }) => ({ Item: items.get(Key.id) }),
+    transactWrite: async ({ TransactItems }) => {
+      for (const { Put } of TransactItems) items.set(Put.Item.id, Put.Item);
+    },
+  });
+
+  assert.deepEqual(result, { total: 2, created: 2, skipped: 0 });
+  assert.deepEqual(ids.map((id) => items.get(id)?.id), ids,
+    'public import preserves accepted identity bytes exactly');
+  const reservations = [...items.values()].filter((item) => item.recordType === 'urlReservation');
+  assert.deepEqual(reservations.map(({ resourceId }) => resourceId), ids,
+    'URL reservations retain the accepted resource identities exactly');
+});

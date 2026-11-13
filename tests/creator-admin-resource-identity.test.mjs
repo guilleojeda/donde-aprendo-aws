@@ -221,6 +221,23 @@ test('malformed query-ID command shapes use their established client errors with
   }, 'duplicates and extra keys use the query-ID convention; empty, missing, unsupported and unknown commands are rejected without writes');
 });
 
+for (const [label, id] of [['CR', 'admin\ridentity'], ['NUL', 'admin\0identity']]) {
+  test(`approval rejects public ${label} resource IDs before changing stored records`, async () => {
+    const harness = await createCreatorPagesHarness();
+    await seedResources(harness, [{ id }]);
+    const before = await harness.store.get(`resource:${id}`);
+    const { response } = await adminRequest(harness, queryResourceUrl(id, 'aprobar'), {
+      method: 'POST', body: { version: 1 },
+    });
+    const body = await responseJson(response);
+    assert.deepEqual({ status: response.status, error: body.error, stored: await harness.store.get(`resource:${id}`) }, {
+      status: 422,
+      error: 'INVALID_CLASSIFICATION',
+      stored: before,
+    }, `approval rejects ${JSON.stringify(id)} before changing the stored record`);
+  });
+}
+
 test('a wrong-method query moderation command cannot classify an action-named path decoy', async () => {
   const harness = await createCreatorPagesHarness();
   await seedResources(harness, [

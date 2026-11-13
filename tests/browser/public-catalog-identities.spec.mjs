@@ -275,8 +275,139 @@ const invalidReferenceTest = browserTest.extend({
   app: [appWithCatalog(invalidReferenceControlCatalog()), { scope: 'worker' }],
 });
 
-for (const test of [boundaryTest, longIdentityTest, sourceReferenceTest, communityReferenceTest, eventCommunityTest, invalidReferenceTest]) {
+const allowedControlIdentity = {
+  communityId: 'community:\n\t"quoted" &amp; 🧭',
+  contentId: 'content:\n\t"quoted" &amp; 🧭',
+  communityTitle: 'Comunidad con LF, TAB, comillas, &amp; y 🧭',
+  contentTitle: 'Artículo con identidad literal',
+};
+const allowedControlIdentityTest = browserTest.extend({
+  app: [appWithCatalog([
+    resource({
+      id: allowedControlIdentity.communityId,
+      title: allowedControlIdentity.communityTitle,
+      kind: 'community',
+      order: 1,
+      country: 'AR',
+      city: 'Córdoba',
+    }),
+    resource({
+      id: allowedControlIdentity.contentId,
+      title: allowedControlIdentity.contentTitle,
+      order: 2,
+      communityId: allowedControlIdentity.communityId,
+    }),
+  ]), { scope: 'worker' }],
+});
+
+const invalidOwnIdentity = 'invalid\rown-id';
+const invalidOwnIdentityTitle = 'A public card must not contain a CR identity';
+const invalidOwnIdentityTest = browserTest.extend({
+  app: [appWithCatalog([
+    resource({ id: invalidOwnIdentity, title: invalidOwnIdentityTitle, order: 1 }),
+  ]), { scope: 'worker' }],
+});
+
+const invalidReferenceIdentity = 'invalid\0community-id';
+const invalidReferenceTitle = 'A public card must not contain a NUL reference';
+const invalidReferenceIdentityTest = browserTest.extend({
+  app: [appWithCatalog([
+    resource({
+      id: 'valid-reference-target',
+      title: 'Community target',
+      kind: 'community',
+      order: 1,
+      country: 'AR',
+      city: 'Córdoba',
+    }),
+    resource({
+      id: 'valid-content-with-invalid-reference',
+      title: invalidReferenceTitle,
+      order: 2,
+      communityId: invalidReferenceIdentity,
+    }),
+  ]), { scope: 'worker' }],
+});
+
+for (const test of [boundaryTest, longIdentityTest, sourceReferenceTest, communityReferenceTest,
+  eventCommunityTest, invalidReferenceTest, allowedControlIdentityTest, invalidOwnIdentityTest,
+  invalidReferenceIdentityTest]) {
   test.setTimeout(90_000);
+}
+
+allowedControlIdentityTest('internal LF/TAB, quotes, entity text, and Unicode remain literal through real cards, links, reports, and indexes', async ({ app, page }) => {
+  const response = await page.goto(`${app.origin}/aprender/`);
+  assert.equal(response?.status(), 200);
+
+  const contentCard = page.locator('li.resource-card').filter({ hasText: allowedControlIdentity.contentTitle });
+  await expect(contentCard).toHaveCount(1);
+  await expect(contentCard).toHaveAttribute('id', `resource-${allowedControlIdentity.contentId}`);
+  const report = reportDetails(await contentCard.getByRole('link', { name: 'Reportar enlace roto o dato incorrecto' }).getAttribute('href'));
+  assertSafeReportEnvelope(report);
+  assert.ok(report.body.includes(`Referencia: ${JSON.stringify(allowedControlIdentity.contentId)}`),
+    'the report contains the full accepted ID as a JSON string literal');
+
+  const relatedLink = contentCard.getByRole('link', {
+    name: `Comunidad: ${allowedControlIdentity.communityTitle}`,
+    exact: true,
+  });
+  const expectedCommunityHref = `/comunidades/argentina/${resourceFragment(allowedControlIdentity.communityId)}`;
+  await expect(relatedLink).toHaveAttribute('href', expectedCommunityHref);
+  await relatedLink.click();
+  await expect(page).toHaveURL(`${app.origin}${expectedCommunityHref}`);
+  const communityCard = page.locator('li.resource-card').filter({ hasText: allowedControlIdentity.communityTitle });
+  await expect(communityCard).toHaveAttribute('id', `resource-${allowedControlIdentity.communityId}`);
+  await expect.poll(() => page.evaluate(() => document.activeElement?.id ?? ''))
+    .toBe(`resource-${allowedControlIdentity.communityId}`);
+
+  const selectionResponse = await page.request.get(`${app.origin}/catalog-selection.json`);
+  assert.equal(selectionResponse.status(), 200);
+  const selection = await selectionResponse.json();
+  assert.deepEqual(new Set(selection.map(({ id }) => id)), new Set([
+    allowedControlIdentity.communityId,
+    allowedControlIdentity.contentId,
+  ]));
+  const searchResponse = await page.request.get(`${app.origin}/search-index.json`);
+  assert.equal(searchResponse.status(), 200);
+  const search = await searchResponse.json();
+  assert.ok(search.some(({ url }) => url === `/aprender/${resourceFragment(allowedControlIdentity.contentId)}`),
+    'the public search index keeps the exact accepted resource destination');
+  assert.ok(!JSON.stringify(selection).includes('private-contact-secret'));
+  assert.ok(!JSON.stringify(selection).includes('private-account-secret'));
+});
+
+for (const [label, invalidTest, title, publicRecordId] of [
+  ['own CR ID', invalidOwnIdentityTest, invalidOwnIdentityTitle, invalidOwnIdentity],
+  ['community NUL reference', invalidReferenceIdentityTest, invalidReferenceTitle, 'valid-content-with-invalid-reference'],
+]) {
+  invalidTest(`public ${label} is rejected before cards, selection entries, or search entries are emitted`, async ({ app, page }) => {
+    const pageResponse = await page.goto(`${app.origin}/aprender/`);
+    const cards = page.locator('li.resource-card').filter({ hasText: title });
+    const cardCount = await cards.count();
+
+    const [selectionResponse, searchResponse] = await Promise.all([
+      page.request.get(`${app.origin}/catalog-selection.json`),
+      page.request.get(`${app.origin}/search-index.json`),
+    ]);
+    const selection = selectionResponse.status() === 200 ? await selectionResponse.json() : [];
+    const search = searchResponse.status() === 200 ? await searchResponse.json() : [];
+
+    assert.deepEqual({
+      pageStatus: pageResponse?.status(),
+      cardCount,
+      selectionStatus: selectionResponse.status(),
+      selectionContainsRecord: selection.some(({ id }) => id === publicRecordId),
+      searchStatus: searchResponse.status(),
+      searchContainsRecord: search.some(({ title: indexedTitle }) => indexedTitle === title),
+    }, {
+      pageStatus: 500,
+      cardCount: 0,
+      selectionStatus: 500,
+      selectionContainsRecord: false,
+      searchStatus: 500,
+      searchContainsRecord: false,
+    }, 'invalid public data is stopped before any card or index entry is emitted');
+  });
 }
 
 boundaryTest('the real resource card keeps a Unicode identity and title intact in its safe report link', async ({ app, page }) => {
