@@ -502,6 +502,7 @@ def load_groups_from_dynamodb(table, budget=None):
     groups = []
     params = {'ProjectionExpression': '#id,#title,#url,#country,#kind,published',
               'Select': 'SPECIFIC_ATTRIBUTES',
+              'ConsistentRead': True,
               'ExpressionAttributeNames': {'#id': 'id', '#title': 'title', '#url': 'url',
                                            '#country': 'country', '#kind': 'kind'}}
     for item in scan_items(table, params, budget):
