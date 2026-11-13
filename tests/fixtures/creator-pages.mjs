@@ -57,9 +57,11 @@ export function adminResourceCommandMatches(target, id, action) {
  * `x-csrf-token`. No test helper grants ownership, selection, eligibility,
  * editor rights, or slug uniqueness.
  *
- * The store is a generic document store. Its transaction method supplies
- * atomic version/expected-reservation checks and writes; it has no creator-page
- * ownership or URL-index rules.
+ * The store is a generic document store. getResources(ids) returns a Map of
+ * found resource rows and omits absent IDs; it does not decide whether a
+ * resource is eligible or authorized for a domain operation. Its transaction
+ * method supplies atomic version/expected-reservation checks and writes; the
+ * fixture has no creator-page ownership or URL-index rules.
  */
 export async function loadCreatorPagesFactory() {
   try {
@@ -152,6 +154,18 @@ export function createDocumentStore() {
         ...(descriptor.type === 'urlReservation' ? descriptor.key : {}),
         version: value.version ?? 0,
       });
+    },
+    async getResources(ids) {
+      before('getResources', { ids });
+      if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string' || id.length === 0)) {
+        throw new TypeError('resource IDs must be a list of non-empty strings');
+      }
+      const resources = new Map();
+      for (const id of new Set(ids)) {
+        const value = documents.get(`resource:${id}`);
+        if (value !== undefined) resources.set(id, copy({ ...value, version: value.version ?? 0 }));
+      }
+      return resources;
     },
     async list(prefix) {
       before('list', { prefix });

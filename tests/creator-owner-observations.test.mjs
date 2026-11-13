@@ -135,11 +135,11 @@ test('owner GET observes each placed and editable resource once and keeps shared
   assert.deepEqual(issues, [], 'the owner GET reads each selected resource once');
 });
 
-test('get-only persistence reads the owner resource union once, including a retired resource', async () => {
+test('owner GET uses the common resource batch for placed and retained editor resources', async () => {
   const harness = await createCreatorPagesHarness();
-  await createProfile(harness, 'owner-get-only-union');
-  const active = await addOwnLink(harness, 'Ficha activa', 'owner-get-only-active');
-  const retired = await addOwnLink(harness, 'Ficha retirada', 'owner-get-only-retired');
+  await createProfile(harness, 'owner-batch-union');
+  const active = await addOwnLink(harness, 'Ficha activa', 'owner-batch-active');
+  const retired = await addOwnLink(harness, 'Ficha retirada', 'owner-batch-retired');
   const profileId = (await harness.store.get('account-profile:private-account-a')).profileId;
   const profile = await harness.store.get(`profile:${profileId}`);
   assert.equal((await api(harness, `/api/creador/enlaces/${retired.link.placementId}`, {
@@ -147,17 +147,21 @@ test('get-only persistence reads the owner resource union once, including a reti
   })).status, 204);
 
   const expectedIds = [active.link.resourceId, retired.link.resourceId].sort();
-  const baseGet = harness.store.get.bind(harness.store);
-  const observedResourceIds = [];
-  assert.equal(harness.store.getResources, undefined, 'this harness exercises the generic get-only fallback');
-  harness.store.get = async (key) => {
-    if (key.startsWith('resource:')) observedResourceIds.push(key.slice('resource:'.length));
-    return baseGet(key);
-  };
-
+  const callsBeforeRead = harness.store.calls.length;
   const owner = await ownerGet(harness);
-  assert.deepEqual(observedResourceIds.sort(), expectedIds,
-    'the fallback reads each placed or editor-referenced resource exactly once');
+  const readCalls = harness.store.calls.slice(callsBeforeRead);
+  const resourceBatches = readCalls.filter(({ operation }) => operation === 'getResources');
+  assert.equal(resourceBatches.length, 1, 'the owner read calls the shared batch operation once');
+  assert.deepEqual([...resourceBatches[0].input.ids].sort(), expectedIds,
+    'the shared batch includes the placed and editor-retained resource union');
+  assert.equal(new Set(resourceBatches[0].input.ids).size, expectedIds.length,
+    'the common batch does not request a resource more than once');
+  assert.equal(readCalls.some(({ operation, input }) => operation === 'get' && input.key.startsWith('resource:')), false,
+    'the owner query does not fall back to individual resource reads');
+  assert.equal(readCalls.some(({ operation }) => operation === 'transact'), false,
+    'the owner query remains read-only');
+
+  const baseGet = harness.store.get.bind(harness.store);
   const activeLink = owner.links.find(({ resourceId }) => resourceId === active.link.resourceId);
   const activeEditable = owner.editableResources.find(({ id }) => id === active.link.resourceId);
   const activePlacement = await baseGet(`placement:${profileId}:${active.link.placementId}`);

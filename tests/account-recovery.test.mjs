@@ -13,6 +13,8 @@ import {
   loadPasswordResetFactory,
   makeAccount,
   makeIdentity,
+  responseCookies,
+  sessionCookieFrom,
   sessionRequest,
   startLogin,
 } from './fixtures/account-auth.mjs';
@@ -112,23 +114,59 @@ test('a reset before first login is preserved when ensureAccount later creates t
   assert.equal(account.email, TEST_EMAIL);
 });
 
-test('auth_time before or equal to the reset boundary is rejected', async () => {
-  const boundary = Math.floor(Date.now() / 1000) * 1000;
-  for (const [name, authTime] of [
-    ['before', Math.floor(boundary / 1000) - 1],
-    ['equal', Math.floor(boundary / 1000)],
-  ]) {
-    const store = createAccountStore();
-    store.seedAccount(makeAccount({ epoch: 1, authValidAfter: boundary }));
-    const harness = await createAccountHarness({
-      store,
-      now: () => boundary + 2_000,
-      oidc: { claims: { auth_time: authTime } },
+test('a durable reset rejects the original callback and a new post-reset login succeeds', async (t) => {
+  const cases = [
+    { name: 'authentication before the reset', authOffsetMs: 0, resetOffsetMs: 2_000 },
+    { name: 'authentication in the reset second', authOffsetMs: 2_000, resetOffsetMs: 2_000 },
+    { name: 'a fractional reset boundary in that second', authOffsetMs: 2_000, resetOffsetMs: 2_500 },
+  ];
+
+  for (const scenario of cases) {
+    await t.test(scenario.name, async () => {
+      let now = Math.floor(Date.now() / 1000) * 1000;
+      const attemptStartedAt = now;
+      const authTime = Math.floor((attemptStartedAt + scenario.authOffsetMs) / 1000);
+      const claims = { auth_time: authTime };
+      const store = createAccountStore();
+      const harness = await createAccountHarness({ store, now: () => now, oidc: { claims } });
+      const login = await startLogin(harness);
+
+      now = attemptStartedAt + scenario.resetOffsetMs;
+      const handler = await makeResetHandler(store, () => now);
+      await handler(resetEvent());
+      const boundary = (await store.getAccount(makeIdentity())).authValidAfter;
+      assert.equal(boundary, now, 'the durable reset finishes before the callback is returned');
+
+      const beforeCallback = store.calls.length;
+      now += 1_000;
+      const callback = await harness.auth.handle(callbackRequest(login));
+      assert.equal(callback.status, 303);
+      assert.equal(Boolean(sessionCookieFrom(callback, now)), false,
+        'the original callback must not create or return a session cookie');
+      assert.equal(responseCookies(callback).some((cookie) => cookie.startsWith('da_session=')), false,
+        'the rejected callback must not set any account-session cookie');
+      assertSafeFailureRedirect(callback, 'acceso-invalido');
+      assert.equal(store.sessions.size, 0, 'the original callback must not persist a session');
+
+      const callbackCalls = store.calls.slice(beforeCallback).map(({ operation }) => operation);
+      assert.ok(callbackCalls.includes('takeLoginAttempt'), 'the callback consumes its valid single-use attempt');
+      assert.ok(harness.state.calls.some(({ url }) => url.endsWith('/oauth2/token')),
+        'the valid callback reaches the OIDC token exchange');
+      assert.ok(callbackCalls.includes('ensureAccount'),
+        'the signed identity reaches the account read that returns the persisted reset boundary');
+      assert.equal(callbackCalls.includes('putSession'), false,
+        'the rejected callback never asks storage to create a session');
+
+      now = boundary + 5_000;
+      claims.auth_time = Math.floor(now / 1000);
+      const fresh = await completeLogin(harness);
+      assert.equal(fresh.response.status, 303);
+      assert.ok(fresh.sessionCookie, 'a fresh authentication after the reset may create a session');
+      assert.equal(store.sessions.size, 1);
+      const newSession = [...store.sessions.values()][0];
+      assert.equal(newSession.epoch, 1);
+      assert.equal((await harness.auth.getSession(sessionRequest(fresh.sessionCookie))).state, 'authenticated');
     });
-    const login = await startLogin(harness);
-    const response = await harness.auth.handle(callbackRequest(login));
-    assertSafeFailureRedirect(response, 'acceso-invalido');
-    assert.equal(store.sessions.size, 0, name);
   }
 });
 
