@@ -50,7 +50,7 @@ function setEnvironment(values) {
   };
 }
 
-export async function startCreatorBrowserApp({ catalogFixture = path.join(ROOT, 'tests/fixtures/catalog.json') } = {}) {
+export async function startCreatorBrowserApp({ catalogFixture = path.join(ROOT, 'tests/fixtures/catalog.json'), hostname = LOOPBACK } = {}) {
   const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), 'donde-aprendo-creator-browser-'));
   let restoreEnv = () => {};
   let server;
@@ -66,7 +66,8 @@ export async function startCreatorBrowserApp({ catalogFixture = path.join(ROOT, 
     ]);
     const [key, cert] = await Promise.all([readFile(keyPath, 'utf8'), readFile(certificatePath, 'utf8')]);
     const port = await unusedPort();
-    const origin = `https://${LOOPBACK}:${port}`;
+    const transportOrigin = `https://${LOOPBACK}:${port}`;
+    const origin = `https://${hostname}:${port}`;
     restoreEnv = setEnvironment({
       ACCOUNT_ORIGIN: origin,
       PUBLIC_SITE_ORIGIN: origin,
@@ -83,7 +84,7 @@ export async function startCreatorBrowserApp({ catalogFixture = path.join(ROOT, 
     server = await astroDev({
       root: ROOT,
       logLevel: 'warn',
-      server: { host: LOOPBACK, port, allowedHosts: [LOOPBACK] },
+      server: { host: LOOPBACK, port, allowedHosts: [LOOPBACK, hostname] },
       security: { allowedDomains: allowedAmplifyDomainsForOrigin(origin) },
       cacheDir: path.join(temporaryDirectory, 'astro-cache'),
       vite: {
@@ -110,6 +111,8 @@ export async function startCreatorBrowserApp({ catalogFixture = path.join(ROOT, 
     }
     return {
       origin,
+      // APIRequestContext does not use Chromium's local hostname resolver.
+      transportOrigin,
       async createFixture() {
         if (closed) throw new Error('The creator browser app is already closed.');
         if (activeRuntime) throw new Error('A prior creator browser fixture was not cleared.');

@@ -2,9 +2,9 @@
 
 import { pathToFileURL } from 'node:url';
 import { currentUrlCollision, currentUrlReservation, currentUrlReservationId, currentUrlKey } from '../src/lib/catalog-url.mjs';
+import { isCatalogResourceIdWithinLimit } from '../src/lib/catalog-identity.mjs';
 import {
   DEFAULT_AWS_REGION,
-  isCatalogResourceIdWithinLimit,
   validateCatalogUrl,
 } from '../src/lib/catalog.mjs';
 

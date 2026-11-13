@@ -1,6 +1,9 @@
+import { isPublicCatalogResourceId } from './catalog-identity.mjs';
+
 const CONTACT_EMAIL = 'contact@dondeaprendoaws.com';
 const REPORT_SUBJECT = 'Reporte de enlace';
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/u;
+const TITLE_CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/gu;
 
 /**
  * Build a mailto URL using only public resource context. All values are encoded
@@ -9,8 +12,8 @@ const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/u;
 export function buildReportMailto({ title, recordId, targetUrl } = {}) {
   const lines = [];
 
-  const safeTitle = publicText(title, 240);
-  const safeRecordId = publicText(recordId, 128);
+  const safeTitle = publicTitle(title);
+  const safeRecordId = isPublicCatalogResourceId(recordId) ? JSON.stringify(recordId) : '';
   const safeTargetUrl = publicHttpUrl(targetUrl);
 
   if (safeTitle) lines.push(`Título: ${safeTitle}`);
@@ -24,13 +27,14 @@ export function buildReportMailto({ title, recordId, targetUrl } = {}) {
   return `mailto:${CONTACT_EMAIL}?subject=${encodeUriComponent(REPORT_SUBJECT)}&body=${encodeUriComponent(lines.join('\n'))}`;
 }
 
-function publicText(value, maxLength) {
+function publicTitle(value) {
   if (typeof value !== 'string') return '';
-  return value
-    .replace(CONTROL_CHARACTERS, ' ')
+  const cleaned = value
+    .replace(TITLE_CONTROL_CHARACTERS, ' ')
     .replace(/\s+/gu, ' ')
-    .trim()
-    .slice(0, maxLength);
+    .trim();
+  if (!cleaned) return '';
+  return [...cleaned.toWellFormed()].slice(0, 240).join('');
 }
 
 function publicHttpUrl(value) {

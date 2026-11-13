@@ -61,7 +61,7 @@ test('rejects invalid event dates, zones, venues and registration links', () => 
     { city: 'Ciudad\nOtra' },
     { venueCountry: 'us' },
     { venueCountry: 'USA' },
-    { communityId: 'bad id' },
+    { communityId: ' bad id ' },
     { mode: 'online', city: 'San Lorenzo' },
   ]) assert.throws(() => projectPublishedCatalog([event(changed)]));
 });

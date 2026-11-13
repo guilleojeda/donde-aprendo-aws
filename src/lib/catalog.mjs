@@ -2,14 +2,15 @@ import { readFile } from 'node:fs/promises';
 import { classifyLegacyResource, validateTaxonomy } from './resource-taxonomy.mjs';
 import { DISCOVERY_FIELDS, validateDiscoveryMetadata } from './resource-discovery.mjs';
 import { projectPublicEvent } from './events.mjs';
+import {
+  isCatalogResourceIdWithinLimit,
+  isPublicCatalogResourceId,
+  MAX_CATALOG_RESOURCE_ID_BYTES,
+} from './catalog-identity.mjs';
+
+export { isCatalogResourceIdWithinLimit, MAX_CATALOG_RESOURCE_ID_BYTES };
 
 export const DEFAULT_AWS_REGION = 'us-east-1';
-export const MAX_CATALOG_RESOURCE_ID_BYTES = 256;
-
-export function isCatalogResourceIdWithinLimit(id) {
-  return typeof id === 'string' && id.length > 0
-    && Buffer.byteLength(id, 'utf8') <= MAX_CATALOG_RESOURCE_ID_BYTES;
-}
 
 const PUBLIC_FIELDS = Object.freeze([
   'id',
@@ -540,11 +541,11 @@ export function validatePublicRecord(record, index = 0) {
       throw new Error(`Catalog record ${index + 1} is missing public field ${field}`);
     }
   }
-  if (typeof record.id !== 'string' || record.id.length === 0 || record.id.trim() !== record.id) {
+  if (!isPublicCatalogResourceId(record.id)) {
+    if (typeof record.id === 'string' && record.id.length > 0 && !isCatalogResourceIdWithinLimit(record.id)) {
+      throw new Error(`Catalog record ${index + 1} has an ID longer than ${MAX_CATALOG_RESOURCE_ID_BYTES} UTF-8 bytes`);
+    }
     throw new Error(`Catalog record ${index + 1} has an invalid id`);
-  }
-  if (!isCatalogResourceIdWithinLimit(record.id)) {
-    throw new Error(`Catalog record ${index + 1} has an ID longer than ${MAX_CATALOG_RESOURCE_ID_BYTES} UTF-8 bytes`);
   }
   if (typeof record.title !== 'string' || record.title.length === 0) {
     throw new Error(`Catalog record ${index + 1} has an invalid title`);

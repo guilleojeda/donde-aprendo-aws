@@ -218,7 +218,7 @@ Git pushes to the connected branch also rebuild the site. There is no immediate 
 
 The API conditionally creates one record per exact submitted URL. A stable ID identifies the catalog resource, while a separate internal reservation tracks its current exact URL. URL changes must go through an authorized transactional editor that updates the resource and its reservation atomically; do not edit `url` or `registrationUrl` directly in DynamoDB. Existing reservation collisions need manual review and are never merged automatically. Contributor contact values remain private in DynamoDB and must not be copied into public fields or Git.
 
-The report links on resource and event cards open an email draft to `contact@dondeaprendoaws.com` with public context. The visitor must send it. Investigate the referenced ID in DynamoDB, correct the authoritative record, and let the hourly publication check rebuild the site. The generic footer report link asks the sender to include the affected page. For an article report, edit the article in Git and deploy it through the normal branch workflow.
+The report links on resource and event cards open an email draft to `contact@dondeaprendoaws.com` with public context. The visitor must send it. The reference is the complete resource ID represented as a JSON string; JSON-decode that value before looking up the exact DynamoDB key. Correct the authoritative record and let the hourly publication check rebuild the site. The generic footer report link asks the sender to include the affected page. For an article report, edit the article in Git and deploy it through the normal branch workflow.
 
 ## Event agenda editing
 

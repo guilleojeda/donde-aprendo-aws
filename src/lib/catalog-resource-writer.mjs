@@ -1,5 +1,6 @@
 import { currentUrlReservation, currentUrlReservationId } from './catalog-url.mjs';
-import { isCatalogResourceIdWithinLimit, validateCatalogUrl } from './catalog.mjs';
+import { isCatalogResourceIdWithinLimit } from './catalog-identity.mjs';
+import { validateCatalogUrl } from './catalog.mjs';
 
 /**
  * Atomically add a catalog item and its reservation for its current literal URL.
