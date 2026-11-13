@@ -46,6 +46,8 @@ class MeetupCatalogIdentityTests(unittest.TestCase):
             ('colon', 'aws:bogota'),
             ('long-ascii', 'a' * 130),
             ('unicode', 'AWS Bogotá ☁️'),
+            ('internal-lf', 'aws\nbogota'),
+            ('internal-tab', 'aws\tbogota'),
             # The generated `meetup-` key is exactly 256 UTF-8 bytes.
             ('maximum-utf8', 'é' * 124 + 'x'),
             # JavaScript String.trim() preserves NEL U+0085; Python str.strip() does not.
@@ -142,32 +144,116 @@ class MeetupCatalogIdentityTests(unittest.TestCase):
 
     def test_invalid_community_keys_and_references_are_rejected(self):
         invalid_group_ids = (None, 12, 'a' * 250, 'aws ', 'aws\ufeff')
+        valid_entry = event_entry()
+        valid_page = event_page(valid_entry)
         for invalid in invalid_group_ids:
-            with self.subTest(group_id=invalid):
+            with self.subTest(boundary='group validation', group_id=invalid):
                 with self.assertRaises(ValueError):
                     meetup.validate_meetup_group(self.group(invalid))
+            with self.subTest(boundary='event mapping', group_id=invalid):
+                with self.assertRaises(ValueError):
+                    meetup.map_event(self.group(invalid), valid_entry, valid_page)
 
         group = self.group('123')
-        valid_entry = event_entry()
         valid = meetup.map_event(group, valid_entry, event_page(valid_entry))
         invalid_references = (
-            '', None, 12, 'meetup-aws ', 'meetup-aws\ufeff', f'meetup-{"é" * 125}',
+            '', None, 12, 'meetup-aws ', 'meetup-aws\ufeff',
+            f'meetup-{"é" * 125}',
         )
         for field in ('communityId', 'sourceGroupId'):
             for invalid in invalid_references:
-                with self.subTest(field=field, reference=invalid):
-                    malformed = dict(valid, **{field: invalid})
+                malformed = dict(valid, **{field: invalid})
+                with self.subTest(boundary='record validation', field=field, reference=invalid):
                     with self.assertRaises(ValueError):
                         meetup.validate_meetup_event_record(malformed)
-                    table = fixtures.FakeTable()
+                table = fixtures.FakeTable()
+                with self.subTest(boundary='write admission', field=field, reference=invalid):
                     with self.assertRaises(ValueError):
                         meetup.create_source_event_with_url_reservation(table, malformed)
+                with self.subTest(boundary='no write effects', field=field, reference=invalid):
                     self.assertEqual(table.gets, [])
+                    self.assertEqual(table.puts, [])
                     self.assertEqual(table.transactions, [])
 
         too_long = self.group('a' * 250)
         with self.assertRaises(ValueError):
             meetup.map_event(too_long, valid_entry, event_page(valid_entry))
+
+        for control in ('\r', '\x00'):
+            suffix = f'aws{control}bogota'
+            group = self.group(suffix)
+            with self.subTest(boundary='group validation', control=repr(control)):
+                with self.assertRaises(ValueError):
+                    meetup.validate_meetup_group(group)
+            with self.subTest(boundary='event mapping', control=repr(control)):
+                with self.assertRaises(ValueError):
+                    meetup.map_event(group, valid_entry, valid_page)
+
+            source_item = {
+                'id': f'meetup-aws{control}bogota', 'title': 'Invalid source',
+                'url': fixtures.GROUP['url'], 'country': 'CO',
+                'kind': 'community', 'published': True,
+            }
+            with self.subTest(boundary='approved source admission', control=repr(control)):
+                with self.assertRaises(ValueError):
+                    meetup.load_groups_from_dynamodb(fixtures.FakeTable([source_item]))
+
+            table = fixtures.FakeTable()
+            result = self.synchronize(table, [group], {suffix: [valid_entry]},
+                                      {valid_entry['id']: valid_page})
+            with self.subTest(boundary='synchronizer rejects source', control=repr(control)):
+                self.assertEqual(result['changed'], 0)
+                self.assertEqual(len(result['failures']), 1)
+            with self.subTest(boundary='synchronizer performs no reads', control=repr(control)):
+                self.assertEqual(len(table.gets), 0, 'An invalid public key must stop before reservation reads')
+            with self.subTest(boundary='synchronizer performs no puts', control=repr(control)):
+                self.assertEqual(len(table.puts), 0, 'An invalid public key must not persist an event')
+            with self.subTest(boundary='synchronizer performs no transactions', control=repr(control)):
+                self.assertEqual(len(table.transactions), 0, 'An invalid public key must not start a transaction')
+            with self.subTest(boundary='synchronizer performs no updates', control=repr(control)):
+                self.assertEqual(len(table.updates), 0, 'An invalid public key must not update an event')
+
+            for field in ('communityId', 'sourceGroupId'):
+                malformed = dict(valid, **{field: f'meetup-aws{control}bogota'})
+                with self.subTest(boundary='record validation', control=repr(control), field=field):
+                    with self.assertRaises(ValueError):
+                        meetup.validate_meetup_event_record(malformed)
+                write_table = fixtures.FakeTable()
+                with self.subTest(boundary='write admission', control=repr(control), field=field):
+                    with self.assertRaises(ValueError):
+                        meetup.create_source_event_with_url_reservation(write_table, malformed)
+                with self.subTest(boundary='write admission does not read', control=repr(control), field=field):
+                    self.assertEqual(len(write_table.gets), 0,
+                                     'Invalid references must be rejected before storage reads')
+                with self.subTest(boundary='write admission does not put', control=repr(control), field=field):
+                    self.assertEqual(len(write_table.puts), 0, 'Invalid references must not persist an event')
+                with self.subTest(boundary='write admission does not transact', control=repr(control), field=field):
+                    self.assertEqual(len(write_table.transactions), 0,
+                                     'Invalid references must not start a transaction')
+
+    def test_private_catalog_id_validation_remains_byte_only_for_publicly_rejected_controls(self):
+        for control in ('\r', '\x00'):
+            with self.subTest(control=repr(control)):
+                private_id = 'x' * 127 + control + 'x' * 128
+                self.assertEqual(len(private_id.encode('utf-8')), 256)
+                self.assertEqual(meetup.validate_catalog_resource_id(private_id), private_id)
+
+    def test_retraction_rejects_control_characters_in_source_identity_before_cas(self):
+        valid_entry = event_entry()
+        valid = meetup.map_event(self.group('123'), valid_entry, event_page(valid_entry))
+        for control in ('\r', '\x00'):
+            existing = dict(valid, sourceGroupId=f'meetup-aws{control}bogota')
+            table = fixtures.FakeTable([existing])
+            with self.subTest(boundary='source identity validation', control=repr(control)):
+                with self.assertRaises(ValueError):
+                    meetup.unpublish_source_event(table, existing)
+            with self.subTest(boundary='no retraction update', control=repr(control)):
+                self.assertEqual(len(table.updates), 0,
+                                 'Invalid source identities must not issue the conditional update')
+            with self.subTest(boundary='stored event remains published', control=repr(control)):
+                current = table.existing[existing['id']]
+                self.assertTrue(current['published'])
+                self.assertEqual(current['sourceGroupId'], f'meetup-aws{control}bogota')
 
     def test_cancellation_retraction_cannot_change_owner_after_its_read(self):
         group_suffix = '123'

@@ -124,6 +124,8 @@ def validate_catalog_resource_id(value):
 
 def validate_public_catalog_resource_id(value, field='Catalog resource ID'):
     validate_catalog_resource_id(value)
+    if '\x00' in value or '\r' in value:
+        raise ValueError(f'{field} must not contain NUL or carriage return')
     if value[0] in PUBLIC_ID_EDGE_WHITESPACE or value[-1] in PUBLIC_ID_EDGE_WHITESPACE:
         raise ValueError(f'{field} must not have leading or trailing whitespace')
     return value

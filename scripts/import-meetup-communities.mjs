@@ -5,15 +5,15 @@ import { pathToFileURL } from 'node:url';
 import { isMainThread } from 'node:worker_threads';
 import { createDynamoCatalogAccess, putCatalogResourceOnce } from '../src/lib/catalog-resource-writer.mjs';
 import { mapMeetupCommunities } from '../src/lib/meetup-communities.mjs';
-import { isCatalogResourceIdWithinLimit } from '../src/lib/catalog-identity.mjs';
+import { isPublicCatalogResourceId } from '../src/lib/catalog-identity.mjs';
 import { TARGET_ACCOUNT_ID } from '../src/lib/catalog-import.mjs';
 
 export async function importMeetupCommunities(records, options = {}) {
   if (!Array.isArray(records) || records.length === 0) throw new Error('No Meetup communities to import');
   if (!options.tableName) throw new Error('DynamoDB table name is required');
   for (const [index, record] of records.entries()) {
-    if (!isCatalogResourceIdWithinLimit(record?.id)) {
-      throw new Error(`Meetup community ${index + 1} has an ID longer than 256 UTF-8 bytes`);
+    if (!isPublicCatalogResourceId(record?.id)) {
+      throw new Error(`Meetup community ${index + 1} has an invalid public ID`);
     }
   }
 

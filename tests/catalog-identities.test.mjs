@@ -59,6 +59,8 @@ const genericIdentities = [
   ['repeated internal whitespace', 'community  local  aws'],
   ['composed accent', 'comunidad-é'],
   ['decomposed accent', 'comunidad-e\u0301'],
+  ['internal LF and TAB', 'community\n\tlocal'],
+  ['quotes and literal entity text', 'community "quoted" &amp; 🧭'],
   ['256 ASCII bytes', 'x'.repeat(256)],
 ];
 
@@ -70,6 +72,8 @@ test('public resource IDs keep exact generic identities within the 256-byte limi
     'community  local  aws',
     'comunidad-é',
     'comunidad-e\u0301',
+    'community\n\tlocal',
+    'community "quoted" &amp; 🧭',
     'x'.repeat(256),
     '🧭'.repeat(64),
     '\u0085identity\u0085',
@@ -136,6 +140,22 @@ test('generic string references reject empty, outer-whitespace and oversize valu
       `event communityId rejects ${JSON.stringify(value)}`);
   }
 });
+
+for (const [label, id] of [['CR', 'before\rinside'], ['NUL', 'before\0inside']]) {
+  test(`public own IDs reject ${label} without changing the byte-only limit`, () => {
+    assert.throws(() => projectPublishedCatalog([resource(id)]));
+  });
+
+  for (const field of ['sourceId', 'communityId']) {
+    test(`public ${field} references reject ${label}`, () => {
+      assert.throws(() => projectPublishedCatalog([resource('referencer', { [field]: id })]));
+    });
+  }
+
+  test(`event communityId references reject ${label}`, () => {
+    assert.throws(() => projectPublishedCatalog([event({ communityId: id })]));
+  });
+}
 
 for (const field of ['sourceId', 'communityId']) {
   for (const value of [null, 7, false]) {
@@ -227,9 +247,24 @@ test('private and reserved-key callers retain the byte-only ID predicate', () =>
   assert.equal(isCatalogResourceIdWithinLimit(' x '), true,
     'the shared private/reserved-key byte check does not impose public outer-whitespace rules');
   assert.equal(isCatalogResourceIdWithinLimit('x'.repeat(256)), true);
+  assert.equal(isCatalogResourceIdWithinLimit(`private\rid`), true,
+    'CR remains accepted by private keys when it is within the byte limit');
+  assert.equal(isCatalogResourceIdWithinLimit(`private\0id`), true,
+    'NUL remains accepted by private keys when it is within the byte limit');
+  assert.equal(isCatalogResourceIdWithinLimit(`\r${'x'.repeat(255)}`), true);
+  assert.equal(isCatalogResourceIdWithinLimit(`\0${'x'.repeat(255)}`), true);
   assert.equal(isCatalogResourceIdWithinLimit('x'.repeat(257)), false);
+  assert.equal(isCatalogResourceIdWithinLimit(`\r${'x'.repeat(256)}`), false);
+  assert.equal(isCatalogResourceIdWithinLimit(`\0${'x'.repeat(256)}`), false);
   assert.equal(isCatalogResourceIdWithinLimit(''), false);
   assert.equal(isCatalogResourceIdWithinLimit(7), false);
+});
+
+test('unpublished CR and NUL IDs stay out of public snapshots before public identity validation', () => {
+  assert.deepEqual(projectPublishedCatalog([
+    resource('private\ridentity', { published: false }),
+    resource('private\0identity', { published: false }),
+  ]), []);
 });
 
 async function loadCompiledModule(modulePath) {
@@ -250,6 +285,8 @@ test('public owner-selection output preserves exact 256-byte and Unicode IDs thr
     'comunidad-é',
     'comunidad-e\u0301',
     'learning 🧭',
+    'community\n\tlocal',
+    'community "quoted" &amp; 🧭',
   ];
   const items = ids.map((id, index) => resource(id, { order: index }));
   const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), 'catalog-identities-'));
@@ -295,7 +332,8 @@ test('public owner-selection output preserves exact 256-byte and Unicode IDs thr
 
 test('the selection consumer rejects identities outside the public catalog contract', async () => {
   const parser = await loadCompiledModule('src/lib/creator-owner-catalog.ts');
-  const invalidIds = ['', ' leading', 'trailing ', 'x'.repeat(257), '🧭'.repeat(65), 7, null];
+  const invalidIds = ['', ' leading', 'trailing ', 'before\rinside', 'before\0inside',
+    'x'.repeat(257), '🧭'.repeat(65), 7, null];
   const observed = invalidIds.map((id) => parser.parseCreatorOwnerCatalog([
     { id, tipo: 'content', title: 'Public selection', url: 'https://example.test/resource' },
   ]));
