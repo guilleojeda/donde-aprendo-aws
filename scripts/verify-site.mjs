@@ -91,7 +91,9 @@ for (const path of resourceDirectoryPaths) {
   assert.ok(size <= 2_000_000, `Resource directory HTML must stay within 2,000,000 bytes: ${path} is ${size.toLocaleString('en')} bytes.`);
 }
 
-const decode = (value) => value.replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&#x27;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>');
+const htmlEntities = { amp: '&', quot: '"', '#39': "'", '#x27': "'", lt: '<', gt: '>' };
+// Decode the entities Astro emits once, preserving literal entity-like ID text.
+const decode = (value) => value.replace(/&(amp|quot|#39|#x27|lt|gt);/gu, (_, entity) => htmlEntities[entity]);
 const hasHtmlAttribute = (attributes, name) => new RegExp(`(?:^|\\s)${name}(?=\\s|=|$)`, 'iu').test(attributes);
 const htmlElementsWithAttribute = (source, attributeName, expectedTagName) => {
   const matches = [];
@@ -273,7 +275,7 @@ const cardData = (html) => {
   const listAttributes = html.match(/<ul\b(?=[^>]*\bdata-resource-list\b)([^>]*)>/u)?.[1] ?? '';
   const kind = listAttributes.match(/\bdata-kind="([^"]*)"/u)?.[1] ?? '';
   return [...html.matchAll(/<li\b([^>]*)>([\s\S]*?)<\/li>/gu)].flatMap(([, attributes, body]) => {
-    const id = attributes.match(/\bid="resource-([^" ]+)"/u)?.[1];
+    const id = decode(attributes.match(/\bid="resource-([^"]+)"/u)?.[1] ?? '');
     if (!id || !kind) return [];
     const mainLink = body.match(/<a\b[^>]*class="resource-card__main-link"[^>]*>/u)?.[0] ?? '';
     const metadata = body.match(/<div class="resource-card__meta">([\s\S]*?)<\/div>/u)?.[1] ?? '';
@@ -478,7 +480,15 @@ for (const route of eventCountryRoutes) {
   const communitiesForCountry = generalCommunities.filter((card) => card.country === route.country);
   const summary = html.match(/<section class="event-country-communities"[^>]*>([\s\S]*?)<\/section>/u)?.[1] ?? '';
   assert.ok(summary, `Country agenda links back to its published communities: ${route.path}`);
-  for (const community of communitiesForCountry) assert.ok(summary.includes(`href="${resourceLinkFor(community.id, route.country)}"`));
+  const summaryLinks = [...summary.matchAll(/<a\b[^>]*\bhref="([^"]*)"/gu)]
+    .map(([, href]) => new URL(decode(href), mediaOrigin));
+  for (const community of communitiesForCountry) {
+    assert.ok(summaryLinks.some((link) => link.origin === mediaOrigin
+      && link.pathname === `/comunidades/${route.slug}/`
+      && link.search === ''
+      && decodeURIComponent(link.hash) === `#resource-${community.id}`),
+    `The ${route.path} community link resolves to its exact card: ${JSON.stringify(community.id)}`);
+  }
   assert.match(html, /<h1\b[^>]*>Eventos AWS en [^<]+<\/h1>/u);
   assert.doesNotMatch(html, /no necesariamente el lugar de cada encuentro|99[.,]99/u);
   assert.match(html, /data-event-list/u);
@@ -496,11 +506,6 @@ for (const route of eventCountryRoutes) {
   for (const otherRoute of eventCountryRoutes) assert.ok(countryNav.includes(`href="${otherRoute.path}"`), `Country agenda navigation links to ${otherRoute.path}.`);
 }
 
-function resourceLinkFor(id, country) {
-  const route = countryRoutes.find((item) => item.country === country);
-  return `${route?.path ?? '/comunidades/'}#resource-${id}`;
-}
-
 if (fixtureBuild) {
   const learn = read('aprender/index.html');
   const creators = read('creadores/index.html');
@@ -509,10 +514,13 @@ if (fixtureBuild) {
   const featuredCard = card(learn, 'fixture-featured');
   const sourceCard = card(creators, 'fixture-source');
   const communityCard = card(communities, 'fixture-community');
+  const studentArgentinaId = process.env.DIRECTORY_ACCEPTANCE_FIXTURE_MODE === 'enriched'
+    ? `fixture: identidad "Córdoba" &amp; AWS  ${'x'.repeat(215)}`
+    : 'fixture-student-argentina';
   assert.deepEqual(countryRoutes.map(({ slug }) => slug).sort(), ['argentina', 'colombia', 'costa-rica', 'peru']);
   assert.deepEqual(cardData(read('comunidades/argentina/index.html')).map(({ id, format }) => [id, format]), [
     ['fixture-community-argentina', 'User Group'],
-    ['fixture-student-argentina', 'Student Builder Group'],
+    [studentArgentinaId, 'Student Builder Group'],
   ]);
   assert.deepEqual(cardData(read('comunidades/colombia/index.html')).map(({ id, format }) => [id, format]), [
     ['fixture-student-colombia', 'Student Builder Group'],
@@ -528,7 +536,8 @@ if (fixtureBuild) {
     assert.doesNotMatch(html, /eventos organizados por comunidades de/u,
       'The national attendance agenda is not presented as an exclusive organizer-country selection.');
   }
-  assert.match(communities, /id="resource-fixture-student-argentina"/);
+  assert.ok(cardData(communities).some(({ id }) => id === studentArgentinaId),
+    'The complete student community identity survives HTML attribute decoding.');
   assert.doesNotMatch(communities, /fixture-unpublished-community/);
   assert.match(learn, /https:\/\/example\.com\/curso\?utm_source=fixture&amp;lang=es/);
   assert.match(learn, /href="\/creadores\/#resource-fixture-source"/);
