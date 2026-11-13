@@ -240,6 +240,30 @@ class FakeTable:
         return True
 
 
+class ReapprovalInventoryTable(FakeTable):
+    """Return committed or older source pages at the Scan consistency boundary."""
+
+    def __init__(self, existing, committed_source_pages, older_source_pages):
+        super().__init__(existing)
+        self.committed_source_pages = copy.deepcopy(committed_source_pages)
+        self.older_source_pages = copy.deepcopy(older_source_pages)
+        self.scan_requests = []
+
+    def scan(self, **kwargs):
+        request = copy.deepcopy(kwargs)
+        self.scan_requests.append(request)
+        if 'kind' in request.get('ExpressionAttributeNames', {}).values():
+            pages = (self.committed_source_pages if request.get('ConsistentRead') is True
+                     else self.older_source_pages)
+            page_index = 1 if 'ExclusiveStartKey' in request else 0
+            return copy.deepcopy(pages[page_index])
+        return super().scan(**kwargs)
+
+    def advance_inventory_view(self):
+        """Make the provider's ordinary view current before the healthy retry."""
+        self.older_source_pages = copy.deepcopy(self.committed_source_pages)
+
+
 class FrozenDateTime(datetime):
     frozen = datetime(2030, 1, 1, 20, 0, tzinfo=timezone.utc)
 
@@ -355,6 +379,97 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertTrue(any(re.search(rf'{re.escape(sync_alias)}\s*=\s*{re.escape(parameter)}', expression)
                             for parameter in sync_placeholders))
         self.assertRegex(expression, rf'attribute_not_exists\({re.escape(sync_alias)}\)')
+
+    def reapproved_inventory_table(self):
+        first_source = {
+            'id': 'meetup-123', 'title': GROUP['name'], 'url': GROUP['url'],
+            'country': 'CO', 'kind': 'community', 'published': True,
+        }
+        reapproved_source = {
+            'id': 'meetup-999', 'title': 'AWS Test',
+            'url': 'https://www.meetup.com/aws-test/', 'country': 'CO',
+            'kind': 'community', 'published': True,
+        }
+        revoked_first_view = dict(first_source, published=False)
+        revoked_second_view = dict(reapproved_source, published=False)
+        inventory_cursor = {'id': first_source['id']}
+
+        historical = existing_event(published=True)
+        historical['version'] = 4
+        second_group = {
+            'id': '999', 'url': reapproved_source['url'], 'name': reapproved_source['title'],
+            'country': 'CO', 'timeZone': GROUP['timeZone'],
+        }
+        second_event_url = 'https://www.meetup.com/aws-test/events/789/'
+        second_historical = meetup.map_event(
+            second_group,
+            {'id': '789', 'url': second_event_url, 'modified': '20990101T000000Z'},
+            dict(PAGE, url=second_event_url),
+        )
+        second_historical['startsAt'] = '2000-01-01T18:00:00-05:00'
+        second_historical['endsAt'] = '2000-01-01T20:00:00-05:00'
+        second_historical['version'] = 8
+
+        # Both sources have committed reapprovals, while the older scan still
+        # sees their post-revocation false values on separate real pages.
+        return ReapprovalInventoryTable(
+            [first_source, reapproved_source, historical, second_historical],
+            committed_source_pages=[
+                {'Items': [first_source], 'LastEvaluatedKey': inventory_cursor},
+                {'Items': [reapproved_source]},
+            ],
+            older_source_pages=[
+                {'Items': [revoked_first_view], 'LastEvaluatedKey': inventory_cursor},
+                {'Items': [revoked_second_view]},
+            ],
+        )
+
+    def reapproval_run_observation(self, table, result, scan_start,
+                                   writes_start, notifications_start, invocations):
+        source_scans = [
+            request for request in table.scan_requests[scan_start:]
+            if 'kind' in request.get('ExpressionAttributeNames', {}).values()
+        ]
+        return {
+            'result': {key: result[key] for key in (
+                'groups', 'feedsRead', 'upcomingEvents', 'changed', 'failures', 'dryRun')},
+            'catalog': copy.deepcopy(table.existing),
+            'writes': {
+                'puts': len(table.puts) - writes_start[0],
+                'transactions': len(table.transactions) - writes_start[1],
+                'updates': len(table.updates) - writes_start[2],
+            },
+            'publication_notifications': len(invocations) - notifications_start,
+            'inventory_pages': [
+                {
+                    'ConsistentRead': request.get('ConsistentRead'),
+                    'ExclusiveStartKey': request.get('ExclusiveStartKey'),
+                }
+                for request in source_scans
+            ],
+        }
+
+    def assert_completed_reapproval_survives_two_runs(self, observations, baseline):
+        expected_result = {
+            'groups': 2, 'feedsRead': 2, 'upcomingEvents': 0,
+            'changed': 0, 'failures': [], 'dryRun': False,
+        }
+        expected_inventory_pages = [
+            {'ConsistentRead': True, 'ExclusiveStartKey': None},
+            {'ConsistentRead': True, 'ExclusiveStartKey': {'id': 'meetup-123'}},
+        ]
+        self.assertEqual(len(observations), 2)
+        for run_name, observation in zip(('first', 'healthy retry'), observations):
+            with self.subTest(run=run_name, boundary='result'):
+                self.assertEqual(observation['result'], expected_result)
+            with self.subTest(run=run_name, boundary='persisted catalog'):
+                self.assertEqual(observation['catalog'], baseline)
+            with self.subTest(run=run_name, boundary='writes'):
+                self.assertEqual(observation['writes'], {'puts': 0, 'transactions': 0, 'updates': 0})
+            with self.subTest(run=run_name, boundary='publication notifications'):
+                self.assertEqual(observation['publication_notifications'], 0)
+            with self.subTest(run=run_name, boundary='source inventory pages'):
+                self.assertEqual(observation['inventory_pages'], expected_inventory_pages)
 
     def test_resource_version_normalizes_boto3_decimals_and_rejects_invalid_numbers(self):
         self.assertEqual(meetup.resource_version({'id': 'legacy', 'version': Decimal('0')}), 0)
@@ -1337,6 +1452,54 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertEqual(invocations, [{
             'FunctionName': 'fake-publication', 'InvocationType': 'Event', 'Payload': b'{}',
         }])
+
+    def test_lambda_preserves_completed_reapproval_across_all_inventory_pages_and_retry(self):
+        table = self.reapproved_inventory_table()
+        baseline = copy.deepcopy(table.existing)
+        invocations = []
+        boto3 = fake_boto3(table, invocations)
+        observations = []
+
+        with patch.dict(sys.modules, fake_aws_modules(boto3)), \
+                patch.dict(os.environ, {'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication'}), \
+                patch.object(meetup, 'get_text', return_value=EMPTY_ICAL):
+            for _run in ('first', 'healthy-retry'):
+                scan_start = len(table.scan_requests)
+                writes_start = (len(table.puts), len(table.transactions), len(table.updates))
+                notifications_start = len(invocations)
+                with redirect_stdout(StringIO()):
+                    result = meetup.lambda_handler({}, lambda_context())
+                observation = self.reapproval_run_observation(
+                    table, result, scan_start, writes_start, notifications_start, invocations)
+                observations.append(observation)
+                table.advance_inventory_view()
+
+        self.assert_completed_reapproval_survives_two_runs(observations, baseline)
+
+    def test_non_dry_run_main_preserves_completed_reapproval_across_all_inventory_pages_and_retry(self):
+        table = self.reapproved_inventory_table()
+        baseline = copy.deepcopy(table.existing)
+        invocations = []
+        boto3 = fake_boto3(table, invocations)
+        observations = []
+
+        with patch.dict(sys.modules, fake_aws_modules(boto3)), \
+                patch.object(meetup, 'get_text', return_value=EMPTY_ICAL):
+            for _run in ('first', 'healthy-retry'):
+                scan_start = len(table.scan_requests)
+                writes_start = (len(table.puts), len(table.transactions), len(table.updates))
+                notifications_start = len(invocations)
+                output = StringIO()
+                with patch.object(sys, 'argv', ['import-meetup-events.py', '--table', 'fake-table']), \
+                        redirect_stdout(output):
+                    meetup.main()
+                result = json.loads(output.getvalue())
+                observation = self.reapproval_run_observation(
+                    table, result, scan_start, writes_start, notifications_start, invocations)
+                observations.append(observation)
+                table.advance_inventory_view()
+
+        self.assert_completed_reapproval_survives_two_runs(observations, baseline)
 
     def test_non_dry_run_cli_processes_successful_empty_inventory(self):
         table = removed_source_catalog()
