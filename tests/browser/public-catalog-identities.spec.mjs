@@ -89,13 +89,16 @@ function resourceFragment(id) {
 function identityBoundaryCatalog() {
   const id = `${'R'.repeat(127)}😀`;
   const title = `${'T'.repeat(239)}😀`;
+  const relatedTitle = 'C'.repeat(220);
   return {
     id,
     title,
+    relatedTitle,
     catalog: [
-      resource({ id, title, order: 3 }),
+      resource({ id, title, order: 3, communityId: 'related-community-long' }),
       resource({ id: 'ordinary-report-control', title: 'Recurso ordinario visible', order: 2 }),
       resource({ id: 'event-community', title: 'Comunidad organizadora', kind: 'community', order: 1, country: 'AR', city: 'Córdoba' }),
+      resource({ id: 'related-community-long', title: relatedTitle, kind: 'community', order: 0, country: 'AR', city: 'Córdoba' }),
       event({
         id: 'event_unicode_boundary',
         title,
@@ -277,11 +280,42 @@ for (const test of [boundaryTest, longIdentityTest, sourceReferenceTest, communi
 }
 
 boundaryTest('the real resource card keeps a Unicode identity and title intact in its safe report link', async ({ app, page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   const response = await page.goto(`${app.origin}/aprender/`);
   assert.equal(response?.status(), 200, 'the public content directory renders the raw projected record');
 
   const card = page.locator('li.resource-card').filter({ hasText: identityBoundary.title });
   await expect(card).toHaveAttribute('id', `resource-${identityBoundary.id}`);
+  const layout = await card.evaluate((element) => {
+    const main = element.querySelector('.resource-card__main-link');
+    const title = main?.querySelector('h3');
+    const description = main?.querySelector('.resource-card__description');
+    const related = element.querySelector('.resource-card__related a');
+    const measure = (node) => node && ({
+      text: node.textContent,
+      clientWidth: node.clientWidth,
+      scrollWidth: node.scrollWidth,
+      clientHeight: node.clientHeight,
+      scrollHeight: node.scrollHeight,
+    });
+    return {
+      documentWidth: document.documentElement.scrollWidth,
+      title: measure(title),
+      description: measure(description),
+      related: measure(related),
+    };
+  });
+  assert.equal(layout.title.text, identityBoundary.title, 'the complete 240-code-point title remains in the card');
+  assert.equal(layout.description.text, `Descripción pública de ${identityBoundary.title}.`);
+  assert.equal(layout.related.text, `Comunidad: ${identityBoundary.relatedTitle}`);
+  assert.ok(layout.title.scrollWidth <= layout.title.clientWidth, 'an unbroken title wraps inside the card');
+  assert.ok(layout.description.scrollWidth <= layout.description.clientWidth, 'the full description wraps inside the card');
+  assert.ok(layout.related.scrollWidth <= layout.related.clientWidth, 'a long related title wraps inside its link');
+  assert.ok(layout.title.scrollHeight <= layout.title.clientHeight, 'no title text is clipped vertically');
+  assert.ok(layout.description.scrollHeight <= layout.description.clientHeight, 'no description text is clipped vertically');
+  assert.ok(layout.related.scrollHeight <= layout.related.clientHeight, 'no related-link text is clipped vertically');
+  assert.ok(layout.documentWidth <= 390, `the mobile page remains within 390px (actual ${layout.documentWidth}px)`);
+
   const details = reportDetails(await card.getByRole('link', { name: 'Reportar enlace roto o dato incorrecto' }).getAttribute('href'));
   assertSafeReportEnvelope(details);
   assert.ok(details.body.includes(`Título: ${identityBoundary.title}`), 'the 240-code-point title remains whole');
@@ -326,6 +360,7 @@ longIdentityTest('no-JavaScript SSR reports and the fetched public selection ind
 });
 
 boundaryTest('the real EventAgenda renders a Unicode title with a valid narrow event ID and complete report context', async ({ app, page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.clock.setFixedTime(new Date('2099-05-04T10:00:00Z'));
   const response = await page.goto(`${app.origin}/eventos/argentina/`);
   assert.equal(response?.status(), 200, 'the country event page renders the projected event');
@@ -334,6 +369,17 @@ boundaryTest('the real EventAgenda renders a Unicode title with a valid narrow e
   await expect(eventCard).toBeVisible();
   const member = eventCard.locator('[data-event-member-id="event_unicode_boundary"]');
   await expect(member.locator('[data-event-title]')).toHaveText(identityBoundary.title);
+  const relatedCommunityCard = page.locator('.event-country-communities li a')
+    .filter({ hasText: identityBoundary.relatedTitle });
+  await expect(relatedCommunityCard.locator('strong')).toHaveText(identityBoundary.relatedTitle);
+  const relatedLinkWidth = await relatedCommunityCard.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  assert.ok(relatedLinkWidth.scrollWidth <= relatedLinkWidth.clientWidth,
+    'the complete long community title and description wrap inside the country community link');
+  const documentWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  assert.ok(documentWidth <= 390, `the mobile event agenda remains within 390px (actual ${documentWidth}px)`);
   await eventCard.locator('summary[data-event-detail-toggle]').click();
   const details = reportDetails(await eventCard.getByRole('link', { name: 'Reportar enlace roto o dato incorrecto' }).getAttribute('href'));
   assertSafeReportEnvelope(details);
