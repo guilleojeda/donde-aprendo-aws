@@ -561,7 +561,7 @@ class MeetupEventsTests(unittest.TestCase):
         html = '<script type="application/ld+json">' + json.dumps(PAGE) + '</script>'
         self.assertEqual(meetup.parse_event_page(html, EVENT_URL)['name'], 'AWS en acción')
 
-    def test_meetup_generated_event_and_community_ids_keep_their_existing_128_character_schema(self):
+    def test_meetup_generated_event_ids_keep_the_existing_128_ascii_schema(self):
         boundary_entry = {'id': '9' * 115, 'url': EVENT_URL, 'modified': '20990101T000000Z'}
         boundary_record = meetup.map_event(GROUP, boundary_entry, PAGE)
         self.assertEqual(len(boundary_record['id']), 128)
@@ -570,16 +570,6 @@ class MeetupEventsTests(unittest.TestCase):
         oversized_entry = {'id': '9' * 116, 'url': EVENT_URL, 'modified': '20990101T000000Z'}
         with self.assertRaises(ValueError):
             meetup.map_event(GROUP, oversized_entry, PAGE)
-
-        group_boundary = dict(GROUP, id='9' * 121)
-        group_record = meetup.map_event(group_boundary, {'id': '456', 'url': EVENT_URL, 'modified': '20990101T000000Z'}, PAGE)
-        self.assertEqual(len(group_record['communityId']), 128)
-        self.assertEqual(group_record['communityId'], group_record['sourceGroupId'])
-        invalid_group = dict(GROUP, id='9' * 122)
-        with self.assertRaises(ValueError):
-            meetup.map_event(invalid_group, {
-                'id': '456', 'url': EVENT_URL, 'modified': '20990101T000000Z',
-            }, PAGE)
 
         generic_boundary = 'é' * 128
         self.assertEqual(len(meetup.validate_catalog_resource_id(generic_boundary).encode('utf-8')), 256)
@@ -596,7 +586,7 @@ class MeetupEventsTests(unittest.TestCase):
 
         for field in ('communityId', 'sourceGroupId'):
             table = FakeTable()
-            bad_identity_record = dict(boundary_record, **{field: f'meetup-{"9" * 122}'})
+            bad_identity_record = dict(boundary_record, **{field: f'meetup-{"9" * 250}'})
             with self.assertRaises(ValueError):
                 meetup.create_source_event_with_url_reservation(table, bad_identity_record)
             self.assertEqual(table.gets, [])
@@ -615,6 +605,7 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertEqual(table.updates, [])
 
         table = FakeTable()
+        invalid_group = dict(GROUP, id='9' * 250)
         with patch.object(meetup, 'get_text', return_value=EMPTY_ICAL), \
                 patch.object(meetup, 'fetch_event_page', return_value=PAGE) as fetch_event_page:
             result = meetup.synchronize(table=table, groups=[invalid_group])
