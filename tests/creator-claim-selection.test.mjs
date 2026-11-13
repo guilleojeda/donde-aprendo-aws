@@ -260,9 +260,17 @@ test('admin claim listing preserves submitted resource pairs through the physica
     store,
     origin: SITE_ORIGIN,
     createId: () => 'physical-query-generated-id',
-    authenticate: async (request) => request.headers.get('x-test-session') === 'admin'
-      ? { state: 'authenticated', accountId: 'private-account-admin', csrfToken: 'csrf-admin', isAdmin: true }
-      : { state: 'anonymous' },
+    authenticate: async (request) => {
+      const principal = request.headers.get('x-test-session') === 'admin'
+        ? { state: 'authenticated', accountId: 'private-account-admin', csrfToken: 'csrf-admin', isAdmin: true }
+        : { state: 'anonymous' };
+      return {
+        session: principal.state === 'authenticated'
+          ? { state: 'authenticated', account: { email: 'admin@example.invalid' }, csrfToken: principal.csrfToken, expiresAt: Number.MAX_SAFE_INTEGER }
+          : { state: principal.state },
+        principal,
+      };
+    },
   });
   const harness = { service, store };
 

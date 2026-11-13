@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { requestContextForTestPrincipal } from './fixtures/creator-pages.mjs';
 import { createCreatorHttpHandler, creatorPhotoResponse } from '../src/lib/creator-http.mjs';
 
 const origin = 'https://dondeaprendoaws.com';
@@ -8,7 +9,7 @@ function fixture() {
   const state = { principal: { state: 'authenticated', accountId: 'private-account', csrfToken: 'csrf' } };
   const handle = createCreatorHttpHandler({
     origin,
-    auth: { getPrincipal: async () => state.principal },
+    auth: { getRequestContext: async () => requestContextForTestPrincipal(state.principal) },
     store: { get: async (key) => { assert.equal(key, 'account-profile:private-account'); return { profileId: 'own-profile' }; } },
     service: { handle: async () => new Response('domain') },
     photos: {

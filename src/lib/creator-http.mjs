@@ -1,6 +1,7 @@
 import {
   creatorPageSessionBindingFailureForRequest,
 } from './creator-session-context.mjs';
+import { parseHttpsOrigin } from './account-origin.mjs';
 
 const PRIVATE_HEADERS = {
   'content-type': 'application/json; charset=utf-8',
@@ -30,7 +31,7 @@ async function creatorSessionContext(request, auth) {
 
   let principal;
   try {
-    principal = await auth.getPrincipal(request);
+    principal = (await auth.getRequestContext(request)).principal;
   } catch {
     return sessionJson({ error: 'AUTH_UNAVAILABLE' }, 503);
   }
@@ -88,6 +89,7 @@ function photoErrorStatus(error) {
 
 /** Session recovery and the photo ownership/CSRF boundary; domain APIs retain their own guards. */
 export function createCreatorHttpHandler({ service, photos, auth, store, origin }) {
+  const accountOrigin = parseHttpsOrigin(origin, 'origin').origin;
   return async function handle(request) {
     const pathname = new URL(request.url).pathname.replace(/\/$/, '');
     if (pathname === '/api/creador/sesion') return creatorSessionContext(request, auth);
@@ -96,7 +98,7 @@ export function createCreatorHttpHandler({ service, photos, auth, store, origin 
     }
     if (request.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
     try {
-      const principal = await auth.getPrincipal(request);
+      const principal = (await auth.getRequestContext(request)).principal;
       if (principal.state === 'anonymous') return json({ error: 'AUTH_REQUIRED' }, 401);
       if (principal.state === 'disabled') {
         const bindingFailure = creatorPageSessionBindingFailureForRequest(request.headers.get('x-creator-page-binding'), principal);
@@ -104,7 +106,7 @@ export function createCreatorHttpHandler({ service, photos, auth, store, origin 
       }
       if (principal.state !== 'authenticated' || typeof principal.accountId !== 'string'
         || typeof principal.csrfToken !== 'string') return json({ error: 'AUTH_UNAVAILABLE' }, 503);
-      if (request.headers.get('origin') !== origin || request.headers.get('x-csrf-token') !== principal.csrfToken) {
+      if (request.headers.get('origin') !== accountOrigin || request.headers.get('x-csrf-token') !== principal.csrfToken) {
         return json({ error: 'CSRF_REJECTED' }, 403);
       }
       const requestedBinding = request.headers.get('x-creator-page-binding');

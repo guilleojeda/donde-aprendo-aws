@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   callApi,
   createCreatorPagesHarness,
+  requestContextForTestPrincipal,
   readAdminRecord,
   responseJson,
   seedResource,
@@ -496,7 +497,9 @@ test('private reads and writes distinguish anonymous, disabled, and unavailable 
     ['unavailable', { state: 'unavailable' }, 503],
   ]) {
     const harness = await createCreatorPagesHarness({
-      authenticate: async (request) => request.headers.get('x-test-session') === token ? state : { state: 'anonymous' },
+      authenticate: async (request) => requestContextForTestPrincipal(
+        request.headers.get('x-test-session') === token ? state : { state: 'anonymous' }, token,
+      ),
     });
     const read = await api(harness, '/api/creador/perfil', token);
     assert.equal(read.status, status);

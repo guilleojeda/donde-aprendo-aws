@@ -3,6 +3,7 @@ import { completeLogin, cookiePair } from '../fixtures/account-auth.mjs';
 import {
   test, expect, addCookie, api, createProfile, createSeries, addLink, addChapter, loggedInOwner,
 } from '../fixtures/creator-browser-test.mjs';
+import { seedResource } from '../fixtures/creator-pages.mjs';
 
 async function noJavaScript(browser, fixture, cookie, use) {
   const context = await browser.newContext({ javaScriptEnabled: false, ignoreHTTPSErrors: true });
@@ -20,7 +21,9 @@ async function assertPrivate(response, page, status = 200) {
   assert.match(headers['cache-control'] ?? '', /private.*no-store/i);
   assert.equal(headers['referrer-policy'], 'no-referrer');
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
-  assert.doesNotMatch(await response.text(), /analytics\.js|gtag\(|google-analytics|googletagmanager/i);
+  const html = await response.text();
+  assert.doesNotMatch(html, /analytics\.js|gtag\(|google-analytics|googletagmanager/i);
+  return html;
 }
 
 async function seedHiddenResource(fixture, resourceId) {
@@ -30,6 +33,39 @@ async function seedHiddenResource(fixture, resourceId) {
     checks: [{ key: `resource:${resourceId}`, version: stored.version }],
     puts: [{ key: `resource:${resourceId}`, value: { ...stored, hidden: true, version: stored.version + 1 } }],
   }), true);
+}
+
+async function seedOwnerClaims(fixture, cookie, claims) {
+  const { principal, profile } = await fixture.rawOwner(cookie);
+  assert.equal(principal.state, 'authenticated');
+  assert.ok(profile);
+  const checks = [];
+  const puts = [];
+  for (const claim of claims) {
+    const stored = {
+      recordType: 'claim',
+      id: claim.id,
+      profileId: profile.id,
+      accountId: principal.accountId,
+      resourceIds: [...claim.resourceIds],
+      ...(claim.resources === undefined ? {} : { resources: claim.resources.map((resource) => ({ ...resource })) }),
+      ...(claim.sourceId === undefined ? {} : { sourceId: claim.sourceId }),
+      ...(claim.evidence === undefined ? {} : { evidence: claim.evidence }),
+      ...(claim.status === undefined ? {} : { status: claim.status }),
+      ...(claim.createdAt === undefined ? {} : { createdAt: claim.createdAt }),
+      ...(claim.version === undefined ? {} : { version: claim.version }),
+    };
+    checks.push({ key: `claim:${claim.id}`, version: null }, { key: `claim-ref:${profile.id}:${claim.id}`, version: null });
+    puts.push({ key: `claim:${claim.id}`, value: stored },
+      { key: `claim-ref:${profile.id}:${claim.id}`, value: { id: claim.id, version: 1 } });
+  }
+  assert.equal(await fixture.creatorStore.transact({ checks, puts }), true,
+    'the stored claim histories and owner references are seeded atomically');
+  for (const claim of claims) {
+    assert.ok(await fixture.creatorStore.get(`claim-ref:${profile.id}:${claim.id}`),
+      `the stored owner history includes the ${claim.id} reference`);
+  }
+  return { principal, profile };
 }
 
 test('Series hidrata una sola isla SSR Preact que posee la cabecera y los editores, sin iniciar el controlador anterior', async ({ fixture, page }) => {
@@ -241,5 +277,156 @@ test('la consulta inválida SSR devuelve 400 privado y no finge una colección v
       await expect(ssr.locator('[data-chapter-row]:visible')).toHaveCount(0);
       await expect(ssr.locator('[data-chapter-empty]:visible')).toHaveCount(0);
     }
+  });
+});
+
+test('el DOM SSR sin JavaScript muestra el estado vacío de Enlaces y el alta guardada tras recargar', async ({ fixture, page, browser }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const title = 'Recurso agregado entre lecturas';
+  const url = 'https://links.example/no-js-added';
+
+  await noJavaScript(browser, fixture, cookie, async (ssr) => {
+    const first = await ssr.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+    await assertPrivate(first, ssr);
+    await expect(ssr.locator('[data-owner-links]')).toBeVisible();
+    await expect(ssr.locator('[data-link-count]')).toHaveText('0 coincidencias de 0 enlaces');
+    await expect(ssr.locator('[data-link-row]')).toHaveCount(0);
+    await expect(ssr.locator('[data-link-empty]')).toBeVisible();
+
+    const created = await addLink(fixture, cookie, { title, url });
+    assert.equal(created.title, title);
+    assert.equal(created.url, url);
+
+    const reloaded = await ssr.reload();
+    await assertPrivate(reloaded, ssr);
+    await expect(ssr.locator('[data-link-count]')).toHaveText('1 coincidencia de 1 enlace');
+    await expect(ssr.locator('[data-link-row]')).toHaveCount(1);
+    const row = ssr.locator(`[data-link-row="${created.placementId}"]`);
+    await expect(row).toBeVisible();
+    await expect(row.locator('[data-link-title]')).toHaveText(title);
+    await expect(ssr.locator('[data-link-empty]')).toBeHidden();
+  });
+});
+
+test('el historial SSR de Solicitudes muestra sus títulos autorizados sin JavaScript ni metadatos ajenos', async ({ fixture, page, browser }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const ownerTitle = 'Título actual del propietario';
+  const currentOwnerUrl = 'https://claims.example.invalid/current-owner';
+  const staleClaimUrl = 'https://claims.example.invalid/stale-submitted';
+  const foreignId = 'foreign-private-resource-id';
+  const foreignTitle = 'Título privado de otra persona';
+  const foreignEmail = 'foreign-claim-owner@example.invalid';
+  const suppliedKnownUrl = 'https://submitted.example.invalid/known';
+  const legacyId = 'legacy-private-resource-id';
+  const ownLink = await addLink(fixture, cookie, { title: ownerTitle, url: currentOwnerUrl });
+
+  await seedResource(fixture.creatorStore, {
+    id: foreignId,
+    title: foreignTitle,
+    email: foreignEmail,
+    url: 'https://foreign.example.invalid/private-resource',
+    description: 'Ficha privada ajena que no debe enriquecer el historial',
+    category: 'Artículo',
+    kind: 'content',
+    format: 'Artículo',
+    topics: [],
+    order: 1,
+    featured: false,
+    published: false,
+    hidden: false,
+    version: 1,
+    directoryControl: 'editorial',
+  });
+
+  const createdAt = Date.UTC(2026, 9, 28, 12);
+  const pendingId = 'claim-browser-pending';
+  const legacyClaimId = 'claim-browser-legacy';
+  const partialId = 'claim-browser-partial';
+  await seedOwnerClaims(fixture, cookie, [
+    {
+      id: pendingId,
+      resourceIds: [ownLink.resourceId],
+      resources: [{ resourceId: ownLink.resourceId, url: staleClaimUrl }],
+      sourceId: 'pending-source',
+      evidence: 'Contexto privado de la solicitud pendiente',
+      status: 'pending',
+      createdAt,
+      version: 1,
+    },
+    {
+      id: legacyClaimId,
+      resourceIds: [legacyId],
+      evidence: 'Contexto privado de la solicitud histórica',
+      status: 'pending',
+      createdAt,
+    },
+    {
+      id: partialId,
+      resourceIds: [ownLink.resourceId, foreignId],
+      resources: [
+        { resourceId: ownLink.resourceId, url: staleClaimUrl },
+        { resourceId: foreignId, url: suppliedKnownUrl },
+      ],
+      sourceId: 'partially-resolved-source',
+      evidence: 'Contexto privado de la solicitud parcialmente resuelta',
+      status: 'partial',
+      createdAt,
+      version: 2,
+    },
+  ]);
+
+  await noJavaScript(browser, fixture, cookie, async (ssr) => {
+    const browserRequests = [];
+    ssr.on('request', (request) => browserRequests.push(new URL(request.url()).pathname));
+    const storeCallStart = fixture.creatorStore.calls.length;
+    const response = await ssr.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+    const html = await assertPrivate(response, ssr);
+    const history = ssr.locator('[data-owner-claims]');
+    await expect(history).toBeVisible();
+
+    const pending = history.locator(`[data-claim-record="${pendingId}"]`);
+    await expect(pending.locator(`[data-claim-resource-id="${ownLink.resourceId}"]`)).toHaveText(ownerTitle);
+    await expect(pending).not.toContainText(staleClaimUrl);
+    await expect(pending.locator('[data-claim-evidence-text]')).toHaveText('Contexto privado de la solicitud pendiente');
+
+    const legacy = history.locator(`[data-claim-record="${legacyClaimId}"]`);
+    await expect(legacy).toContainText('Contexto privado de la solicitud histórica');
+    await expect(legacy.locator('[data-claim-resource-id]')).toHaveText('Contenido solicitado');
+
+    const partial = history.locator(`[data-claim-record="${partialId}"]`);
+    await expect(partial.locator('[data-claim-status]')).toHaveText('Parcialmente resuelta');
+    await expect(partial.locator('[data-claim-date]')).toContainText('2026');
+    await expect(partial.locator(`[data-claim-resource-id="${ownLink.resourceId}"]`)).toHaveText(ownerTitle);
+    await expect(partial.locator(`[data-claim-resource-id="${foreignId}"]`)).toHaveText(suppliedKnownUrl);
+    await expect(partial).not.toContainText(staleClaimUrl);
+    await expect(partial.locator('[data-claim-evidence-text]')).toHaveText('Contexto privado de la solicitud parcialmente resuelta');
+
+    const visibleHistory = await history.innerText();
+    for (const internalId of [pendingId, legacyClaimId, partialId, ownLink.resourceId, foreignId, legacyId]) {
+      assert.equal(visibleHistory.includes(internalId), false, `visible history omits internal ID ${internalId}`);
+    }
+    assert.doesNotMatch(html, new RegExp(foreignTitle));
+    assert.doesNotMatch(html, new RegExp(foreignEmail));
+    const ownerApi = await fixture.request(cookie, '/api/creador/perfil');
+    assert.equal(ownerApi.status, 200);
+    const ownerJson = await ownerApi.text();
+    assert.doesNotMatch(ownerJson, new RegExp(foreignTitle));
+    assert.doesNotMatch(ownerJson, new RegExp(foreignEmail));
+
+    const coordinator = ssr.locator('dialog[data-owner-dialog]');
+    await expect(coordinator).toHaveCount(1);
+    await expect(coordinator).not.toHaveAttribute('open', '');
+    await expect(coordinator).not.toBeVisible();
+    await expect(ssr.locator(
+      'input:visible[name="resourceId"], input:visible[name="resourceIds"], input:visible[name="sourceId"], '
+      + 'textarea:visible[name="resourceId"], textarea:visible[name="resourceIds"], textarea:visible[name="sourceId"]',
+    )).toHaveCount(0);
+    assert.equal(browserRequests.includes('/catalog-selection.json'), false,
+      'a no-JavaScript SSR visit makes no catalog-selection request');
+    const readsForeignResource = fixture.creatorStore.calls.slice(storeCallStart).some(({ operation, input }) =>
+      (operation === 'get' && input.key === `resource:${foreignId}`)
+      || (operation === 'getResources' && Array.isArray(input.ids) && input.ids.includes(foreignId)));
+    assert.equal(readsForeignResource, false,
+      'owner history rendering does not read the foreign private resource by point or batch read');
   });
 });

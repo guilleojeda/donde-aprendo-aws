@@ -38,6 +38,13 @@ indisponibilidad, no acceso anónimo aparente ni éxito. DynamoDB TTL limpia
 filas: su demora no prolonga autorización. La página y las operaciones de
 cuenta responden `private, no-store`; dos navegadores no comparten HTML privado.
 
+Cada petición privada comparte una sola resolución de sesión y cuenta entre
+sus consultas. El contexto queda en el servidor: la página recibe la proyección
+segura de cuenta y las consultas usan el principal privado. No se guarda esa
+autorización entre peticiones; la siguiente vuelve a comprobar cambios de
+permiso, desactivación o invalidación de sesiones. El acceso y la salida de
+cuenta no dependen de que estén configurados los perfiles, fotos o Analytics.
+
 Cerrar sesión requiere POST, origen válido y token CSRF de esa sesión. Se
 confirma su revocación antes de borrar la cookie y terminar la sesión de
 Cognito. Repetir la salida es seguro; reutilizar una cookie revocada no da
@@ -77,6 +84,12 @@ compatibles entre sí; revertir sólo el código no restaura reglas de app.
 El origen HTTPS de cuenta configura tanto los retornos de autenticación como
 el hostname de proxy que Astro acepta. Cambiar ese origen requiere compilar
 el artefacto con el mismo valor y autorizar sus URLs exactas en Cognito.
+Autenticación, operaciones de creadores y fotos, y hosting usan la misma regla
+de origen HTTPS sin credenciales ni ruta distinta de raíz, consulta o fragmento.
+La barra final, las mayúsculas del host y el puerto HTTPS predeterminado se
+comparan mediante el origen canónico; un puerto no predeterminado se conserva.
+Esto no relaja la igualdad de Origin, CSRF, el contexto de página ni la lista
+de hosts admitidos. El emisor OIDC conserva su regla separada con ruta.
 
 ## Páginas y administración de creadores
 

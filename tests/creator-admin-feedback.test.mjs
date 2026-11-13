@@ -1,18 +1,20 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { runInNewContext } from 'node:vm';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
-import { transform } from '@astrojs/compiler-rs';
 import { experimental_AstroContainer } from 'astro/container';
+import { compileCreatorAstroRoutes } from './fixtures/creator-astro-route.mjs';
 import { createCreatorHttpHandler } from '../src/lib/creator-http.mjs';
 import { creatorPageSessionBinding } from '../src/lib/creator-session-context.mjs';
+import { bindCreatorBrowserRuntime, clearCreatorBrowserRuntime } from './fixtures/creator-browser-runtime.mjs';
 import {
   adminResourceCommandMatches,
   callApi,
   createCreatorPagesHarness,
+  requestContextForTestPrincipal,
   seedResource,
   SITE_ORIGIN,
 } from './fixtures/creator-pages.mjs';
@@ -22,11 +24,18 @@ const scratchParent = path.join(root, '.work/creator-pages');
 await mkdir(scratchParent, { recursive: true });
 const tempDir = await mkdtemp(path.join(scratchParent, 'repair-review-admin-test-'));
 const container = await experimental_AstroContainer.create();
-let adminPagePromise;
 let adminScriptPromise;
+const adminRoutes = await compileCreatorAstroRoutes({
+  admin: 'src/pages/cuenta/administracion/index.astro',
+}, {
+  siteOrigin: SITE_ORIGIN,
+  scratchDirectory: path.join(tempDir, 'routes'),
+  runtimeModule: 'fixture',
+  rawModules: 'source',
+});
 
 after(async () => {
-  delete globalThis.__adminFeedbackTestRuntime;
+  await adminRoutes.cleanup();
   await rm(tempDir, { recursive: true, force: true });
 });
 
@@ -79,91 +88,40 @@ const claims = [{
   status: 'pending',
 }];
 
-async function loadAdminPage() {
-  if (!adminPagePromise) {
-    const outputPath = path.join(tempDir, 'creator-admin-page.mjs');
-    adminPagePromise = (async () => {
-      await build({
-        entryPoints: [path.join(root, 'src/pages/cuenta/administracion/index.astro')],
-        outfile: outputPath,
-        bundle: true,
-        platform: 'node',
-        format: 'esm',
-        packages: 'external',
-        define: {
-          'import.meta.env.PUBLIC_SITE_ORIGIN': '"https://dondeaprendoaws.com"',
-          'import.meta.env.PUBLIC_PRODUCTION': '"true"',
-        },
-        plugins: [
-          {
-            name: 'render-admin-astro-components',
-            setup(api) {
-              api.onResolve({ filter: /\.css$/ }, ({ path: specifier, resolveDir }) => ({
-                path: path.resolve(resolveDir, specifier),
-                namespace: 'admin-style-stub',
-              }));
-              api.onLoad({ filter: /.*/, namespace: 'admin-style-stub' }, () => ({
-                contents: '',
-                loader: 'js',
-              }));
-              api.onResolve({ filter: /\?raw$/ }, ({ path: specifier, resolveDir }) => ({
-                path: path.resolve(resolveDir, specifier.slice(0, -4)),
-                namespace: 'admin-raw-text',
-              }));
-              api.onLoad({ filter: /.*/, namespace: 'admin-raw-text' }, async ({ path: filename }) => ({
-                contents: await readFile(filename, 'utf8'),
-                loader: 'text',
-              }));
-              api.onResolve({ filter: /creator-runtime\.mjs$/ }, () => ({
-                path: 'creator-runtime',
-                namespace: 'admin-runtime-fixture',
-              }));
-              api.onLoad({ filter: /.*/, namespace: 'admin-runtime-fixture' }, () => ({
-                contents: 'export function getCreatorRuntime() { return globalThis.__adminFeedbackTestRuntime; }',
-                loader: 'js',
-              }));
-              api.onLoad({ filter: /\.astro$/ }, async ({ path: filename }) => ({
-                contents: transform(await readFile(filename, 'utf8'), {
-                  filename,
-                  internalURL: 'astro/compiler-runtime',
-                  resultScopedSlot: true,
-                  resolvePath: (specifier) => specifier,
-                }).code,
-                loader: 'js',
-              }));
-            },
-          },
-        ],
-      });
-      return (await import(pathToFileURL(outputPath).href)).default;
-    })();
-  }
-  return adminPagePromise;
-}
-
 async function renderAdminPage({ claimRecords = claims, resourceRecords = resources, profileRecords = profiles } = {}) {
-  const service = {
-    async handle(request) {
-      const pathname = new URL(request.url).pathname;
-      const data = {
-        '/api/admin/recursos': { resources: resourceRecords },
-        '/api/admin/perfiles': { profiles: profileRecords },
-        '/api/admin/reclamaciones': { claims: claimRecords },
-      }[pathname];
-      return data
-        ? Response.json(data)
-        : new Response('not found', { status: 404 });
-    },
+  const principal = { state: 'authenticated', accountId: 'admin-feedback', isAdmin: true, csrfToken: 'csrf-feedback' };
+  const harness = await createCreatorPagesHarness({
+    authenticate: async () => requestContextForTestPrincipal(principal, 'admin'),
+  });
+  for (const resource of resourceRecords) await seedResource(harness.store, resource);
+  if (profileRecords.length > 0) {
+    const seeded = await harness.store.transact({
+      checks: profileRecords.map(({ id }) => ({ key: `profile:${id}`, version: null })),
+      puts: profileRecords.map((profile) => ({ key: `profile:${profile.id}`, value: structuredClone(profile) })),
+    });
+    assert.equal(seeded, true);
+  }
+  if (claimRecords.length > 0) {
+    const seeded = await harness.store.transact({
+      checks: claimRecords.map(({ id }) => ({ key: `claim:${id}`, version: null })),
+      puts: claimRecords.map((claim) => ({ key: `claim:${claim.id}`, value: { recordType: 'claim', version: 1, ...structuredClone(claim) } })),
+    });
+    assert.equal(seeded, true);
+  }
+  const context = requestContextForTestPrincipal(principal, 'admin');
+  const runtime = {
+    service: harness.service,
+    auth: { getRequestContext: async () => context },
+    accountAuth: { getSession: async () => context.session },
   };
-  globalThis.__adminFeedbackTestRuntime = {
-    service,
-    auth: {
-      getPrincipal: async () => ({ state: 'authenticated', accountId: 'admin-feedback', isAdmin: true, csrfToken: 'csrf-feedback' }),
-    },
-  };
-  const page = await loadAdminPage();
+  const browserRuntime = { creatorRuntime: runtime, accountAuth: runtime.accountAuth };
+  bindCreatorBrowserRuntime(browserRuntime);
   const request = new Request('https://dondeaprendoaws.com/cuenta/administracion/');
-  return container.renderToString(page, { request, partial: false });
+  try {
+    return await container.renderToString(adminRoutes.routes.admin.default, { request, partial: false });
+  } finally {
+    clearCreatorBrowserRuntime(browserRuntime);
+  }
 }
 
 async function loadAdminScript() {
@@ -635,9 +593,12 @@ test('R11 partial claim with one receipt gap pauses only stale records and recov
   const auth = { current: { state: 'authenticated', accountId: 'admin-feedback', csrfToken: 'csrf-feedback', isAdmin: true } };
   const creatorPrincipal = { state: 'authenticated', accountId: 'private-account-a', csrfToken: 'csrf-a', isAdmin: false };
   const harness = await createCreatorPagesHarness({
-    authenticate: async (request) => request.headers.get('x-test-session') === 'admin'
-      ? auth.current
-      : request.headers.get('x-test-session') === 'creator-a' ? creatorPrincipal : { state: 'anonymous' },
+    authenticate: async (request) => requestContextForTestPrincipal(
+      request.headers.get('x-test-session') === 'admin'
+        ? auth.current
+        : request.headers.get('x-test-session') === 'creator-a' ? creatorPrincipal : { state: 'anonymous' },
+      request.headers.get('x-test-session'),
+    ),
   });
   const created = await callApi(harness, '/api/creador/perfil', {
     method: 'PUT', session: 'creator-a', csrf: 'csrf-a',
@@ -680,7 +641,7 @@ test('R11 partial claim with one receipt gap pauses only stale records and recov
 
   const handler = createCreatorHttpHandler({
     service: harness.service,
-    auth: { getPrincipal: async () => auth.current },
+    auth: { getRequestContext: async () => requestContextForTestPrincipal(auth.current, 'admin') },
     origin: SITE_ORIGIN,
   });
   const resourceRecord = (id) => ({
@@ -811,10 +772,12 @@ test('invalid initial admin data exposes its recovery feedback', async () => {
 
 test('la recuperación administrativa rechaza un cambio de rol sin desbloquear escrituras', async () => {
   const auth = { current: { state: 'authenticated', accountId: 'admin-feedback', csrfToken: 'csrf-feedback', isAdmin: true } };
-  const harness = await createCreatorPagesHarness({ authenticate: async () => auth.current });
+  const harness = await createCreatorPagesHarness({
+    authenticate: async () => requestContextForTestPrincipal(auth.current, 'admin'),
+  });
   const handler = createCreatorHttpHandler({
     service: harness.service,
-    auth: { getPrincipal: async () => auth.current },
+    auth: { getRequestContext: async () => requestContextForTestPrincipal(auth.current, 'admin') },
     origin: SITE_ORIGIN,
   });
   const statuses = [];
@@ -852,7 +815,9 @@ test('la recuperación administrativa rechaza un cambio de rol sin desbloquear e
 test('la misma administración renueva CSRF y completa una acción sólo después de volver a pulsarla', async () => {
   const accountId = 'admin-feedback';
   const auth = { current: { state: 'authenticated', accountId, csrfToken: 'csrf-feedback', isAdmin: true } };
-  const harness = await createCreatorPagesHarness({ authenticate: async () => auth.current });
+  const harness = await createCreatorPagesHarness({
+    authenticate: async () => requestContextForTestPrincipal(auth.current, 'admin'),
+  });
   const seeded = await harness.store.transact({
     checks: [{ key: 'profile:profile-feedback', version: null }],
     puts: [{ key: 'profile:profile-feedback', value: {
@@ -862,7 +827,7 @@ test('la misma administración renueva CSRF y completa una acción sólo despué
   assert.equal(seeded, true);
   const handler = createCreatorHttpHandler({
     service: harness.service,
-    auth: { getPrincipal: async () => auth.current },
+    auth: { getRequestContext: async () => requestContextForTestPrincipal(auth.current, 'admin') },
     origin: SITE_ORIGIN,
   });
   const statuses = [];
@@ -1014,7 +979,10 @@ test('R12 successful claim receipt gap pauses only the stale row and preserves B
   const auth = { current: { state: 'authenticated', accountId: 'admin-feedback', csrfToken: 'csrf-feedback', isAdmin: true } };
   const creator = { state: 'authenticated', accountId: 'private-account-a', csrfToken: 'csrf-a', isAdmin: false };
   const harness = await createCreatorPagesHarness({
-    authenticate: async (request) => request.headers.get('x-test-session') === 'admin' ? auth.current : creator,
+    authenticate: async (request) => requestContextForTestPrincipal(
+      request.headers.get('x-test-session') === 'admin' ? auth.current : creator,
+      request.headers.get('x-test-session'),
+    ),
   });
   const created = await callApi(harness, '/api/creador/perfil', {
     method: 'PUT', session: 'creator-a', csrf: 'csrf-a',
@@ -1041,7 +1009,7 @@ test('R12 successful claim receipt gap pauses only the stale row and preserves B
 
   const handler = createCreatorHttpHandler({
     service: harness.service,
-    auth: { getPrincipal: async () => auth.current },
+    auth: { getRequestContext: async () => requestContextForTestPrincipal(auth.current, 'admin') },
     origin: SITE_ORIGIN,
   });
   const html = await renderAdminPage({

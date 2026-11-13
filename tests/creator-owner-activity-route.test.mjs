@@ -1,73 +1,35 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { build } from 'esbuild';
-import { transform } from '@astrojs/compiler-rs';
+import { fileURLToPath } from 'node:url';
+import { compileCreatorAstroRoutes } from './fixtures/creator-astro-route.mjs';
 import { createCreatorOwnerAstroContainer } from './fixtures/creator-owner-astro-container.mjs';
 import { parseCreatorStatisticsReady } from '../src/lib/creator-statistics-response.ts';
 import { createCreatorOwnerRuntime, SITE_ORIGIN } from './fixtures/creator-owner-runtime.mjs';
+import { bindCreatorBrowserRuntime, clearCreatorBrowserRuntime } from './fixtures/creator-browser-runtime.mjs';
 import { activityReport } from './fixtures/creator-owner-activity.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const scratch = path.join(root, '.work/creator-owner-experience/planning/phase2');
-await mkdir(scratch, { recursive: true });
-const tempDir = await mkdtemp(path.join(scratch, 'activity-route-'));
-const stateKey = `__ownerActivityRoute_${path.basename(tempDir).replaceAll('-', '_')}`;
-after(async () => {
-  delete globalThis[stateKey];
-  await rm(tempDir, { recursive: true, force: true });
-});
-for (const [file, exported, property] of [
-  ['creator-runtime', 'getCreatorRuntime', 'runtime'],
-  ['account-runtime', 'getAccountAuth', 'accountAuth'],
-]) {
-  await writeFile(path.join(tempDir, `${file}.mjs`),
-    `export function ${exported}() { return globalThis[${JSON.stringify(stateKey)}].${property}; }`);
-}
-await build({
-  entryPoints: {
-    owner: path.join(root, 'src/pages/cuenta/index.astro'),
-    legacy: path.join(root, 'src/pages/cuenta/estadisticas/index.astro'),
-  },
-  outdir: tempDir, bundle: true, platform: 'node', format: 'esm', packages: 'external',
-  outExtension: { '.js': '.mjs' },
-  define: {
-    'import.meta.env.PUBLIC_SITE_ORIGIN': JSON.stringify(SITE_ORIGIN),
-    'import.meta.env.PUBLIC_PRODUCTION': '"true"',
-  },
-  plugins: [{
-    name: 'owner-activity-astro-runtime',
-    setup(api) {
-      api.onResolve({ filter: /creator-runtime\.mjs$/ }, () => ({ path: path.join(tempDir, 'creator-runtime.mjs') }));
-      api.onResolve({ filter: /account-runtime\.mjs$/ }, () => ({ path: path.join(tempDir, 'account-runtime.mjs') }));
-      api.onResolve({ filter: /\?raw$/ }, ({ path: requested, resolveDir }) => ({
-        path: path.resolve(resolveDir, requested.slice(0, -4)), namespace: 'raw',
-      }));
-      api.onLoad({ filter: /.*/, namespace: 'raw' }, () => ({ contents: 'export default "";', loader: 'js' }));
-      api.onLoad({ filter: /\.css$/ }, () => ({ contents: '', loader: 'js' }));
-      api.onLoad({ filter: /\.astro$/ }, async ({ path: filename }) => ({
-        contents: transform(await readFile(filename, 'utf8'), {
-          filename, internalURL: 'astro/compiler-runtime', resultScopedSlot: true,
-          resolvePath: (specifier) => specifier,
-        }).code,
-        loader: 'js',
-      }));
-    },
-  }],
-});
-const ownerRoute = (await import(pathToFileURL(path.join(tempDir, 'owner.mjs')).href)).default;
-const legacyRoute = (await import(pathToFileURL(path.join(tempDir, 'legacy.mjs')).href)).default;
+const compiled = await compileCreatorAstroRoutes({
+  owner: 'src/pages/cuenta/index.astro',
+  legacy: 'src/pages/cuenta/estadisticas/index.astro',
+}, { siteOrigin: SITE_ORIGIN, scratchDirectory: scratch, runtimeModule: 'fixture', rawModules: 'empty' });
+after(async () => compiled.cleanup());
+
+const ownerRoute = compiled.routes.owner.default;
+const legacyRoute = compiled.routes.legacy.default;
 const container = await createCreatorOwnerAstroContainer({ astroConfig: { site: SITE_ORIGIN } });
 let runtime;
 let reads;
-let serviceQueries;
 let readReport;
+
+function statisticsQueries() {
+  return runtime.queryCalls.filter(({ method }) => method === 'readCreatorStatistics');
+}
 
 async function reset({ published = true, hidden = false, noProfile = false } = {}) {
   reads = [];
-  serviceQueries = [];
   readReport = ({ profileId, period, page }) => activityReport({ creatorId: profileId, period, page });
   runtime = await createCreatorOwnerRuntime({ statistics: {
     async read(input) {
@@ -76,12 +38,6 @@ async function reset({ published = true, hidden = false, noProfile = false } = {
     },
   } });
   runtime.setSession('creator-a');
-  runtime.overrideServiceResponse((request) => {
-    const url = new URL(request.url);
-    if (url.pathname.replace(/\/$/, '') === '/api/creador/estadisticas') {
-      serviceQueries.push({ method: request.method, search: url.search });
-    }
-  });
   let profile;
   if (!noProfile) {
     let response = await runtime.fetchApi('/api/creador/perfil/', {
@@ -106,7 +62,6 @@ async function reset({ published = true, hidden = false, noProfile = false } = {
       }), true);
     }
   }
-  globalThis[stateKey] = { runtime, accountAuth: runtime.accountAuth };
   runtime.serviceCalls.length = 0;
   return profile;
 }
@@ -114,12 +69,19 @@ async function reset({ published = true, hidden = false, noProfile = false } = {
 async function render({ legacy = false, session = 'creator-a', search = '', method = 'GET' } = {}) {
   const original = runtime.request(legacy ? '/cuenta/estadisticas/' : '/cuenta/', { session, search });
   const request = method === 'GET' ? original : new Request(original, { method });
-  const response = await container.renderToResponse(legacy ? legacyRoute : ownerRoute, {
-    request,
-    partial: false,
-  });
-  return { response, html: await response.text() };
+  const browserRuntime = { creatorRuntime: runtime, accountAuth: runtime.accountAuth };
+  bindCreatorBrowserRuntime(browserRuntime);
+  try {
+    const response = await container.renderToResponse(legacy ? legacyRoute : ownerRoute, {
+      request,
+      partial: false,
+    });
+    return { response, html: await response.text() };
+  } finally {
+    clearCreatorBrowserRuntime(browserRuntime);
+  }
 }
+
 function text(html) {
   return html.replace(/<script\b[\s\S]*?<\/script>|<style\b[\s\S]*?<\/style>/gi, ' ')
     .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -170,7 +132,7 @@ test('la entrada owner entrega identidad y actividad independiente sin esperar u
   assert.equal(target.searchParams.get('periodo'), '30');
   assert.equal(target.searchParams.get('pagina'), '1', 'the report does not inherit the management page');
   assert.equal(target.searchParams.get('buscar'), null);
-  assert.deepEqual(serviceQueries, []);
+  assert.deepEqual(statisticsQueries(), []);
   assert.deepEqual(reads, []);
 });
 
@@ -181,8 +143,7 @@ test('el detalle SSR vive en Tu página y proyecta sólo periodo/pagina al servi
   assertPrivate(response, html);
   assertOwnerContext(html);
   assert.deepEqual(reads, [{ profileId: profile.id, period: 30, page: 2 }]);
-  const query = new URLSearchParams(serviceQueries[0].search);
-  assert.deepEqual([...query.keys()].sort(), ['pagina', 'periodo']);
+  assert.deepEqual(statisticsQueries(), [{ method: 'readCreatorStatistics', parameters: { period: 30, page: 2 } }]);
   assert.equal(metric(html, 'views'), '137');
   assert.equal(metric(html, 'visitors'), '19');
   assert.equal(metric(html, 'clicks'), '43');
@@ -354,7 +315,7 @@ test('una consulta estadística inválida conserva el error 400 aunque la cuenta
   assertPrivate(response, html);
   assert.match(text(html), /El período o la página no son válidos/);
   assert.match(html, /role="alert"[^>]*aria-labelledby="creator-statistics-query-title"/);
-  assert.deepEqual(serviceQueries, []);
+  assert.deepEqual(statisticsQueries(), []);
   assert.deepEqual(reads, []);
 });
 
@@ -418,7 +379,7 @@ test('el acceso al detalle preserva las ramas de cuenta y no lee estadísticas s
     assert.doesNotMatch(text(html), /Ana de actividad/);
   }
   assert.deepEqual(reads, []);
-  assert.deepEqual(serviceQueries, []);
+  assert.deepEqual(statisticsQueries(), []);
 });
 
 test('consultas antiguas inválidas se rechazan sin leer datos ni cambiar sesión', async () => {
@@ -442,12 +403,18 @@ test('la vista estadística no salta los estados de callback ni consulta GA si n
     assert.doesNotMatch(text(html), /Ana de actividad/);
   }
   assert.deepEqual(runtime.serviceCalls, [], 'callback states do not start owner or statistics reads');
-  runtime.overrideServiceResponse((request) => new URL(request.url).pathname.replace(/\/$/, '') === '/api/creador/perfil'
-    ? Response.json({ profile: false, links: [], editableResources: [], claims: [], series: [] }) : undefined);
+  const created = await runtime.fetchApi('/api/creador/enlaces/', {
+    method: 'POST',
+    headers: { 'x-csrf-token': 'csrf-a', 'content-type': 'application/json' },
+    body: JSON.stringify({ title: 'Fallo previo a estadísticas', url: 'https://activity.example/provider-failure' }),
+  });
+  assert.equal(created.status, 201);
+  runtime.pages.store.failNext('getResources', new Error('injected resource provider failure'));
   const failed = await render({ search: '?vista=estadisticas&periodo=30&pagina=1' });
   assert.equal(failed.response.status, 503);
   assert.doesNotMatch(text(failed.html), /Crear borrador|Crear mi página/);
   assert.match(text(failed.html), /No pudimos cargar tu página/);
+  assert.deepEqual(statisticsQueries(), [], 'the report query waits for a valid owner snapshot');
   assert.deepEqual(reads, []);
 });
 
@@ -457,5 +424,6 @@ test('la compatibilidad del GET no redirige operaciones POST ni altera sesión o
   assert.ok(response.status < 300 || response.status >= 400, 'only GET is a compatibility redirect');
   assert.equal(response.headers.get('location'), null);
   assert.equal(response.headers.get('set-cookie'), null);
-  assert.ok(runtime.serviceCalls.every(({ method }) => method === 'GET'), 'the route does not turn the POST into a creator mutation');
+  assert.deepEqual(runtime.serviceCalls, [], 'the route does not dispatch its POST through the creator API handler');
+  assert.deepEqual(runtime.queryCalls, [], 'the route does not run a page query for the non-GET method');
 });

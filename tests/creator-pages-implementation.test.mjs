@@ -277,7 +277,12 @@ test('public profile reads all linked resources through one complete batch and k
   const batches = [];
   harness.store.getResources = async (ids) => {
     batches.push([...ids]);
-    return new Map(await Promise.all(ids.map(async (id) => [id, await get(`resource:${id}`)])));
+    const resources = new Map();
+    for (const id of ids) {
+      const resource = await get(`resource:${id}`);
+      if (resource) resources.set(id, resource);
+    }
+    return resources;
   };
 
   const page = await harness.service.readPublicProfile('ana');

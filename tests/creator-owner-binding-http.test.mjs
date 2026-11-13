@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { creatorPageSessionBinding } from '../src/lib/creator-session-context.mjs';
 import { createCreatorHttpHandler } from '../src/lib/creator-http.mjs';
-import { SITE_ORIGIN } from './fixtures/creator-pages.mjs';
+import { requestContextForTestPrincipal, SITE_ORIGIN } from './fixtures/creator-pages.mjs';
 import { createCreatorOwnerRuntime } from './fixtures/creator-owner-runtime.mjs';
 
 test('la lectura owner conserva compatibilidad y liga la respuesta a cuenta y rol cuando se envía el binding', async () => {
@@ -164,7 +164,7 @@ test('autorizar y finalizar fotos validan el binding antes de leer el perfil o i
   };
   const handle = createCreatorHttpHandler({
     origin: SITE_ORIGIN,
-    auth: { getPrincipal: async () => state.principal },
+    auth: { getRequestContext: async () => requestContextForTestPrincipal(state.principal) },
     service: { handle: async () => new Response('service') },
     store: { get: async () => { calls.profile += 1; return { profileId: 'profile-photo-owner' }; } },
     photos: {

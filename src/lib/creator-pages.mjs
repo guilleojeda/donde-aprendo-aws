@@ -8,6 +8,7 @@ import { createOrderCalculationBudget, OrderCalculationUnavailableError, solveIn
 import {
   creatorPageSessionBindingFailureForRequest,
 } from './creator-session-context.mjs';
+import { parseHttpsOrigin } from './account-origin.mjs';
 
 const PROGRAMS = new Set(['User Group Leaders', 'Community Builders', 'Heroes']);
 const SOCIALS = new Set(['instagram', 'x', 'linkedin', 'awsBuilder', 'website']);
@@ -45,7 +46,6 @@ const TEXT_FIELD_LIMITS = new Map([
   ['evidence', 2000],
 ]);
 const SOCIAL_FIELD_LIMIT = 500;
-const FALLBACK_RESOURCE_READ_CONCURRENCY = 20;
 
 class ApiError extends Error {
   constructor(status, code, message) {
@@ -485,11 +485,13 @@ function cleanAdminResource(resource) {
 }
 
 export function createCreatorPagesService({ store, authenticate, origin, now = Date.now, createId, statistics } = {}) {
-  if (!store || typeof store.get !== 'function' || typeof store.list !== 'function' || typeof store.transact !== 'function') {
-    throw new TypeError('store must implement get, list, and transact');
+  if (!store || typeof store.get !== 'function' || typeof store.getResources !== 'function'
+    || typeof store.list !== 'function' || typeof store.transact !== 'function') {
+    throw new TypeError('store must implement get, getResources, list, and transact');
   }
   if (typeof authenticate !== 'function') throw new TypeError('authenticate must be a function');
   if (typeof origin !== 'string' || !origin) throw new TypeError('origin is required');
+  const accountOrigin = parseHttpsOrigin(origin, 'origin').origin;
   if (typeof now !== 'function') throw new TypeError('now must be a function');
   if (typeof createId !== 'function') throw new TypeError('createId must be a function');
 
@@ -515,13 +517,20 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return result;
   }
 
-  async function getPrincipal(request) {
-    let principal;
+  async function requestContextFor(request) {
+    let context;
     try {
-      principal = await authenticate(request);
+      context = await authenticate(request);
     } catch {
       fail(503, 'AUTH_UNAVAILABLE', 'authentication is temporarily unavailable');
     }
+    if (isRecord(context) && Object.hasOwn(context, 'session') && Object.hasOwn(context, 'principal')) return context;
+    fail(503, 'AUTH_UNAVAILABLE', 'authentication returned an invalid request context');
+  }
+
+  function principalFromContext(context) {
+    const validContext = isRecord(context) && Object.hasOwn(context, 'session') && Object.hasOwn(context, 'principal');
+    const principal = validContext ? context.principal : undefined;
     if (!isRecord(principal)) fail(503, 'AUTH_UNAVAILABLE', 'authentication returned an invalid principal');
     if (principal.state === 'anonymous') fail(401, 'AUTH_REQUIRED', 'sign in is required');
     if (principal.state === 'disabled') return {
@@ -534,6 +543,19 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       || typeof principal.csrfToken !== 'string' || typeof principal.isAdmin !== 'boolean') {
       fail(503, 'AUTH_UNAVAILABLE', 'authentication returned an invalid principal');
     }
+    return principal;
+  }
+
+  function requireAuthenticatedContext(context) {
+    const principal = principalFromContext(context);
+    if (principal.state === 'disabled') fail(403, 'ACCOUNT_DISABLED', 'this account is disabled');
+    if (principal.state !== 'authenticated') fail(503, 'AUTH_UNAVAILABLE', 'authentication is temporarily unavailable');
+    return principal;
+  }
+
+  function requireAdminContext(context) {
+    const principal = requireAuthenticatedContext(context);
+    requireAdmin(principal);
     return principal;
   }
 
@@ -551,7 +573,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   }
 
   function requireWriteRequest(request, principal) {
-    if (request.headers.get('origin') !== origin || request.headers.get('x-csrf-token') !== principal.csrfToken) {
+    if (request.headers.get('origin') !== accountOrigin || request.headers.get('x-csrf-token') !== principal.csrfToken) {
       fail(403, 'CSRF_REJECTED', 'request origin or CSRF token is invalid');
     }
     if (new URL(request.url).pathname.startsWith('/api/creador/')) {
@@ -877,29 +899,19 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return link;
   }
 
+  function assertResourceBatch(resources, ids) {
+    const expected = new Set(ids);
+    if (!(resources instanceof Map) || [...resources.keys()].some((id) => !expected.has(id))) {
+      fail(503, 'INVALID_RESOURCE_BATCH', 'resource batch read returned an invalid result');
+    }
+    return resources;
+  }
+
   async function resourcesById(ids) {
     const uniqueIds = [...new Set(ids)];
     if (uniqueIds.length === 0) return new Map();
 
-    let resources;
-    if (typeof store.getResources === 'function') {
-      resources = await store.getResources(uniqueIds);
-      if (!(resources instanceof Map) || resources.size !== uniqueIds.length) {
-        fail(503, 'INVALID_RESOURCE_BATCH', 'resource batch read returned an incomplete result');
-      }
-    } else {
-      // Acceptance stores expose only get/list/transact. Keep their compatibility
-      // path bounded; production uses the store's strongly consistent BatchGet.
-      resources = new Map();
-      for (let offset = 0; offset < uniqueIds.length; offset += FALLBACK_RESOURCE_READ_CONCURRENCY) {
-        const batch = uniqueIds.slice(offset, offset + FALLBACK_RESOURCE_READ_CONCURRENCY);
-        const values = await Promise.all(batch.map(async (id) => [id, await store.get(`resource:${id}`)]));
-        for (const [id, resource] of values) {
-          if (!resource) fail(503, 'MISSING_RESOURCE', 'a referenced resource is missing');
-          resources.set(id, resource);
-        }
-      }
-    }
+    const resources = assertResourceBatch(await store.getResources(uniqueIds), uniqueIds);
 
     for (const id of uniqueIds) {
       const resource = resources.get(id);
@@ -1113,6 +1125,14 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const profile = await getRequiredOwnerProfile(principal);
     const series = await seriesForProfile(profile.id);
     return { series, profileVersion: profile.version };
+  }
+
+  async function readCreatorEditor(context) {
+    return creatorEditor(requireAuthenticatedContext(context));
+  }
+
+  async function readCreatorSeries(context) {
+    return listCreatorSeries(requireAuthenticatedContext(context));
   }
 
   async function readSeriesAlias(profileId, slug) {
@@ -2178,6 +2198,21 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     });
   }
 
+  async function readAdminResources(context) {
+    requireAdminContext(context);
+    return adminResourceList();
+  }
+
+  async function readAdminProfiles(context) {
+    requireAdminContext(context);
+    return adminProfileList();
+  }
+
+  async function readAdminClaims(context) {
+    requireAdminContext(context);
+    return adminClaimList();
+  }
+
   async function patchAdminResource(resourceId, body) {
     assertKnownFields(body, ADMIN_RESOURCE_FIELDS);
     requireCatalogResourceIdWithinLimit(resourceId);
@@ -2283,15 +2318,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
   async function claimResourcesById(ids) {
     const uniqueIds = [...new Set(ids)];
-    const resources = new Map();
-    for (let offset = 0; offset < uniqueIds.length; offset += FALLBACK_RESOURCE_READ_CONCURRENCY) {
-      const batch = uniqueIds.slice(offset, offset + FALLBACK_RESOURCE_READ_CONCURRENCY);
-      const values = await Promise.all(batch.map(async (id) => [id, await store.get(`resource:${id}`)]));
-      for (const [id, resource] of values) {
-        if (resource) resources.set(id, resource);
-      }
-    }
-    return resources;
+    return assertResourceBatch(await store.getResources(uniqueIds), uniqueIds);
   }
 
   async function claimResourceIdForUrl(url) {
@@ -2403,8 +2430,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       resourceIds = resources.map(({ resourceId }) => resourceId);
     } else {
       resourceIds = [...body.resourceIds];
+      const records = await claimResourcesById(resourceIds);
       for (const id of resourceIds) {
-        const resource = await store.get(`resource:${id}`);
+        const resource = records.get(id);
         if (!resource) fail(404, 'RESOURCE_NOT_FOUND', `resource ${id} does not exist`);
         if (resource.id !== id) fail(503, 'INVALID_RESOURCE', 'catalog resource identity is inconsistent');
         if (!isCatalogResource(resource)) fail(422, 'INVALID_RESOURCE_IDS', 'resourceIds may reference catalog resources only');
@@ -2668,7 +2696,30 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
   }
 
-  async function route(request, principal) {
+  async function readCreatorStatistics(context, { period, page } = {}) {
+    const principal = requireAuthenticatedContext(context);
+    if (period !== 7 && period !== 30) fail(400, 'INVALID_STATISTICS_PERIOD', 'periodo must be 7 or 30');
+    if (!Number.isSafeInteger(page) || page < 1) fail(400, 'INVALID_STATISTICS_PAGE', 'pagina must be a positive integer');
+
+    const { profile } = await ownerProfile(principal);
+    if (!profile) return { state: 'no-profile', period, page };
+    if (typeof profile.published !== 'boolean') fail(503, 'INVALID_PROFILE', 'profile publication state is malformed');
+    if (!profile.published) return { state: 'not-published', period, page };
+    if (!statistics || typeof statistics.read !== 'function') {
+      fail(503, 'STATISTICS_UNAVAILABLE', 'statistics are temporarily unavailable');
+    }
+
+    let report;
+    try {
+      report = await statistics.read({ profileId: profile.id, period, page });
+    } catch {
+      fail(503, 'STATISTICS_UNAVAILABLE', 'statistics are temporarily unavailable');
+    }
+    if (!isRecord(report)) fail(503, 'STATISTICS_UNAVAILABLE', 'statistics are temporarily unavailable');
+    return report;
+  }
+
+  async function route(request, principal, context) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/$/, '');
 
@@ -2698,28 +2749,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         fail(400, 'INVALID_STATISTICS_PAGE', 'pagina must be a positive integer');
       }
 
-      const { profile } = await ownerProfile(principal);
-      if (!profile) return jsonResponse({ state: 'no-profile', period, page });
-      if (typeof profile.published !== 'boolean') fail(503, 'INVALID_PROFILE', 'profile publication state is malformed');
-      if (!profile.published) return jsonResponse({ state: 'not-published', period, page });
-      if (!statistics || typeof statistics.read !== 'function') {
-        fail(503, 'STATISTICS_UNAVAILABLE', 'statistics are temporarily unavailable');
-      }
-
-      let report;
-      try {
-        report = await statistics.read({ profileId: profile.id, period, page });
-      } catch {
-        fail(503, 'STATISTICS_UNAVAILABLE', 'statistics are temporarily unavailable');
-      }
-      if (!isRecord(report)) fail(503, 'STATISTICS_UNAVAILABLE', 'statistics are temporarily unavailable');
-      return jsonResponse(report);
+      return jsonResponse(await readCreatorStatistics(context, { period, page }));
     }
 
     if (path === '/api/creador/perfil') {
       if (request.method === 'GET') {
         requireCreatorPageSessionBinding(request, principal);
-        return jsonResponse(await creatorEditor(principal));
+        return jsonResponse(await readCreatorEditor(context));
       }
       if (request.method === 'PUT') {
         requireWriteRequest(request, principal);
@@ -2729,7 +2765,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
     }
     if (path === '/api/creador/series') {
-      if (request.method === 'GET') return jsonResponse(await listCreatorSeries(principal));
+      if (request.method === 'GET') return jsonResponse(await readCreatorSeries(context));
       if (request.method === 'POST') {
         requireWriteRequest(request, principal);
         const body = await parseRequestBody(request);
@@ -2866,10 +2902,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
     if (path === '/api/admin/recursos' || path === '/api/admin/perfiles' || path === '/api/admin/reclamaciones') {
       requireMethod(request, 'GET');
-      requireAdmin(principal);
-      if (path.endsWith('/recursos')) return jsonResponse({ resources: await adminResourceList() });
-      if (path.endsWith('/perfiles')) return jsonResponse({ profiles: await adminProfileList() });
-      return jsonResponse({ claims: await adminClaimList() });
+      if (path.endsWith('/recursos')) return jsonResponse({ resources: await readAdminResources(context) });
+      if (path.endsWith('/perfiles')) return jsonResponse({ profiles: await readAdminProfiles(context) });
+      return jsonResponse({ claims: await readAdminClaims(context) });
     }
     if (path === '/api/admin/reclamaciones/vincular') {
       requireMethod(request, 'POST');
@@ -2909,17 +2944,24 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         if (!(request instanceof Request)) fail(400, 'INVALID_REQUEST', 'a Request is required');
         const url = new URL(request.url);
         if (!url.pathname.startsWith('/api/')) return jsonResponse({ error: 'NOT_FOUND', message: 'route not found' }, 404);
-        const principal = await getPrincipal(request);
+        const context = await requestContextFor(request);
+        const principal = principalFromContext(context);
         if (principal.state === 'disabled') {
           if (url.pathname.startsWith('/api/creador/')) requireCreatorPageSessionBinding(request, principal);
           fail(403, 'ACCOUNT_DISABLED', 'this account is disabled');
         }
-        return await route(request, principal);
+        return await route(request, principal, context);
       } catch (error) {
         if (error instanceof ApiError) return jsonResponse({ error: error.code, message: error.message, ...(error.details ?? {}) }, error.status);
         return jsonResponse({ error: 'SERVICE_UNAVAILABLE', message: 'service is temporarily unavailable' }, 503);
       }
     },
+    readCreatorEditor,
+    readCreatorSeries,
+    readAdminResources,
+    readAdminProfiles,
+    readAdminClaims,
+    readCreatorStatistics,
     readPublicProfile,
     readPublicSeries,
   };

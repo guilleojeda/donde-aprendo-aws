@@ -231,18 +231,46 @@ test('getResources retries UnprocessedKeys within a bounded budget and returns a
   assert.equal(stuckCalls.length, 4, 'one initial request and at most three retries');
 });
 
-test('getResources rejects incomplete and malformed DynamoDB responses rather than returning partial data', async () => {
-  const malformedResponses = [
+test('getResources returns found rows and omits legitimately absent resources', async () => {
+  const { client, calls } = fakeClient(async (command) => {
+    const table = Object.keys(command.input.RequestItems)[0];
+    if (calls.length === 1) {
+      return { Responses: { [table]: [{ id: 'found', title: 'Found' }] } };
+    }
+    if (calls.length === 2) return { Responses: { [table]: [] } };
+    return {};
+  });
+  const store = createCreatorStore({ ...TABLES, client });
+
+  const partial = await store.getResources(['found', 'absent']);
+  assert.deepEqual([...partial], [['found', { id: 'found', title: 'Found', version: 0 }]]);
+
+  const empty = await store.getResources(['absent']);
+  assert.deepEqual([...empty], []);
+  const omittedResponses = await store.getResources(['also-absent']);
+  assert.deepEqual([...omittedResponses], []);
+  assert.equal(calls.length, 3);
+});
+
+test('getResources rejects malformed, unexpected, duplicate, and provider-error responses', async () => {
+  const invalidResponses = [
     null,
     { Responses: { 'catalog-test': 'not-an-item-list' } },
-    { Responses: { 'catalog-test': [] } },
     { UnprocessedKeys: { 'catalog-test': { Keys: 'not-a-key-list' } } },
+    { Responses: { 'other-table': [] } },
+    { Responses: { 'catalog-test': [{ id: 'unexpected' }] } },
+    { Responses: { 'catalog-test': [{ id: 'expected' }, { id: 'expected' }] } },
   ];
-  for (const response of malformedResponses) {
+  for (const response of invalidResponses) {
     const { client } = fakeClient(async () => response);
     const store = createCreatorStore({ ...TABLES, client });
-    await assert.rejects(store.getResources(['expected']), /malformed|missing expected resources/);
+    await assert.rejects(store.getResources(['expected']), /malformed|unexpected/);
   }
+
+  const providerFailure = new Error('DynamoDB provider unavailable');
+  const { client } = fakeClient(async () => { throw providerFailure; });
+  const store = createCreatorStore({ ...TABLES, client });
+  await assert.rejects(store.getResources(['expected']), (error) => error === providerFailure);
 });
 
 test('transactions merge CAS checks with writes and preserve absent, legacy-zero, and version conditions', async () => {

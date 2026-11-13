@@ -10,6 +10,7 @@ import {
   profileStoreKey,
   rasterPhotoFixtures,
 } from './fixtures/creator-photos.mjs';
+import { requestContextForTestPrincipal } from './fixtures/creator-pages.mjs';
 
 const UPLOAD_KEY = (uploadId) => `photo-upload:${uploadId}`;
 const FINAL_PREFIX = (profileId, uploadId) => `photos/final/${profileId}/${uploadId}-`;
@@ -108,7 +109,11 @@ function photoHttpHandler(harness) {
   return createCreatorHttpHandler({
     service: { handle: async () => new Response(null, { status: 404 }) },
     photos: harness.service,
-    auth: { getPrincipal: async () => ({ state: 'authenticated', accountId: ACCOUNT_ID, csrfToken: 'csrf' }) },
+    auth: {
+      getRequestContext: async () => requestContextForTestPrincipal({
+        state: 'authenticated', accountId: ACCOUNT_ID, csrfToken: 'csrf', isAdmin: false,
+      }),
+    },
     store: harness.store,
     origin: ORIGIN,
   });

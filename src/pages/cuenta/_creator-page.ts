@@ -105,40 +105,38 @@ function readAdminClaims(value: unknown): CreatorAdminData['claims'] {
   });
 }
 
-async function loadPrincipal(request: Request): Promise<CreatorPagePrincipal> {
-  try {
-    const runtime = await getCreatorRuntime();
-    const result: unknown = await runtime.auth.getPrincipal(request);
-    const item = record(result);
-    const state = item?.state;
-    if (item && state === 'authenticated') {
-      const sessionBinding = creatorPageSessionBinding(item);
-      if (!sessionBinding || typeof item.csrfToken !== 'string' || item.csrfToken.trim().length === 0
-        || typeof item.isAdmin !== 'boolean') {
-        return { state: 'unavailable', isAdmin: false };
-      }
-      return {
-        state,
-        csrfToken: item.csrfToken,
-        sessionBinding,
-        isAdmin: item.isAdmin,
-      };
-    }
-    if (state === 'anonymous' || state === 'disabled' || state === 'unavailable') {
-      return { state, isAdmin: false };
-    }
-    return { state: 'unavailable', isAdmin: false };
-  } catch {
-    return { state: 'unavailable', isAdmin: false };
-  }
+export interface CreatorRequestContext {
+  session: unknown;
+  principal: unknown;
 }
 
-function privateHeaders(response: Response): Response {
-  const headers = new Headers(response.headers);
-  headers.set('Cache-Control', 'private, no-store');
-  headers.set('Referrer-Policy', 'no-referrer');
-  headers.set('X-Content-Type-Options', 'nosniff');
-  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+function readPrincipal(context: unknown): CreatorPagePrincipal {
+  const item = record(record(context)?.principal);
+  const state = item?.state;
+  if (item && state === 'authenticated') {
+    const sessionBinding = creatorPageSessionBinding(item);
+    if (!sessionBinding || typeof item.csrfToken !== 'string' || item.csrfToken.trim().length === 0
+      || typeof item.isAdmin !== 'boolean') {
+      return { state: 'unavailable', isAdmin: false };
+    }
+    return {
+      state,
+      csrfToken: item.csrfToken,
+      sessionBinding,
+      isAdmin: item.isAdmin,
+    };
+  }
+  if (state === 'anonymous' || state === 'disabled' || state === 'unavailable') {
+    return { state, isAdmin: false };
+  }
+  return { state: 'unavailable', isAdmin: false };
+}
+
+function failureStatus(error: unknown): number {
+  const status = record(error)?.status;
+  return typeof status === 'number' && Number.isInteger(status) && status >= 400 && status <= 599
+    ? status
+    : 503;
 }
 
 function principalStatus(principal: CreatorPagePrincipal): number {
@@ -148,49 +146,53 @@ function principalStatus(principal: CreatorPagePrincipal): number {
   return 503;
 }
 
-async function requestJson(runtimePath: string, request: Request): Promise<{ status: number; body?: unknown }> {
-  const runtime = await getCreatorRuntime();
-  const headers = new Headers();
-  const cookie = request.headers.get('cookie');
-  if (cookie) headers.set('cookie', cookie);
-  const internalRequest = new Request(new URL(runtimePath, request.url), {
-    method: 'GET',
-    headers,
-  });
-  const response = privateHeaders(await runtime.service.handle(internalRequest));
-  if (!response.ok) return { status: response.status };
-  const body: unknown = await response.json();
-  return { status: response.status, body };
-}
-
-export async function loadCreatorEditor(request: Request): Promise<CreatorEditorLoad> {
-  const principal = await loadPrincipal(request);
+export async function loadCreatorEditor(
+  request: Request,
+  requestContext?: CreatorRequestContext,
+): Promise<CreatorEditorLoad> {
+  let runtime: Awaited<ReturnType<typeof getCreatorRuntime>>;
+  let context = requestContext;
+  try {
+    runtime = await getCreatorRuntime();
+    context ??= await runtime.auth.getRequestContext(request);
+  } catch {
+    const principal: CreatorPagePrincipal = { state: 'unavailable', isAdmin: false };
+    return { principal, status: 503 };
+  }
+  const principal = readPrincipal(context);
   if (principal.state !== 'authenticated') return { principal, status: principalStatus(principal) };
   if (!principal.csrfToken) return { principal: { state: 'unavailable', isAdmin: false }, status: 503 };
   try {
-    const response = await requestJson('/api/creador/perfil', request);
-    if (response.status !== 200 || response.body === undefined) return { principal, status: response.status };
-    return { principal, status: 200, data: readCreatorEditorData(response.body) };
-  } catch {
-    return { principal, status: 503 };
+    const data: unknown = await runtime.service.readCreatorEditor(context);
+    return { principal, status: 200, data: readCreatorEditorData(data) };
+  } catch (error) {
+    return { principal, status: failureStatus(error) };
   }
 }
 
-export async function loadCreatorAdmin(request: Request): Promise<CreatorAdminLoad> {
-  const principal = await loadPrincipal(request);
-  if (principal.state !== 'authenticated' || !principal.isAdmin) {
-    return { principal, status: principal.state === 'authenticated' ? 403 : principalStatus(principal) };
+export async function loadCreatorAdmin(
+  request: Request,
+  requestContext?: CreatorRequestContext,
+): Promise<CreatorAdminLoad> {
+  let runtime: Awaited<ReturnType<typeof getCreatorRuntime>>;
+  let context = requestContext;
+  try {
+    runtime = await getCreatorRuntime();
+    context ??= await runtime.auth.getRequestContext(request);
+  } catch {
+    const principal: CreatorPagePrincipal = { state: 'unavailable', isAdmin: false };
+    return { principal, status: 503 };
   }
+  const principal = readPrincipal(context);
+  if (principal.state !== 'authenticated') return { principal, status: principalStatus(principal) };
   if (!principal.csrfToken) return { principal: { state: 'unavailable', isAdmin: false }, status: 503 };
   try {
     const [resources, profiles, claims] = await Promise.all([
-      requestJson('/api/admin/recursos', request),
-      requestJson('/api/admin/perfiles', request),
-      requestJson('/api/admin/reclamaciones', request),
+      runtime.service.readAdminResources(context),
+      runtime.service.readAdminProfiles(context),
+      runtime.service.readAdminClaims(context),
     ]);
-    const failing = [resources, profiles, claims].find((response) => response.status !== 200 || response.body === undefined);
-    if (failing) return { principal, status: failing.status };
-    const allResources = readAdminResources(resources.body);
+    const allResources = readAdminResources(resources);
     const selected = selectAdminResources(allResources, new URL(request.url).searchParams);
     return {
       principal,
@@ -209,12 +211,12 @@ export async function loadCreatorAdmin(request: Request): Promise<CreatorAdminLo
           lastVisible: selected.lastVisible,
           stateCounts: selected.stateCounts,
         },
-        profiles: readAdminProfiles(profiles.body),
-        claims: readAdminClaims(claims.body),
+        profiles: readAdminProfiles(profiles),
+        claims: readAdminClaims(claims),
       },
     };
-  } catch {
-    return { principal, status: 503 };
+  } catch (error) {
+    return { principal, status: failureStatus(error) };
   }
 }
 

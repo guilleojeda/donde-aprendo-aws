@@ -328,6 +328,7 @@ test('new link acknowledgement uses its prepared command DTO if a real resource 
   let creationTransaction;
   const store = {
     get: base.get.bind(base),
+    getResources: base.getResources.bind(base),
     list: base.list.bind(base),
     async transact(transaction) {
       const captured = structuredClone(transaction);

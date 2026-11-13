@@ -238,9 +238,17 @@ function createPhysicalService(client) {
     createId: () => `physical-${++id}`,
     authenticate: async (request) => {
       const session = request.headers.get('x-test-session');
-      if (session === 'creator-a') return { state: 'authenticated', accountId: 'private-account-a', csrfToken: 'csrf-a', isAdmin: false };
-      if (session === 'admin') return { state: 'authenticated', accountId: 'private-account-admin', csrfToken: 'csrf-admin', isAdmin: true };
-      return { state: 'anonymous' };
+      const principal = session === 'creator-a'
+        ? { state: 'authenticated', accountId: 'private-account-a', csrfToken: 'csrf-a', isAdmin: false }
+        : session === 'admin'
+          ? { state: 'authenticated', accountId: 'private-account-admin', csrfToken: 'csrf-admin', isAdmin: true }
+          : { state: 'anonymous' };
+      return {
+        session: principal.state === 'authenticated'
+          ? { state: 'authenticated', account: { email: `${session}@example.invalid` }, csrfToken: principal.csrfToken, expiresAt: Number.MAX_SAFE_INTEGER }
+          : { state: principal.state },
+        principal,
+      };
     },
   });
   return { store, service };

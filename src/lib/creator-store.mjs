@@ -366,7 +366,7 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
             || resources.has(item.id)) {
             throw new Error('DynamoDB batch read returned an unexpected or duplicate resource');
           }
-          resources.set(item.id, cleanItem(item));
+          resources.set(item.id, structuredClone(cleanItem(item)));
         }
 
         const rawUnprocessed = response.UnprocessedKeys;
@@ -398,8 +398,6 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
       }
     }
 
-    const missing = uniqueIds.filter((id) => !resources.has(id));
-    if (missing.length > 0) throw new Error(`DynamoDB batch read is missing expected resources: ${missing.join(', ')}`);
     return resources;
   }
 

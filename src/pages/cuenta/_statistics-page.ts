@@ -3,7 +3,7 @@ import type { CreatorEditorDTO } from '../../types/creators';
 import type {
   CreatorStatisticsReady,
 } from '../../lib/creator-statistics-types';
-import { loadCreatorEditor, type CreatorPagePrincipal } from './_creator-page';
+import { loadCreatorEditor, type CreatorPagePrincipal, type CreatorRequestContext } from './_creator-page';
 import { parseCreatorStatisticsReady } from '../../lib/creator-statistics-response';
 export { getStatisticsLinkLabel } from '../../lib/creator-statistics-labels';
 export { parseCreatorStatisticsReady } from '../../lib/creator-statistics-response';
@@ -65,6 +65,7 @@ function readStateResponse(value: unknown, period: 7 | 30, page: number): 'no-pr
 export async function loadCreatorStatisticsPage(
   request: Request,
   existingEditor?: Awaited<ReturnType<typeof loadCreatorEditor>>,
+  requestContext?: CreatorRequestContext,
 ): Promise<CreatorStatisticsPageLoad> {
   const selected = readCreatorStatisticsSelection(new URL(request.url).searchParams, { ownerView: true });
   if (!selected) {
@@ -79,7 +80,18 @@ export async function loadCreatorStatisticsPage(
     };
   }
 
-  const editorResult = existingEditor ?? await loadCreatorEditor(request);
+  let runtime: Awaited<ReturnType<typeof getCreatorRuntime>> | undefined;
+  let context = requestContext;
+  let editorResult = existingEditor;
+  if (!editorResult) {
+    try {
+      runtime = await getCreatorRuntime();
+      context ??= await runtime.auth.getRequestContext(request);
+    } catch {
+      // Let the normal editor loader preserve its unavailable result.
+    }
+    editorResult = await loadCreatorEditor(request, context);
+  }
   if (editorResult.status !== 200 || !editorResult.data) {
     return {
       principal: editorResult.principal,
@@ -97,37 +109,30 @@ export async function loadCreatorStatisticsPage(
   }
 
   try {
-    const runtime = await getCreatorRuntime();
-    const target = new URL('/api/creador/estadisticas/', request.url);
-    target.searchParams.set('periodo', String(selected.period));
-    target.searchParams.set('pagina', String(selected.page));
-    const headers = new Headers();
-    const cookie = request.headers.get('cookie');
-    if (cookie) headers.set('cookie', cookie);
-    const response = await runtime.service.handle(new Request(target, { method: 'GET', headers }));
-    if (!response.ok) {
+    runtime ??= await getCreatorRuntime();
+    context ??= await runtime.auth.getRequestContext(request);
+    const body: unknown = await runtime.service.readCreatorStatistics(context, selected);
+    const state = readStateResponse(body, selected.period, selected.page);
+    if (state) {
       return {
         principal: editorResult.principal,
-        status: response.status === 401 || response.status === 403 ? response.status : 503,
-        state: 'unavailable',
+        status: 200,
+        state,
         ...selected,
         editor: editorResult.data,
       };
-    }
-    const body: unknown = await response.json();
-    const state = readStateResponse(body, selected.period, selected.page);
-    if (state) {
-      return { principal: editorResult.principal, status: 200, state, ...selected, editor: editorResult.data };
     }
     const creatorId = editorResult.data.profile?.id;
     if (!creatorId) throw new TypeError('Published statistics have no matching editor profile.');
     const report = parseCreatorStatisticsReady(body, selected.period, selected.page, creatorId);
     if (!report) throw new TypeError('Statistics response is malformed.');
     return { principal: editorResult.principal, status: 200, state: 'ready', ...selected, report, editor: editorResult.data };
-  } catch {
+  } catch (error) {
+    const statusValue = record(error)?.status;
+    const status = statusValue === 401 || statusValue === 403 ? statusValue : 503;
     return {
       principal: editorResult.principal,
-      status: 503,
+      status,
       state: 'unavailable',
       ...selected,
       editor: editorResult.data,

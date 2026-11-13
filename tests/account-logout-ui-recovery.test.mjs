@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { build } from 'esbuild';
-import { transform } from '@astrojs/compiler-rs';
+import { fileURLToPath } from 'node:url';
+import { compileCreatorAstroRoutes } from './fixtures/creator-astro-route.mjs';
 import { createCreatorOwnerAstroContainer } from './fixtures/creator-owner-astro-container.mjs';
+import { bindCreatorBrowserRuntime, clearCreatorBrowserRuntime } from './fixtures/creator-browser-runtime.mjs';
 import { createOriginCheckMiddleware } from '../node_modules/astro/dist/core/app/origin-check.js';
+import { createCreatorPagesHarness } from './fixtures/creator-pages.mjs';
 import {
   COGNITO_DOMAIN, ORIGIN, TEST_EMAIL, completeLogin, cookiePair,
   createAccountHarness, location, makeIdentity, makeRequest, responseCookies, sessionRequest,
@@ -14,101 +14,43 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const scratchParent = path.join(root, '.work/creator-pages/repair-r9/logout');
-await mkdir(scratchParent, { recursive: true });
-const tempDir = await mkdtemp(path.join(scratchParent, 'astro-test-'));
-const accountSource = path.join(root, 'src/pages/cuenta/index.astro');
-const logoutSource = path.join(root, 'src/pages/cuenta/salir/index.astro');
 const container = await createCreatorOwnerAstroContainer({ astroConfig: { site: ORIGIN } });
-
-await build({
-  entryPoints: { account: accountSource, logout: logoutSource, notFound: path.join(root, 'src/pages/404.astro') },
-  outdir: tempDir,
-  bundle: true,
-  platform: 'node',
-  format: 'esm',
-  packages: 'external',
-  outExtension: { '.js': '.mjs' },
-  define: {
-    'import.meta.env.PUBLIC_PRODUCTION': '"true"',
-    'import.meta.env.PUBLIC_SITE_ORIGIN': JSON.stringify(ORIGIN),
-  },
-  plugins: [{
-    name: 'real-account-auth-for-astro',
-    setup(api) {
-      api.onLoad({ filter: /\/account-runtime\.mjs$/ }, () => ({
-        contents: 'export function getAccountAuth() { return globalThis.__logoutUiAuth; }',
-        loader: 'js',
-      }));
-      api.onLoad({ filter: /\/creator-runtime\.mjs$/ }, () => ({
-        contents: `
-          function sessionId(request) {
-            const cookie = request.headers.get('cookie') ?? '';
-            const value = cookie.split(';').map((part) => part.trim())
-              .find((part) => part.startsWith('da_session='));
-            return value ? decodeURIComponent(value.slice('da_session='.length)) : undefined;
-          }
-          export async function getCreatorRuntime() {
-            return {
-              auth: {
-                async getPrincipal(request) {
-                  return globalThis.__logoutUiCreatorSessions?.get(sessionId(request))
-                    ?? { state: 'anonymous' };
-                },
-              },
-              service: {
-                async handle() {
-                  return Response.json({ profile: null, links: [], editableResources: [], claims: [], series: [] });
-                },
-              },
-            };
-          }
-        `,
-        loader: 'js',
-      }));
-      api.onResolve({ filter: /\?raw$/ }, ({ path: requested, resolveDir }) => ({
-        path: path.resolve(resolveDir, requested.slice(0, -4)),
-        namespace: 'account-ui-raw',
-      }));
-      api.onLoad({ filter: /.*/, namespace: 'account-ui-raw' }, async ({ path: filename }) => ({
-        contents: await readFile(filename, 'utf8'),
-        loader: 'text',
-      }));
-      api.onLoad({ filter: /\.css$/ }, () => ({ contents: '', loader: 'js' }));
-      api.onLoad({ filter: /\.astro$/ }, async ({ path: filename }) => ({
-        contents: transform(await readFile(filename, 'utf8'), {
-          filename,
-          internalURL: 'astro/compiler-runtime',
-          resultScopedSlot: true,
-          resolvePath: (specifier) => specifier,
-        }).code,
-        loader: 'ts',
-      }));
-    },
-  }],
+const compiled = await compileCreatorAstroRoutes({
+  account: 'src/pages/cuenta/index.astro',
+  logout: 'src/pages/cuenta/salir/index.astro',
+  notFound: 'src/pages/404.astro',
+}, {
+  siteOrigin: ORIGIN,
+  scratchDirectory: scratchParent,
+  runtimeModule: 'fixture',
+  rawModules: 'source',
 });
-
-const [{ default: accountPage }, { default: logoutPage }, { default: notFoundPage }] = await Promise.all([
-  import(pathToFileURL(path.join(tempDir, 'account.mjs'))),
-  import(pathToFileURL(path.join(tempDir, 'logout.mjs'))),
-  import(pathToFileURL(path.join(tempDir, 'notFound.mjs'))),
-]);
+const accountPage = compiled.routes.account.default;
+const logoutPage = compiled.routes.logout.default;
+const notFoundPage = compiled.routes.notFound.default;
+let browserRuntime;
 
 after(async () => {
-  delete globalThis.__logoutUiAuth;
-  delete globalThis.__logoutUiCreatorSessions;
-  await rm(tempDir, { recursive: true, force: true });
+  await compiled.cleanup();
 });
 
-async function render(page, request) {
-  return container.renderToResponse(page, { request, partial: false });
+async function render(page, request, { runtimeAvailable = true } = {}) {
+  const usesRuntime = page === accountPage || page === logoutPage;
+  const publishRuntime = runtimeAvailable && usesRuntime && Boolean(browserRuntime);
+  if (publishRuntime) bindCreatorBrowserRuntime(browserRuntime);
+  try {
+    return await container.renderToResponse(page, { request, partial: false });
+  } finally {
+    if (publishRuntime) clearCreatorBrowserRuntime(browserRuntime);
+  }
 }
 
 // The Astro container deliberately skips this production middleware. Exercise
 // the installed gate as well so fabricated valid-Origin forms cannot hide a
 // browser transport regression again.
 const originGate = createOriginCheckMiddleware();
-function renderWithOriginGate(page, request) {
-  return originGate({ request, url: new URL(request.url), isPrerendered: false }, () => render(page, request));
+function renderWithOriginGate(page, request, options) {
+  return originGate({ request, url: new URL(request.url), isPrerendered: false }, () => render(page, request, options));
 }
 
 test('the real 404 layout excludes Analytics for private paths while public missing pages retain measurement', async () => {
@@ -155,10 +97,14 @@ function submitRenderedLogoutForm(sessionCookie, html) {
 
 async function signedInPage(harness) {
   const login = await completeLogin(harness);
-  globalThis.__logoutUiAuth = harness.auth;
-  const creatorPrincipal = await harness.auth.getPrincipal(sessionRequest(login.sessionCookie));
-  const creatorSessionId = decodeURIComponent(cookiePair(login.sessionCookie).slice('da_session='.length));
-  globalThis.__logoutUiCreatorSessions = new Map([[creatorSessionId, creatorPrincipal]]);
+  const creatorPages = await createCreatorPagesHarness({
+    origin: ORIGIN,
+    authenticate: (request) => harness.auth.getRequestContext(request),
+  });
+  browserRuntime = {
+    accountAuth: harness.auth,
+    creatorRuntime: { auth: harness.auth, service: creatorPages.service },
+  };
   const pageResponse = await render(accountPage, sessionRequest(login.sessionCookie));
   assert.equal(pageResponse.status, 200);
   return { login, pageResponse, csrfToken: csrfFrom(await pageResponse.text()) };
@@ -272,7 +218,7 @@ test('the Astro route preserves GET 405 and no-cookie redirect behavior', async 
   assert.match(methodNotAllowed.headers.get('cache-control') ?? '', /private.*no-store/i);
 
   const harness = await createAccountHarness();
-  globalThis.__logoutUiAuth = harness.auth;
+  browserRuntime = { accountAuth: harness.auth, creatorRuntime: { auth: harness.auth } };
   const noCookie = await render(logoutPage, makeRequest('/cuenta/salir/', {
     method: 'POST',
     headers: { origin: ORIGIN },
@@ -285,9 +231,8 @@ test('the Astro route preserves GET 405 and no-cookie redirect behavior', async 
 test('runtime initialization failure stays unavailable and does not claim or redirect a completed logout', async () => {
   const harness = await createAccountHarness();
   const { login, csrfToken } = await signedInPage(harness);
-  delete globalThis.__logoutUiAuth;
 
-  const response = await render(logoutPage, logoutPost(login.sessionCookie, csrfToken));
+  const response = await render(logoutPage, logoutPost(login.sessionCookie, csrfToken), { runtimeAvailable: false });
   const html = await response.text();
   assert.equal(response.status, 503);
   assert.equal(response.headers.get('location'), null);
@@ -442,8 +387,11 @@ test('negotiated logout never returns a success destination on an unavailable se
   const { login, csrfToken } = await signedInPage(harness);
   harness.store.failNext('getSession');
   for (const runtimeAvailable of [true, false]) {
-    if (!runtimeAvailable) delete globalThis.__logoutUiAuth;
-    const response = await renderWithOriginGate(logoutPage, jsonLogout(login.sessionCookie, csrfToken));
+    const response = await renderWithOriginGate(
+      logoutPage,
+      jsonLogout(login.sessionCookie, csrfToken),
+      { runtimeAvailable },
+    );
     assert.equal(response.status, 503);
     assert.equal(response.headers.get('location'), null);
     assert.equal(responseCookies(response).length, 0);
