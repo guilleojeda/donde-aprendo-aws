@@ -5,7 +5,7 @@ import path from 'node:path';
 import { test as browserTest, expect } from '../fixtures/creator-browser-test.mjs';
 import { startCreatorBrowserApp } from '../fixtures/creator-browser-app.mjs';
 
-function appWithCatalog(catalog) {
+function appWithCatalog(catalog, options = {}) {
   return async ({}, use) => {
     const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), 'public-catalog-identities-'));
     let app;
@@ -13,7 +13,7 @@ function appWithCatalog(catalog) {
       const catalogFixture = path.join(temporaryDirectory, 'catalog.json');
       // Keep the raw rows intact so the production catalog projection owns validation and publication.
       await writeFile(catalogFixture, `${JSON.stringify(catalog, null, 2)}\n`);
-      app = await startCreatorBrowserApp({ catalogFixture });
+      app = await startCreatorBrowserApp({ catalogFixture, ...options });
       await use(app);
     } finally {
       try {
@@ -256,8 +256,16 @@ const communityReferenceTest = browserTest.extend({
 });
 
 const eventCommunity = eventCommunityCatalog();
+const eventCommunityHostname = 'catalog-identities.example.com';
 const eventCommunityTest = browserTest.extend({
-  app: [appWithCatalog(eventCommunity.catalog), { scope: 'worker' }],
+  app: [appWithCatalog(eventCommunity.catalog, { hostname: eventCommunityHostname }), { scope: 'worker' }],
+});
+// twitter-text shortens public-form URLs, but not numeric loopback URLs. Keep
+// the real share formatter and long ID, and change only local browser transport.
+eventCommunityTest.use({
+  launchOptions: {
+    args: [`--host-resolver-rules=MAP ${eventCommunityHostname} 127.0.0.1`, '--no-proxy-server'],
+  },
 });
 
 const invalidReferenceTest = browserTest.extend({
@@ -400,7 +408,7 @@ eventCommunityTest('EventAgenda uses the exact long community for organizer link
   await expect(communityCard).toHaveAttribute('id', `resource-${eventCommunity.communityId}`);
   await expect.poll(() => page.evaluate(() => document.activeElement?.id ?? '')).toBe(`resource-${eventCommunity.communityId}`);
 
-  const selectionResponse = await page.request.get(`${app.origin}/catalog-selection.json`);
+  const selectionResponse = await page.request.get(`${app.transportOrigin}/catalog-selection.json`);
   assert.equal(selectionResponse.status(), 200, 'the downloadable public selection index accepts the same identity');
   const selection = await selectionResponse.json();
   const entry = selection.find((item) => item.id === eventCommunity.communityId);
@@ -428,7 +436,9 @@ eventCommunityTest('EventAgenda uses the exact long community for organizer link
   await expect(page.locator('[data-search-status]')).toHaveText('1 resultado.');
   await expect(searchResult).toHaveAttribute('href', indexedEvent.url);
   await searchResult.click();
-  await expect(page).toHaveURL(`${app.origin}${indexedEvent.url}`);
+  const expectedDestination = new URL(indexedEvent.url, app.origin);
+  await expect(page).toHaveURL((url) => url.origin === expectedDestination.origin
+    && url.pathname === expectedDestination.pathname && url.hash === expectedDestination.hash);
   const indexedEventCard = page.locator('#event-event_related_to_long_community');
   await expect(indexedEventCard).toBeVisible();
   await expect(indexedEventCard).toBeFocused();

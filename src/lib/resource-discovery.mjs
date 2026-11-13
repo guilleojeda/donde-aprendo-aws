@@ -1,3 +1,5 @@
+import { isCatalogEventId, isPublicCatalogResourceId } from './catalog-identity.mjs';
+
 export const COUNTRY_LABELS = Object.freeze({
   AR: 'Argentina',
   BO: 'Bolivia',
@@ -28,7 +30,6 @@ export const LEVEL_LABELS = Object.freeze({
 });
 
 export const DISCOVERY_FIELDS = Object.freeze(['addedAt', 'country', 'level', 'sourceId', 'communityId', 'eventId']);
-const RESOURCE_ID = /^[A-Za-z0-9_-]{1,128}$/u;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/u;
 
 export function validateDiscoveryMetadata(record, index = 0) {
@@ -50,13 +51,16 @@ export function validateDiscoveryMetadata(record, index = 0) {
   if (record.level !== undefined && (
     record.kind !== 'content' || !Object.hasOwn(LEVEL_LABELS, record.level)
   )) throw new Error(`${label} has an invalid level`);
-  if (record.sourceId !== undefined && (record.kind !== 'content' || !RESOURCE_ID.test(record.sourceId) || record.sourceId === record.id)) {
+  if (record.sourceId !== undefined && (record.kind !== 'content'
+      || !isPublicCatalogResourceId(record.sourceId) || record.sourceId === record.id)) {
     throw new Error(`${label} has an invalid sourceId`);
   }
-  if (record.communityId !== undefined && (record.kind === 'community' || !RESOURCE_ID.test(record.communityId) || record.communityId === record.id)) {
+  if (record.communityId !== undefined && (record.kind === 'community'
+      || !isPublicCatalogResourceId(record.communityId) || record.communityId === record.id)) {
     throw new Error(`${label} has an invalid communityId`);
   }
-  if (record.eventId !== undefined && (record.kind !== 'content' || !RESOURCE_ID.test(record.eventId) || record.eventId === record.id)) {
+  if (record.eventId !== undefined && (record.kind !== 'content'
+      || !isCatalogEventId(record.eventId) || record.eventId === record.id)) {
     throw new Error(`${label} has an invalid eventId`);
   }
 }

@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { isMainThread } from 'node:worker_threads';
 import { createDynamoCatalogAccess, putCatalogResourceOnce } from '../src/lib/catalog-resource-writer.mjs';
 import { mapMeetupCommunities } from '../src/lib/meetup-communities.mjs';
-import { isCatalogResourceIdWithinLimit } from '../src/lib/catalog.mjs';
+import { isCatalogResourceIdWithinLimit } from '../src/lib/catalog-identity.mjs';
 import { TARGET_ACCOUNT_ID } from '../src/lib/catalog-import.mjs';
 
 export async function importMeetupCommunities(records, options = {}) {

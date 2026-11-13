@@ -118,6 +118,18 @@ test('malformed title text is repaired for presentation without changing ID enco
   assert.equal(JSON.parse(body.split('\n')[1].slice('Referencia: '.length)), 'exact\u0085identity');
 });
 
+test('title cleanup replaces every control while preserving the exact JSON ID', () => {
+  const recordId = 'resource:  exact\nid';
+  const parsed = new URL(buildReportMailto({
+    title: 'Curso\u0000   AWS\u007f\t\u0001\nComunidades',
+    recordId,
+  }));
+  const body = parsed.searchParams.get('body');
+
+  assert.equal(body, `Título: Curso AWS Comunidades\nReferencia: ${JSON.stringify(recordId)}`);
+  assert.equal(JSON.parse(body.split('\n')[1].slice('Referencia: '.length)), recordId);
+});
+
 test('report links omit URLs with credentials, unsupported schemes, surrounding space, or controls', () => {
   for (const targetUrl of [
     'javascript:alert(1)',

@@ -214,7 +214,7 @@ test('public relationship IDs continue through location, resource links, and sea
 
   assert.deepEqual(effectiveEventLocation(projectedEvent, communityById), { country: 'AR', city: 'Córdoba' });
   assert.equal(resourceHref(community), '/comunidades/argentina/#resource-community:%20C%C3%B3rdoba%20%F0%9F%A7%AD');
-  assert.equal(resolveResourceFragment(resourceHref(community).split('#')[1], new Set([communityId])), communityId);
+  assert.equal(resolveResourceFragment(`#${resourceHref(community).split('#')[1]}`, new Set([communityId])), communityId);
 
   const index = buildSearchIndex([], catalog);
   assert.equal(index.find(({ type }) => type === 'community')?.url, resourceHref(community));

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { isCatalogResourceIdWithinLimit, projectPublicRecord, validateCatalogUrl } from './catalog.mjs';
+import { isCatalogResourceIdWithinLimit } from './catalog-identity.mjs';
+import { projectPublicRecord, validateCatalogUrl } from './catalog.mjs';
 import { currentUrlCollision, currentUrlKey, currentUrlReservation, currentUrlReservationId } from './catalog-url.mjs';
 import { normalizeCreatorText } from './creator-values.mjs';
 import { dynamoDbNumberSize } from './creator-dynamodb-size.mjs';

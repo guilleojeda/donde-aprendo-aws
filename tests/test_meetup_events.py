@@ -421,7 +421,7 @@ class MeetupEventsTests(unittest.TestCase):
 
     def test_unreadable_present_approved_source_facts_cannot_authorize_membership_changes(self):
         cases = (
-            ('id', 'meetup-' + '9' * 122),
+            ('id', 'meetup-' + '9' * 250),
             ('url', None),
             ('title', 123),
             ('country', 999),

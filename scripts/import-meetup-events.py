@@ -29,6 +29,12 @@ TABLE_NAME = 'donde-aprendo-aws-catalog'
 MEETUP_HOST = 'www.meetup.com'
 MAX_CATALOG_RESOURCE_ID_BYTES = 256
 EVENT_RESOURCE_ID = re.compile(r'^[A-Za-z0-9_-]{1,128}$')
+# Public IDs follow JavaScript String.trim(): BOM is an edge separator, NEL is not.
+PUBLIC_ID_EDGE_WHITESPACE = (
+    '\u0009\u000a\u000b\u000c\u000d\u0020\u00a0\u1680'
+    '\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a'
+    '\u2028\u2029\u202f\u205f\u3000\ufeff'
+)
 
 # These are the fields owned by the Meetup synchronizer.  Keeping the list
 # explicit makes the read projection and the equality check follow the same
@@ -116,6 +122,13 @@ def validate_catalog_resource_id(value):
     return value
 
 
+def validate_public_catalog_resource_id(value, field='Catalog resource ID'):
+    validate_catalog_resource_id(value)
+    if value[0] in PUBLIC_ID_EDGE_WHITESPACE or value[-1] in PUBLIC_ID_EDGE_WHITESPACE:
+        raise ValueError(f'{field} must not have leading or trailing whitespace')
+    return value
+
+
 def validate_event_resource_id(value, field='Meetup event resource ID'):
     if not isinstance(value, str) or not EVENT_RESOURCE_ID.fullmatch(value):
         raise ValueError(f'{field} must use 1 to 128 ASCII letters, digits, underscores, or hyphens')
@@ -128,11 +141,17 @@ def meetup_event_resource_id(event_id):
     return validate_event_resource_id(validate_catalog_resource_id(f'meetup-event-{event_id}'))
 
 
+def meetup_community_resource_id(group_id):
+    if not isinstance(group_id, str):
+        raise ValueError('Invalid Meetup community ID')
+    return validate_public_catalog_resource_id(f'meetup-{group_id}', 'Meetup community ID')
+
+
 def validate_meetup_event_record(record):
     validate_event_resource_id(validate_catalog_resource_id(record.get('id')))
     for field in ('communityId', 'sourceGroupId'):
         if field in record:
-            validate_event_resource_id(record[field], field)
+            validate_public_catalog_resource_id(record[field], field)
     return record
 
 
@@ -242,9 +261,7 @@ def validate_meetup_group(group):
     if not isinstance(group, Mapping):
         raise ValueError('Invalid Meetup group record')
     group_id = group.get('id')
-    if not isinstance(group_id, str):
-        raise ValueError('Invalid Meetup community ID')
-    validate_event_resource_id(f'meetup-{group_id}', 'Meetup community ID')
+    meetup_community_resource_id(group_id)
     if not isinstance(group.get('name'), str):
         raise ValueError(f'Invalid Meetup community name: {group_id}')
     if not isinstance(group.get('country'), str):
@@ -387,7 +404,7 @@ def map_event(group, entry, page):
     if event_status not in PUBLISHABLE_EVENT_STATUSES:
         raise ValueError(f'Unknown event status: {entry["id"]}')
     resource_id = meetup_event_resource_id(entry.get('id'))
-    community_id = validate_event_resource_id(f'meetup-{group["id"]}', 'Meetup community ID')
+    community_id = meetup_community_resource_id(group.get('id'))
     name = page.get('name')
     title = re.sub(r'^[\s\ufeff]+|[\s\ufeff]+$', '', name) if isinstance(name, str) else ''
     if not title:
@@ -891,7 +908,7 @@ def create_source_event_with_url_reservation(table, record, budget=None):
 def unpublish_source_event(table, existing, check_ends_at=False, budget=None):
     validate_catalog_resource_id(existing.get('id'))
     if existing.get('sourceGroupId'):
-        validate_event_resource_id(existing['sourceGroupId'], 'sourceGroupId')
+        validate_public_catalog_resource_id(existing['sourceGroupId'], 'sourceGroupId')
     if not existing.get('sourceGroupId') or existing.get('autoSync') is False or existing.get('published') is not True:
         return False
     revoked = existing.get('approvalRevoked', False)

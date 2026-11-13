@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { isCatalogResourceIdWithinLimit } from './catalog.mjs';
+import { isCatalogResourceIdWithinLimit } from './catalog-identity.mjs';
 
 /** Hash the exact URL string as UTF-8; queries and trailing slashes are identity. */
 export function currentUrlHash(url) {

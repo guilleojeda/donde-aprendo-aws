@@ -1,10 +1,10 @@
 import { COUNTRY_LABELS } from './resource-discovery.mjs';
 import { effectiveEventLocation, normalizeEventCityKey } from './event-location.mjs';
+import { isCatalogEventId, isPublicCatalogResourceId } from './catalog-identity.mjs';
 
 const EVENT_MODES = new Set(['online', 'in-person', 'hybrid']);
 const EVENT_FIELDS = ['id', 'title', 'description', 'startsAt', 'endsAt', 'timeZone', 'organizer', 'mode', 'registrationUrl'];
 const EVENT_DATE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/u;
-const RESOURCE_ID = /^[A-Za-z0-9_-]{1,128}$/u;
 
 function normalizeEventText(value) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/gu, '').toLocaleLowerCase('es')
@@ -75,7 +75,7 @@ export function projectPublicEvent(item, index, validateUrl) {
       throw new Error(`${label} has an invalid ${field}`);
     }
   }
-  if (!RESOURCE_ID.test(event.id)) throw new Error(`${label} has an invalid id`);
+  if (!isCatalogEventId(event.id)) throw new Error(`${label} has an invalid id`);
   if (typeof event.description !== 'string') throw new Error(`${label} has an invalid description`);
   for (const field of ['startsAt', 'endsAt']) {
     if (typeof event[field] !== 'string' || !EVENT_DATE.test(event[field]) || Number.isNaN(Date.parse(event[field]))) {
@@ -112,7 +112,7 @@ export function projectPublicEvent(item, index, validateUrl) {
       || /[\r\n\u0000-\u001f\u007f]/u.test(event.city))) {
     throw new Error(`${label} has an invalid city`);
   }
-  if (event.communityId !== undefined && !RESOURCE_ID.test(event.communityId)) {
+  if (event.communityId !== undefined && !isPublicCatalogResourceId(event.communityId)) {
     throw new Error(`${label} has an invalid communityId`);
   }
   validateUrl(event.registrationUrl, index);

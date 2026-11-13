@@ -1,4 +1,5 @@
 import type { CreatorCatalogSelectionDTO } from '../types/creators';
+import { isPublicCatalogResourceId } from './catalog-identity.mjs';
 
 export const CREATOR_OWNER_CATALOG_PAGE_SIZE = 25;
 const CATALOG_TYPES = new Set(['content', 'source', 'community', 'event']);
@@ -9,8 +10,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function isCreatorOwnerCatalogItem(value: unknown): value is CreatorCatalogSelectionDTO {
   if (!isRecord(value) || Object.keys(value).sort().join(',') !== 'id,tipo,title,url'
-    || typeof value.id !== 'string' || value.id.length === 0
-    || new TextEncoder().encode(value.id).byteLength > 256
+    || !isPublicCatalogResourceId(value.id)
     || typeof value.title !== 'string' || value.title.trim().length === 0
     || typeof value.url !== 'string' || typeof value.tipo !== 'string' || !CATALOG_TYPES.has(value.tipo)) return false;
   try {
