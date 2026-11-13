@@ -9,6 +9,7 @@ import {
   None,
   randomPKCECodeVerifier,
 } from 'openid-client';
+import { parseHttpsOrigin } from './account-origin.mjs';
 
 const LOGIN_ATTEMPT_MS = 10 * 60 * 1000;
 const OIDC_CLOCK_TOLERANCE_SECONDS = 30;
@@ -87,20 +88,6 @@ function constantTimeEqual(left, right) {
   return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
 }
 
-function originValue(value, name) {
-  let parsed;
-  try {
-    parsed = new URL(value);
-  } catch {
-    throw new TypeError(`${name} must be an absolute URL`);
-  }
-  if (parsed.protocol !== 'https:' || parsed.username || parsed.password
-    || parsed.pathname !== '/' || parsed.search || parsed.hash) {
-    throw new TypeError(`${name} must be an HTTPS origin`);
-  }
-  return parsed.origin;
-}
-
 function issuerValue(value) {
   let parsed;
   try {
@@ -155,9 +142,9 @@ function isOidcUnavailable(error, seen = new Set()) {
 }
 
 export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, store, fetchOIDC, now = Date.now }) {
-  const accountOrigin = originValue(origin, 'origin');
+  const accountOrigin = parseHttpsOrigin(origin, 'origin').origin;
   const accountIssuer = issuerValue(issuer);
-  const providerOrigin = originValue(cognitoDomain, 'cognitoDomain');
+  const providerOrigin = parseHttpsOrigin(cognitoDomain, 'cognitoDomain').origin;
   if (typeof clientId !== 'string' || clientId.trim() === '') throw new TypeError('clientId is required');
   if (!store || typeof store.putLoginAttempt !== 'function' || typeof store.takeLoginAttempt !== 'function'
     || typeof store.ensureAccount !== 'function' || typeof store.getAccount !== 'function'
@@ -300,44 +287,51 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
     };
   }
 
-  async function getSession(request) {
+  // Resolve both projections from one storage observation. This object is only
+  // passed between server-side handlers and renderers; callers must not expose
+  // the principal or accept it from a browser request.
+  async function getRequestContext(request) {
     try {
       const result = await resolveSession(request);
+      let session;
+      let principal;
       if (result.state === 'disabled') {
-        // Expose only the validated token the page needs to close this session.
-        return typeof result.csrfToken === 'string' && TOKEN_PATTERN.test(result.csrfToken)
+        session = typeof result.csrfToken === 'string' && TOKEN_PATTERN.test(result.csrfToken)
           ? { state: 'disabled', csrfToken: result.csrfToken }
           : { state: 'disabled' };
+        principal = { state: 'disabled', accountId: result.accountId, isAdmin: result.isAdmin };
+      } else if (result.state !== 'authenticated') {
+        session = { state: result.state };
+        principal = { state: result.state };
+      } else {
+        session = {
+          state: 'authenticated',
+          account: result.account,
+          csrfToken: result.csrfToken,
+          expiresAt: result.expiresAt,
+        };
+        principal = {
+          state: 'authenticated',
+          accountId: result.accountId,
+          csrfToken: result.csrfToken,
+          expiresAt: result.expiresAt,
+          isAdmin: result.isAdmin,
+        };
       }
-      if (result.state !== 'authenticated') return { state: result.state };
-      return {
-        state: 'authenticated',
-        account: result.account,
-        csrfToken: result.csrfToken,
-        expiresAt: result.expiresAt,
-      };
+      return Object.freeze({ session, principal });
     } catch {
-      return { state: 'unavailable' };
+      return Object.freeze({ session: { state: 'unavailable' }, principal: { state: 'unavailable' } });
     }
+  }
+
+  async function getSession(request) {
+    return (await getRequestContext(request)).session;
   }
 
   // Server-only authorization projection; the account page never serializes
   // private ownership or permissions.
   async function getPrincipal(request) {
-    try {
-      const result = await resolveSession(request);
-      if (result.state === 'disabled') return { state: 'disabled', accountId: result.accountId, isAdmin: result.isAdmin };
-      if (result.state !== 'authenticated') return { state: result.state };
-      return {
-        state: 'authenticated',
-        accountId: result.accountId,
-        csrfToken: result.csrfToken,
-        expiresAt: result.expiresAt,
-        isAdmin: result.isAdmin,
-      };
-    } catch {
-      return { state: 'unavailable' };
-    }
+    return (await getRequestContext(request)).principal;
   }
 
   async function finishAuthorization(request) {
@@ -524,5 +518,5 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
     return new Response(null, { status: 404, headers: privateHeaders() });
   }
 
-  return { handle, getSession, getPrincipal };
+  return { handle, getRequestContext, getSession, getPrincipal };
 }

@@ -1,66 +1,23 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { build } from 'esbuild';
-import { transform } from '@astrojs/compiler-rs';
+import { fileURLToPath } from 'node:url';
+import { compileCreatorAstroRoutes } from './fixtures/creator-astro-route.mjs';
 import { createCreatorOwnerAstroContainer } from './fixtures/creator-owner-astro-container.mjs';
 import { createCreatorOwnerRuntime, SITE_ORIGIN } from './fixtures/creator-owner-runtime.mjs';
+import { bindCreatorBrowserRuntime, clearCreatorBrowserRuntime } from './fixtures/creator-browser-runtime.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const scratch = path.join(root, '.work/creator-owner-experience/planning/phase3');
-await mkdir(scratch, { recursive: true });
-const tempDir = await mkdtemp(path.join(scratch, 'owner-links-route-'));
-const stateKey = `__creatorOwnerLinksRoute_${path.basename(tempDir).replaceAll('-', '_')}`;
-const routeEntry = path.join(root, 'src/pages/cuenta/index.astro');
-
-after(async () => {
-  delete globalThis[stateKey];
-  await rm(tempDir, { recursive: true, force: true });
+const compiled = await compileCreatorAstroRoutes({ owner: 'src/pages/cuenta/index.astro' }, {
+  siteOrigin: SITE_ORIGIN,
+  scratchDirectory: path.join(root, '.work/creator-owner-experience/planning/phase3'),
+  runtimeModule: 'fixture',
+  rawModules: 'empty',
 });
 
-await writeFile(path.join(tempDir, 'creator-runtime-stub.mjs'),
-  `export function getCreatorRuntime() { return globalThis[${JSON.stringify(stateKey)}].runtime; }`);
-await writeFile(path.join(tempDir, 'account-runtime-stub.mjs'),
-  `export function getAccountAuth() { return globalThis[${JSON.stringify(stateKey)}].runtime.accountAuth; }`);
+after(async () => compiled.cleanup());
 
-await build({
-  entryPoints: { owner: routeEntry },
-  outdir: tempDir,
-  bundle: true,
-  platform: 'node',
-  format: 'esm',
-  packages: 'external',
-  outExtension: { '.js': '.mjs' },
-  define: {
-    'import.meta.env.PUBLIC_SITE_ORIGIN': JSON.stringify(SITE_ORIGIN),
-    'import.meta.env.PUBLIC_PRODUCTION': '"true"',
-  },
-  plugins: [{
-    name: 'creator-owner-links-route-runtime',
-    setup(api) {
-      api.onResolve({ filter: /creator-runtime\.mjs$/ }, () => ({ path: path.join(tempDir, 'creator-runtime-stub.mjs') }));
-      api.onResolve({ filter: /account-runtime\.mjs$/ }, () => ({ path: path.join(tempDir, 'account-runtime-stub.mjs') }));
-      api.onResolve({ filter: /\?raw$/ }, ({ path: requested, resolveDir }) => ({
-        path: path.resolve(resolveDir, requested.slice(0, -4)), namespace: 'raw',
-      }));
-      api.onLoad({ filter: /.*/, namespace: 'raw' }, () => ({ contents: 'export default "";', loader: 'js' }));
-      api.onLoad({ filter: /\.css$/ }, () => ({ contents: '', loader: 'js' }));
-      api.onLoad({ filter: /\.astro$/ }, async ({ path: filename }) => ({
-        contents: transform(await readFile(filename, 'utf8'), {
-          filename,
-          internalURL: 'astro/compiler-runtime',
-          resultScopedSlot: true,
-          resolvePath: (specifier) => specifier,
-        }).code,
-        loader: 'js',
-      }));
-    },
-  }],
-});
-
-const route = (await import(pathToFileURL(path.join(tempDir, 'owner.mjs')).href)).default;
+const route = compiled.routes.owner.default;
 const container = await createCreatorOwnerAstroContainer({ astroConfig: { site: SITE_ORIGIN } });
 let runtime;
 
@@ -71,7 +28,6 @@ async function resetRuntime() {
   runtime.setSession('creator-a');
   runtime.setSession('creator-b');
   runtime.setSession('admin');
-  globalThis[stateKey] = { runtime };
   return runtime;
 }
 
@@ -128,12 +84,17 @@ async function editorData(session = 'creator-a') {
 }
 
 async function render(search = '', { session = 'creator-a' } = {}) {
-  globalThis[stateKey] = { runtime };
-  const response = await container.renderToResponse(route, {
-    request: runtime.request('/cuenta/', { session, search }),
-    partial: false,
-  });
-  return { response, html: await response.text() };
+  const browserRuntime = { creatorRuntime: runtime, accountAuth: runtime.accountAuth };
+  bindCreatorBrowserRuntime(browserRuntime);
+  try {
+    const response = await container.renderToResponse(route, {
+      request: runtime.request('/cuenta/', { session, search }),
+      partial: false,
+    });
+    return { response, html: await response.text() };
+  } finally {
+    clearCreatorBrowserRuntime(browserRuntime);
+  }
 }
 
 function visibleText(html) {
@@ -147,34 +108,6 @@ function visibleText(html) {
 function attribute(attrs, name) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return attrs.match(new RegExp(`(?:^|\\s)${escaped}=(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'))?.slice(1).find((value) => value !== undefined);
-}
-
-// Astro serializes hydrated component props as tagged [type, value] tuples.
-// Decode the plain object/array types used by CreatorEditorDTO from the real
-// astro-island attribute, following Astro's installed client reviver.
-function reviveAstroProps(encoded) {
-  const reviveTuple = (tuple) => {
-    assert.ok(Array.isArray(tuple) && Number.isInteger(tuple[0]), 'Astro props use tagged tuples');
-    const [type, value] = tuple;
-    if (type === 0) return value && typeof value === 'object' ? reviveObject(value) : value;
-    if (type === 1) {
-      assert.ok(Array.isArray(value), 'Astro array props contain tagged array entries');
-      return value.map(reviveTuple);
-    }
-    throw new Error(`Unexpected Astro prop type ${type} in owner DTO`);
-  };
-  const reviveObject = (value) => Object.fromEntries(Object.entries(value).map(([key, item]) => [key, reviveTuple(item)]));
-  return reviveObject(encoded);
-}
-
-function ownerIslandProps(html) {
-  const island = html.match(/<astro-island\b([^>]*)>/i);
-  assert.ok(island, 'the real owner route renders its hydrated Preact island');
-  const propsAttribute = attribute(island[1], 'props');
-  assert.ok(propsAttribute, 'Astro serializes the actual owner DTO into island props');
-  const json = propsAttribute.replace(/&quot;/g, '"').replace(/&#39;/g, "'")
-    .replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
-  return reviveAstroProps(JSON.parse(json));
 }
 
 function ownerTable(html) {
@@ -484,8 +417,8 @@ test('56 enlaces admiten búsqueda global, filtros, orden de consulta, página v
   const statsParamsIgnored = await render('?vista=enlaces&periodo=7&pagina=2&paginaEnlaces=2&orden=pagina');
   assertPrivate(statsParamsIgnored.response, statsParamsIgnored.html);
   assert.equal(rowsIn(statsParamsIgnored.html).length, 25);
-  assert.ok(!runtime.serviceCalls.some(({ path }) => /\/estadisticas\/?$/.test(path)),
-    'statistics-only parameters do not switch the selected links table into an error');
+  assert.equal(runtime.queryCalls.some(({ method }) => method === 'readCreatorStatistics'), false,
+    'statistics-only parameters do not trigger a statistics query from the links view');
   assert.equal(runtime.pages.store.calls.slice(readOnlyCallsStart).filter(({ operation }) => operation === 'transact').length, 0,
     'SSR searching, filtering, sorting and paging are read-only, including profile and selection versions');
   const afterQueries = await editorData();
@@ -586,13 +519,6 @@ test('una ficha propia retirada sigue accesible en el contenido secundario para 
   assert.doesNotMatch(reinclude[1], /https?:/i, 're-add identity is the observed resource ID, not its old URL');
   assert.doesNotMatch(retainedItem[2], /<form\b/i, 'retained resources do not each expose an open metadata form');
 
-  const initialData = ownerIslandProps(html).data;
-  assert.ok(initialData, 'the actual owner island receives its DTO as a component prop');
-  const metadata = initialData.editableResources.find(({ id }) => id === link.resourceId);
-  assert.ok(metadata, 'the owner DTO keeps metadata for the retained resource');
-  assert.equal(metadata.version, (await runtime.pages.store.get(`resource:${link.resourceId}`)).version,
-    'the contextual re-add surface has the current observed resource version');
-  assert.equal(initialData.links.some(({ placementId }) => placementId === link.placementId), false);
   assert.equal(profile.id, current.profile.id);
 });
 

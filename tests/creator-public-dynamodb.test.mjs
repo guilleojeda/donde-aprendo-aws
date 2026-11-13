@@ -115,7 +115,7 @@ function publicReadFixture(placementRecordType) {
   const store = createCreatorStore({ ...TABLES, client });
   const service = createCreatorPagesService({
     store,
-    authenticate: async () => null,
+    authenticate: async () => ({ session: { state: 'anonymous' }, principal: { state: 'anonymous' } }),
     origin: 'https://dondeaprendoaws.com',
     createId: () => 'test-id',
   });

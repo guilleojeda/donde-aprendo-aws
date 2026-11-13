@@ -123,7 +123,7 @@ export async function startCreatorBrowserApp({ catalogFixture = path.join(ROOT, 
         const pages = await createCreatorPagesHarness({
           origin,
           store: creatorStore,
-          authenticate: (request) => accounts.auth.getPrincipal(request),
+          authenticate: (request) => accounts.auth.getRequestContext(request),
           statistics: browserStatistics.service,
         });
         const photoObjects = createPhotoObjects();

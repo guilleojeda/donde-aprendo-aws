@@ -90,7 +90,12 @@ test('owner GET observes each placed and editable resource once and keeps shared
   const observedBatches = [];
   harness.store.getResources = async (ids) => {
     observedBatches.push([...ids]);
-    return new Map(await Promise.all(ids.map(async (id) => [id, await baseGet(`resource:${id}`)])));
+    const resources = new Map();
+    for (const id of ids) {
+      const resource = await baseGet(`resource:${id}`);
+      if (resource) resources.set(id, resource);
+    }
+    return resources;
   };
   const owner = await ownerGet(harness);
 
@@ -222,7 +227,11 @@ test('a real metadata write between resource observations cannot split one owner
   let intervened = false;
   harness.store.getResources = async (ids) => {
     batches.push([...ids]);
-    const observed = new Map(await Promise.all(ids.map(async (id) => [id, await baseGet(`resource:${id}`)])));
+    const observed = new Map();
+    for (const id of ids) {
+      const resource = await baseGet(`resource:${id}`);
+      if (resource) observed.set(id, resource);
+    }
     const target = observed.get(created.link.resourceId);
     if (!intervened && target) {
       intervened = true;

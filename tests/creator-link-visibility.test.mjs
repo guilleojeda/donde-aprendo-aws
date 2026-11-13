@@ -10,6 +10,7 @@ import {
   callApi,
   createCreatorPagesHarness,
   readAdminRecord,
+  requestContextForTestPrincipal,
   responseJson,
   sessionCsrf,
   SITE_ORIGIN,
@@ -38,7 +39,7 @@ async function visibilityHarness() {
     authenticate: async (request) => {
       const session = request.headers.get('x-test-session')
         ?? (request.headers.get('cookie') === 'creator-session=creator-a' ? 'creator-a' : undefined);
-      return principals[session] ?? { state: 'anonymous' };
+      return requestContextForTestPrincipal(principals[session] ?? { state: 'anonymous' }, session);
     },
   });
 }
@@ -95,9 +96,11 @@ test('la ruta antigua conserva el destino Solicitudes también sin perfil y mant
   globalThis.__creatorPageTestRuntime = {
     service: harness.service,
     auth: {
-      getPrincipal: async (request) => (request.headers.get('cookie') === 'creator-session=creator-a'
-        ? principals['creator-a']
-        : { state: 'anonymous' }),
+      getRequestContext: async (request) => requestContextForTestPrincipal(
+        request.headers.get('cookie') === 'creator-session=creator-a'
+          ? principals['creator-a']
+          : { state: 'anonymous' },
+      ),
     },
   };
 

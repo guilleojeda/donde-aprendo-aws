@@ -17,35 +17,58 @@ function sessionId(request) {
 export async function createCreatorOwnerRuntime({ statistics } = {}) {
   const sessions = new Map();
   const serviceCalls = [];
+  const queryCalls = [];
   const accountCalls = [];
-  let overrideServiceResponse;
-  const getPrincipal = async (request) => sessions.get(sessionId(request))?.principal ?? { state: 'anonymous' };
-  const pages = await createCreatorPagesHarness({ authenticate: getPrincipal, statistics });
+  const getRequestContext = async (request) => {
+    const entry = sessions.get(sessionId(request));
+    return {
+      session: entry?.accountSession ?? { state: 'anonymous' },
+      principal: entry?.principal ?? { state: 'anonymous' },
+    };
+  };
+  const pages = await createCreatorPagesHarness({ authenticate: getRequestContext, statistics });
 
-  const service = {
-    async handle(request) {
-      const id = sessionId(request);
-      const path = new URL(request.url).pathname;
-      serviceCalls.push({ id, method: request.method, path });
-      const overridden = await overrideServiceResponse?.(request, sessions.get(id));
-      if (overridden instanceof Response) return overridden;
-      return http(request);
+  const queryMethods = new Set([
+    'readCreatorEditor', 'readCreatorSeries', 'readAdminResources', 'readAdminProfiles',
+    'readAdminClaims', 'readCreatorStatistics',
+  ]);
+  const service = new Proxy(pages.service, {
+    get(target, property, receiver) {
+      if (property === 'handle') {
+        return async (request) => {
+          const id = sessionId(request);
+          const path = new URL(request.url).pathname;
+          serviceCalls.push({ id, method: request.method, path });
+          return pages.service.handle(request);
+        };
+      }
+      const value = Reflect.get(target, property, receiver);
+      if (typeof property === 'string' && queryMethods.has(property) && typeof value === 'function') {
+        return async (...args) => {
+          const parameters = args[1] === undefined ? undefined : structuredClone(args[1]);
+          queryCalls.push({ method: property, ...(parameters === undefined ? {} : { parameters }) });
+          return value.apply(target, args);
+        };
+      }
+      return value;
     },
-  };
+  });
 
-  const auth = {
-    getPrincipal,
-  };
+  async function readRequestContext(request) {
+    const id = sessionId(request);
+    accountCalls.push({ id, path: new URL(request.url).pathname });
+    return getRequestContext(request);
+  }
+
+  const auth = { getRequestContext: readRequestContext };
 
   const accountAuth = {
+    getRequestContext: readRequestContext,
     async getSession(request) {
-      const id = sessionId(request);
-      accountCalls.push({ id, path: new URL(request.url).pathname });
-      return sessions.get(id)?.accountSession ?? { state: 'anonymous' };
+      return (await readRequestContext(request)).session;
     },
   };
-
-  const http = createCreatorHttpHandler({ service: pages.service, photos: undefined, auth, store: pages.store, origin: SITE_ORIGIN });
+  const http = createCreatorHttpHandler({ service, photos: undefined, auth, store: pages.store, origin: SITE_ORIGIN });
 
   function setSession(id, {
     principal = {
@@ -88,11 +111,11 @@ export async function createCreatorOwnerRuntime({ statistics } = {}) {
     accountAuth,
     sessions,
     serviceCalls,
+    queryCalls,
     accountCalls,
     setSession,
     request,
     fetchApi,
-    overrideServiceResponse(handler) { overrideServiceResponse = handler; },
   };
 }
 

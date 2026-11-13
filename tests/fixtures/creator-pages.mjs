@@ -28,11 +28,13 @@ export function adminResourceCommandMatches(target, id, action) {
 }
 
 /**
- * Acceptance contract for the future creator-page service:
+ * Acceptance contract for the creator-page service:
  *
  *   createCreatorPagesService({ store, authenticate, origin, now, createId })
  *   service.handle(Request) -> Response
  *   service.readPublicProfile(slug, { suffix, search }) -> public model
+ *   service.readCreatorEditor(context) -> actual owner query result
+ *   service.readAdmin*(context) -> actual guarded admin query result
  *
  * The exercised routes are PUT/GET /api/creador/perfil,
  * POST /api/creador/perfil/publicar, POST /api/creador/enlaces,
@@ -51,8 +53,9 @@ export function adminResourceCommandMatches(target, id, action) {
  * and resource DTOs expose their optimistic `version` for a later write.
  * API failures use standard
  * 4xx/503 statuses; public model reads carry their HTTP status in `status`.
- * `x-test-session` is interpreted only by the injected authentication function;
- * production authentication remains responsible for validating real sessions.
+ * The injected test authenticator returns the same `{ session, principal }`
+ * request context as production. `x-test-session` selects only the controlled
+ * test principal; production authentication validates real sessions.
  * Mutating requests carry the exact site Origin and the principal's
  * `x-csrf-token`. No test helper grants ownership, selection, eligibility,
  * editor rights, or slug uniqueness.
@@ -316,19 +319,49 @@ const principals = {
   admin: { state: 'authenticated', accountId: 'private-account-admin', csrfToken: 'csrf-admin', isAdmin: true },
 };
 
+function accountSessionForTestPrincipal(principal, sessionName) {
+  if (!principal || typeof principal !== 'object') return { state: 'unavailable' };
+  if (principal.state === 'anonymous') return { state: 'anonymous' };
+  if (principal.state === 'disabled') {
+    return typeof principal.csrfToken === 'string'
+      ? { state: 'disabled', csrfToken: principal.csrfToken }
+      : { state: 'disabled' };
+  }
+  if (principal.state !== 'authenticated' || typeof principal.csrfToken !== 'string'
+    || typeof principal.accountId !== 'string' || !principal.accountId) return { state: 'unavailable' };
+  return {
+    state: 'authenticated',
+    account: { email: `${sessionName || 'test-user'}@example.invalid` },
+    csrfToken: principal.csrfToken,
+    expiresAt: Date.UTC(2099, 0, 1),
+  };
+}
+
+export function requestContextForTestPrincipal(principal, sessionName = 'test-user') {
+  return {
+    session: accountSessionForTestPrincipal(principal, sessionName),
+    principal: principal ?? { state: 'anonymous' },
+  };
+}
+
 export async function createCreatorPagesHarness(options = {}) {
   const createCreatorPagesService = await loadCreatorPagesFactory();
   const store = options.store ?? createDocumentStore();
   const origin = options.origin ?? SITE_ORIGIN;
   let id = 0;
   let now = options.initialTime ?? Date.UTC(2026, 9, 23);
+  const authenticate = options.authenticate ?? (async (request) => {
+    const sessionName = request.headers.get('x-test-session');
+    const principal = principals[sessionName] ?? { state: 'anonymous' };
+    return requestContextForTestPrincipal(principal, sessionName);
+  });
   const service = createCreatorPagesService({
     store,
     origin,
     now: options.now ?? (() => now),
     createId: options.createId ?? (() => `fixture-id-${++id}`),
     statistics: options.statistics,
-    authenticate: options.authenticate ?? (async (request) => principals[request.headers.get('x-test-session')] ?? { state: 'anonymous' }),
+    authenticate,
   });
   return {
     service,

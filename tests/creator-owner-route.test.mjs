@@ -1,68 +1,27 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { build } from 'esbuild';
-import { transform } from '@astrojs/compiler-rs';
+import { fileURLToPath } from 'node:url';
+import { compileCreatorAstroRoutes } from './fixtures/creator-astro-route.mjs';
 import { createCreatorOwnerAstroContainer } from './fixtures/creator-owner-astro-container.mjs';
 import { createCreatorOwnerRuntime, SITE_ORIGIN } from './fixtures/creator-owner-runtime.mjs';
+import { bindCreatorBrowserRuntime, clearCreatorBrowserRuntime } from './fixtures/creator-browser-runtime.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const scratch = path.join(root, '.work/creator-owner-experience/planning');
-await mkdir(scratch, { recursive: true });
-const tempDir = await mkdtemp(path.join(scratch, 'owner-route-'));
-const routeEntry = path.join(root, 'src/pages/cuenta/index.astro');
-const editorEntry = path.join(root, 'src/pages/cuenta/creador/index.astro');
-const runtimeStateKey = `__creatorOwnerRoute_${path.basename(tempDir).replaceAll('-', '_')}`;
-
-after(async () => {
-  delete globalThis[runtimeStateKey];
-  await rm(tempDir, { recursive: true, force: true });
+const compiled = await compileCreatorAstroRoutes({
+  owner: 'src/pages/cuenta/index.astro',
+  editor: 'src/pages/cuenta/creador/index.astro',
+}, {
+  siteOrigin: SITE_ORIGIN,
+  scratchDirectory: path.join(root, '.work/creator-owner-experience/planning'),
+  runtimeModule: 'fixture',
+  rawModules: 'empty',
 });
 
-await writeFile(path.join(tempDir, 'creator-runtime-stub.mjs'),
-  `export function getCreatorRuntime() { return globalThis[${JSON.stringify(runtimeStateKey)}].runtime; }`);
-await writeFile(path.join(tempDir, 'account-runtime-stub.mjs'),
-  `export function getAccountAuth() { return globalThis[${JSON.stringify(runtimeStateKey)}].runtime.accountAuth; }`);
+after(async () => compiled.cleanup());
 
-await build({
-  entryPoints: { owner: routeEntry, editor: editorEntry },
-  outdir: tempDir,
-  bundle: true,
-  platform: 'node',
-  format: 'esm',
-  packages: 'external',
-  outExtension: { '.js': '.mjs' },
-  define: {
-    'import.meta.env.PUBLIC_SITE_ORIGIN': JSON.stringify(SITE_ORIGIN),
-    'import.meta.env.PUBLIC_PRODUCTION': '"true"',
-  },
-  plugins: [{
-    name: 'creator-owner-route-runtime',
-    setup(api) {
-      api.onResolve({ filter: /creator-runtime\.mjs$/ }, () => ({ path: path.join(tempDir, 'creator-runtime-stub.mjs') }));
-      api.onResolve({ filter: /account-runtime\.mjs$/ }, () => ({ path: path.join(tempDir, 'account-runtime-stub.mjs') }));
-      api.onResolve({ filter: /\?raw$/ }, ({ path: requested, resolveDir }) => ({
-        path: path.resolve(resolveDir, requested.slice(0, -4)), namespace: 'raw',
-      }));
-      api.onLoad({ filter: /.*/, namespace: 'raw' }, () => ({ contents: 'export default "";', loader: 'js' }));
-      api.onLoad({ filter: /\.css$/ }, () => ({ contents: '', loader: 'js' }));
-      api.onLoad({ filter: /\.astro$/ }, async ({ path: filename }) => ({
-        contents: transform(await readFile(filename, 'utf8'), {
-          filename,
-          internalURL: 'astro/compiler-runtime',
-          resultScopedSlot: true,
-          resolvePath: (specifier) => specifier,
-        }).code,
-        loader: 'js',
-      }));
-    },
-  }],
-});
-
-const route = (await import(pathToFileURL(path.join(tempDir, 'owner.mjs')).href)).default;
-const editorRoute = (await import(pathToFileURL(path.join(tempDir, 'editor.mjs')).href)).default;
+const route = compiled.routes.owner.default;
+const editorRoute = compiled.routes.editor.default;
 const container = await createCreatorOwnerAstroContainer({ astroConfig: { site: SITE_ORIGIN } });
 let runtime;
 
@@ -84,13 +43,18 @@ async function resetRuntime() {
 }
 
 async function renderPage(page, { session = 'creator-a', pathname = '/cuenta/', search = '', method = 'GET' } = {}) {
-  globalThis[runtimeStateKey] = { runtime };
+  const browserRuntime = { creatorRuntime: runtime, accountAuth: runtime.accountAuth };
+  bindCreatorBrowserRuntime(browserRuntime);
   const baseRequest = runtime.request(pathname, { session, search });
-  const response = await container.renderToResponse(page, {
-    request: method === 'GET' ? baseRequest : new Request(baseRequest, { method }),
-    partial: false,
-  });
-  return { response, html: await response.text() };
+  try {
+    const response = await container.renderToResponse(page, {
+      request: method === 'GET' ? baseRequest : new Request(baseRequest, { method }),
+      partial: false,
+    });
+    return { response, html: await response.text() };
+  } finally {
+    clearCreatorBrowserRuntime(browserRuntime);
+  }
 }
 
 async function render(options = {}) { return renderPage(route, options); }
@@ -188,11 +152,13 @@ test('la ruta Astro real abre la identidad propia, protege el HTML y sólo enlaz
   assert.doesNotMatch(text, /Vista previa|Previsualizar/i);
   assert.doesNotMatch(html, /analytics\.js|gtag\(|google-analytics/i,
     'the private owner route does not load audience measurement');
-  assert.ok(!runtime.serviceCalls.some(({ path }) => /\/estadisticas\/?$/.test(path)),
+  assert.equal(runtime.serviceCalls.length, 0, 'SSR no longer dispatches synthetic internal HTTP requests');
+  assert.ok(!runtime.queryCalls.some(({ method }) => method === 'readCreatorStatistics'),
     'the ordinary owner SSR never waits for statistics; the phase 2 summary loads separately');
   assert.match(html, /\/cuenta\/salir\//, 'logout remains reachable from the owner shell');
   assert.match(html, /csrfToken/i, 'logout remains a protected POST form');
-  assert.ok(runtime.serviceCalls.some(({ path }) => path.replace(/\/$/, '') === '/api/creador/perfil'));
+  assert.ok(runtime.queryCalls.some(({ method }) => method === 'readCreatorEditor'),
+    'SSR uses the actual request-scoped owner query');
   assert.equal(profile.slug, 'ana-lambda-actual');
 });
 
@@ -251,7 +217,7 @@ test('el acceso antiguo lleva a Solicitudes sin duplicar gestión ni alterar enl
 test('GET del acceso antiguo redirige sin leer identidad ni contenido y descarta parámetros viejos', async () => {
   await resetRuntime();
   let privateReads = 0;
-  runtime.auth.getPrincipal = async () => { privateReads += 1; throw new Error('The compatibility GET must not read private identity.'); };
+  runtime.auth.getRequestContext = async () => { privateReads += 1; throw new Error('The compatibility GET must not read private identity.'); };
   runtime.accountAuth.getSession = async () => { privateReads += 1; throw new Error('The target route owns authentication.'); };
   for (const session of [null, 'creator-a', 'admin', 'expired-session']) {
     const result = await renderPage(editorRoute, {
@@ -339,7 +305,6 @@ test('un perfil oculto se mantiene editable y no ofrece vista, copia ni desocult
   await resetRuntime();
   const hiddenRuntime = await createCreatorOwnerRuntime();
   hiddenRuntime.setSession('creator-a');
-  globalThis[runtimeStateKey] = { runtime: hiddenRuntime };
   await (async () => {
     const created = await hiddenRuntime.fetchApi('/api/creador/perfil/', {
       method: 'PUT',
@@ -355,10 +320,18 @@ test('un perfil oculto se mantiene editable y no ofrece vista, copia ni desocult
     });
     assert.equal(changed, true);
   })();
-  const response = await container.renderToResponse(route, {
-    request: hiddenRuntime.request('/cuenta/', { session: 'creator-a' }), partial: false,
-  });
-  const hiddenHtml = await response.text();
+  const browserRuntime = { creatorRuntime: hiddenRuntime, accountAuth: hiddenRuntime.accountAuth };
+  bindCreatorBrowserRuntime(browserRuntime);
+  let response;
+  let hiddenHtml;
+  try {
+    response = await container.renderToResponse(route, {
+      request: hiddenRuntime.request('/cuenta/', { session: 'creator-a' }), partial: false,
+    });
+    hiddenHtml = await response.text();
+  } finally {
+    clearCreatorBrowserRuntime(browserRuntime);
+  }
   const hiddenText = visibleText(hiddenHtml);
   assert.equal(response.status, 200);
   assert.match(hiddenText, /Ana Oculta/);
@@ -375,7 +348,7 @@ test('la entrada anónima conserva acceso y registro y no lee el perfil owner', 
     'the account entry preserves its existing anonymous login/registration page status');
   assert.match(visibleText(anonymous.html), /Ingresar|Accede o crea una cuenta/);
   assert.doesNotMatch(visibleText(anonymous.html), /Crear borrador|Crear mi página/);
-  assert.equal(runtime.serviceCalls.some(({ path }) => path.replace(/\/$/, '') === '/api/creador/perfil'), false,
+  assert.equal(runtime.queryCalls.some(({ method }) => method === 'readCreatorEditor'), false,
     'anonymous requests do not read owner data');
 });
 
@@ -385,7 +358,7 @@ test('una cuenta deshabilitada conserva el estado de acceso y no ofrece crear un
   const disabled = await render({ session: 'disabled' });
   assert.equal(disabled.response.status, 403);
   assert.doesNotMatch(visibleText(disabled.html), /Crear borrador|Crear mi página/);
-  assert.equal(runtime.serviceCalls.some(({ path }) => path.replace(/\/$/, '') === '/api/creador/perfil'), false,
+  assert.equal(runtime.queryCalls.some(({ method }) => method === 'readCreatorEditor'), false,
     'disabled accounts do not read owner data');
 });
 
@@ -400,7 +373,7 @@ test('los resultados del callback de acceso conservan sus ramas y no leen datos 
     const callback = await render({ search: `?estado=${state}` });
     assert.equal(callback.response.status, expectedStatus, state);
     assert.match(visibleText(callback.html), title, state);
-    assert.equal(runtime.serviceCalls.some(({ path }) => path.replace(/\/$/, '') === '/api/creador/perfil'), false,
+    assert.equal(runtime.queryCalls.some(({ method }) => method === 'readCreatorEditor'), false,
       `${state} does not query owner data`);
   }
 });
@@ -413,74 +386,66 @@ test('un principal autenticado incompleto falla cerrado y no se interpreta como 
   const invalidPrincipal = await render({ session: 'invalid-principal' });
   assert.equal(invalidPrincipal.response.status, 503);
   assert.doesNotMatch(visibleText(invalidPrincipal.html), /Crear borrador|Crear mi página/);
-  assert.equal(runtime.serviceCalls.some(({ path }) => path.replace(/\/$/, '') === '/api/creador/perfil'), false,
+  assert.equal(runtime.queryCalls.some(({ method }) => method === 'readCreatorEditor'), false,
     'an invalid principal cannot trigger an owner profile read');
 });
 
-test('un DTO de perfil malformado produce error recuperable y no alta de perfil', async () => {
+test('el consumidor SSR rechaza una proyección contradictoria devuelta por la consulta real', async () => {
   await resetRuntime();
-  runtime.overrideServiceResponse((request) => new URL(request.url).pathname.replace(/\/$/, '') === '/api/creador/perfil'
-    ? Response.json({ profile: false, links: [], editableResources: [], claims: [], series: [] })
-    : undefined);
-  const invalidDto = await render();
-  assert.equal(invalidDto.response.status, 503);
-  assert.doesNotMatch(visibleText(invalidDto.html), /Crear borrador|Crear mi página/);
-  assert.match(visibleText(invalidDto.html), /Reintentar|Inténtalo/i);
+  await createProfile();
+  const created = await api('/api/creador/enlaces/', {
+    title: 'Título guardado coherente',
+    url: 'https://example.com/owner-ssr-observation',
+    description: 'Descripción guardada',
+  }, { method: 'POST' });
+  const saved = await api('/api/creador/perfil/', undefined, { method: 'GET' });
+  const readCreatorEditor = runtime.pages.service.readCreatorEditor.bind(runtime.pages.service);
+  let corrupted = false;
+  runtime.pages.service.readCreatorEditor = async (context) => {
+    const actual = await readCreatorEditor(context);
+    if (corrupted) return actual;
+    corrupted = true;
+    const result = structuredClone(actual);
+    const editable = result.editableResources.find(({ id }) => id === created.link.resourceId);
+    assert.ok(editable, 'the real query includes this owner resource');
+    editable.version += 1;
+    return result;
+  };
+
+  const rejected = await render({ search: '?vista=enlaces' });
+  assert.equal(corrupted, true, 'the test called the real query before corrupting its consumer result');
+  assert.equal(rejected.response.status, 503);
+  assert.match(visibleText(rejected.html), /Reintentar|Inténtalo/i);
+  assert.doesNotMatch(visibleText(rejected.html), /Crear borrador|Crear mi página/);
+
+  const retry = await render({ search: '?vista=enlaces' });
+  assert.equal(retry.response.status, 200, 'a subsequent coherent read can render the owner page');
+  assert.match(visibleText(retry.html), /Título guardado coherente/);
+  assert.deepEqual(await api('/api/creador/perfil/', undefined, { method: 'GET' }), saved,
+    'the rejected and retried consumer read does not change the complete saved DTO');
 });
 
-for (const contradiction of ['versión', 'título', 'presencia de descripción']) {
-  test(`la lectura SSR rechaza copias de recurso con ${contradiction} diferente y permite reintentar`, async () => {
-    await resetRuntime();
-    await createProfile();
-    const created = await api('/api/creador/enlaces/', {
-      title: 'Título guardado coherente',
-      url: 'https://example.com/owner-ssr-observation',
-      description: 'Descripción guardada',
-    }, { method: 'POST' });
-    const saved = await api('/api/creador/perfil/', undefined, { method: 'GET' });
-    const invalid = structuredClone(saved);
-    const editable = invalid.editableResources.find(({ id }) => id === created.link.resourceId);
-    assert.ok(editable);
-    assert.equal(editable.version, created.link.resourceVersion);
-    assert.equal(editable.title, created.link.title);
-    assert.equal(editable.description, 'Descripción guardada');
-    if (contradiction === 'versión') editable.version += 1;
-    else if (contradiction === 'título') editable.title = 'Otra observación del mismo recurso';
-    else delete editable.description;
-
-    let delivered = false;
-    runtime.overrideServiceResponse((request) => {
-      if (!delivered && request.method === 'GET'
-        && new URL(request.url).pathname.replace(/\/$/, '') === '/api/creador/perfil') {
-        delivered = true;
-        return Response.json(invalid);
-      }
-      return undefined;
-    });
-    const rejected = await render({ search: '?vista=enlaces' });
-    assert.equal(delivered, true, 'the real owner loader received the contradictory service response');
-    const retry = await render({ search: '?vista=enlaces' });
-    assert.equal(retry.response.status, 200, 'a subsequent coherent read can render the owner page');
-    assert.match(visibleText(retry.html), /Título guardado coherente/);
-    assert.deepEqual(await api('/api/creador/perfil/', undefined, { method: 'GET' }), saved,
-      'rejecting and retrying reads do not alter the saved profile, resources or placements');
-
-    assert.equal(rejected.response.status, 503, 'SSR does not embed contradictory copies as editable state');
-    assert.match(visibleText(rejected.html), /Reintentar|Inténtalo/i);
-    assert.doesNotMatch(visibleText(rejected.html), /Crear borrador|Crear mi página/);
-  });
-}
-
-test('una falla HTTP de lectura del perfil produce error recuperable y no alta de perfil', async () => {
+test('un fallo del proveedor durante la consulta owner produce 503 privado y permite reintentar', async () => {
   await resetRuntime();
-  runtime.setSession('creator-a');
-  runtime.overrideServiceResponse((request) => new URL(request.url).pathname.replace(/\/$/, '') === '/api/creador/perfil'
-    ? Response.json({ error: 'temporarily unavailable' }, { status: 503 })
-    : undefined);
+  await createProfile();
+  await api('/api/creador/enlaces/', {
+    title: 'Lectura recuperable', url: 'https://example.com/owner-provider-failure',
+  }, { method: 'POST' });
+  runtime.pages.store.failNext('getResources', new Error('injected resource batch provider failure'));
+  const transactionsBefore = runtime.pages.store.calls.filter(({ operation }) => operation === 'transact').length;
+
   const unavailable = await render();
   assert.equal(unavailable.response.status, 503);
+  assert.match(unavailable.response.headers.get('cache-control') ?? '', /private.*no-store/i);
+  assert.equal(unavailable.response.headers.get('referrer-policy'), 'no-referrer');
   assert.doesNotMatch(visibleText(unavailable.html), /Crear borrador|Crear mi página/);
   assert.match(visibleText(unavailable.html), /Reintentar|Inténtalo/i);
+  assert.equal(runtime.pages.store.calls.filter(({ operation }) => operation === 'transact').length, transactionsBefore,
+    'a failed private read performs no mutation');
+
+  const retry = await render();
+  assert.equal(retry.response.status, 200);
+  assert.match(visibleText(retry.html), /Lectura recuperable/);
 });
 
 test('la salida conserva POST y CSRF en la zona secundaria, fuera del contenido principal', async () => {

@@ -1,66 +1,21 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { build } from 'esbuild';
-import { transform } from '@astrojs/compiler-rs';
+import { fileURLToPath } from 'node:url';
+import { compileCreatorAstroRoutes } from './fixtures/creator-astro-route.mjs';
 import { createCreatorOwnerAstroContainer } from './fixtures/creator-owner-astro-container.mjs';
 import { createCreatorOwnerRuntime, SITE_ORIGIN } from './fixtures/creator-owner-runtime.mjs';
+import { bindCreatorBrowserRuntime, clearCreatorBrowserRuntime } from './fixtures/creator-browser-runtime.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const scratch = path.join(root, '.work/creator-owner-experience/planning/phase6/ui');
-await mkdir(scratch, { recursive: true });
-const tempDir = await mkdtemp(path.join(scratch, 'catalog-ssr-'));
-const ownerEntry = path.join(root, 'src/pages/cuenta/index.astro');
-const runtimeStateKey = `__creatorOwnerCatalogRoute_${path.basename(tempDir).replaceAll('-', '_')}`;
-
-after(async () => {
-  delete globalThis[runtimeStateKey];
-  await rm(tempDir, { recursive: true, force: true });
+const compiled = await compileCreatorAstroRoutes({ owner: 'src/pages/cuenta/index.astro' }, {
+  siteOrigin: SITE_ORIGIN, scratchDirectory: scratch, runtimeModule: 'fixture', rawModules: 'empty',
 });
 
-await writeFile(path.join(tempDir, 'creator-runtime-stub.mjs'),
-  `export function getCreatorRuntime() { return globalThis[${JSON.stringify(runtimeStateKey)}].runtime; }`);
-await writeFile(path.join(tempDir, 'account-runtime-stub.mjs'),
-  `export function getAccountAuth() { return globalThis[${JSON.stringify(runtimeStateKey)}].runtime.accountAuth; }`);
+after(async () => compiled.cleanup());
 
-await build({
-  entryPoints: { owner: ownerEntry },
-  outdir: tempDir,
-  bundle: true,
-  platform: 'node',
-  format: 'esm',
-  packages: 'external',
-  outExtension: { '.js': '.mjs' },
-  define: {
-    'import.meta.env.PUBLIC_SITE_ORIGIN': JSON.stringify(SITE_ORIGIN),
-    'import.meta.env.PUBLIC_PRODUCTION': '"true"',
-  },
-  plugins: [{
-    name: 'creator-owner-catalog-ssr-runtime',
-    setup(api) {
-      api.onResolve({ filter: /creator-runtime\.mjs$/ }, () => ({ path: path.join(tempDir, 'creator-runtime-stub.mjs') }));
-      api.onResolve({ filter: /account-runtime\.mjs$/ }, () => ({ path: path.join(tempDir, 'account-runtime-stub.mjs') }));
-      api.onResolve({ filter: /\?raw$/ }, ({ path: requested, resolveDir }) => ({
-        path: path.resolve(resolveDir, requested.slice(0, -4)), namespace: 'raw',
-      }));
-      api.onLoad({ filter: /.*/, namespace: 'raw' }, () => ({ contents: 'export default "";', loader: 'js' }));
-      api.onLoad({ filter: /\.css$/ }, () => ({ contents: '', loader: 'js' }));
-      api.onLoad({ filter: /\.astro$/ }, async ({ path: filename }) => ({
-        contents: transform(await readFile(filename, 'utf8'), {
-          filename,
-          internalURL: 'astro/compiler-runtime',
-          resultScopedSlot: true,
-          resolvePath: (specifier) => specifier,
-        }).code,
-        loader: 'js',
-      }));
-    },
-  }],
-});
-
-const ownerRoute = (await import(pathToFileURL(path.join(tempDir, 'owner.mjs')).href)).default;
+const ownerRoute = compiled.routes.owner.default;
 const container = await createCreatorOwnerAstroContainer({ astroConfig: { site: SITE_ORIGIN } });
 let runtime;
 
@@ -73,12 +28,17 @@ async function resetRuntime() {
 }
 
 async function render({ session = 'creator-a', search = '' } = {}) {
-  globalThis[runtimeStateKey] = { runtime };
-  const response = await container.renderToResponse(ownerRoute, {
-    request: runtime.request('/cuenta/', { session, search }),
-    partial: false,
-  });
-  return { response, html: await response.text() };
+  const browserRuntime = { creatorRuntime: runtime, accountAuth: runtime.accountAuth };
+  bindCreatorBrowserRuntime(browserRuntime);
+  try {
+    const response = await container.renderToResponse(ownerRoute, {
+      request: runtime.request('/cuenta/', { session, search }),
+      partial: false,
+    });
+    return { response, html: await response.text() };
+  } finally {
+    clearCreatorBrowserRuntime(browserRuntime);
+  }
 }
 
 async function api(pathname, body, { method = 'PUT', session = 'creator-a' } = {}) {
@@ -167,10 +127,11 @@ test('SSR de Tu página con perfil de cero enlaces ofrece catálogo sin precarga
   assert.match(text, /Todavía no agregaste enlaces/);
   assertCatalogSurface(html, text);
   assert.equal((html.match(/data-catalog-open/g) ?? []).length, 1);
-  assert.ok(runtime.serviceCalls.some(({ method, path }) => method === 'GET'
-    && path.replace(/\/$/, '') === '/api/creador/perfil'));
-  assert.equal(runtime.serviceCalls.some(({ path }) => path.includes('catalog-selection.json')), false,
-    'SSR uses the owner DTO and leaves the public index for an explicit client open');
+  assert.equal(runtime.serviceCalls.length, 0, 'owner SSR does not use its own HTTP API');
+  assert.ok(runtime.queryCalls.some(({ method }) => method === 'readCreatorEditor'),
+    'SSR uses the actual request-scoped owner query');
+  assert.deepEqual(runtime.queryCalls.map(({ method }) => method), ['readCreatorEditor'],
+    'SSR leaves public catalog selection for an explicit client open');
 });
 
 test('SSR con 50 enlaces conserva la tabla y el mismo flujo de catálogo en Tu página', async () => {
@@ -190,7 +151,8 @@ test('SSR con 50 enlaces conserva la tabla y el mismo flujo de catálogo en Tu p
   assertCatalogSurface(html, visibleText(html));
   assert.equal((html.match(/data-catalog-open/g) ?? []).length, 1,
     'a full page uses the same single catalog entry and coordinator');
-  assert.equal(runtime.serviceCalls.some(({ path }) => path.includes('catalog-selection.json')), false);
+  assert.equal(runtime.serviceCalls.length, 0, 'SSR does not dispatch an internal catalog HTTP request');
+  assert.deepEqual(runtime.queryCalls.map(({ method }) => method), ['readCreatorEditor']);
 });
 
 test('el catálogo sigue disponible para borradores y perfiles ocultos', async (t) => {
@@ -223,7 +185,7 @@ test('SSR anónimo y deshabilitado no muestra acciones del owner ni lee su perfi
     assert.equal(response.status, 200);
     assert.match(visibleText(html), /Ingresar|Accede o crea una cuenta/);
     assert.doesNotMatch(html, /data-catalog-open|data-catalog-results|data-owner-form="referencia"/);
-    assert.equal(runtime.serviceCalls.some(({ path }) => path.replace(/\/$/, '') === '/api/creador/perfil'), false);
+    assert.equal(runtime.queryCalls.some(({ method }) => method === 'readCreatorEditor'), false);
   });
 
   await t.test('disabled account', async () => {
@@ -232,7 +194,7 @@ test('SSR anónimo y deshabilitado no muestra acciones del owner ni lee su perfi
     const { response, html } = await render({ session: 'disabled' });
     assert.equal(response.status, 403);
     assert.doesNotMatch(html, /data-catalog-open|data-catalog-results|data-owner-form="referencia"/);
-    assert.equal(runtime.serviceCalls.some(({ path }) => path.replace(/\/$/, '') === '/api/creador/perfil'), false);
+    assert.equal(runtime.queryCalls.some(({ method }) => method === 'readCreatorEditor'), false);
   });
 });
 

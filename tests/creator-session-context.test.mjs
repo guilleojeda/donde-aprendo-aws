@@ -10,6 +10,7 @@ import {
   isCreatorPageSessionBinding,
 } from '../src/lib/creator-session-context.mjs';
 import { createCreatorHttpHandler } from '../src/lib/creator-http.mjs';
+import { createCreatorPagesHarness, requestContextForTestPrincipal } from './fixtures/creator-pages.mjs';
 
 const origin = 'https://dondeaprendoaws.com';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -37,10 +38,10 @@ function httpFixture() {
   const handle = createCreatorHttpHandler({
     origin,
     auth: {
-      getPrincipal: async () => {
+      getRequestContext: async () => {
         calls.auth += 1;
         if (state.authFailure) throw state.authFailure;
-        return state.principal;
+        return requestContextForTestPrincipal(state.principal);
       },
     },
     store: { get: async () => { calls.store += 1; return null; } },
@@ -196,14 +197,17 @@ test('SSR loaders expose only the opaque session binding and reject malformed au
   const state = {
     principal: { state: 'authenticated', accountId: 'private-creator-id', csrfToken: 'page-csrf', isAdmin: false },
   };
+  const harness = await createCreatorPagesHarness({
+    authenticate: async () => requestContextForTestPrincipal(state.principal),
+  });
+  const actualOwnerRead = harness.service.readCreatorEditor.bind(harness.service);
+  harness.service.readCreatorEditor = async (...args) => {
+    profileReads.push('readCreatorEditor');
+    return actualOwnerRead(...args);
+  };
   globalThis.__creatorSessionContextTestRuntime = {
-    auth: { getPrincipal: async () => state.principal },
-    service: {
-      handle: async (request) => {
-        profileReads.push(new URL(request.url).pathname);
-        return Response.json({ profile: null, links: [], editableResources: [], claims: [], series: [] });
-      },
-    },
+    auth: { getRequestContext: async () => requestContextForTestPrincipal(state.principal) },
+    service: harness.service,
   };
   const request = new Request(`${origin}/cuenta/creador/`, { headers: { cookie: 'private-session' } });
   const result = await page.loadCreatorEditor(request);
@@ -213,7 +217,7 @@ test('SSR loaders expose only the opaque session binding and reject malformed au
   assert.equal(result.principal.csrfToken, 'page-csrf');
   assert.equal(Object.hasOwn(result.principal, 'accountId'), false);
   assert.equal(JSON.stringify(result.principal).includes('private-creator-id'), false);
-  assert.deepEqual(profileReads, ['/api/creador/perfil']);
+  assert.deepEqual(profileReads, ['readCreatorEditor']);
 
   state.principal = { state: 'disabled', accountId: 'private-disabled-account', isAdmin: true };
   const disabledPage = await page.loadCreatorEditor(request);
@@ -221,7 +225,7 @@ test('SSR loaders expose only the opaque session binding and reject malformed au
   assert.equal(Object.hasOwn(disabledPage.principal, 'accountId'), false);
   assert.equal(JSON.stringify(disabledPage.principal).includes('private-disabled-account'), false,
     'server-only disabled identity never enters the SSR page props');
-  assert.deepEqual(profileReads, ['/api/creador/perfil'], 'a disabled principal never reaches the owner content route');
+  assert.deepEqual(profileReads, ['readCreatorEditor'], 'a disabled principal never reaches the owner content route');
 
   for (const malformed of [
     { state: 'authenticated', csrfToken: 'csrf', isAdmin: false },

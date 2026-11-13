@@ -10,6 +10,7 @@ import { createGA4TokenProvider } from './creator-statistics-token.mjs';
 import { createGA4StatisticsReader } from './creator-statistics-ga4.mjs';
 import { createCachedCreatorStatistics } from './creator-statistics.mjs';
 import { createCreatorStatisticsStore } from './creator-statistics-store.mjs';
+import { parseHttpsOrigin } from './account-origin.mjs';
 
 let runtime;
 
@@ -53,7 +54,7 @@ function lazyStatistics(region, profilesTableName) {
 export function getCreatorRuntime() {
   if (runtime) return runtime;
   const auth = getAccountAuth();
-  const origin = required('ACCOUNT_ORIGIN');
+  const origin = parseHttpsOrigin(required('ACCOUNT_ORIGIN'), 'ACCOUNT_ORIGIN').origin;
   const region = process.env.AWS_REGION || 'us-east-1';
   const profilesTableName = required('CREATOR_PROFILES_TABLE');
   const store = createCreatorStore({
@@ -63,7 +64,7 @@ export function getCreatorRuntime() {
     region,
   });
   const service = createCreatorPagesService({
-    store, authenticate: (request) => auth.getPrincipal(request), origin, createId: randomUUID,
+    store, authenticate: (request) => auth.getRequestContext(request), origin, createId: randomUUID,
     statistics: lazyStatistics(region, profilesTableName),
   });
   const s3 = createCreatorPhotoS3({ bucket: required('CREATOR_PHOTOS_BUCKET'), region });

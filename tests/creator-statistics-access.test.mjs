@@ -5,6 +5,7 @@ import {
   createCreatorPagesHarness,
   readAdminRecord,
   responseJson,
+  requestContextForTestPrincipal,
   sessionCsrf,
 } from './fixtures/creator-pages.mjs';
 
@@ -224,9 +225,9 @@ test('authentication failures happen before any statistics read', async () => {
   const statistics = createStatisticsReader();
   const authenticate = async (request) => {
     const session = request.headers.get('x-test-session');
-    if (session === 'disabled') return { state: 'disabled' };
+    if (session === 'disabled') return requestContextForTestPrincipal({ state: 'disabled' }, session);
     if (session === 'failed') throw new Error('private account authentication secret');
-    return { state: 'anonymous' };
+    return requestContextForTestPrincipal({ state: 'anonymous' }, session);
   };
   const harness = await createCreatorPagesHarness({ statistics, authenticate });
 

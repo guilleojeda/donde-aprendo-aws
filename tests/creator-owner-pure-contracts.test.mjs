@@ -66,6 +66,20 @@ test('the SSR decoder preserves its normalization while strict adoption rejects 
   assert.equal(ownerData.isCreatorOwnerSnapshot(decoded), false, 'negative versions remain rejected after projection');
 });
 
+test('the owner decoder rejects disagreeing placed and editable resource projections', () => {
+  const contradictions = [
+    ['version', (editable) => { editable.version += 1; }],
+    ['title', (editable) => { editable.title = 'Different title'; }],
+    ['description presence', (editable) => { editable.description = 'Unexpected description'; }],
+  ];
+  for (const [label, change] of contradictions) {
+    const value = ownerSnapshot();
+    change(value.editableResources[0]);
+    assert.equal(ownerData.isCreatorOwnerSnapshot(value), false, `${label} mismatch is not an owner snapshot`);
+    assert.throws(() => ownerData.readCreatorEditorData(value), /proyecciones del contenido/i, label);
+  }
+});
+
 test('strict owner snapshots require coherent unique entities and support a null-profile snapshot', () => {
   const valid = ownerSnapshot();
   assert.equal(ownerData.isCreatorOwnerSnapshot(valid), true);
