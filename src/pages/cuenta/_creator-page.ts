@@ -95,6 +95,7 @@ function readAdminClaims(value: unknown): CreatorAdminData['claims'] {
     return {
       id: item.id ?? item.claimId,
       accountId: item.accountId,
+      ...(typeof item.profileId === 'string' && item.profileId.length > 0 ? { profileId: item.profileId } : {}),
       resourceIds: item.resourceIds,
       ...(resources ? { resources } : {}),
       sourceId: item.sourceId,

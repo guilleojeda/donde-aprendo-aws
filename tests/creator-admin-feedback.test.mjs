@@ -546,7 +546,8 @@ test('claim rejected for exhausted placement order explains the failure and reta
 
 test('R9 partial claim freezes only that form, retains receipts, and allows safe refresh after another save', async () => {
   const html = await renderAdminPage({ claimRecords: [{
-    id: 'claim-partial', accountId: 'owner', resourceIds: ['resource-feedback', 'resource-two', 'resource-three'], status: 'pending',
+    id: 'claim-partial', accountId: 'owner', profileId: 'profile-feedback',
+    resourceIds: ['resource-feedback', 'resource-two', 'resource-three'], status: 'pending',
   }] });
   const page = await executeAdminScript(html);
   const claimForm = page.claimForms[0];
@@ -605,6 +606,7 @@ test('R11 partial claim with one receipt gap pauses only stale records and recov
     body: { displayName: 'Ana', slug: 'ana-admin-r11', programs: [], socials: {} },
   });
   assert.equal(created.status, 200);
+  const createdProfileId = (await created.clone().json()).profile.id;
   for (const id of ['resource-r11-a', 'resource-r11-b', 'resource-r11-c']) {
     await seedResource(harness.store, {
       id, title: id, url: `https://example.com/${id}`, description: '', category: 'Otros',
@@ -650,7 +652,10 @@ test('R11 partial claim with one receipt gap pauses only stale records and recov
     directoryControl: 'editorial', hidden: false, version: 1,
   });
   const html = await renderAdminPage({
-    claimRecords: [{ id: 'claim-r11', accountId: 'private-account-a', resourceIds: ['resource-r11-a', 'resource-r11-c'], status: 'pending' }],
+    claimRecords: [{
+      id: 'claim-r11', accountId: 'private-account-a', profileId: createdProfileId,
+      resourceIds: ['resource-r11-a', 'resource-r11-c'], status: 'pending',
+    }],
     resourceRecords: ['resource-r11-a', 'resource-r11-b', 'resource-r11-c'].map(resourceRecord),
   });
   let rejectFirstSave = true;
@@ -713,7 +718,7 @@ test('R11 partial claim with one receipt gap pauses only stale records and recov
 
 test('successful claim resolution pauses its selection and preserves another saveable draft', async () => {
   const html = await renderAdminPage({ claimRecords: [{
-    id: 'claim-delayed', accountId: 'owner', resourceIds: ['resource-feedback', 'resource-two'],
+    id: 'claim-delayed', accountId: 'owner', profileId: 'profile-feedback', resourceIds: ['resource-feedback', 'resource-two'],
     sourceId: 'ana-feedback', status: 'pending',
   }] });
   let releaseClaim;
@@ -724,7 +729,7 @@ test('successful claim resolution pauses its selection and preserves another sav
       requestNumber += 1;
       if (requestNumber === 1) return delayedClaim;
       return Response.json({
-        resource: { id: 'resource-feedback', category: 'Certificaciones', kind: 'content', format: 'Artículo', topics: [] },
+        resource: { id: 'resource-feedback', category: 'Certificaciones', kind: 'content', format: 'Artículo', topics: [], version: 3 },
         versionChanges: [{ entity: 'resource', id: 'resource-feedback', before: 2, after: 3 }],
       });
     },
@@ -743,7 +748,12 @@ test('successful claim resolution pauses its selection and preserves another sav
   format.value = 'Artículo';
   releaseClaim(Response.json({
     linkedResourceIds: ['resource-feedback', 'resource-two'],
-    versionChanges: [{ entity: 'resource', id: 'resource-feedback', before: 1, after: 2 }],
+    versionChanges: [
+      { entity: 'profile', id: 'profile-feedback', before: 1, after: 2 },
+      { entity: 'resource', id: 'resource-feedback', before: 1, after: 2 },
+      { entity: 'profile', id: 'profile-feedback', before: 2, after: 3 },
+      { entity: 'resource', id: 'resource-two', before: 1, after: 2 },
+    ],
   }));
   await resolution;
 
@@ -989,6 +999,7 @@ test('R12 successful claim receipt gap pauses only the stale row and preserves B
     body: { displayName: 'Ana', slug: 'ana-admin-r12', programs: [], socials: {} },
   });
   assert.equal(created.status, 200);
+  const createdProfileId = (await created.clone().json()).profile.id;
 
   const resourceRecord = (id) => ({
     id, title: id, url: `https://example.com/${id}`, description: '', category: 'Otros',
@@ -1013,7 +1024,10 @@ test('R12 successful claim receipt gap pauses only the stale row and preserves B
     origin: SITE_ORIGIN,
   });
   const html = await renderAdminPage({
-    claimRecords: [{ id: 'claim-r12', accountId: creator.accountId, resourceIds: ['resource-r12-a'], status: 'pending' }],
+    claimRecords: [{
+      id: 'claim-r12', accountId: creator.accountId, profileId: createdProfileId,
+      resourceIds: ['resource-r12-a'], status: 'pending',
+    }],
     resourceRecords: ['resource-r12-a', 'resource-r12-b'].map(resourceRecord),
   });
   const statuses = [];

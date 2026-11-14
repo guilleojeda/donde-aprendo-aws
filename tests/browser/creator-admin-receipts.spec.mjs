@@ -491,7 +491,28 @@ test('an off-page claim target and absent profile row do not create placeholder 
   }
 });
 
-test('a legacy claim without profileId does not guess the account profile as a pause target', async ({ fixture, page }) => {
+const legacyClaimReceiptDeliveries = [
+  {
+    label: 'unreadable versionChanges',
+    deliver(actual) {
+      const delivered = { ...actual.body };
+      delete delivered.versionChanges;
+      return delivered;
+    },
+  },
+  {
+    label: 'missing required profile observation',
+    deliver(actual) {
+      const nonProfileChanges = actual.body.versionChanges.filter(({ entity }) => entity !== 'profile');
+      assert.ok(nonProfileChanges.some(({ entity }) => entity === 'resource'));
+      assert.ok(nonProfileChanges.some(({ entity }) => entity === 'placement'));
+      return { ...actual.body, versionChanges: nonProfileChanges };
+    },
+  },
+];
+
+for (const receiptDelivery of legacyClaimReceiptDeliveries) {
+test(`a legacy claim without profileId does not guess the account profile as a pause target (${receiptDelivery.label})`, async ({ fixture, page }) => {
   const ids = ['admin-legacy-selected', 'admin-legacy-unchecked', 'admin-legacy-draft'];
   await prepareAdmin(fixture, page, ids.map((id, index) => resource(id, index,
     index === 2 ? { sourceId: 'historical-source' } : {})));
@@ -519,8 +540,7 @@ test('a legacy claim without profileId does not guess the account profile as a p
     async (currentRoute, response, actual) => {
       assert.equal(actual.status, 200, 'the actual service still resolves this historical request from its account mapping');
       assert.deepEqual(actual.requestBody.resourceIds, [ids[0]]);
-      delete actual.body.versionChanges;
-      await fulfillActual(currentRoute, response, actual.body);
+      await fulfillActual(currentRoute, response, receiptDelivery.deliver(actual));
     });
   try {
     const responsePromise = page.waitForResponse((candidate) => candidate.request().method() === 'POST'
@@ -542,6 +562,7 @@ test('a legacy claim without profileId does not guess the account profile as a p
     await route.stop();
   }
 });
+}
 
 test('a real partial claim with an unreadable receipt pauses every submitted target and keeps other drafts', async ({ fixture, page }) => {
   const ids = ['admin-partial-selected-a', 'admin-partial-selected-b', 'admin-partial-unchecked', 'admin-partial-source', 'admin-partial-draft'];
