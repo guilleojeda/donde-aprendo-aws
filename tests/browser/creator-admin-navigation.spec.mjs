@@ -1,65 +1,8 @@
 import assert from 'node:assert/strict';
-import { CLIENT_ID, COGNITO_DOMAIN, completeLogin, cookiePair, makeAccount, makeIdentity } from '../fixtures/account-auth.mjs';
+import { CLIENT_ID, COGNITO_DOMAIN } from '../fixtures/account-auth.mjs';
 import { expect, test, addCookie } from '../fixtures/creator-browser-test.mjs';
 import { adminResourceCommandMatches, seedResource } from '../fixtures/creator-pages.mjs';
-
-const adminPath = '/cuenta/administracion/';
-const root = (page) => page.locator('[data-creator-admin]');
-const row = (page, id) => page.locator(`[data-admin-resource="${id}"]`);
-
-function resource(id, index) {
-  return {
-    id,
-    title: `Recurso administrativo ${index}`,
-    url: `https://admin-fixture.example.invalid/${id}`,
-    description: '',
-    category: 'Serverless',
-    kind: 'content',
-    format: 'Artículo',
-    topics: ['Serverless'],
-    order: index,
-    featured: false,
-    published: false,
-    directoryApproval: 'pending',
-    directoryControl: 'editorial',
-    version: 1,
-  };
-}
-
-async function prepareAdmin(fixture, page, ids) {
-  const cookie = await fixture.login();
-  for (const [key, account] of fixture.accountStore.accounts) {
-    fixture.accountStore.accounts.set(key, { ...account, isAdmin: true });
-  }
-  await addCookie(page.context(), fixture, cookie);
-  for (const [index, id] of ids.entries()) {
-    await seedResource(fixture.creatorStore, resource(id, index));
-  }
-  return cookie;
-}
-
-async function openAdmin(fixture, page, ids) {
-  const cookie = await prepareAdmin(fixture, page, ids);
-  await page.goto(`${fixture.origin}${adminPath}?state=all&page=1`);
-  await expect(root(page)).toBeVisible();
-  return cookie;
-}
-
-async function loginAsSeparateOwner(fixture, sub, email) {
-  const identity = makeIdentity({ sub });
-  fixture.accountStore.seedAccount(makeAccount({ identity, email }));
-  const oldClaims = fixture.accountHarness.state.oidc.claims;
-  fixture.accountHarness.state.oidc.claims = { sub, email };
-  try {
-    const result = await completeLogin(fixture.accountHarness);
-    assert.equal(result.response.status, 303, 'the owner account uses the real account callback');
-    const pair = cookiePair(result.sessionCookie);
-    return { pair, name: 'da_session', value: pair.slice('da_session='.length) };
-  } finally {
-    if (oldClaims === undefined) delete fixture.accountHarness.state.oidc.claims;
-    else fixture.accountHarness.state.oidc.claims = oldClaims;
-  }
-}
+import { adminPath, loginAsSeparateOwner, openAdmin, prepareAdmin, resource, root, row } from '../fixtures/creator-admin.mjs';
 
 function watchAdminWrites(page) {
   const writes = [];
@@ -213,6 +156,7 @@ test('structural moderation keeps a different draft through GET filter Cancel, s
 test('an SSR correction made before the real admin module loads remains dirty after structural moderation', async ({ fixture, page }) => {
   const ids = ['admin-before-module-a', 'admin-before-module-b'];
   const cookie = await fixture.login();
+  assert.equal(fixture.accountStore.accounts.size, 1, 'the delayed-admin fixture starts before any separate creator account is added');
   for (const [key, account] of fixture.accountStore.accounts) {
     fixture.accountStore.accounts.set(key, { ...account, isAdmin: true });
   }

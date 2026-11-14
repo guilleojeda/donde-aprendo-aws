@@ -369,8 +369,8 @@ test('actual admin SSR authorizes before private collections and keeps the page 
   assert.deepEqual(initial.profiles.map(({ id }) => id), [PROFILE_ID]);
   assert.equal(initial.claims.length, 1);
   assert.equal(initial.claims[0].id, 'phase3-claim');
-  assert.equal(Object.hasOwn(initial.claims[0], 'profileId'), false,
-    'admin SSR does not widen the established claim projection with the private API profile binding');
+  assert.equal(initial.claims[0].profileId, PROFILE_ID,
+    'admin SSR retains the existing private claim profile context for exact affected-row recovery');
   assert.equal(Object.hasOwn(initial.claims[0], 'version'), false,
     'admin SSR does not widen its claim projection with the API-only claim version');
   assert.equal(JSON.stringify(initial).includes(OWNER_PHYSICAL_SENTINEL), false);
