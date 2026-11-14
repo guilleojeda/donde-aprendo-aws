@@ -1,11 +1,34 @@
 import { createCreatorFormState, type FormValueSnapshot } from './creator-form-state';
 import { createCreatorSessionRecovery } from './creator-session-recovery';
 import { createCreatorWriteGuard, readCreatorVersionChanges, type CreatorVersionChange } from './creator-write-state';
+import { validateTaxonomy } from '../lib/resource-taxonomy.mjs';
 
 interface CreatorAdminState {
   resources: Record<string, unknown>[];
   profiles: Record<string, unknown>[];
   claims: Record<string, unknown>[];
+}
+
+type AdminEntity = 'resource' | 'profile';
+type AdminCommandKind = 'classification' | 'resource-action' | 'profile-action' | 'claim';
+
+interface AdminTarget {
+  entity: AdminEntity;
+  id: string;
+  version?: number;
+}
+
+interface AdminCommandContext {
+  kind: AdminCommandKind;
+  targets: readonly AdminTarget[];
+}
+
+interface AdminCompletion {
+  payload: Record<string, unknown> | null;
+  linkedIds: string[];
+  confirmedPartial: boolean;
+  receiptProblem: boolean;
+  gaps: CreatorVersionChange[];
 }
 
 const root = document.querySelector<HTMLElement>('[data-creator-admin]');
@@ -132,21 +155,6 @@ function requestFailureMessage(error: unknown, fallback: string): string {
     : fallback;
 }
 
-async function partialLinkDetails(response: Response, requestedIds: string[]): Promise<{ ids: string[]; changes: CreatorVersionChange[] | null }> {
-  if (response.status !== 409 && response.status !== 503) return { ids: [], changes: null };
-  let body: unknown;
-  try {
-    body = await response.clone().json();
-  } catch {
-    return { ids: [], changes: null };
-  }
-  if (!isRecord(body) || !Array.isArray(body.linkedResourceIds)) return { ids: [], changes: null };
-  const requested = new Set(requestedIds);
-  const ids = body.linkedResourceIds.filter((id): id is string => typeof id === 'string' && requested.has(id));
-  const changes = await readCreatorVersionChanges(response);
-  return { ids, changes };
-}
-
 function itemStatus(item: Element | null | undefined) {
   return item?.querySelector<HTMLElement>('[data-item-status]');
 }
@@ -202,6 +210,116 @@ function applyVersionChanges(changes: CreatorVersionChange[]) {
     item.version = change.after;
   }
   return gaps;
+}
+
+function targetKey(entity: string, id: string): string {
+  return `${entity}:${id}`;
+}
+
+function receiptScopeIsValid(changes: CreatorVersionChange[], context: AdminCommandContext): boolean {
+  const targets = new Set(context.targets.map(({ entity, id }) => targetKey(entity, id)));
+  for (const change of changes) {
+    if (change.entity === 'placement' && context.kind === 'claim') continue;
+    if (change.entity !== 'resource' && change.entity !== 'profile') return false;
+    if (!targets.has(targetKey(change.entity, change.id))) return false;
+  }
+
+  if (context.kind === 'claim') {
+    const changedGrant = changes.some(({ entity }) => entity === 'resource' || entity === 'placement');
+    const hasProfileChange = changes.some(({ entity }) => entity === 'profile');
+    if (changedGrant && !hasProfileChange) return false;
+    return true;
+  }
+
+  const target = context.targets[0];
+  if (!target || changes.length > 1) return false;
+  if (changes.length === 0) return true;
+  const [change] = changes;
+  return change.entity === target.entity && change.id === target.id
+    && (target.version === undefined || change.before === target.version);
+}
+
+function receiptChainIsValid(changes: CreatorVersionChange[]): boolean {
+  const lastAfter = new Map<string, number>();
+  for (const change of changes) {
+    const key = targetKey(change.entity, change.id);
+    const previousAfter = lastAfter.get(key);
+    if (previousAfter !== undefined && change.before !== previousAfter) return false;
+    lastAfter.set(key, change.after);
+  }
+  return true;
+}
+
+function singleTargetCanonicalIsValid(
+  payload: Record<string, unknown> | null,
+  changes: CreatorVersionChange[],
+  context: AdminCommandContext,
+): boolean {
+  if (context.kind === 'claim') return true;
+  const target = context.targets[0];
+  if (!target || !payload) return false;
+  const property = target.entity === 'resource' ? 'resource' : 'profile';
+  const returned = isRecord(payload[property]) ? payload[property] as Record<string, unknown> : null;
+  const canonicalVersion = observedVersion(returned ?? undefined);
+  if (!returned || returned.id !== target.id || canonicalVersion === undefined) return false;
+  if (changes.length === 0) return target.version === undefined || canonicalVersion === target.version;
+  return changes.length === 1 && changes[0].after === canonicalVersion;
+}
+
+function confirmedPartialLinkIds(
+  response: Response,
+  payload: Record<string, unknown> | null,
+  context: AdminCommandContext,
+): { ids: string[]; confirmed: boolean; contradictory: boolean } {
+  if (context.kind !== 'claim' || (response.status !== 409 && response.status !== 503)
+    || !Array.isArray(payload?.linkedResourceIds)) {
+    return { ids: [], confirmed: false, contradictory: false };
+  }
+  const requested = new Set(context.targets.filter(({ entity }) => entity === 'resource').map(({ id }) => id));
+  const ids: string[] = [];
+  let contradictory = false;
+  for (const value of payload.linkedResourceIds) {
+    if (typeof value !== 'string' || !requested.has(value) || ids.includes(value)) {
+      contradictory = true;
+      continue;
+    }
+    ids.push(value);
+  }
+  return { ids, confirmed: ids.length > 0, contradictory };
+}
+
+async function completeAdminWrite(response: Response, context: AdminCommandContext): Promise<AdminCompletion> {
+  const payload = await responsePayload(response);
+  const partial = confirmedPartialLinkIds(response, payload, context);
+  if (!response.ok && !partial.confirmed) {
+    return { payload, linkedIds: [], confirmedPartial: false, receiptProblem: false, gaps: [] };
+  }
+
+  const changes = await readCreatorVersionChanges(response);
+  const usable = changes !== null && !partial.contradictory
+    && receiptScopeIsValid(changes ?? [], context)
+    && receiptChainIsValid(changes ?? [])
+    && singleTargetCanonicalIsValid(payload, changes ?? [], context);
+  if (!usable) {
+    pauseAdminRows(context.targets);
+    return {
+      payload,
+      linkedIds: partial.ids,
+      confirmedPartial: partial.confirmed,
+      receiptProblem: true,
+      gaps: [],
+    };
+  }
+
+  const gaps = applyVersionChanges(changes);
+  pauseAdminRows(gaps);
+  return {
+    payload,
+    linkedIds: partial.ids,
+    confirmedPartial: partial.confirmed,
+    receiptProblem: false,
+    gaps,
+  };
 }
 
 async function responsePayload(response: Response): Promise<Record<string, unknown> | null> {
@@ -268,23 +386,19 @@ function showViewTransition(message: string) {
   announce(status, message, 'success');
 }
 
-async function finishAdminWrite(
-  response: Response,
+async function finishAdminCompletion(
+  completion: AdminCompletion,
   target: Element | null | undefined,
   successMessage: string,
-  submittedValues?: FormValueSnapshot,
+  submittedValues: FormValueSnapshot | undefined,
   options: {
     structural?: boolean;
     entity?: 'classification' | 'resource-action' | 'profile-action';
     id?: string;
   } = {},
 ) {
-  const changes = await readCreatorVersionChanges(response);
-  const receiptGaps = changes === null ? [] : applyVersionChanges(changes);
-  const receiptGap = changes === null || receiptGaps.length > 0;
-  pauseAdminRows(receiptGaps);
-  const payload = await responsePayload(response);
-  if (!receiptGap) updateOwnedContent(payload, options.entity, options.id);
+  const receiptGap = completion.receiptProblem || completion.gaps.length > 0;
+  if (!receiptGap) updateOwnedContent(completion.payload, options.entity, options.id);
   formState?.commit(submittedValues);
   const hasPendingChanges = syncBeforeUnload();
   if (hasPendingChanges) {
@@ -302,6 +416,22 @@ async function finishAdminWrite(
   window.location.reload();
 }
 
+async function finishAdminWrite(
+  response: Response,
+  target: Element | null | undefined,
+  successMessage: string,
+  submittedValues: FormValueSnapshot | undefined,
+  context: AdminCommandContext,
+  options: {
+    structural?: boolean;
+    entity?: 'classification' | 'resource-action' | 'profile-action';
+    id?: string;
+  } = {},
+) {
+  const completion = await completeAdminWrite(response, context);
+  await finishAdminCompletion(completion, target, successMessage, submittedValues, options);
+}
+
 function busy(form: HTMLFormElement, value: boolean) {
   form.setAttribute('aria-busy', String(value));
 }
@@ -317,21 +447,27 @@ if (root && state && csrfToken) {
       const resourceId = item?.dataset.adminResource;
       const resource = state?.resources.find((candidate) => candidate.id === resourceId);
       if (!resourceId || !resource) return;
-      const version = typeof resource.version === 'number' ? resource.version : undefined;
+      const version = observedVersion(resource);
       const values = new FormData(form);
       const topicValues = String(values.get('topics') ?? '').split(',').map((topic) => topic.trim()).filter(Boolean);
-      const allowedTopics = new Set(Array.from(form.querySelectorAll<HTMLOptionElement>('datalist option')).map((option) => option.value));
-      if (topicValues.length > 3 || new Set(topicValues).size !== topicValues.length
-        || topicValues.some((topic) => !allowedTopics.has(topic))) {
-        announce(itemStatus(item), 'Elige hasta tres temas válidos, sin repetirlos.', 'error');
+      const kind = String(values.get('kind') ?? '');
+      const format = String(values.get('format') ?? '');
+      try {
+        validateTaxonomy({ kind, format, topics: topicValues });
+      } catch {
+        announce(itemStatus(item), 'Revisa el tipo, formato y los temas seleccionados.', 'error');
         return;
       }
       const body = {
-        category: String(values.get('category') ?? '').trim(),
-        kind: String(values.get('kind') ?? '').trim(),
-        format: String(values.get('format') ?? '').trim(),
+        category: String(values.get('category') ?? ''),
+        kind,
+        format,
         topics: topicValues,
         ...(version !== undefined ? { version } : {}),
+      };
+      const context: AdminCommandContext = {
+        kind: 'classification',
+        targets: [{ entity: 'resource', id: resourceId, ...(version !== undefined ? { version } : {}) }],
       };
       const submittedValues = formState?.capture(form);
       busy(form, true);
@@ -341,7 +477,7 @@ if (root && state && csrfToken) {
           announce(itemStatus(item), await responseErrorMessage(response), 'error');
           return;
         }
-        await finishAdminWrite(response, itemStatus(item), 'Clasificación guardada.', submittedValues, { entity: 'classification', id: resourceId });
+        await finishAdminWrite(response, itemStatus(item), 'Clasificación guardada.', submittedValues, context, { entity: 'classification', id: resourceId });
       } catch (error) {
         announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -361,6 +497,10 @@ if (root && state && csrfToken) {
       button.disabled = true;
       try {
         const version = observedVersion(resource);
+        const context: AdminCommandContext = {
+          kind: 'resource-action',
+          targets: [{ entity: 'resource', id: resourceId, ...(version !== undefined ? { version } : {}) }],
+        };
         const response = await api(adminResourceCommandUrl(resourceId, action), 'POST', {
           ...(version === undefined ? {} : { version }),
         });
@@ -375,7 +515,7 @@ if (root && state && csrfToken) {
             ? 'Aprobación revocada. El enlace puede seguir visible en páginas de creadores.'
             : action === 'ocultar'
               ? 'Recurso oculto en las páginas públicas.'
-              : 'Recurso restaurado.', undefined, { structural: true, entity: 'resource-action', id: resourceId });
+              : 'Recurso restaurado.', undefined, context, { structural: true, entity: 'resource-action', id: resourceId });
       } catch (error) {
         announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -395,6 +535,10 @@ if (root && state && csrfToken) {
       button.disabled = true;
       try {
         const version = observedVersion(profile);
+        const context: AdminCommandContext = {
+          kind: 'profile-action',
+          targets: [{ entity: 'profile', id: profileId, ...(version !== undefined ? { version } : {}) }],
+        };
         const response = await api(`/api/admin/perfiles/${encodeURIComponent(profileId)}/${action}/`, 'POST', {
           ...(version === undefined ? {} : { version }),
         });
@@ -403,7 +547,7 @@ if (root && state && csrfToken) {
           return;
         }
         if (item) markAdminActionsStale('[data-profile-action]', item);
-        await finishAdminWrite(response, itemStatus(item), action === 'ocultar' ? 'Perfil oculto.' : 'Perfil restaurado.', undefined, { structural: true, entity: 'profile-action', id: profileId });
+        await finishAdminWrite(response, itemStatus(item), action === 'ocultar' ? 'Perfil oculto.' : 'Perfil restaurado.', undefined, context, { structural: true, entity: 'profile-action', id: profileId });
       } catch (error) {
         announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -433,6 +577,22 @@ if (root && state && csrfToken) {
       }
       const selectionControls = [...form.querySelectorAll<HTMLInputElement>('input[name="resourceIds"]')];
       const selectionDisabled = selectionControls.map((control) => control.disabled);
+      const profileId = typeof claim.profileId === 'string' && claim.profileId.length > 0 ? claim.profileId : undefined;
+      const context: AdminCommandContext = {
+        kind: 'claim',
+        targets: [
+          ...selectedIds.map((id): AdminTarget => {
+            const resource = state?.resources.find((candidate) => candidate.id === id);
+            const version = observedVersion(resource);
+            return { entity: 'resource', id, ...(version !== undefined ? { version } : {}) };
+          }),
+          ...(profileId ? (() => {
+            const profile = state?.profiles.find((candidate) => candidate.id === profileId);
+            const version = observedVersion(profile);
+            return [{ entity: 'profile' as const, id: profileId, ...(version !== undefined ? { version } : {}) }];
+          })() : []),
+        ],
+      };
       selectionControls.forEach((control) => { control.disabled = true; });
       busy(form, true);
       try {
@@ -442,12 +602,9 @@ if (root && state && csrfToken) {
           resourceIds: selectedIds,
         });
         if (!response.ok) {
-          const { ids: linkedIds, changes } = await partialLinkDetails(response, selectedIds);
-          if (changes) {
-            const receiptGaps = applyVersionChanges(changes);
-            pauseAdminRows(receiptGaps);
-          }
-          if (linkedIds.length > 0) {
+          const completion = await completeAdminWrite(response, context);
+          const linkedIds = completion.linkedIds;
+          if (completion.confirmedPartial) {
             const linked = new Set(linkedIds);
             form.querySelectorAll<HTMLInputElement>('input[name="resourceIds"]').forEach((checkbox) => {
               if (linked.has(checkbox.value)) {
@@ -460,7 +617,9 @@ if (root && state && csrfToken) {
             formState?.commit(formState.capture(form));
             syncBeforeUnload();
             const remainingIds = selectedIds.filter((id) => !linked.has(id));
-            showViewTransition('La vinculación se completó parcialmente. Actualiza la vista antes de resolver otra vez esta solicitud.');
+            showViewTransition(completion.receiptProblem || completion.gaps.length > 0
+              ? 'La vinculación se completó parcialmente, pero el recibo no coincide con las versiones observadas. Actualiza la vista antes de resolver otra vez esta solicitud.'
+              : 'La vinculación se completó parcialmente. Actualiza la vista antes de resolver otra vez esta solicitud.');
             announce(itemStatus(item), remainingIds.length > 0
               ? `Vinculación parcial. Ya vinculados: ${linkedIds.join(', ')}. Pendientes: ${remainingIds.join(', ')}. Los checks de los pendientes se conservaron; recarga para actualizar el estado y reintenta sólo esos IDs.`
               : `Los recursos ya vinculados son: ${linkedIds.join(', ')}. Recarga para actualizar el estado de la solicitud.`, 'error');
@@ -469,9 +628,9 @@ if (root && state && csrfToken) {
           announce(itemStatus(item), await responseErrorMessage(response), 'error');
           return;
         }
-        markAdminActionsStale('[data-resource-action], [data-profile-action]');
+        const completion = await completeAdminWrite(response, context);
         markAdminActionsStale('[data-claim-resolution] button, [data-claim-resolution] input[name="resourceIds"]', item ?? form);
-        await finishAdminWrite(response, itemStatus(item), 'Recursos vinculados a la cuenta.', submittedValues, {
+        await finishAdminCompletion(completion, itemStatus(item), 'Recursos vinculados a la cuenta.', submittedValues, {
           structural: true,
         });
       } catch (error) {
