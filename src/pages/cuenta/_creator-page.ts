@@ -1,8 +1,8 @@
 import { getCreatorRuntime } from '../../lib/creator-runtime.mjs';
 import { creatorPageSessionBinding } from '../../lib/creator-session-context.mjs';
 import { selectAdminResources } from '../../lib/creator-admin-pagination.mjs';
-import { readCreatorClaimResources, readCreatorEditorData } from '../../lib/creator-owner-data';
-import type { CreatorEditorDTO } from '../../types/creators';
+import { readCreatorClaimResources, readCreatorOwnerSnapshot } from '../../lib/creator-owner-data';
+import type { CreatorOwnerSnapshotDTO } from '../../types/creators';
 
 export type CreatorPrincipalState = 'authenticated' | 'anonymous' | 'disabled' | 'unavailable';
 
@@ -16,7 +16,7 @@ export interface CreatorPagePrincipal {
 export interface CreatorEditorLoad {
   principal: CreatorPagePrincipal;
   status: number;
-  data?: CreatorEditorDTO;
+  data?: CreatorOwnerSnapshotDTO;
 }
 
 export interface CreatorAdminData {
@@ -165,7 +165,7 @@ export async function loadCreatorEditor(
   if (!principal.csrfToken) return { principal: { state: 'unavailable', isAdmin: false }, status: 503 };
   try {
     const data: unknown = await runtime.service.readCreatorEditor(context);
-    return { principal, status: 200, data: readCreatorEditorData(data) };
+    return { principal, status: 200, data: readCreatorOwnerSnapshot(data) };
   } catch (error) {
     return { principal, status: failureStatus(error) };
   }

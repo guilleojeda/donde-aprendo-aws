@@ -11,11 +11,7 @@ function projectLifecycleCatalog(ids, { includeCompetitor = false } = {}) {
   const selected = new Set([...ids, ...lifecycleCommunities, ...(includeCompetitor ? ['search-competitor'] : [])]);
   return projectPublishedCatalog(
     unifiedSearchLifecycleFixture.items.filter(({ id }) => selected.has(id)),
-    {
-      profiles: unifiedSearchLifecycleFixture.profiles,
-      placements: unifiedSearchLifecycleFixture.placements.filter(({ resourceId }) => selected.has(resourceId)),
-      series: unifiedSearchLifecycleFixture.series,
-    },
+    { creators: unifiedSearchLifecycleFixture.creators },
   );
 }
 

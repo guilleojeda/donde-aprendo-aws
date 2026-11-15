@@ -51,6 +51,7 @@ function seedSession(accountStore, identity, { isAdmin, tokenByte, csrfByte }) {
 
 function request(origin, path, { method = 'GET', session, csrf, binding, body, requestOrigin = origin } = {}) {
   const headers = new Headers();
+  if (method !== 'GET' && path.startsWith('/api/creador/')) headers.set('x-creator-contract', '2');
   if (session) headers.set('cookie', session.cookie);
   if (requestOrigin !== null) headers.set('origin', requestOrigin);
   if (csrf !== undefined) headers.set('x-csrf-token', csrf);
@@ -184,18 +185,23 @@ test('accepted configured origins reach real account, creator, admin, and photo 
         assert.equal(adminPrincipal.isAdmin, true);
 
         const binding = creatorPageSessionBinding({ accountId: owner.accountId, isAdmin: false });
-        const profileInput = { displayName: 'Origin owner', slug: `origin-owner-${index}` };
+        const profileInput = { creatorVersion: null, displayName: 'Origin owner', slug: `origin-owner-${index}` };
         const profileResponse = await runtime.handle(request(originCase.browser, '/api/creador/perfil/', {
           method: 'PUT', session: owner, csrf: owner.csrfToken, binding, body: profileInput,
         }));
         assert.equal(profileResponse.status, 200, `${originCase.name} must authorize the canonical browser origin`);
-        const savedProfile = (await responseJson(profileResponse)).profile;
+        const receipt = await responseJson(profileResponse);
+        const snapshotResponse = await runtime.handle(request(originCase.browser, '/api/creador/perfil/', { session: owner, binding }));
+        assert.equal(snapshotResponse.status, 200);
+        const { profile: savedProfile, creatorVersion } = await responseJson(snapshotResponse);
+        assert.equal(savedProfile.id, receipt.profileId);
+        assert.equal(creatorVersion, receipt.creatorVersion);
         assert.equal(savedProfile.displayName, profileInput.displayName);
         const ownerMapping = await creatorStore.get(`account-profile:${owner.accountId}`);
         const storedProfile = await creatorStore.get(`profile:${ownerMapping.profileId}`);
         assert.equal(storedProfile.id, savedProfile.id, 'the actual runtime service persists the owner profile');
         const creatorReadCount = creatorStore.calls.length;
-        const unchangedProfileUpdate = { ...profileInput, displayName: 'Must remain unchanged', version: savedProfile.version };
+        const unchangedProfileUpdate = { ...profileInput, displayName: 'Must remain unchanged', creatorVersion };
 
         const noSession = await runtime.handle(request(originCase.browser, '/api/creador/perfil/', {
           method: 'PUT', body: unchangedProfileUpdate, csrf: owner.csrfToken, binding,
@@ -276,14 +282,14 @@ test('accepted configured origins reach real account, creator, admin, and photo 
         const photoStoreCallsBefore = creatorStore.calls.length;
         const badPhotoOrigin = await runtime.handle(request(originCase.browser, photoPath, {
           method: 'POST', session: owner, csrf: owner.csrfToken, binding,
-          body: { version: storedProfile.version }, requestOrigin: 'https://foreign.example',
+          body: { creatorVersion }, requestOrigin: 'https://foreign.example',
         }));
         assert.equal(badPhotoOrigin.status, 403);
         assert.equal((await responseJson(badPhotoOrigin)).error, 'CSRF_REJECTED');
         assert.equal(creatorStore.calls.length, photoStoreCallsBefore, 'photo origin rejection occurs before the owner-profile read');
 
         const badPhotoCsrf = await runtime.handle(request(originCase.browser, photoPath, {
-          method: 'POST', session: owner, csrf: 'wrong-csrf', binding, body: { version: storedProfile.version },
+          method: 'POST', session: owner, csrf: 'wrong-csrf', binding, body: { creatorVersion },
         }));
         assert.equal(badPhotoCsrf.status, 403);
         assert.equal((await responseJson(badPhotoCsrf)).error, 'CSRF_REJECTED');
@@ -291,21 +297,21 @@ test('accepted configured origins reach real account, creator, admin, and photo 
 
         const badPhotoBinding = await runtime.handle(request(originCase.browser, photoPath, {
           method: 'POST', session: owner, csrf: owner.csrfToken, binding: 'invalid-binding',
-          body: { version: storedProfile.version },
+          body: { creatorVersion },
         }));
         assert.equal(badPhotoBinding.status, 422);
         assert.equal((await responseJson(badPhotoBinding)).error, 'INVALID_CONTEXT');
         assert.equal(creatorStore.calls.length, photoStoreCallsBefore);
 
         const authorize = await runtime.handle(request(originCase.browser, photoPath, {
-          method: 'POST', session: owner, csrf: owner.csrfToken, binding, body: { version: storedProfile.version },
+          method: 'POST', session: owner, csrf: owner.csrfToken, binding, body: { creatorVersion },
         }));
         assert.equal(authorize.status, 200, 'photo authorization accepts the canonical browser Origin');
         const upload = await responseJson(authorize);
         photoObjects.seed(upload.post.fields.key, (await rasterPhotoFixtures()).jpeg);
         const finalize = await runtime.handle(request(originCase.browser, '/api/creador/foto/finalizar/', {
           method: 'POST', session: owner, csrf: owner.csrfToken, binding,
-          body: { version: storedProfile.version, uploadId: upload.uploadId },
+          body: { creatorVersion, uploadId: upload.uploadId },
         }));
         assert.equal(finalize.status, 200, 'the actual photo service finalizes a valid upload');
         const photoResult = await responseJson(finalize);

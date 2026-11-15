@@ -1,5 +1,7 @@
 import type { CreatorCatalogSelectionDTO } from '../types/creators';
 import { isPublicCatalogResourceId } from './catalog-identity.mjs';
+import { isSafeCatalogUrl } from './catalog-url-safety.mjs';
+import { CREATOR_FIELD_LIMITS } from './creator-values.mjs';
 
 export const CREATOR_OWNER_CATALOG_PAGE_SIZE = 25;
 const CATALOG_TYPES = new Set(['content', 'source', 'community', 'event']);
@@ -13,12 +15,7 @@ export function isCreatorOwnerCatalogItem(value: unknown): value is CreatorCatal
     || !isPublicCatalogResourceId(value.id)
     || typeof value.title !== 'string' || value.title.trim().length === 0
     || typeof value.url !== 'string' || typeof value.tipo !== 'string' || !CATALOG_TYPES.has(value.tipo)) return false;
-  try {
-    const url = new URL(value.url);
-    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password;
-  } catch {
-    return false;
-  }
+  return isSafeCatalogUrl(value.url);
 }
 
 export function parseCreatorOwnerCatalog(value: unknown): CreatorCatalogSelectionDTO[] | undefined {
@@ -54,14 +51,6 @@ export function pageCreatorOwnerCatalog(
 }
 
 export function parseCreatorOwnerClaimUrls(value: string): string[] | undefined {
-  const urls = value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  return urls.every((value) => {
-    if (!value || value.length > 2048) return false;
-    try {
-      const url = new URL(value);
-      return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password;
-    } catch {
-      return false;
-    }
-  }) ? urls : undefined;
+  const urls = value.split(/\r?\n/).filter((line) => line.trim() !== '');
+  return urls.every((url) => url.length <= CREATOR_FIELD_LIMITS.url && isSafeCatalogUrl(url.trim())) ? urls : undefined;
 }

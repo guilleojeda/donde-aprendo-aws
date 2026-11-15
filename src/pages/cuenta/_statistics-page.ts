@@ -1,5 +1,5 @@
 import { getCreatorRuntime } from '../../lib/creator-runtime.mjs';
-import type { CreatorEditorDTO } from '../../types/creators';
+import type { CreatorOwnerSnapshotDTO } from '../../types/creators';
 import type {
   CreatorStatisticsReady,
 } from '../../lib/creator-statistics-types';
@@ -17,7 +17,7 @@ export interface CreatorStatisticsPageLoad {
   period: 7 | 30;
   page: number;
   report?: CreatorStatisticsReady;
-  editor?: CreatorEditorDTO;
+  editor?: CreatorOwnerSnapshotDTO;
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {

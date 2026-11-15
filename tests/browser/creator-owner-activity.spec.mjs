@@ -3,6 +3,7 @@ import {
   test,
   expect,
   api,
+  readOwnerSnapshot,
   loggedInOwner,
   captureCreatorApi,
 } from '../fixtures/creator-browser-test.mjs';
@@ -22,9 +23,16 @@ async function assertDetail(page, period) {
   await expect(detail.locator('[data-owner-activity-total="clicks"]')).toHaveText(totals[2]);
 }
 
+async function publishOwner(fixture, cookie) {
+  const owner = await readOwnerSnapshot(fixture, cookie);
+  return api(fixture, cookie, '/api/creador/perfil/publicar', {
+    method: 'POST', body: { creatorVersion: owner.creatorVersion },
+  });
+}
+
 test('el resumen real de 7 y 30 días abre cada informe privado con los mismos datos GA4', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
-  const published = await api(fixture, cookie, '/api/creador/perfil/publicar', { method: 'POST', body: {} });
+  const published = await publishOwner(fixture, cookie);
   assert.equal(published.response.status, 200);
   const publishedOwner = await fixture.rawOwner(cookie);
   assert.equal(publishedOwner.profile.published, true);
@@ -117,7 +125,7 @@ test('el resumen real de 7 y 30 días abre cada informe privado con los mismos d
 
 test('la respuesta anterior no reemplaza el período elegido aunque su JSON termine de leerse después', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
-  const published = await api(fixture, cookie, '/api/creador/perfil/publicar', { method: 'POST', body: {} });
+  const published = await publishOwner(fixture, cookie);
   assert.equal(published.response.status, 200);
 
   await page.addInitScript(() => {
@@ -181,7 +189,7 @@ test('la respuesta anterior no reemplaza el período elegido aunque su JSON term
 
 test('creator, período, página y DTO inválidos quedan sin cifras hasta un reintento, mientras la edición sigue disponible', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
-  const published = await api(fixture, cookie, '/api/creador/perfil/publicar', { method: 'POST', body: {} });
+  const published = await publishOwner(fixture, cookie);
   assert.equal(published.response.status, 200);
   const capture = await captureCreatorApi(page, { ignoreReads: true });
   const mutations = [];
@@ -255,7 +263,7 @@ test('creator, período, página y DTO inválidos quedan sin cifras hasta un rei
 
 test('las limitaciones, los valores desconocidos, el cero medido y la recuperación stale permanecen visibles', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
-  const published = await api(fixture, cookie, '/api/creador/perfil/publicar', { method: 'POST', body: {} });
+  const published = await publishOwner(fixture, cookie);
   assert.equal(published.response.status, 200);
   let mode = 'limited';
   fixture.statistics.setProviderResponder(({ body, payload }) => {
@@ -424,15 +432,17 @@ test('ningún perfil o borrador consulta GA y publicar desde el detalle de 7 dí
 
 test('un perfil publicado pero oculto conserva su resumen histórico sin ofrecer acciones públicas', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
-  const published = await api(fixture, cookie, '/api/creador/perfil/publicar', { method: 'POST', body: {} });
+  const published = await publishOwner(fixture, cookie);
   assert.equal(published.response.status, 200);
   const beforeHidden = await fixture.rawOwner(cookie);
+  const profileKey = `profile:${beforeHidden.profile.id}`;
+  const stored = await fixture.creatorStore.get(profileKey);
   assert.equal(await fixture.creatorStore.transact({
-    checks: [{ key: `profile:${beforeHidden.profile.id}`, version: beforeHidden.profile.version }],
-    puts: [{ key: `profile:${beforeHidden.profile.id}`, value: {
-      ...beforeHidden.profile,
+    checks: [{ key: profileKey, version: stored.version }],
+    puts: [{ key: profileKey, value: {
+      ...stored,
       hidden: true,
-      version: beforeHidden.profile.version + 1,
+      version: stored.version + 1,
     } }],
   }), true);
   const hidden = await fixture.rawOwner(cookie);

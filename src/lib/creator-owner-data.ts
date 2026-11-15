@@ -1,369 +1,233 @@
 import type {
   CreatorClaimDTO,
   CreatorClaimResourceDTO,
-  CreatorEditableResourceDTO,
-  CreatorEditorDTO,
-  CreatorLinkDTO,
-  CreatorProfileDTO,
-  CreatorProgram,
-  CreatorSeriesDTO,
-  CreatorSeriesMembershipDTO,
-  CreatorSocial,
+  CreatorOwnerPlacementViewDTO,
+  CreatorOwnerSnapshotDTO,
 } from '../types/creators';
-import { creatorResourceProjectionsAgree } from './creator-resource-consistency';
+import { isCatalogResourceIdWithinLimit } from './catalog-identity.mjs';
+import { CREATOR_PROGRAMS, CREATOR_SOCIALS, isCreatorStateId } from './creator-values.mjs';
+import { isSafeCatalogUrl } from './catalog-url-safety.mjs';
 
-const PROGRAMS = new Set<CreatorProgram>(['User Group Leaders', 'Community Builders', 'Heroes']);
-const SOCIALS = new Set<CreatorSocial>(['instagram', 'x', 'linkedin', 'awsBuilder', 'website']);
+const PROGRAMS: ReadonlySet<string> = new Set(CREATOR_PROGRAMS);
+const SOCIALS: ReadonlySet<string> = new Set(CREATOR_SOCIALS);
+const DIRECTORY_APPROVALS = new Set(['pending', 'approved', 'revoked']);
 
-function record(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : undefined;
-}
-
-function text(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
-}
-
-function finiteNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
-function nonEmptyText(value: unknown): string | undefined {
-  const result = text(value);
-  return result && result.length > 0 ? result : undefined;
-}
-
-function readProfile(value: unknown): CreatorProfileDTO | null {
-  if (value === null) return null;
-  const item = record(value);
-  if (!item) throw new TypeError('El perfil recibido no tiene un formato válido.');
-  const id = nonEmptyText(item.id);
-  const displayName = text(item.displayName);
-  const slug = text(item.slug);
-  const version = finiteNumber(item.version);
-  if (!id || displayName === undefined || slug === undefined || version === undefined
-    || typeof item.published !== 'boolean' || typeof item.hidden !== 'boolean') {
-    throw new TypeError('El perfil recibido no tiene un formato válido.');
-  }
-
-  const programs = Array.isArray(item.programs)
-    ? item.programs.filter((program): program is CreatorProgram => typeof program === 'string' && PROGRAMS.has(program as CreatorProgram))
-    : [];
-  const rawSocials = record(item.socials);
-  const socials: Partial<Record<CreatorSocial, string>> = {};
-  if (rawSocials) {
-    for (const [key, value] of Object.entries(rawSocials)) {
-      if (SOCIALS.has(key as CreatorSocial) && typeof value === 'string') socials[key as CreatorSocial] = value;
-    }
-  }
-  const rawPhoto = record(item.photo);
-  const photoVersion = rawPhoto?.version;
-  const photo = (typeof photoVersion === 'string' || typeof photoVersion === 'number')
-    ? {
-        version: photoVersion,
-        ...(typeof rawPhoto?.url === 'string' ? { url: rawPhoto.url } : {}),
-      }
-    : undefined;
-
-  return {
-    id,
-    displayName,
-    slug,
-    ...(typeof item.city === 'string' ? { city: item.city } : {}),
-    ...(typeof item.country === 'string' ? { country: item.country } : {}),
-    programs,
-    ...(typeof item.bio === 'string' ? { bio: item.bio } : {}),
-    socials,
-    ...(photo ? { photo } : {}),
-    published: item.published,
-    hidden: item.hidden,
-    version,
-  };
-}
-
-function readLink(value: unknown): CreatorLinkDTO {
-  const item = record(value);
-  if (!item) throw new TypeError('Un enlace recibido no tiene un formato válido.');
-  const placementId = nonEmptyText(item.placementId);
-  const resourceId = nonEmptyText(item.resourceId);
-  const title = text(item.title);
-  const url = text(item.url);
-  const position = finiteNumber(item.position);
-  const resourceVersion = finiteNumber(item.resourceVersion);
-  const rawSeries = item.series === undefined ? [] : item.series;
-  if (!placementId || !resourceId || title === undefined || url === undefined
-    || position === undefined || resourceVersion === undefined
-    || typeof item.featured !== 'boolean' || typeof item.selectedForDirectory !== 'boolean'
-    || typeof item.hidden !== 'boolean'
-    || !Array.isArray(rawSeries)) {
-    throw new TypeError('Un enlace recibido no tiene un formato válido.');
-  }
-  const series = rawSeries.map((value): CreatorSeriesMembershipDTO => {
-    const membership = record(value);
-    const seriesId = nonEmptyText(membership?.seriesId);
-    const seriesPosition = finiteNumber(membership?.position);
-    if (!seriesId || seriesPosition === undefined || seriesPosition < 0) {
-      throw new TypeError('Una pertenencia de serie recibida no tiene un formato válido.');
-    }
-    return { seriesId, position: seriesPosition };
-  });
-  if (new Set(series.map(({ seriesId }) => seriesId)).size !== series.length) {
-    throw new TypeError('Un enlace recibido repite su pertenencia a una serie.');
-  }
-  return {
-    placementId,
-    resourceId,
-    title,
-    url,
-    ...(typeof item.description === 'string' ? { description: item.description } : {}),
-    featured: item.featured,
-    position,
-    selectedForDirectory: item.selectedForDirectory,
-    hidden: item.hidden,
-    directoryApproval: text(item.directoryApproval) ?? 'pending',
-    resourceVersion,
-    ...(finiteNumber(item.placementVersion) !== undefined ? { placementVersion: finiteNumber(item.placementVersion) } : {}),
-    series,
-  };
-}
-
-function readSeries(value: unknown): CreatorSeriesDTO {
-  const item = record(value);
-  if (!item) throw new TypeError('Una serie recibida no tiene un formato válido.');
-  const id = nonEmptyText(item.id);
-  const name = text(item.name);
-  const slug = text(item.slug);
-  const version = finiteNumber(item.version);
-  if (!id || name === undefined || slug === undefined || version === undefined) {
-    throw new TypeError('Una serie recibida no tiene un formato válido.');
-  }
-  return {
-    id,
-    name,
-    slug,
-    ...(typeof item.description === 'string' ? { description: item.description } : {}),
-    version,
-  };
-}
-
-function readEditableResource(value: unknown): CreatorEditableResourceDTO {
-  const item = record(value);
-  if (!item) throw new TypeError('Un recurso editable recibido no tiene un formato válido.');
-  const id = nonEmptyText(item.id);
-  const title = text(item.title);
-  const url = text(item.url);
-  const version = finiteNumber(item.version);
-  if (!id || title === undefined || url === undefined || version === undefined) {
-    throw new TypeError('Un recurso editable recibido no tiene un formato válido.');
-  }
-  return { id, title, url, ...(typeof item.description === 'string' ? { description: item.description } : {}), version };
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item): item is string => typeof item === 'string');
-}
-
-export function readCreatorClaimResources(value: unknown, resourceIds: unknown): CreatorClaimResourceDTO[] | undefined {
-  if (value === undefined) return undefined;
-  if (!Array.isArray(value) || !isStringArray(resourceIds) || value.length === 0 || value.length !== resourceIds.length) {
-    throw new TypeError('Los destinos de una solicitud recibida no tienen un formato válido.');
-  }
-  return value.map((candidate, index) => {
-    const item = record(candidate);
-    if (!item || Object.keys(item).length !== 2 || !Object.hasOwn(item, 'resourceId') || !Object.hasOwn(item, 'url')) {
-      throw new TypeError('Los destinos de una solicitud recibida no tienen un formato válido.');
-    }
-    const resourceId = nonEmptyText(item.resourceId);
-    const url = nonEmptyText(item.url);
-    if (!resourceId || resourceId !== resourceIds[index] || !url || url.length > 2048) {
-      throw new TypeError('Los destinos de una solicitud recibida no tienen un formato válido.');
-    }
-    return { resourceId, url };
-  });
-}
-
-function readClaim(value: unknown): CreatorClaimDTO {
-  const item = record(value);
-  if (!item) throw new TypeError('Una solicitud de vinculación recibida no tiene un formato válido.');
-  const id = nonEmptyText(item.id ?? item.claimId);
-  const version = item.version;
-  if (!id || !Array.isArray(item.resourceIds)
-    || (version !== undefined && (!Number.isSafeInteger(version) || Number(version) < 1))) {
-    throw new TypeError('Una solicitud de vinculación recibida no tiene un formato válido.');
-  }
-  const resourceIds = item.resourceIds.filter((idValue): idValue is string => typeof idValue === 'string');
-  if (resourceIds.length !== item.resourceIds.length) throw new TypeError('Una solicitud de vinculación recibida no tiene un formato válido.');
-  const resources = readCreatorClaimResources(item.resources, resourceIds);
-  return {
-    id,
-    resourceIds,
-    ...(typeof version === 'number' ? { version } : {}),
-    ...(resources ? { resources } : {}),
-    ...(typeof item.sourceId === 'string' ? { sourceId: item.sourceId } : {}),
-    ...(typeof item.status === 'string' ? { status: item.status } : {}),
-    ...(finiteNumber(item.createdAt) !== undefined ? { createdAt: finiteNumber(item.createdAt) } : {}),
-    ...(typeof item.evidence === 'string' ? { evidence: item.evidence } : {}),
-  };
-}
-
-export function readCreatorEditorData(value: unknown): CreatorEditorDTO {
-  const item = record(value);
-  if (!item || !Array.isArray(item.links) || !Array.isArray(item.editableResources) || !Array.isArray(item.claims)) {
-    throw new TypeError('No pudimos leer los datos del perfil.');
-  }
-  if (!creatorResourceProjectionsAgree(item.links, item.editableResources)) {
-    throw new TypeError('Las proyecciones del contenido no corresponden a la misma observación.');
-  }
-  const rawSeries = item.series === undefined ? [] : item.series;
-  if (!Array.isArray(rawSeries)) throw new TypeError('La lista de series recibida no tiene un formato válido.');
-  return {
-    profile: readProfile(item.profile),
-    links: item.links.map(readLink),
-    editableResources: item.editableResources.map(readEditableResource),
-    claims: item.claims.map(readClaim),
-    series: rawSeries.map(readSeries),
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
+function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
-
-export function isSafeClaimUrl(value: string): boolean {
-  if (!value || value.length > 2048) return false;
-  try {
-    const url = new URL(value);
-    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password;
-  } catch {
-    return false;
-  }
+function safeVersion(value: unknown, minimum = 0): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= minimum;
 }
 
-export function isProfile(value: unknown): value is CreatorProfileDTO {
-  return isRecord(value)
-    && typeof value.id === 'string' && value.id.length > 0
-    && typeof value.displayName === 'string' && typeof value.slug === 'string'
-    && Number.isSafeInteger(value.version) && Number(value.version) >= 0
-    && typeof value.published === 'boolean' && typeof value.hidden === 'boolean'
-    && Array.isArray(value.programs) && isRecord(value.socials);
+function text(value: unknown): value is string {
+  return typeof value === 'string';
 }
 
-export function isCreatorClaim(value: unknown): value is CreatorClaimDTO {
-  if (!isRecord(value) || typeof value.id !== 'string' || value.id.length === 0
-    || !Array.isArray(value.resourceIds) || !value.resourceIds.every((id) => typeof id === 'string')
-    || (value.version !== undefined && (!Number.isSafeInteger(value.version) || Number(value.version) < 1))) return false;
-  if (value.resources !== undefined) {
-    if (!Array.isArray(value.resources)) return false;
-    const observedIds = new Set<string>();
-    for (const candidate of value.resources) {
-      if (!isRecord(candidate) || Object.keys(candidate).sort().join(',') !== 'resourceId,url'
-        || typeof candidate.resourceId !== 'string' || !value.resourceIds.includes(candidate.resourceId)
-        || observedIds.has(candidate.resourceId) || typeof candidate.url !== 'string' || !isSafeClaimUrl(candidate.url)) return false;
-      observedIds.add(candidate.resourceId);
-    }
-  }
-  return (value.status === undefined || typeof value.status === 'string')
-    && (value.createdAt === undefined || (typeof value.createdAt === 'number' && Number.isFinite(value.createdAt)))
-    && (value.evidence === undefined || typeof value.evidence === 'string');
+function nonEmptyText(value: unknown): value is string {
+  return text(value) && value.length > 0;
 }
 
-export function isOwnerData(value: unknown): value is CreatorEditorDTO {
-  return isRecord(value) && (value.profile === null || isProfile(value.profile))
-    && Array.isArray(value.links) && Array.isArray(value.editableResources)
-    && creatorResourceProjectionsAgree(value.links, value.editableResources)
-    && Array.isArray(value.claims) && value.claims.every(isCreatorClaim) && Array.isArray(value.series);
-}
-
-export function isCreatorLink(value: unknown): value is CreatorLinkDTO {
-  return isRecord(value)
-    && typeof value.placementId === 'string' && value.placementId.length > 0
-    && typeof value.resourceId === 'string' && value.resourceId.length > 0
-    && typeof value.title === 'string' && typeof value.url === 'string'
-    && typeof value.featured === 'boolean' && Number.isSafeInteger(value.position)
-    && typeof value.selectedForDirectory === 'boolean' && typeof value.hidden === 'boolean'
-    && typeof value.directoryApproval === 'string'
-    && Number.isSafeInteger(value.resourceVersion) && Number(value.resourceVersion) >= 0
-    && Number.isSafeInteger(value.placementVersion) && Number(value.placementVersion) >= 0
-    && Array.isArray(value.series) && value.series.every((membership) => isRecord(membership)
-      && typeof membership.seriesId === 'string' && membership.seriesId.length > 0
-      && Number.isSafeInteger(membership.position) && Number(membership.position) >= 0);
-}
-
-export function isEditableResource(value: unknown): value is CreatorEditableResourceDTO {
-  return isRecord(value) && typeof value.id === 'string' && value.id.length > 0
-    && typeof value.title === 'string' && typeof value.url === 'string'
-    && Number.isSafeInteger(value.version) && Number(value.version) >= 0;
-}
-
-export function isCreatorSeries(value: unknown): value is CreatorSeriesDTO {
-  return isRecord(value) && typeof value.id === 'string' && value.id.length > 0
-    && typeof value.name === 'string' && typeof value.slug === 'string'
-    && (value.description === undefined || typeof value.description === 'string')
-    && Number.isSafeInteger(value.version) && Number(value.version) >= 1;
+function hasOnlyKeys(value: Record<string, unknown>, required: readonly string[], optional: readonly string[] = []): boolean {
+  const keys = Object.keys(value);
+  return required.every((key) => Object.hasOwn(value, key))
+    && keys.every((key) => required.includes(key) || optional.includes(key));
 }
 
 function unique(values: readonly string[]): boolean {
   return new Set(values).size === values.length;
 }
 
-function isStrictProfile(value: unknown): value is CreatorProfileDTO {
-  if (!isProfile(value) || !value.programs.every((program) => typeof program === 'string' && PROGRAMS.has(program as CreatorProgram))
-    || !value.programs.every((program, index) => value.programs.indexOf(program) === index)) return false;
-  const socials = value.socials as Record<string, unknown>;
-  if (Object.entries(socials).some(([key, item]) => !SOCIALS.has(key as CreatorSocial) || typeof item !== 'string')) return false;
-  if ((value.city !== undefined && typeof value.city !== 'string')
-    || (value.country !== undefined && typeof value.country !== 'string')
-    || (value.bio !== undefined && typeof value.bio !== 'string')) return false;
-  if (value.photo !== undefined) {
-    if (!isRecord(value.photo) || (typeof value.photo.version !== 'string'
-      && !(typeof value.photo.version === 'number' && Number.isSafeInteger(value.photo.version) && value.photo.version >= 0))
-      || (value.photo.url !== undefined && typeof value.photo.url !== 'string')) return false;
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(text);
+}
+
+function isProfile(value: unknown): boolean {
+  if (!record(value) || !hasOnlyKeys(value,
+    ['id', 'displayName', 'slug', 'programs', 'socials', 'published', 'hidden'],
+    ['city', 'country', 'bio', 'photo'])) return false;
+  if (!isCreatorStateId(value.id) || !text(value.displayName) || !text(value.slug)
+    || typeof value.published !== 'boolean' || typeof value.hidden !== 'boolean'
+    || !Array.isArray(value.programs) || !value.programs.every((program) => typeof program === 'string' && PROGRAMS.has(program))
+    || !unique(value.programs as string[]) || !record(value.socials)) return false;
+  if ((Object.hasOwn(value, 'city') && !text(value.city))
+    || (Object.hasOwn(value, 'country') && !text(value.country))
+    || (Object.hasOwn(value, 'bio') && !text(value.bio))) return false;
+  if (Object.entries(value.socials).some(([key, social]) => !SOCIALS.has(key) || !isSafeCatalogUrl(social))) return false;
+  if (Object.hasOwn(value, 'photo')) {
+    const photo = value.photo;
+    if (!record(photo) || !hasOnlyKeys(photo, ['version'], ['url'])
+      || !(nonEmptyText(photo.version) || safeVersion(photo.version))
+      || (Object.hasOwn(photo, 'url') && !text(photo.url))) return false;
   }
   return true;
 }
 
-function isStrictClaim(value: unknown): value is CreatorClaimDTO {
-  if (!isCreatorClaim(value) || !unique(value.resourceIds)
-    || (value.sourceId !== undefined && typeof value.sourceId !== 'string')) return false;
-  if (value.resources !== undefined
-    && (value.resources.length !== value.resourceIds.length
-      || value.resources.some((resource, index) => resource.resourceId !== value.resourceIds[index]))) return false;
-  return true;
+function isResource(value: unknown): boolean {
+  if (!record(value) || !hasOnlyKeys(value,
+    ['id', 'version', 'title', 'url', 'hidden', 'directoryApproval', 'metadataEditable', 'reincludeAllowed'],
+    ['description'])) return false;
+  return nonEmptyText(value.id) && isCatalogResourceIdWithinLimit(value.id)
+    && safeVersion(value.version) && text(value.title) && isSafeCatalogUrl(value.url)
+    && (!Object.hasOwn(value, 'description') || text(value.description))
+    && typeof value.hidden === 'boolean'
+    && typeof value.directoryApproval === 'string' && DIRECTORY_APPROVALS.has(value.directoryApproval)
+    && typeof value.metadataEditable === 'boolean' && typeof value.reincludeAllowed === 'boolean';
 }
 
-/** Validate a raw owner snapshot before any decoder can drop or default malformed fields. */
-export function isCreatorOwnerSnapshot(value: unknown): value is CreatorEditorDTO {
-  if (!isRecord(value) || !(value.profile === null || isStrictProfile(value.profile))
-    || !Array.isArray(value.links) || !Array.isArray(value.editableResources)
-    || !Array.isArray(value.claims) || !Array.isArray(value.series)) return false;
+function isPlacement(value: unknown): boolean {
+  return record(value) && hasOnlyKeys(value, ['resourceId', 'selectedForDirectory'])
+    && nonEmptyText(value.resourceId) && isCatalogResourceIdWithinLimit(value.resourceId)
+    && typeof value.selectedForDirectory === 'boolean';
+}
 
-  if (!value.links.every(isCreatorLink) || !value.editableResources.every(isEditableResource)
-    || !value.claims.every(isStrictClaim) || !value.series.every(isCreatorSeries)) return false;
+function isSeries(value: unknown): boolean {
+  if (!record(value) || !hasOnlyKeys(value, ['name', 'slug', 'chapters'], ['description'])) return false;
+  return text(value.name) && text(value.slug) && isStringArray(value.chapters)
+    && (!Object.hasOwn(value, 'description') || text(value.description));
+}
 
-  const links = value.links as CreatorLinkDTO[];
-  const editableResources = value.editableResources as CreatorEditableResourceDTO[];
-  const claims = value.claims as CreatorClaimDTO[];
-  const series = value.series as CreatorSeriesDTO[];
-  if (!unique(links.map(({ placementId }) => placementId))
-    || !unique(editableResources.map(({ id }) => id))
-    || !unique(claims.map(({ id }) => id))
-    || !unique(series.map(({ id }) => id))) return false;
+function isClaimResources(value: unknown, resourceIds: unknown): value is CreatorClaimResourceDTO[] {
+  if (!Array.isArray(value) || !Array.isArray(resourceIds) || !resourceIds.every(nonEmptyText)
+    || value.length === 0 || value.length !== resourceIds.length) return false;
+  return value.every((candidate, index) => record(candidate)
+    && hasOnlyKeys(candidate, ['resourceId', 'url'])
+    && nonEmptyText(candidate.resourceId) && candidate.resourceId === resourceIds[index]
+    && isSafeCatalogUrl(candidate.url));
+}
 
-  const seriesIds = new Set(series.map(({ id }) => id));
-  for (const link of links) {
-    const memberships = link.series;
-    if ((link.description !== undefined && typeof link.description !== 'string')
-      || !unique(memberships.map(({ seriesId }) => seriesId))
-      || memberships.some(({ seriesId }) => !seriesIds.has(seriesId))) return false;
+export function readCreatorClaimResources(value: unknown, resourceIds: unknown): CreatorClaimResourceDTO[] | undefined {
+  if (value === undefined) return undefined;
+  if (!isClaimResources(value, resourceIds)) {
+    throw new TypeError('Los destinos de una solicitud recibida no tienen un formato válido.');
   }
-  if (editableResources.some((resource) => resource.description !== undefined && typeof resource.description !== 'string')
-    || series.some((item) => item.description !== undefined && typeof item.description !== 'string')) return false;
-  if (!creatorResourceProjectionsAgree(links, editableResources)) return false;
-  if (value.profile === null && (links.length > 0 || editableResources.length > 0 || claims.length > 0 || series.length > 0)) return false;
-  return true;
+  return value;
 }
 
-export function isAdoptableOwnerData(value: unknown): value is CreatorEditorDTO & { profile: CreatorProfileDTO } {
-  return isCreatorOwnerSnapshot(value) && value.profile !== null;
+function isClaim(value: unknown): value is CreatorClaimDTO {
+  if (!record(value) || !hasOnlyKeys(value, ['id', 'resourceIds'], ['version', 'resources', 'sourceId', 'status', 'createdAt', 'evidence'])) return false;
+  if (!isCreatorStateId(value.id) || !isStringArray(value.resourceIds)
+    || !value.resourceIds.every((id) => nonEmptyText(id) && isCatalogResourceIdWithinLimit(id))
+    || !unique(value.resourceIds)) return false;
+  if (Object.hasOwn(value, 'version') && !safeVersion(value.version, 1)) return false;
+  if (Object.hasOwn(value, 'resources') && !isClaimResources(value.resources, value.resourceIds)) return false;
+  return (!Object.hasOwn(value, 'sourceId') || text(value.sourceId))
+    && (!Object.hasOwn(value, 'status') || text(value.status))
+    && (!Object.hasOwn(value, 'createdAt') || (typeof value.createdAt === 'number' && Number.isFinite(value.createdAt)))
+    && (!Object.hasOwn(value, 'evidence') || text(value.evidence));
+}
+
+/** Strictly validate a complete v2 owner read without changing, defaulting or projecting it. */
+export function readCreatorOwnerSnapshot(value: unknown): CreatorOwnerSnapshotDTO {
+  if (!record(value) || !hasOnlyKeys(value,
+    ['schemaVersion', 'creatorVersion', 'profile', 'resources', 'placements', 'order', 'series', 'claims'])) {
+    throw new TypeError('No pudimos leer los datos del perfil.');
+  }
+  const { schemaVersion, creatorVersion, profile, resources, placements, order, series, claims } = value;
+  if (schemaVersion !== 2 || !(creatorVersion === null || safeVersion(creatorVersion))
+    || !(profile === null || isProfile(profile))
+    || !Array.isArray(resources) || !resources.every(isResource)
+    || !record(placements) || !record(order) || !record(series)
+    || !Array.isArray(claims) || !claims.every(isClaim)) {
+    throw new TypeError('No pudimos leer los datos del perfil.');
+  }
+
+  const resourceRows = resources as CreatorOwnerSnapshotDTO['resources'];
+  const placementRows = placements as Record<string, unknown>;
+  const sequence = order as Record<string, unknown>;
+  const seriesRows = series as Record<string, unknown>;
+  if (!hasOnlyKeys(order as Record<string, unknown>, ['featured', 'ordinary'])
+    || !isStringArray(sequence.featured) || !isStringArray(sequence.ordinary)
+    || !Object.entries(placements).every(([id, placement]) => isCreatorStateId(id) && isPlacement(placement))
+    || !Object.entries(series).every(([id, item]) => isCreatorStateId(id) && isSeries(item))) {
+    throw new TypeError('La estructura de enlaces y series recibida no tiene un formato válido.');
+  }
+
+  const resourceIds = resourceRows.map(({ id }) => id);
+  const placementIds = Object.keys(placementRows);
+  const seriesIds = Object.keys(seriesRows);
+  if (!unique(resourceIds) || !unique(placementIds) || !unique(seriesIds)) {
+    throw new TypeError('La observación repite una identidad de recurso, enlace o serie.');
+  }
+  const knownResources = new Set(resourceIds);
+  const knownPlacements = new Set(placementIds);
+  if (Object.values(placementRows).some((placement) => !record(placement)
+    || typeof placement.resourceId !== 'string' || !knownResources.has(placement.resourceId))) {
+    throw new TypeError('Un enlace guardado referencia una ficha que no está en la observación.');
+  }
+
+  const featured = sequence.featured as string[];
+  const ordinary = sequence.ordinary as string[];
+  if (!unique([...featured, ...ordinary]) || featured.length + ordinary.length !== placementIds.length
+    || [...featured, ...ordinary].some((id) => !knownPlacements.has(id))) {
+    throw new TypeError('El orden general no contiene cada enlace exactamente una vez.');
+  }
+
+  const placedResourceIds = new Set(Object.values(placementRows).flatMap((placement) =>
+    record(placement) && typeof placement.resourceId === 'string' ? [placement.resourceId] : []));
+  if (resourceRows.some((resource) => !placedResourceIds.has(resource.id)
+    && !resource.metadataEditable && !resource.reincludeAllowed)) {
+    throw new TypeError('La observación contiene una ficha retenida sin permiso vigente.');
+  }
+  if (Object.values(seriesRows).some((item) => !record(item) || !unique(item.chapters as string[])
+    || (item.chapters as string[]).some((id) => !knownPlacements.has(id)))) {
+    throw new TypeError('El orden de capítulos contiene una referencia inválida o duplicada.');
+  }
+  if ((profile === null) !== (creatorVersion === null)
+    || (profile === null && (resourceRows.length > 0 || placementIds.length > 0 || featured.length > 0
+      || ordinary.length > 0 || seriesIds.length > 0 || claims.length > 0))) {
+    throw new TypeError('El estado sin perfil contiene datos de edición o carece de su revisión.');
+  }
+
+  return value as unknown as CreatorOwnerSnapshotDTO;
+}
+
+/** Compatibility name for callers being moved to the canonical owner contract. */
+export const readCreatorEditorData = readCreatorOwnerSnapshot;
+
+/** Type guard uses the same decoder and therefore the same trust-boundary rules. */
+export function isCreatorOwnerSnapshot(value: unknown): value is CreatorOwnerSnapshotDTO {
+  try {
+    readCreatorOwnerSnapshot(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Display join: resource metadata is read once; group and positions come from explicit sequences. */
+export function joinCreatorOwnerPlacements(snapshot: CreatorOwnerSnapshotDTO): CreatorOwnerPlacementViewDTO[] {
+  const resources = new Map(snapshot.resources.map((resource) => [resource.id, resource]));
+  const featuredPositions = new Map(snapshot.order.featured.map((id, index) => [id, index + 1]));
+  const ordinaryPositions = new Map(snapshot.order.ordinary.map((id, index) => [id, index + 1]));
+  const memberships = new Map<string, CreatorOwnerPlacementViewDTO['series']>();
+  for (const [seriesId, item] of Object.entries(snapshot.series)) {
+    item.chapters.forEach((placementId, index) => {
+      const values = memberships.get(placementId) ?? [];
+      values.push({ seriesId, position: index + 1 });
+      memberships.set(placementId, values);
+    });
+  }
+  return Object.entries(snapshot.placements).map(([placementId, placement]) => {
+    const resource = resources.get(placement.resourceId);
+    if (!resource) throw new TypeError('Un enlace guardado referencia una ficha que no está en la observación.');
+    const featured = featuredPositions.has(placementId);
+    const position = featured ? featuredPositions.get(placementId) : ordinaryPositions.get(placementId);
+    if (position === undefined) throw new TypeError('El orden general no contiene el enlace guardado.');
+    return {
+      placementId,
+      resourceId: placement.resourceId,
+      title: resource.title,
+      url: resource.url,
+      ...(Object.hasOwn(resource, 'description') ? { description: resource.description } : {}),
+      featured,
+      position,
+      selectedForDirectory: placement.selectedForDirectory,
+      hidden: resource.hidden,
+      directoryApproval: resource.directoryApproval,
+      resourceVersion: resource.version,
+      metadataEditable: resource.metadataEditable,
+      reincludeAllowed: resource.reincludeAllowed,
+      series: memberships.get(placementId) ?? [],
+    };
+  });
 }

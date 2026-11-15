@@ -184,17 +184,21 @@ export async function startCreatorBrowserApp({ catalogFixture = path.join(ROOT, 
               headers: cookie ? { cookie: cookie.pair ?? cookie } : {},
             }));
           },
-          async request(cookie, route, { method = 'GET', body, originHeader, headers: extraHeaders = {} } = {}) {
+          async request(cookie, route, { method = 'GET', body, originHeader, creatorContract = '2', headers: extraHeaders = {} } = {}) {
             const headers = new Headers(extraHeaders);
             if (cookie) headers.set('cookie', cookie.pair ?? cookie);
             const principal = cookie ? await fixture.principal(cookie) : { state: 'anonymous' };
             const mutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase());
+            const url = new URL(route, origin);
             if (mutating && originHeader !== null) headers.set('origin', originHeader ?? origin);
             if (mutating && principal.state === 'authenticated') headers.set('x-csrf-token', principal.csrfToken);
+            if (mutating && url.pathname.startsWith('/api/creador/') && creatorContract !== null && !headers.has('x-creator-contract')) {
+              headers.set('x-creator-contract', creatorContract);
+            }
             if (body !== undefined) {
               headers.set('content-type', 'application/json');
             }
-            return creatorRuntime.handle(new Request(new URL(route, origin), {
+            return creatorRuntime.handle(new Request(url, {
               method,
               headers,
               ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -208,14 +212,12 @@ export async function startCreatorBrowserApp({ catalogFixture = path.join(ROOT, 
             return { principal, owner, profile };
           },
           async rawSeries(cookie, seriesId) {
-            const { owner } = await fixture.rawOwner(cookie);
-            if (!owner) return null;
-            return copy(await creatorStore.get(`series:${owner.profileId}:${seriesId}`));
+            const { profile } = await fixture.rawOwner(cookie);
+            return copy(profile?.series?.[seriesId] ?? null);
           },
           async rawPlacement(cookie, placementId) {
-            const { owner } = await fixture.rawOwner(cookie);
-            if (!owner) return null;
-            return copy(await creatorStore.get(`placement:${owner.profileId}:${placementId}`));
+            const { profile } = await fixture.rawOwner(cookie);
+            return copy(profile?.placements?.[placementId] ?? null);
           },
           async rawResource(resourceId) {
             return copy(await creatorStore.get(`resource:${resourceId}`));

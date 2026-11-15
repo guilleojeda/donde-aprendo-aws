@@ -100,7 +100,12 @@ export async function createCreatorOwnerRuntime({ statistics } = {}) {
     const target = new URL(path, SITE_ORIGIN);
     const headers = new Headers(options.headers);
     headers.set('cookie', `${COOKIE_NAME}=${encodeURIComponent(session)}`);
-    if (options.method && options.method !== 'GET' && !headers.has('origin')) headers.set('origin', SITE_ORIGIN);
+    if (options.method && options.method !== 'GET') {
+      if (!headers.has('origin')) headers.set('origin', SITE_ORIGIN);
+      if (target.pathname.startsWith('/api/creador/') && !headers.has('x-creator-contract')) {
+        headers.set('x-creator-contract', '2');
+      }
+    }
     return http(new Request(target, { ...options, headers }));
   }
 

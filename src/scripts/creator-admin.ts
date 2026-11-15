@@ -133,12 +133,12 @@ function errorMessage(status: number): string {
 }
 
 async function responseErrorMessage(response: Response): Promise<string> {
-  if (response.status !== 409) return errorMessage(response.status);
+  if (response.status !== 409 && response.status !== 422) return errorMessage(response.status);
   try {
     const payload: unknown = await response.clone().json();
     const code = isRecord(payload) && typeof payload.error === 'string' ? payload.error : '';
-    if (code === 'PLACEMENT_ORDER_EXHAUSTED') {
-      return 'No hay una posición válida para agregar otro enlace a esta página. Es necesario corregir su orden antes de volver a intentarlo.';
+    if (response.status === 422 && code === 'CREATOR_CONTENT_TOO_LARGE') {
+      return 'La página alcanzó su capacidad. Libera espacio en ella antes de volver a vincular recursos.';
     }
     if (['PROFILE_CONFLICT', 'RESOURCE_CONFLICT', 'CLAIM_CONFLICT'].includes(code)) {
       return errorMessage(response.status);
@@ -146,7 +146,9 @@ async function responseErrorMessage(response: Response): Promise<string> {
   } catch {
     // Keep the neutral fallback for a conflict without a recognized code.
   }
-  return 'No pudimos completar el cambio porque hay un conflicto. Revisa el estado antes de volver a intentarlo.';
+  return response.status === 409
+    ? 'No pudimos completar el cambio porque hay un conflicto. Revisa el estado antes de volver a intentarlo.'
+    : errorMessage(response.status);
 }
 
 function requestFailureMessage(error: unknown, fallback: string): string {

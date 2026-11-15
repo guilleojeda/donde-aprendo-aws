@@ -1,30 +1,18 @@
-const STRING_WORK_CHUNK = 64;
+const CREATOR_STATE_SYSTEM_FIELDS = ['version', 'hidden', 'published', 'updatedAt', 'photo'];
 
-function spendWork(budget, count = 1) {
-  if (budget === undefined || budget === null) return;
-  if (typeof budget.spendWork !== 'function') throw new TypeError('budget must expose spendWork');
-  budget.spendWork(count);
-}
-
-function chargeStringWork(value, budget) {
-  spendWork(budget, Math.max(1, Math.ceil(value.length / STRING_WORK_CHUNK)));
-}
-
-function utf8Bytes(value, budget) {
-  chargeStringWork(value, budget);
+function utf8Bytes(value) {
   return Buffer.byteLength(value, 'utf8');
 }
 
-function significantDigitCount(value, budget) {
+function significantDigitCount(value) {
   const coefficient = String(value).toLowerCase().split('e')[0];
-  chargeStringWork(coefficient, budget);
   const digits = coefficient.replace(/[^0-9]/g, '').replace(/^0+/, '').replace(/0+$/, '');
   return digits.length || 1;
 }
 
 // DynamoDB documents this numeric representation as approximate. The model
 // counts significant decimal digits and its one-byte overhead, not wire text.
-export function dynamoDbNumberSize(value, name = '', { budget } = {}) {
+function dynamoDbNumberSize(value, name = '') {
   if (typeof name !== 'string') throw new TypeError('DynamoDB attribute name must be a string');
   if (typeof value === 'number' && !Number.isFinite(value)) {
     throw new TypeError('DynamoDB numbers must be finite');
@@ -32,8 +20,8 @@ export function dynamoDbNumberSize(value, name = '', { budget } = {}) {
   if (typeof value !== 'number' && typeof value !== 'bigint') {
     throw new TypeError('DynamoDB number must be a number or bigint');
   }
-  const nameBytes = utf8Bytes(name, budget);
-  return nameBytes + 1 + Math.ceil(significantDigitCount(value, budget) / 2);
+  const nameBytes = utf8Bytes(name);
+  return nameBytes + 1 + Math.ceil(significantDigitCount(value) / 2);
 }
 
 function binarySize(value) {
@@ -50,10 +38,10 @@ function setMemberKind(value) {
   return null;
 }
 
-function setMemberSize(value, kind, budget) {
-  if (kind === 'string' && typeof value === 'string') return utf8Bytes(value, budget);
+function setMemberSize(value, kind) {
+  if (kind === 'string' && typeof value === 'string') return utf8Bytes(value);
   if (kind === 'number' && (typeof value === 'number' || typeof value === 'bigint')) {
-    return dynamoDbNumberSize(value, '', { budget });
+    return dynamoDbNumberSize(value, '');
   }
   if (kind === 'binary') {
     const size = binarySize(value);
@@ -62,14 +50,13 @@ function setMemberSize(value, kind, budget) {
   throw new TypeError('DynamoDB sets must contain values of one supported scalar type');
 }
 
-function valueSize(value, name, ancestors, budget) {
-  spendWork(budget);
+function valueSize(value, name, ancestors) {
   if (typeof value === 'number' || typeof value === 'bigint') {
-    return dynamoDbNumberSize(value, name, { budget });
+    return dynamoDbNumberSize(value, name);
   }
-  const nameBytes = utf8Bytes(name, budget);
+  const nameBytes = utf8Bytes(name);
   if (value === undefined || typeof value === 'function') return 0;
-  if (typeof value === 'string') return nameBytes + utf8Bytes(value, budget);
+  if (typeof value === 'string') return nameBytes + utf8Bytes(value);
   if (typeof value === 'boolean' || value === null) return nameBytes + 1;
 
   const binaryBytes = binarySize(value);
@@ -83,13 +70,12 @@ function valueSize(value, name, ancestors, budget) {
       let members = 0;
       let size = nameBytes;
       for (const member of value) {
-        spendWork(budget);
         if (member === undefined || typeof member === 'function') continue;
         if (kind === null) {
           kind = setMemberKind(member);
           if (!kind) throw new TypeError('DynamoDB sets must contain supported scalar values');
         }
-        size += setMemberSize(member, kind, budget);
+        size += setMemberSize(member, kind);
         members += 1;
       }
       if (members === 0) throw new TypeError('DynamoDB sets cannot be empty');
@@ -99,10 +85,9 @@ function valueSize(value, name, ancestors, budget) {
     if (Array.isArray(value)) {
       let size = nameBytes + 3;
       for (let index = 0; index < value.length; index += 1) {
-        spendWork(budget);
         if (!(index in value)) continue;
         const item = value[index];
-        const itemSize = valueSize(item, '', ancestors, budget);
+        const itemSize = valueSize(item, '', ancestors);
         if (item !== undefined && typeof item !== 'function') size += 1 + itemSize;
       }
       return size;
@@ -111,9 +96,8 @@ function valueSize(value, name, ancestors, budget) {
     if (value instanceof Map) {
       let size = nameBytes + 3;
       for (const [key, item] of value) {
-        spendWork(budget);
         if (typeof key !== 'string') throw new TypeError('DynamoDB map keys must be strings');
-        const itemSize = valueSize(item, key, ancestors, budget);
+        const itemSize = valueSize(item, key, ancestors);
         if (item !== undefined && typeof item !== 'function') size += 1 + itemSize;
       }
       return size;
@@ -127,7 +111,7 @@ function valueSize(value, name, ancestors, budget) {
     for (const key in value) {
       if (!Object.hasOwn(value, key)) continue;
       const item = value[key];
-      const itemSize = valueSize(item, key, ancestors, budget);
+      const itemSize = valueSize(item, key, ancestors);
       if (item !== undefined && typeof item !== 'function') size += 1 + itemSize;
     }
     return size;
@@ -136,7 +120,7 @@ function valueSize(value, name, ancestors, budget) {
   }
 }
 
-export function dynamoDbItemSize(item, { budget } = {}) {
+export function dynamoDbItemSize(item) {
   if (!item || typeof item !== 'object' || Array.isArray(item)) {
     throw new TypeError('DynamoDB item must be an object');
   }
@@ -145,7 +129,25 @@ export function dynamoDbItemSize(item, { budget } = {}) {
   let size = 0;
   for (const name in item) {
     if (!Object.hasOwn(item, name)) continue;
-    size += valueSize(item[name], name, new Set(), budget);
+    size += valueSize(item[name], name, new Set());
   }
   return size;
+}
+
+/**
+ * Measure a logical flat creator-state candidate as its exact META physical
+ * image and as content after removing only the approved bounded root fields.
+ * Physical keys count in both measurements.
+ */
+export function dynamoDbCreatorStateSizes(state) {
+  if (!state || typeof state !== 'object' || Array.isArray(state) || typeof state.id !== 'string' || !state.id) {
+    throw new TypeError('creator state must have an ID before physical sizing');
+  }
+  const image = { ...state, pk: `PROFILE#${state.id}`, sk: 'META' };
+  const content = { ...image };
+  for (const field of CREATOR_STATE_SYSTEM_FIELDS) delete content[field];
+  return {
+    itemBytes: dynamoDbItemSize(image),
+    contentBytes: dynamoDbItemSize(content),
+  };
 }

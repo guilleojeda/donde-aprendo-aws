@@ -21,8 +21,8 @@ function storageKey(value) {
   return Object.hasOwn(value, 'pk') ? `${value.pk}\u0000${value.sk}` : value.id;
 }
 
-// DynamoDB stored-attribute accounting for the actual command images below.
-// This measures the request; it does not decide the move window or its oracle.
+// Independent DynamoDB stored-attribute accounting for the mock provider's
+// transaction limit checks. It does not decide application content admission.
 function dynamoNumberPayloadBytes(value) {
   const coefficient = String(value).toLowerCase().split('e')[0];
   const significantDigits = coefficient.replace(/[^0-9]/g, '').replace(/^0+/, '').replace(/0+$/, '').length || 1;
@@ -336,7 +336,8 @@ export function seedMoveProfile(mock, {
   mock.seed(TABLES.profilesTableName, {
     pk: `PROFILE#${profileId}`,
     sk: 'META',
-    recordType: 'profile',
+    recordType: 'creatorState',
+    schemaVersion: 2,
     id: profileId,
     displayName,
     slug,
@@ -345,6 +346,11 @@ export function seedMoveProfile(mock, {
     published,
     hidden: false,
     version,
+    createdAt: 1,
+    updatedAt: 1,
+    placements: {},
+    order: { featured: [], ordinary: [] },
+    series: {},
   });
   mock.seed(TABLES.profilesTableName, {
     pk: `SLUG#${slug}`,
@@ -388,56 +394,4 @@ export function seedMoveResource(mock, {
     resourceId: id,
     version: 1,
   });
-}
-
-export function seedMovePlacement(mock, {
-  id,
-  profileId = 'profile-move-a',
-  resourceId,
-  position,
-  featured = false,
-  selectedForDirectory = true,
-  version = 1,
-  series,
-} = {}) {
-  mock.seed(TABLES.profilesTableName, {
-    pk: `PROFILE#${profileId}`,
-    sk: `PLACEMENT#${id}`,
-    recordType: 'placement',
-    id,
-    profileId,
-    resourceId,
-    position,
-    featured,
-    selectedForDirectory,
-    ...(series ? { series: copy(series) } : {}),
-    version,
-  });
-}
-
-export function seedMoveSeries(mock, {
-  id,
-  profileId = 'profile-move-a',
-  name = 'Serie de prueba',
-  slug = 'serie-prueba',
-  version = 1,
-} = {}) {
-  mock.seed(TABLES.profilesTableName, {
-    pk: `PROFILE#${profileId}`,
-    sk: `SERIES#${id}`,
-    recordType: 'series',
-    id,
-    profileId,
-    name,
-    slug,
-    version,
-  });
-}
-
-export function moveTransactionMetrics(mock) {
-  return mock.transactions.map(({ actionCount }) => ({ actionCount }));
-}
-
-export function moveTransactionPhysicalBytes(mock) {
-  return mock.transactions.map(({ physicalBytes }) => physicalBytes);
 }

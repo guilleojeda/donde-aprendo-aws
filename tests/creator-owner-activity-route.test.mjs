@@ -42,16 +42,26 @@ async function reset({ published = true, hidden = false, noProfile = false } = {
   if (!noProfile) {
     let response = await runtime.fetchApi('/api/creador/perfil/', {
       method: 'PUT', headers: { 'x-csrf-token': 'csrf-a', 'content-type': 'application/json' },
-      body: JSON.stringify({ displayName: 'Ana de actividad', slug: 'ana-actividad', city: 'Córdoba', socials: {} }),
+      body: JSON.stringify({
+        creatorVersion: null,
+        displayName: 'Ana de actividad', slug: 'ana-actividad', city: 'Córdoba', socials: {},
+      }),
     });
     assert.equal(response.status, 200);
-    ({ profile } = await response.json());
+    let snapshot = await runtime.fetchApi('/api/creador/perfil/', {
+      headers: { 'x-csrf-token': 'csrf-a' },
+    }).then((result) => result.json());
+    profile = snapshot.profile;
     if (published) {
       response = await runtime.fetchApi('/api/creador/perfil/publicar/', {
-        method: 'POST', headers: { 'x-csrf-token': 'csrf-a', 'content-type': 'application/json' }, body: '{}',
+        method: 'POST', headers: { 'x-csrf-token': 'csrf-a', 'content-type': 'application/json' },
+        body: JSON.stringify({ creatorVersion: snapshot.creatorVersion }),
       });
       assert.equal(response.status, 200);
-      ({ profile } = await response.json());
+      snapshot = await runtime.fetchApi('/api/creador/perfil/', {
+        headers: { 'x-csrf-token': 'csrf-a' },
+      }).then((result) => result.json());
+      profile = snapshot.profile;
     }
     if (hidden) {
       const key = `profile:${profile.id}`;
@@ -395,7 +405,7 @@ test('consultas antiguas inválidas se rechazan sin leer datos ni cambiar sesió
 });
 
 test('la vista estadística no salta los estados de callback ni consulta GA si no pudo cargar el perfil', async () => {
-  await reset();
+  await reset({ noProfile: true });
   for (const [state, status] of [['acceso-invalido', 400], ['cancelado', 400], ['no-disponible', 503]]) {
     const { response, html } = await render({ search: `?estado=${state}&vista=estadisticas&periodo=30&pagina=1` });
     assert.equal(response.status, status);
@@ -403,10 +413,24 @@ test('la vista estadística no salta los estados de callback ni consulta GA si n
     assert.doesNotMatch(text(html), /Ana de actividad/);
   }
   assert.deepEqual(runtime.serviceCalls, [], 'callback states do not start owner or statistics reads');
+  const createProfile = await runtime.fetchApi('/api/creador/perfil/', {
+    method: 'PUT',
+    headers: { 'x-csrf-token': 'csrf-a', 'content-type': 'application/json' },
+    body: JSON.stringify({
+      creatorVersion: null, displayName: 'Ana de actividad', slug: 'ana-actividad', city: 'Córdoba',
+      country: 'Argentina', bio: '', programs: [], socials: {},
+    }),
+  });
+  assert.equal(createProfile.status, 200, await createProfile.clone().text());
+  const owner = await runtime.fetchApi('/api/creador/perfil/').then((response) => response.json());
   const created = await runtime.fetchApi('/api/creador/enlaces/', {
     method: 'POST',
     headers: { 'x-csrf-token': 'csrf-a', 'content-type': 'application/json' },
-    body: JSON.stringify({ title: 'Fallo previo a estadísticas', url: 'https://activity.example/provider-failure' }),
+    body: JSON.stringify({
+      creatorVersion: owner.creatorVersion,
+      title: 'Fallo previo a estadísticas',
+      url: 'https://activity.example/provider-failure',
+    }),
   });
   assert.equal(created.status, 201);
   runtime.pages.store.failNext('getResources', new Error('injected resource provider failure'));

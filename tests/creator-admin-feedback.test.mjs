@@ -71,6 +71,15 @@ const resources = [
 ];
 
 const profiles = [{
+  recordType: 'creatorState',
+  schemaVersion: 2,
+  createdAt: 1,
+  updatedAt: 1,
+  programs: [],
+  socials: {},
+  placements: {},
+  order: { featured: [], ordinary: [] },
+  series: {},
   id: 'profile-feedback',
   displayName: 'Ana',
   slug: 'ana-feedback',
@@ -528,16 +537,16 @@ test('la moderación de eventos muestra fallos recuperables y conserva los formu
   assert.deepEqual(JSON.parse(page.requests.find(({ url }) => url.includes('/perfiles/profile-feedback/')).init.body), { version: 1 });
 });
 
-test('claim rejected for exhausted placement order explains the failure and retains editable selections', async () => {
+test('a claim blocked by creator content capacity explains the failure and retains editable selections', async () => {
   const page = await executeAdminScript(await renderAdminPage());
   const form = page.claimForms[0];
   assert.ok(form);
-  page.responses.push({ status: 409, body: { error: 'PLACEMENT_ORDER_EXHAUSTED' } });
+  page.responses.push({ status: 422, body: { error: 'CREATOR_CONTENT_TOO_LARGE' } });
 
   await form.dispatch('submit');
 
   assert.equal(page.claimRows[0].status.textContent,
-    'No hay una posición válida para agregar otro enlace a esta página. Es necesario corregir su orden antes de volver a intentarlo.');
+    'La página alcanzó su capacidad. Libera espacio en ella antes de volver a vincular recursos.');
   assert.equal(page.claimRows[0].status.dataset.kind, 'error');
   assert.ok(form.fields.every((control) => !control.disabled));
   assert.equal(form.controls.at(-1).disabled, false);
@@ -602,11 +611,11 @@ test('R11 partial claim with one receipt gap pauses only stale records and recov
     ),
   });
   const created = await callApi(harness, '/api/creador/perfil', {
-    method: 'PUT', session: 'creator-a', csrf: 'csrf-a',
-    body: { displayName: 'Ana', slug: 'ana-admin-r11', programs: [], socials: {} },
+    method: 'PUT', session: 'creator-a', csrf: 'csrf-a', creatorContract: '2',
+    body: { creatorVersion: null, displayName: 'Ana', slug: 'ana-admin-r11', programs: [], socials: {} },
   });
   assert.equal(created.status, 200);
-  const createdProfileId = (await created.clone().json()).profile.id;
+  const createdProfileId = (await created.json()).profileId;
   for (const id of ['resource-r11-a', 'resource-r11-b', 'resource-r11-c']) {
     await seedResource(harness.store, {
       id, title: id, url: `https://example.com/${id}`, description: '', category: 'Otros',
@@ -615,7 +624,8 @@ test('R11 partial claim with one receipt gap pauses only stale records and recov
     });
   }
   const initialClaim = await callApi(harness, '/api/creador/reclamaciones', {
-    method: 'POST', session: 'creator-a', csrf: 'csrf-a', body: { resourceIds: ['resource-r11-a', 'resource-r11-c'] },
+    method: 'POST', session: 'creator-a', csrf: 'csrf-a', creatorContract: '2',
+    body: { resources: ['resource-r11-a', 'resource-r11-c'].map((resourceId) => ({ resourceId, url: `https://example.com/${resourceId}` })) },
   });
   assert.equal(initialClaim.status, 202);
   const changedElsewhere = await callApi(harness, '/api/admin/recursos/resource-r11-a', {
@@ -830,9 +840,7 @@ test('la misma administración renueva CSRF y completa una acción sólo despué
   });
   const seeded = await harness.store.transact({
     checks: [{ key: 'profile:profile-feedback', version: null }],
-    puts: [{ key: 'profile:profile-feedback', value: {
-      id: 'profile-feedback', displayName: 'Ana', slug: 'ana-feedback', published: true, hidden: false, version: 1,
-    } }],
+    puts: [{ key: 'profile:profile-feedback', value: structuredClone(profiles[0]) }],
   });
   assert.equal(seeded, true);
   const handler = createCreatorHttpHandler({
@@ -995,11 +1003,11 @@ test('R12 successful claim receipt gap pauses only the stale row and preserves B
     ),
   });
   const created = await callApi(harness, '/api/creador/perfil', {
-    method: 'PUT', session: 'creator-a', csrf: 'csrf-a',
-    body: { displayName: 'Ana', slug: 'ana-admin-r12', programs: [], socials: {} },
+    method: 'PUT', session: 'creator-a', csrf: 'csrf-a', creatorContract: '2',
+    body: { creatorVersion: null, displayName: 'Ana', slug: 'ana-admin-r12', programs: [], socials: {} },
   });
   assert.equal(created.status, 200);
-  const createdProfileId = (await created.clone().json()).profile.id;
+  const createdProfileId = (await created.json()).profileId;
 
   const resourceRecord = (id) => ({
     id, title: id, url: `https://example.com/${id}`, description: '', category: 'Otros',
@@ -1010,7 +1018,8 @@ test('R12 successful claim receipt gap pauses only the stale row and preserves B
     await seedResource(harness.store, resourceRecord(id));
   }
   const claim = await callApi(harness, '/api/creador/reclamaciones', {
-    method: 'POST', session: 'creator-a', csrf: 'csrf-a', body: { resourceIds: ['resource-r12-a'] },
+    method: 'POST', session: 'creator-a', csrf: 'csrf-a', creatorContract: '2',
+    body: { resources: [{ resourceId: 'resource-r12-a', url: 'https://example.com/resource-r12-a' }] },
   });
   assert.equal(claim.status, 202);
   const changedBeforePageLoad = await callApi(harness, '/api/admin/recursos/resource-r12-a', {

@@ -36,23 +36,14 @@ export function adminResourceCommandMatches(target, id, action) {
  *   service.readCreatorEditor(context) -> actual owner query result
  *   service.readAdmin*(context) -> actual guarded admin query result
  *
- * The exercised routes are PUT/GET /api/creador/perfil,
- * POST /api/creador/perfil/publicar, POST /api/creador/enlaces,
- * PATCH/DELETE /api/creador/enlaces/:placementId,
- * PATCH /api/creador/recursos/:resourceId,
- * POST /api/creador/reclamaciones,
- * GET /api/admin/recursos and PATCH /api/admin/recursos/:id,
- * POST /api/admin/recursos/:id/{aprobar,revocar,ocultar,restaurar},
- * POST /api/admin/perfiles/:id/{ocultar,restaurar}, and
- * POST /api/admin/reclamaciones/vincular. Creator profile fields include
- * `displayName`, `slug`, and optional location, program, bio, and social fields.
- * Placement updates use `position`, `featured`, and `selectedForDirectory`;
- * resource edits use `title`/`description`; claims require an `accountId` and
- * exact `resourceIds`. A created link returns `placementId`, `resourceId`,
- * `resourceVersion`, `directoryApproval`, and `selectedForDirectory`; profile
- * and resource DTOs expose their optimistic `version` for a later write.
- * API failures use standard
- * 4xx/503 statuses; public model reads carry their HTTP status in `status`.
+ * The exercised routes cover owner profile/content/photo/claim operations,
+ * public profile/Series reads, and guarded admin resource/profile/claim flows.
+ * The current owner DTO uses schemaVersion 2, one creatorVersion, one resource
+ * collection, placement references/options, and independent general and
+ * chapter ID sequences. Content commands submit raw field intent and receive
+ * canonical operation acknowledgements. Profile and resource versions retain
+ * their separate meanings. API failures use standard 4xx/503 statuses; public
+ * model reads carry their HTTP status in `status`.
  * The injected test authenticator returns the same `{ session, principal }`
  * request context as production. `x-test-session` selects only the controlled
  * test principal; production authentication validates real sessions.
@@ -85,13 +76,6 @@ function copy(value) {
   return value === undefined ? undefined : structuredClone(value);
 }
 
-function copyWithBudget(value, budget) {
-  if (value === undefined) return undefined;
-  if (!budget) return structuredClone(value);
-  if (typeof budget.cloneValue !== 'function') throw new TypeError('budget must expose cloneValue');
-  return budget.cloneValue(value);
-}
-
 export function createDocumentStore() {
   const documents = new Map();
   const calls = [];
@@ -104,28 +88,6 @@ export function createDocumentStore() {
       failures.delete(operation);
       throw failure instanceof Error ? failure : new Error(String(failure));
     }
-  }
-
-  function observation(key, storedValue, budget, { queryValue = false } = {}) {
-    if (storedValue === undefined) {
-      const missing = { key, value: null, physicalImage: null, itemBytes: 0 };
-      budget?.retainValue(missing);
-      return Object.freeze(missing);
-    }
-    budget?.retainValue(storedValue);
-    const descriptor = creatorStoreInternals.logicalKey(key);
-    const physicalImage = creatorStoreInternals.withPhysicalKeys(descriptor, copyWithBudget(storedValue, budget));
-    budget?.retainValue(physicalImage);
-    const value = copyWithBudget(storedValue, budget);
-    if (!queryValue) {
-      budget?.spendWork(1);
-      if (!Object.hasOwn(value, 'version')) budget?.reserveMemory('version'.length * 2 + 16);
-      value.version = storedValue.version ?? 0;
-    }
-    budget?.retainValue(value);
-    const result = { key, value, physicalImage, itemBytes: dynamoDbItemSize(physicalImage, { budget }) };
-    budget?.retainValue(result);
-    return Object.freeze(result);
   }
 
   function reservationObservationMatches(key, current, expected, version) {
@@ -152,10 +114,11 @@ export function createDocumentStore() {
       const value = documents.get(key);
       if (value === undefined) return null;
       const descriptor = creatorStoreInternals.logicalKey(key);
+      const aggregateVersion = value.recordType === 'creatorState' ? {} : { version: value.version ?? 0 };
       return copy({
         ...value,
         ...(descriptor.type === 'urlReservation' ? descriptor.key : {}),
-        version: value.version ?? 0,
+        ...aggregateVersion,
       });
     },
     async getResources(ids) {
@@ -176,108 +139,10 @@ export function createDocumentStore() {
         .filter(([key]) => key.startsWith(prefix))
         .map(([key, value]) => ({ key, value: copy(value) }));
     },
-    async observe(key, { budget } = {}) {
-      before('get', { key });
-      budget?.spendWork(1);
-      return observation(key, documents.get(key), budget);
-    },
-    async observeList(prefix, { budget } = {}) {
-      before('list', { prefix });
-      const rows = [];
-      budget?.retainValue(rows);
-      for (const [key, value] of documents.entries()) {
-        if (!key.startsWith(prefix)) continue;
-        budget?.spendWork(1);
-        const row = observation(key, value, budget, { queryValue: true });
-      budget?.reserveMemory(16);
-        rows.push(row);
-      }
-      return rows;
-    },
-    measurePut(key, value, { budget } = {}) {
-      budget?.spendWork(1);
-      budget?.retainValue(value);
+    measurePut(key, value) {
       const descriptor = creatorStoreInternals.logicalKey(key);
       const physicalItem = creatorStoreInternals.withPhysicalKeys(descriptor, value);
-      budget?.retainValue(physicalItem);
-      return { itemBytes: dynamoDbItemSize(physicalItem, { budget }) };
-    },
-    async prepareTransaction(transaction = {}, observations = [], { budget } = {}) {
-      budget?.retainValue(transaction);
-      const snapshot = copyWithBudget(transaction, budget);
-      budget?.retainValue(snapshot);
-      const { checks = [], puts = [], deletes = [] } = snapshot;
-      if (!Array.isArray(checks) || !Array.isArray(puts) || !Array.isArray(deletes)) {
-        throw new TypeError('transaction inputs must be arrays');
-      }
-      if (!Array.isArray(observations)) throw new TypeError('transaction observations must be an array');
-      budget?.retainValue(observations);
-      const observedById = new Map();
-      for (const row of observations) {
-        if (!row || typeof row.key !== 'string' || !Number.isSafeInteger(row.itemBytes) || row.itemBytes < 0) {
-          throw new TypeError('invalid transaction observation');
-        }
-        const id = creatorStoreInternals.physicalId(creatorStoreInternals.logicalKey(row.key));
-        if (observedById.has(id)) throw new TypeError('duplicate physical transaction observation');
-        observedById.set(id, row);
-      }
-
-      const conditions = new Map();
-      const actions = new Map();
-      for (const check of checks) {
-        if (!check || typeof check !== 'object') throw new TypeError('invalid transaction check');
-        const descriptor = creatorStoreInternals.logicalKey(check.key);
-        const id = creatorStoreInternals.physicalId(descriptor);
-        if (conditions.has(id)) throw new TypeError('duplicate transaction check for one item');
-        conditions.set(id, { key: check.key, version: check.version, descriptor });
-      }
-      for (const put of puts) {
-        if (!put || typeof put !== 'object') throw new TypeError('invalid transaction put');
-        const descriptor = creatorStoreInternals.logicalKey(put.key);
-        const id = creatorStoreInternals.physicalId(descriptor);
-        if (actions.has(id)) throw new TypeError('duplicate transaction action for one item');
-        const physicalItem = creatorStoreInternals.withPhysicalKeys(descriptor, put.value);
-        budget?.retainValue(physicalItem);
-        actions.set(id, { kind: 'put', key: put.key, item: physicalItem });
-      }
-      for (const key of deletes) {
-        const descriptor = creatorStoreInternals.logicalKey(key);
-        const id = creatorStoreInternals.physicalId(descriptor);
-        if (actions.has(id)) throw new TypeError('duplicate transaction action for one item');
-        actions.set(id, { kind: 'delete', key });
-      }
-
-      const itemBytes = [];
-      let aggregateBytes = 0;
-      for (const id of new Set([...conditions.keys(), ...actions.keys()])) {
-        budget?.spendWork(1);
-        const action = actions.get(id);
-        const condition = conditions.get(id);
-        let bytes;
-        if (action?.kind === 'put') bytes = dynamoDbItemSize(action.item, { budget });
-        else {
-          const row = observedById.get(id);
-          if (!row) {
-            if (!action && condition?.version === null) bytes = 0;
-            else throw new Error(`physical image observation is required for ${action?.key ?? condition.key}`);
-          } else bytes = row.itemBytes;
-        }
-        itemBytes.push(bytes);
-        aggregateBytes += bytes;
-      }
-      const actionCount = itemBytes.length;
-      const fits = actionCount <= 100
-        && itemBytes.every((bytes) => bytes <= 400 * 1024)
-        && aggregateBytes <= 4 * 1024 * 1024;
-      const metrics = Object.freeze({ actionCount, itemBytes: Object.freeze(itemBytes), aggregateBytes, fits });
-      budget?.retainValue(metrics);
-      return Object.freeze({
-        metrics,
-        async commit() {
-          if (!fits) throw new RangeError('prepared transaction exceeds physical limits');
-          return store.transact(snapshot);
-        },
-      });
+      return { itemBytes: dynamoDbItemSize(physicalItem) };
     },
     async transact({ checks = [], puts = [], deletes = [] }) {
       before('transact', { checks, puts, deletes });
@@ -379,12 +244,14 @@ export function apiRequest(path, {
   body,
   origin = SITE_ORIGIN,
   csrf,
+  creatorContract,
   extraHeaders = {},
 } = {}) {
   const headers = new Headers(extraHeaders);
   if (session) headers.set('x-test-session', session);
   if (origin !== null) headers.set('Origin', origin);
   if (csrf !== undefined) headers.set('x-csrf-token', csrf);
+  if (creatorContract !== undefined && creatorContract !== null) headers.set('x-creator-contract', creatorContract);
   if (body !== undefined) headers.set('content-type', 'application/json');
   return new Request(new URL(path, SITE_ORIGIN), {
     method,

@@ -5,7 +5,8 @@ interface Props {
   state: CreatorOwnerState;
   disabled: boolean;
   onOpen(): void;
-  onCheck(): void;
+  onRefresh(): void;
+  onRetryRead(): void;
   onRetryCatalog(): void;
 }
 
@@ -22,26 +23,29 @@ function dateLabel(value: number | undefined): { iso: string; text: string } | u
   return { iso: date.toISOString(), text: new Intl.DateTimeFormat('es', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(date) };
 }
 
-export default function CreatorOwnerClaimsPanel({ state, disabled, onOpen, onCheck, onRetryCatalog }: Props) {
+export default function CreatorOwnerClaimsPanel({ state, disabled, onOpen, onRefresh, onRetryRead, onRetryCatalog }: Props) {
   const titles = new Map<string, string>();
-  for (const resource of state.observed.editableResources) titles.set(resource.id, resource.title);
-  for (const link of state.observed.links) if (!titles.has(link.resourceId)) titles.set(link.resourceId, link.title);
+  for (const resource of state.observed.resources) titles.set(resource.id, resource.title);
   for (const resource of state.catalog.entries ?? []) if (!titles.has(resource.id)) titles.set(resource.id, resource.title);
+  const claimsReadPending = state.operation.status === 'reading' && state.operation.fact === 'claims';
+  const claimsReadFailure = state.operation.status === 'refresh-failed' && state.operation.fact === 'claims' ? state.operation : undefined;
 
   return <section class="creator-owner__claims" data-owner-claims aria-labelledby="owner-claims-title">
     <header class="creator-owner__section-heading creator-owner__claims-heading"><div>
       <p class="creator-owner__eyebrow">Acceso de edición</p><h2 id="owner-claims-title">Solicitudes</h2>
       <p>Solicitar acceso no agrega contenido a tu página ni concede permiso para editar.</p>
     </div><button class="button button--dark" type="button" data-claim-open data-claim-section-open disabled={disabled || !state.observed.profile} onClick={onOpen}>Solicitar edición</button></header>
-    {state.claimHistory.message && <p class="creator-owner__status" data-claim-index-status role={state.claimHistory.status === 'error' ? 'alert' : 'status'} aria-live="polite">{state.claimHistory.message}</p>}
+    {claimsReadPending && <p class="creator-owner__status" data-claim-index-status role="status" aria-live="polite">Actualizando solicitudes…</p>}
+    {claimsReadFailure && <p class="creator-owner__status creator-owner__status--error" data-claim-index-status data-owner-stale role="alert" aria-live="polite">{claimsReadFailure.message}</p>}
     {state.catalog.status === 'loading' && <p class="creator-owner__status" data-claim-catalog-status role="status" aria-live="polite">Cargando el catálogo público de contenido…</p>}
     {state.catalog.status === 'error' && <p class="creator-owner__status" data-claim-catalog-status role="status" aria-live="polite">
       {state.catalog.message ?? 'No pudimos cargar el catálogo.'} Puedes solicitar edición con una URL conocida.
     </p>}
     <div class="creator-owner__claim-history-actions">
-      <button class="button button--outline" type="button" data-claim-history-refresh disabled={disabled || state.claimHistory.status === 'loading'} onClick={onCheck}>
-        {state.claimHistory.status === 'loading' ? 'Comprobando solicitudes…' : 'Actualizar solicitudes'}
+      <button class="button button--outline" type="button" data-claim-history-refresh disabled={disabled || state.operation.status !== 'idle'} onClick={onRefresh}>
+        {claimsReadPending ? 'Actualizando solicitudes…' : 'Actualizar solicitudes'}
       </button>
+      {claimsReadFailure && <button class="button button--outline" type="button" data-owner-refresh-retry onClick={onRetryRead}>Reintentar actualización</button>}
       {state.catalog.status === 'error' && <button class="button button--outline" type="button" data-claim-index-retry onClick={onRetryCatalog}>Reintentar carga del catálogo</button>}
     </div>
     <ul class="creator-owner__claim-history" data-claim-history>

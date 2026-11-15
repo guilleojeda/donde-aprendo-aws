@@ -32,11 +32,11 @@ test('catalog and publication scan allowlists expose only the public fields, inc
     assert.deepEqual([...attributes].sort(), [...directoryAttributes].sort(), path);
     assert.ok(attributes.includes('city'), `${path} keeps the community city field`);
     assert.ok(attributes.includes('venueCountry'), `${path} includes the physical venue country`);
-    const profileAttributes = allowlists.find((set) => set.includes('recordType') && set.includes('profileId'));
+    const profileAttributes = allowlists.find((set) => set.includes('schemaVersion') && set.includes('placements'));
     assert.ok(profileAttributes, `${path} includes the creator-state projection`);
     assert.deepEqual(profileAttributes.sort(), [
-      'displayName', 'hidden', 'id', 'name', 'pk', 'profileId', 'published', 'recordType', 'resourceId', 'selected',
-      'selectedForDirectory', 'series', 'sk', 'slug',
+      'displayName', 'hidden', 'id', 'order', 'pk', 'placements', 'published', 'recordType', 'schemaVersion',
+      'series', 'sk', 'slug',
     ]);
   }
 });

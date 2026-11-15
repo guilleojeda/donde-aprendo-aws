@@ -21,6 +21,11 @@ export const profile = (id, overrides = {}) => ({
   published: true,
   hidden: false,
   ...overrides,
+  schemaVersion: 2,
+  version: 1,
+  placements: {},
+  order: { featured: [], ordinary: [] },
+  series: {},
 });
 
 export const series = (id, profileId, overrides = {}) => ({
@@ -29,7 +34,7 @@ export const series = (id, profileId, overrides = {}) => ({
   name: id === 'series-a' ? 'Lambda desde cero' : 'Serverless en práctica',
   slug: id === 'series-a' ? 'lambda-desde-cero' : 'serverless-practico',
   description: `Descripción privada de ${id}`,
-  version: 1,
+  chapters: [],
   ...overrides,
 });
 
@@ -37,10 +42,27 @@ export const placement = (profileId, resourceId, overrides = {}) => ({
   id: `${profileId}-${resourceId}`,
   profileId,
   resourceId,
-  selected: true,
-  series: {},
+  selectedForDirectory: true,
+  featured: false,
   ...overrides,
 });
+
+/** Assemble fixture descriptors into the actual flat v2 creator-state shape. */
+export function creatorAggregates(profiles, placements = [], seriesEntries = []) {
+  const byId = new Map(profiles.map((entry) => [entry.id, structuredClone(entry)]));
+  for (const { profileId, id, resourceId, selectedForDirectory, featured } of placements) {
+    const creator = byId.get(profileId);
+    if (!creator) continue;
+    creator.placements[id] = { resourceId, selectedForDirectory };
+    creator.order[featured ? 'featured' : 'ordinary'].push(id);
+  }
+  for (const { profileId, id, ...entry } of seriesEntries) {
+    const creator = byId.get(profileId);
+    if (!creator) continue;
+    creator.series[id] = entry;
+  }
+  return { creators: [...byId.values()] };
+}
 
 export function sharedResourceState({
   selectA = true,
@@ -49,21 +71,16 @@ export function sharedResourceState({
   extraSeries = [],
   extraPlacements = [],
 } = {}) {
-  return {
-    profiles: [profile('creator-a'), profile('creator-b'), ...extraProfiles],
-    series: [series('series-a', 'creator-a'), series('series-b', 'creator-b'), ...extraSeries],
-    placements: [
-      placement('creator-a', 'resource-shared', {
-        selected: selectA,
-        series: { 'series-a': { position: 0 } },
-      }),
-      placement('creator-b', 'resource-shared', {
-        selected: selectB,
-        series: { 'series-b': { position: 0 } },
-      }),
-      ...extraPlacements,
-    ],
-  };
+  const profiles = [profile('creator-a'), profile('creator-b'), ...extraProfiles];
+  const placementA = placement('creator-a', 'resource-shared', { selectedForDirectory: selectA });
+  const placementB = placement('creator-b', 'resource-shared', { selectedForDirectory: selectB });
+  const seriesA = series('series-a', 'creator-a', { chapters: [placementA.id] });
+  const seriesB = series('series-b', 'creator-b', { chapters: [placementB.id] });
+  return creatorAggregates(
+    profiles,
+    [placementA, placementB, ...extraPlacements],
+    [seriesA, seriesB, ...extraSeries],
+  );
 }
 
 export const event = (id, overrides = {}) => ({

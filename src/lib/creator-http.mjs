@@ -2,6 +2,8 @@ import {
   creatorPageSessionBindingFailureForRequest,
 } from './creator-session-context.mjs';
 import { parseHttpsOrigin } from './account-origin.mjs';
+import { CreatorStateError } from './creator-state.mjs';
+import { CREATOR_CONTRACT_HEADER, CREATOR_CONTRACT_VERSION } from './creator-values.mjs';
 
 const PRIVATE_HEADERS = {
   'content-type': 'application/json; charset=utf-8',
@@ -79,6 +81,7 @@ async function smallJson(request) {
 }
 
 function photoErrorStatus(error) {
+  if (error instanceof CreatorStateError) return error.status;
   if (error instanceof TypeError || error instanceof RangeError) return 422;
   if (error?.code === 'PROFILE_VERSION_CONFLICT') return 409;
   if (['PROFILE_NOT_FOUND', 'UPLOAD_NOT_FOUND'].includes(error?.code)) return 404;
@@ -112,21 +115,47 @@ export function createCreatorHttpHandler({ service, photos, auth, store, origin 
       const requestedBinding = request.headers.get('x-creator-page-binding');
       const bindingFailure = creatorPageSessionBindingFailureForRequest(requestedBinding, principal);
       if (bindingFailure) return json({ error: bindingFailure.error }, bindingFailure.status);
+      if (request.headers.get(CREATOR_CONTRACT_HEADER) !== CREATOR_CONTRACT_VERSION) {
+        return json({ error: 'CREATOR_CONTRACT_OBSOLETE' }, 409);
+      }
       const body = await smallJson(request);
-      const allowed = pathname.endsWith('/autorizar') ? ['version'] : ['version', 'uploadId'];
+      const isAuthorization = pathname.endsWith('/autorizar');
+      const allowed = isAuthorization ? ['creatorVersion'] : ['creatorVersion', 'uploadId'];
       if (!body || Object.keys(body).some((key) => !allowed.includes(key))
-        || !Number.isSafeInteger(body.version) || body.version < 0) {
+        || !Number.isSafeInteger(body.creatorVersion) || body.creatorVersion < 0
+        || (!isAuthorization && (typeof body.uploadId !== 'string' || body.uploadId.length === 0))) {
         return json({ error: 'INVALID_BODY' }, 422);
       }
       const owner = await store.get(`account-profile:${principal.accountId}`);
       if (!owner) return json({ error: 'PROFILE_NOT_FOUND' }, 404);
       if (typeof owner.profileId !== 'string' || !owner.profileId) return json({ error: 'INVALID_OWNER' }, 503);
-      const input = { profileId: owner.profileId, expectedVersion: body.version };
-      if (pathname.endsWith('/autorizar')) return json(await photos.beginUpload(input));
-      return json(await photos.finalizeUpload({ ...input, uploadId: body.uploadId }));
+      const input = { profileId: owner.profileId, expectedVersion: body.creatorVersion };
+      if (isAuthorization) {
+        const result = await photos.beginUpload(input);
+        return json({
+          schemaVersion: 2,
+          operation: 'authorize-photo',
+          profileId: owner.profileId,
+          uploadId: result.uploadId,
+          post: result.post,
+        });
+      }
+      const result = await photos.finalizeUpload({ ...input, uploadId: body.uploadId });
+      return json({
+        schemaVersion: 2,
+        operation: 'finalize-photo',
+        profileId: owner.profileId,
+        uploadId: body.uploadId,
+        creatorVersion: result.creatorVersion,
+        photo: result.photo,
+        disposition: 'finalized',
+      });
     } catch (error) {
       const status = photoErrorStatus(error);
-      return json({ error: status === 503 ? 'PHOTO_UNAVAILABLE' : error.code ?? 'INVALID_PHOTO_REQUEST' }, status);
+      const code = error instanceof CreatorStateError
+        ? error.code
+        : status === 503 ? 'PHOTO_UNAVAILABLE' : error.code ?? 'INVALID_PHOTO_REQUEST';
+      return json({ error: code }, status);
     }
   };
 }

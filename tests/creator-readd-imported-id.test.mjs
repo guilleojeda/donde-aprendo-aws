@@ -8,7 +8,7 @@ import { createDynamoMoveHarness, seedMoveProfile, seedMoveResource } from './fi
 
 async function api(harness, pathname, body, { method = 'POST', session = 'creator-a' } = {}) {
   const response = await callApi(harness, pathname, {
-    method, session, csrf: sessionCsrf[session], ...(body === undefined ? {} : { body }),
+    method, session, csrf: sessionCsrf[session], creatorContract: '2', ...(body === undefined ? {} : { body }),
   });
   return { status: response.status, data: response.status === 204 ? null : await response.json() };
 }
@@ -16,6 +16,7 @@ async function api(harness, pathname, body, { method = 'POST', session = 'creato
 async function owner(harness, session = 'creator-a') {
   const result = await api(harness, '/api/creador/perfil', undefined, { method: 'GET', session });
   assert.equal(result.status, 200);
+  assert.equal(result.data.schemaVersion, 2);
   return result.data;
 }
 
@@ -29,7 +30,7 @@ for (const resourceId of ['import:catalog:' + 'r'.repeat(147), 'legacy:event/雪
 
     let observed = await owner(harness);
     assert.equal((await api(harness, '/api/creador/referencias', {
-      resourceId, url, profileVersion: observed.profile.version,
+      resourceId, url, creatorVersion: observed.creatorVersion,
     })).status, 201);
     assert.equal((await api(harness, '/api/creador/reclamaciones', {
       resources: [{ resourceId, url }], evidence: 'Autoría comprobada',
@@ -39,48 +40,58 @@ for (const resourceId of ['import:catalog:' + 'r'.repeat(147), 'legacy:event/雪
     }, { session: 'admin' })).status, 200);
 
     observed = await owner(harness);
-    const original = observed.links.find((link) => link.resourceId === resourceId);
+    const originalPlacement = Object.entries(observed.placements).find(([, placement]) => placement.resourceId === resourceId);
+    assert.ok(originalPlacement);
+    const [placementId] = originalPlacement;
+    const original = observed.resources.find((resource) => resource.id === resourceId);
     assert.ok(original);
-    assert.equal((await api(harness, `/api/creador/enlaces/${original.placementId}/editar`, {
-      profileVersion: observed.profile.version,
-      placementVersion: original.placementVersion,
-      resourceVersion: original.resourceVersion,
+    assert.equal((await api(harness, `/api/creador/enlaces/${placementId}/editar`, {
+      creatorVersion: observed.creatorVersion,
+      resourceVersion: original.version,
       title: 'Título actualizado', description: 'Descripción conservada',
     }, { method: 'PATCH' })).status, 200);
     observed = await owner(harness);
-    assert.equal((await api(harness, `/api/creador/enlaces/${original.placementId}`, {
-      profileVersion: observed.profile.version,
-    }, { method: 'DELETE' })).status, 204);
+    assert.equal((await api(harness, `/api/creador/enlaces/${placementId}`, {
+      creatorVersion: observed.creatorVersion,
+    }, { method: 'DELETE' })).status, 200);
 
     observed = await owner(harness);
-    assert.equal(observed.links.length, 0);
-    const retained = observed.editableResources.find((resource) => resource.id === resourceId);
+    assert.equal(Object.hasOwn(observed.placements, placementId), false);
+    const retained = observed.resources.find((resource) => resource.id === resourceId);
     assert.ok(retained);
     const transactionsBeforeRejected = harness.mock.transactions.length;
     assert.equal((await api(harness, '/api/creador/enlaces', {
-      resourceId, resourceVersion: retained.version - 1,
+      creatorVersion: observed.creatorVersion, resourceId, resourceVersion: retained.version - 1,
     })).status, 409, 'a long identity still requires the observed resource version');
+    const ownerB = await owner(harness, 'creator-b');
     assert.equal((await api(harness, '/api/creador/enlaces', {
-      resourceId, resourceVersion: retained.version,
+      creatorVersion: ownerB.creatorVersion, resourceId, resourceVersion: retained.version,
     }, { session: 'creator-b' })).status, 403, 'the ID does not grant another creator editing authority');
     assert.equal(harness.mock.transactions.length, transactionsBeforeRejected);
-    assert.equal((await owner(harness)).links.length, 0);
-    assert.equal((await owner(harness, 'creator-b')).links.length, 0);
+    assert.equal(Object.hasOwn((await owner(harness)).placements, placementId), false);
+    assert.equal((await owner(harness, 'creator-b')).resources.some(({ id }) => id === resourceId), false);
 
-    const restored = await api(harness, '/api/creador/enlaces', { resourceId, resourceVersion: retained.version });
+    const restored = await api(harness, '/api/creador/enlaces', {
+      creatorVersion: observed.creatorVersion, resourceId, resourceVersion: retained.version,
+    });
     assert.equal(restored.status, 201);
-    assert.equal(restored.data.link.resourceId, resourceId);
-    assert.equal(restored.data.link.placementId, original.placementId);
-    assert.equal(restored.data.link.resourceVersion, retained.version);
-    assert.equal(restored.data.link.title, 'Título actualizado');
-    assert.equal(restored.data.link.description, 'Descripción conservada');
-    assert.equal(restored.data.link.url, url);
+    assert.equal(restored.data.resourceId, resourceId);
+    assert.equal(restored.data.placementId, placementId);
+    const restoredOwner = await owner(harness);
+    const restoredResource = restoredOwner.resources.find(({ id }) => id === resourceId);
+    assert.equal(restoredResource.version, retained.version);
+    assert.equal(restoredResource.title, 'Título actualizado');
+    assert.equal(restoredResource.description, 'Descripción conservada');
+    assert.equal(restoredResource.url, url);
 
-    const repeated = await api(harness, '/api/creador/enlaces', { resourceId, resourceVersion: retained.version });
+    const repeated = await api(harness, '/api/creador/enlaces', {
+      creatorVersion: restoredOwner.creatorVersion, resourceId, resourceVersion: retained.version,
+    });
     assert.equal(repeated.status, 200);
-    assert.equal(repeated.data.link.placementId, original.placementId);
-    assert.equal((await owner(harness)).links.length, 1);
-    assert.equal((await owner(harness, 'creator-b')).links.length, 0);
+    assert.equal(repeated.data.placementId, placementId);
+    assert.equal(repeated.data.disposition, 'already-present');
+    assert.equal(Object.keys((await owner(harness)).placements).length, 1);
+    assert.equal((await owner(harness, 'creator-b')).resources.some(({ id }) => id === resourceId), false);
   });
 }
 
@@ -109,50 +120,71 @@ test('import, grant, retained edit and re-add preserve both literal dot IDs', as
     resources: rows.map(({ id, url }) => ({ resourceId: id, url })),
   });
   assert.equal(claimed.status, 202);
-  assert.deepEqual(claimed.data.claim.resources, rows.map(({ id, url }) => ({ resourceId: id, url })));
+  assert.equal(claimed.data.operation, 'create-claim');
+  const claimedOwner = await owner(harness);
+  assert.deepEqual(claimedOwner.claims.find(({ id }) => id === claimed.data.claimId).resources,
+    rows.map(({ id, url }) => ({ resourceId: id, url })));
   const granted = await api(harness, '/api/admin/reclamaciones/vincular', {
     accountId: 'private-account-a', resourceIds: rows.map(({ id }) => id),
   }, { session: 'admin' });
   assert.equal(granted.status, 200);
   assert.deepEqual(granted.data.linkedResourceIds.toSorted(), ['.', '..']);
 
+  const placementIds = new Map();
+  for (const { id } of rows) {
+    const before = await owner(harness);
+    const resource = before.resources.find((item) => item.id === id);
+    assert.ok(resource);
+    let placementId = Object.entries(before.placements).find(([, placement]) => placement.resourceId === id)?.[0];
+    if (!placementId) {
+      const placed = await api(harness, '/api/creador/enlaces', {
+        creatorVersion: before.creatorVersion, resourceId: id, resourceVersion: resource.version,
+      });
+      assert.ok([200, 201].includes(placed.status), JSON.stringify(placed.data));
+      placementId = placed.data.placementId;
+    }
+    placementIds.set(id, placementId);
+  }
+
   for (const [index, { id, url }] of rows.entries()) {
     const before = await owner(harness);
-    const placed = before.links.find((link) => link.resourceId === id);
-    assert.ok(placed);
-    const unaffected = before.links.find((link) => link.resourceId !== id);
+    const placement = Object.entries(before.placements).find(([, item]) => item.resourceId === id);
+    assert.ok(placement);
+    const [placementId, placementValue] = placement;
+    assert.equal(placementId, placementIds.get(id));
+    const unaffected = Object.entries(before.placements).find(([key]) => key !== placementId);
     assert.ok(unaffected);
-    const removed = await api(harness, `/api/creador/enlaces/${placed.placementId}`, {
-      profileVersion: before.profile.version,
+    const removed = await api(harness, `/api/creador/enlaces/${placementId}`, {
+      creatorVersion: before.creatorVersion,
     }, { method: 'DELETE' });
-    assert.equal(removed.status, 204);
+    assert.equal(removed.status, 200);
     const retired = await owner(harness);
-    assert.deepEqual(retired.links, [unaffected]);
-    const retained = retired.editableResources.find((resource) => resource.id === id);
+    assert.deepEqual(retired.placements, { [unaffected[0]]: unaffected[1] });
+    const retained = retired.resources.find((resource) => resource.id === id);
     assert.equal(retained?.url, url);
 
     const newUrl = `https://example.invalid/retained-dot/${index}/?edited=%2F`;
     const updated = await api(harness, `/api/creador/recursos/?id=${encodeURIComponent(id)}`, {
-      version: retained.version, url: newUrl,
+      resourceVersion: retained.version, url: newUrl,
     }, { method: 'PATCH' });
     assert.equal(updated.status, 200);
-    assert.equal(updated.data.resource.id, id);
-    assert.equal(updated.data.resource.url, newUrl);
-    assert.equal(updated.data.resource.version, retained.version + 1);
+    assert.equal(updated.data.resourceId, id);
+    assert.equal(updated.data.resourceVersion, retained.version + 1);
     assert.equal(await harness.store.get(currentUrlKey(url)), null);
     assert.equal((await harness.store.get(currentUrlKey(newUrl))).resourceId, id);
 
+    const current = await owner(harness);
     const added = await api(harness, '/api/creador/enlaces', {
-      resourceId: id, resourceVersion: updated.data.resource.version,
+      creatorVersion: current.creatorVersion, resourceId: id, resourceVersion: updated.data.resourceVersion,
     });
     assert.equal(added.status, 201);
-    assert.equal(added.data.link.placementId, placed.placementId);
-    assert.equal(added.data.link.resourceId, id);
-    assert.equal(added.data.link.url, newUrl);
+    assert.equal(added.data.placementId, placementId);
+    assert.equal(added.data.resourceId, id);
     const persisted = await owner(harness);
-    assert.equal(persisted.links.length, 2);
-    assert.deepEqual(persisted.links.find((link) => link.resourceId === id), added.data.link);
-    assert.deepEqual(persisted.links.find((link) => link.resourceId !== id), unaffected);
+    assert.equal(Object.keys(persisted.placements).length, 2);
+    assert.equal(persisted.resources.find((resource) => resource.id === id).url, newUrl);
+    assert.deepEqual(persisted.placements[unaffected[0]], unaffected[1]);
+    assert.deepEqual(persisted.placements[placementId], placementValue);
     assert.equal(harness.mock.read('catalog-test', { id }).url, newUrl);
   }
 });

@@ -84,7 +84,18 @@ function pageResult(value) {
     state: 'ready',
     period: value.period,
     page: value.page,
-    editor: { profile: { socials: {} }, links: [] },
+    editor: {
+      schemaVersion: 2,
+      creatorVersion: 1,
+      profile: {
+        id: 'creator-a', displayName: 'Creador', slug: 'creador', programs: [], socials: {}, published: true, hidden: false,
+      },
+      resources: [],
+      placements: {},
+      order: { featured: [], ordinary: [] },
+      series: {},
+      claims: [],
+    },
     report: value,
   };
 }
@@ -205,16 +216,21 @@ test('explicit empty limited GA4 results stay unknown through the authenticated 
   const saved = await callApi(harness, '/api/creador/perfil', {
     session: 'creator-a',
     method: 'PUT',
+    creatorContract: '2',
     csrf: sessionCsrf['creator-a'],
-    body: { displayName: 'Creador de analítica', slug: 'creador-de-analitica' },
+    body: { creatorVersion: null, displayName: 'Creador de analítica', slug: 'creador-de-analitica' },
   });
   assert.equal(saved.status, 200);
-  const { profile } = await saved.json();
+  const ownerRead = await callApi(harness, '/api/creador/perfil/', { session: 'creator-a' });
+  assert.equal(ownerRead.status, 200);
+  const snapshot = await ownerRead.json();
+  assert.equal(snapshot.schemaVersion, 2);
   const published = await callApi(harness, '/api/creador/perfil/publicar', {
     session: 'creator-a',
     method: 'POST',
+    creatorContract: '2',
     csrf: sessionCsrf['creator-a'],
-    body: {},
+    body: { creatorVersion: snapshot.creatorVersion },
   });
   assert.equal(published.status, 200);
 
@@ -230,7 +246,7 @@ test('explicit empty limited GA4 results stay unknown through the authenticated 
   assert.deepEqual((await warmedResponse.json()).totals, body.totals);
   assert.equal(providerReads, 1, 'the valid limited response should be reused from cache');
 
-  const parsed = parseCreatorStatisticsReady(body, 7, 1, profile.id);
+  const parsed = parseCreatorStatisticsReady(body, 7, 1, snapshot.profile.id);
   assert.ok(parsed, 'the authenticated API payload with nullable totals is a valid ready report');
   const html = await render(parsed);
   const totals = html.match(/<section class="creator-statistics__totals"[^]*?<\/section>/)?.[0];

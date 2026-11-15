@@ -274,33 +274,38 @@ test('resource IDs reject physical URL reservation aliases without writes and pr
   const api = (path, session, options = {}) => service.handle(apiRequest(path, {
     session,
     csrf: { 'creator-a': 'csrf-a', admin: 'csrf-admin' }[session],
+    creatorContract: '2',
     ...options,
   }));
 
-  assert.equal((await api('/api/creador/perfil', 'creator-a', {
-    method: 'PUT', body: { displayName: 'Ana', slug: 'dynamo-alias', programs: [], socials: {} },
-  })).status, 200);
-  assert.equal((await api('/api/creador/perfil/publicar', 'creator-a', { method: 'POST', body: {} })).status, 200);
+  const profile = await api('/api/creador/perfil', 'creator-a', {
+    method: 'PUT', body: { creatorVersion: null, displayName: 'Ana', slug: 'dynamo-alias', programs: [], socials: {} },
+  });
+  assert.equal(profile.status, 200);
+  const published = await api('/api/creador/perfil/publicar', 'creator-a', {
+    method: 'POST', body: { creatorVersion: (await responseJson(profile)).creatorVersion },
+  });
+  assert.equal(published.status, 200);
   const added = await api('/api/creador/enlaces', 'creator-a', {
-    method: 'POST', body: { title: 'Recurso actual', url: 'https://example.com/current' },
+    method: 'POST', body: { creatorVersion: (await responseJson(published)).creatorVersion, title: 'Recurso actual', url: 'https://example.com/current' },
   });
   assert.equal(added.status, 201);
-  const addedLink = (await responseJson(added)).link;
+  const addedLink = await responseJson(added);
   const internalId = currentUrlReservationId('https://example.com/current');
   assert.deepEqual(await store.get(`resource:${internalId}`), await store.get(currentUrlKey('https://example.com/current')));
 
   const reservationBefore = await store.get(currentUrlKey('https://example.com/current'));
   const resourceBefore = await store.get(`resource:${addedLink.resourceId}`);
   const profileBefore = await store.get(`account-profile:private-account-a`);
-  const placementsBefore = await store.list(`placement:${profileBefore.profileId}:`);
+  const stateBefore = await store.get(`profile:${profileBefore.profileId}`);
   const editorsBefore = await store.list(`editor:${profileBefore.profileId}:`);
   const writesBefore = client.writeCount;
 
   const rejectedClaim = await api('/api/creador/reclamaciones', 'creator-a', {
-    method: 'POST', body: { resourceIds: [internalId], evidence: 'URL reservation must not be claimable' },
+    method: 'POST', body: { resources: [{ resourceId: internalId, url: 'https://example.com/current' }], evidence: 'URL reservation must not be claimable' },
   });
   assert.equal(rejectedClaim.status, 422);
-  assert.equal((await responseJson(rejectedClaim)).error, 'INVALID_RESOURCE_IDS');
+  assert.equal((await responseJson(rejectedClaim)).error, 'INVALID_CLAIM_RESOURCES');
   const rejectedLink = await api('/api/admin/reclamaciones/vincular', 'admin', {
     method: 'POST', body: { accountId: 'private-account-a', resourceIds: [internalId] },
   });
@@ -310,7 +315,7 @@ test('resource IDs reject physical URL reservation aliases without writes and pr
   assert.deepEqual(await store.get(currentUrlKey('https://example.com/current')), reservationBefore);
   assert.deepEqual(await store.get(`resource:${addedLink.resourceId}`), resourceBefore);
   assert.deepEqual(await store.get(`account-profile:private-account-a`), profileBefore);
-  assert.deepEqual(await store.list(`placement:${profileBefore.profileId}:`), placementsBefore);
+  assert.deepEqual(await store.get(`profile:${profileBefore.profileId}`), stateBefore);
   assert.deepEqual(await store.list(`editor:${profileBefore.profileId}:`), editorsBefore);
   assert.equal((await api('/api/creador/perfil', 'creator-a')).status, 200);
   assert.equal((await service.readPublicProfile('dynamo-alias')).status, 200);
@@ -327,7 +332,9 @@ test('resource IDs reject physical URL reservation aliases without writes and pr
   });
 
   for (const resourceId of ['legacy-control-check', 'event-control-check']) {
-    const claim = await api('/api/creador/reclamaciones', 'creator-a', { method: 'POST', body: { resourceIds: [resourceId] } });
+    const claim = await api('/api/creador/reclamaciones', 'creator-a', {
+      method: 'POST', body: { resources: [{ resourceId, url: `https://example.com/${resourceId}` }] },
+    });
     assert.equal(claim.status, 202, `${resourceId} remains claimable`);
     const linked = await api('/api/admin/reclamaciones/vincular', 'admin', {
       method: 'POST', body: { accountId: 'private-account-a', resourceIds: [resourceId] },
@@ -338,5 +345,5 @@ test('resource IDs reject physical URL reservation aliases without writes and pr
   }
   const editor = await api('/api/creador/perfil', 'creator-a');
   assert.equal(editor.status, 200);
-  assert.equal((await responseJson(editor)).links.some(({ resourceId }) => resourceId === 'event-control-check'), true);
+  assert.equal(Object.values((await responseJson(editor)).placements).some(({ resourceId }) => resourceId === 'event-control-check'), true);
 });

@@ -21,7 +21,7 @@ const CATALOG = 'catalog-test';
 
 async function api(harness, path, body, { method = 'POST', session = 'creator-a' } = {}) {
   const response = await callApi(harness, path, {
-    method, session, csrf: sessionCsrf[session], ...(body === undefined ? {} : { body }),
+    method, session, csrf: sessionCsrf[session], creatorContract: '2', ...(body === undefined ? {} : { body }),
   });
   return { status: response.status, body: response.status === 204 ? null : await response.json(), headers: response.headers };
 }
@@ -32,7 +32,21 @@ function accepted(result, status) {
 }
 
 async function owner(harness, session = 'creator-a') {
-  return accepted(await api(harness, '/api/creador/perfil', undefined, { method: 'GET', session }), 200);
+  const snapshot = accepted(await api(harness, '/api/creador/perfil', undefined, { method: 'GET', session }), 200);
+  assert.equal(snapshot.schemaVersion, 2);
+  assert.equal(Object.hasOwn(snapshot, 'links'), false);
+  return snapshot;
+}
+
+function ownerResource(snapshot, resourceId) {
+  const resource = snapshot.resources.find(({ id }) => id === resourceId);
+  assert.ok(resource, `the owner snapshot includes resource ${resourceId}`);
+  return resource;
+}
+
+function ownerPlacementId(snapshot, resourceId) {
+  const entry = Object.entries(snapshot.placements).find(([, placement]) => placement.resourceId === resourceId);
+  return entry?.[0] ?? null;
 }
 
 function catalogRecord(id, { event = false } = {}) {
@@ -67,19 +81,22 @@ async function claimAndGrant(harness, resourceId, session = 'creator-a') {
     accountId, resourceIds: [resourceId],
   }, { session: 'admin' }), 200);
   const current = await owner(harness, session);
-  assert.ok(current.editableResources.some(({ id }) => id === resourceId), 'the real grant is visible through the owner read');
-  assert.ok(current.links.some((link) => link.resourceId === resourceId));
+  assert.equal(ownerResource(current, resourceId).metadataEditable, true, 'the real grant is visible through the owner read');
+  assert.ok(ownerPlacementId(current, resourceId));
   return current;
 }
 
 async function fixture(state, { event = false, grant = true } = {}) {
   const harness = await createDynamoMoveHarness({ projectionAware: true });
   for (const session of ['creator-a', 'creator-b']) {
+    const before = await owner(harness, session);
     accepted(await api(harness, '/api/creador/perfil', {
+      creatorVersion: before.profile ? before.creatorVersion : null,
       displayName: session, slug: `granted-${session}`, programs: [], socials: {},
     }, { method: 'PUT', session }), 200);
   }
-  accepted(await api(harness, '/api/creador/perfil/publicar', {}), 200);
+  const ownerA = await owner(harness);
+  accepted(await api(harness, '/api/creador/perfil/publicar', { creatorVersion: ownerA.creatorVersion }), 200);
   // Event identity has its own existing syntax; generic historical IDs retain
   // their exact colons. All are well inside the approved byte limit.
   const resourceId = event ? 'meetup-event:123:456' : R;
@@ -92,34 +109,30 @@ async function fixture(state, { event = false, grant = true } = {}) {
 
 async function remove(harness, resourceId) {
   const before = await owner(harness);
-  const link = before.links.find((item) => item.resourceId === resourceId);
-  assert.ok(link);
-  accepted(await api(harness, `/api/creador/enlaces/${encodeURIComponent(link.placementId)}`, {
-    profileVersion: before.profile.version,
-  }, { method: 'DELETE' }), 204);
+  const placementId = ownerPlacementId(before, resourceId);
+  assert.ok(placementId);
+  accepted(await api(harness, `/api/creador/enlaces/${encodeURIComponent(placementId)}`, {
+    creatorVersion: before.creatorVersion,
+  }, { method: 'DELETE' }), 200);
   const after = await owner(harness);
-  assert.equal(after.links.some((item) => item.resourceId === resourceId), false);
-  assert.ok(after.editableResources.some(({ id }) => id === resourceId), 'removal retains granted editorial authority');
-  return link;
+  assert.equal(Object.hasOwn(after.placements, placementId), false);
+  assert.equal(ownerResource(after, resourceId).reincludeAllowed, true, 'removal retains granted editorial authority');
+  return placementId;
 }
 
 async function edit(harness, resourceId, pathKind, fields, session = 'creator-a') {
   const observed = await owner(harness, session);
-  const resource = observed.editableResources.find(({ id }) => id === resourceId);
-  assert.ok(resource);
-  if (pathKind === 'retired') return api(harness, `/api/creador/recursos/${encodeURIComponent(resourceId)}`, {
-    version: resource.version, ...fields,
+  const resource = ownerResource(observed, resourceId);
+  const version = resource.version;
+  if (pathKind === 'retired') return api(harness, `/api/creador/recursos/?id=${encodeURIComponent(resourceId)}`, {
+    resourceVersion: version, ...fields,
   }, { method: 'PATCH', session });
-  const link = observed.links.find((item) => item.resourceId === resourceId);
-  assert.ok(link);
-  return api(harness, `/api/creador/enlaces/${encodeURIComponent(link.placementId)}/editar`, {
-    profileVersion: observed.profile.version, placementVersion: link.placementVersion,
-    resourceVersion: link.resourceVersion, ...fields,
+  const placementId = ownerPlacementId(observed, resourceId);
+  assert.ok(placementId);
+  return api(harness, `/api/creador/enlaces/${encodeURIComponent(placementId)}/editar`, {
+    creatorVersion: observed.creatorVersion,
+    resourceVersion: version, ...fields,
   }, { method: 'PATCH', session });
-}
-
-function sortedReceipts(changes) {
-  return [...changes].sort((a, b) => `${a.entity}:${a.id}`.localeCompare(`${b.entity}:${b.id}`));
 }
 
 async function snapshot(harness, resourceId = R) {
@@ -132,7 +145,7 @@ async function snapshot(harness, resourceId = R) {
 
 for (const pathKind of ['active', 'retired']) {
   for (const state of oldStates) {
-    test(`granted ${pathKind} URL edit: ${state.name} preserves identity, cohosts and exact receipts`, async () => {
+    test(`granted ${pathKind} URL edit: ${state.name} preserves identity and cohosts`, async () => {
       const { harness, resourceId, oldRow } = await fixture(state);
       if (pathKind === 'retired') await remove(harness, resourceId);
       const before = await snapshot(harness, resourceId);
@@ -151,26 +164,34 @@ for (const pathKind of ['active', 'retired']) {
       assert.deepEqual(after.urls[1], currentUrlReservation(V, resourceId));
       assertReservationObservation(urlCondition(harness, firstTransaction, U), oldRow);
       assert.deepEqual(after.b, before.b, 'another profile receives no placement, version or authority change');
-      const expected = [{ entity: 'resource', id: resourceId, before: resourceBefore.version, after: resourceBefore.version + 1 }];
+      assert.equal(saved.operation, pathKind === 'active' ? 'edit-link' : 'edit-resource');
+      assert.equal(saved.disposition, 'saved');
+      assert.equal(saved.resourceId, resourceId);
+      assert.equal(saved.resourceVersion, resourceBefore.version + 1);
+      assert.equal(Object.hasOwn(saved, 'versionChanges'), false);
+      assert.equal(Object.hasOwn(saved, 'link'), false);
+      assert.equal(after.a.creatorVersion, before.a.creatorVersion,
+        'resource metadata edits do not advance the aggregate content revision');
       if (pathKind === 'active') {
-        expected.push({ entity: 'profile', id: before.a.profile.id, before: before.a.profile.version, after: before.a.profile.version + 1 });
-        assert.equal(after.a.profile.version, before.a.profile.version + 1);
-        assert.deepEqual(after.a.links.find((link) => link.resourceId === resourceId), saved.link);
+        const placementId = ownerPlacementId(before.a, resourceId);
+        assert.deepEqual(after.a.placements[placementId], before.a.placements[placementId]);
         const publicPage = await harness.service.readPublicProfile(before.a.profile.slug);
         assert.equal(publicPage.links.find((link) => link.resourceId === resourceId)?.url, V);
       } else {
         assert.deepEqual(after.a.profile, before.a.profile, 'retired metadata editing does not advance the profile');
-        assert.deepEqual(after.a.links, before.a.links, 'retired metadata editing creates no placement');
-        assert.equal(saved.resource.url, V);
+        assert.deepEqual(after.a.placements, before.a.placements, 'retired metadata editing creates no placement');
       }
-      assert.deepEqual(sortedReceipts(saved.versionChanges), sortedReceipts(expected));
-      const record = after.a.editableResources.find(({ id }) => id === resourceId);
+      const record = ownerResource(after.a, resourceId);
       assert.equal(record.url, V);
       assert.equal(record.version, resourceBefore.version + 1);
       // A stale retry must fail without replacing the confirmed URL or metadata.
-      const stale = await api(harness, `/api/creador/recursos/${encodeURIComponent(resourceId)}`, {
-        version: resourceBefore.version, url: W,
-      }, { method: 'PATCH' });
+      const stale = pathKind === 'active'
+        ? await api(harness, `/api/creador/enlaces/${encodeURIComponent(ownerPlacementId(after.a, resourceId))}/editar`, {
+          creatorVersion: after.a.creatorVersion, resourceVersion: resourceBefore.version, url: W,
+        }, { method: 'PATCH' })
+        : await api(harness, `/api/creador/recursos/?id=${encodeURIComponent(resourceId)}`, {
+          resourceVersion: resourceBefore.version, url: W,
+        }, { method: 'PATCH' });
       assert.equal(stale.status, 409);
       assert.deepEqual(await snapshot(harness, resourceId), after);
     });
@@ -189,7 +210,7 @@ for (const pathKind of ['active', 'retired']) {
     assert.deepEqual(after.resources.slice(1), before.resources.slice(1));
     assert.deepEqual(after.urls[0], currentUrlReservation(U, S));
     assert.deepEqual(after.urls[1], currentUrlReservation(V, resourceId));
-    assert.equal(after.a.editableResources.find(({ id }) => id === resourceId).url, V);
+    assert.equal(ownerResource(after.a, resourceId).url, V);
   });
 }
 
@@ -197,46 +218,48 @@ for (const state of oldStates) {
   test(`exact-ID re-add with ${state.name} needs no URL lookup and restores no chapter memberships`, async () => {
     const { harness, resourceId, oldRow } = await fixture(state);
     let observed = await owner(harness);
+    const chapterVersion = observed.creatorVersion;
     const series = accepted(await api(harness, '/api/creador/series', {
-      name: 'Before removal', slug: 'before-removal', profileVersion: observed.profile.version,
-    }), 201).series;
+      name: 'Before removal', slug: 'before-removal', creatorVersion: chapterVersion,
+    }), 201);
     observed = await owner(harness);
-    const original = observed.links.find((link) => link.resourceId === resourceId);
-    accepted(await api(harness, `/api/creador/series/${series.id}/capitulos/${original.placementId}`, {
-      profileVersion: observed.profile.version,
+    const originalPlacementId = ownerPlacementId(observed, resourceId);
+    accepted(await api(harness, `/api/creador/series/${series.seriesId}/capitulos/${originalPlacementId}`, {
+      creatorVersion: observed.creatorVersion,
     }, { method: 'PUT' }), 200);
-    assert.equal((await owner(harness)).links[0].series.length, 1, 'the removed placement actually had a chapter membership');
+    assert.deepEqual((await owner(harness)).series[series.seriesId].chapters, [originalPlacementId],
+      'the removed placement actually had a chapter membership');
     await remove(harness, resourceId);
     observed = await owner(harness);
-    const retained = observed.editableResources.find(({ id }) => id === resourceId);
+    const retained = ownerResource(observed, resourceId);
     const before = await snapshot(harness, resourceId);
     assert.equal((await api(harness, '/api/creador/enlaces', {
-      resourceId, resourceVersion: retained.version - 1,
+      creatorVersion: observed.creatorVersion, resourceId, resourceVersion: retained.version - 1,
     })).status, 409);
+    const ownerB = await owner(harness, 'creator-b');
     assert.equal((await api(harness, '/api/creador/enlaces', {
-      resourceId, resourceVersion: retained.version,
+      creatorVersion: ownerB.creatorVersion, resourceId, resourceVersion: retained.version,
     }, { session: 'creator-b' })).status, 403);
     assert.deepEqual(await snapshot(harness, resourceId), before, 'stale and unauthorized re-adds commit nothing');
     const saved = accepted(await api(harness, '/api/creador/enlaces', {
-      resourceId, resourceVersion: retained.version,
+      creatorVersion: observed.creatorVersion, resourceId, resourceVersion: retained.version,
     }), 201);
-    assert.equal(saved.link.resourceId, resourceId);
-    assert.equal(saved.link.placementId, original.placementId);
-    assert.equal(saved.link.resourceVersion, retained.version);
-    assert.equal(saved.link.url, U);
-    assert.deepEqual(saved.link.series, []);
+    assert.equal(saved.operation, 'reinclude-link');
+    assert.equal(saved.disposition, 'attached');
+    assert.equal(saved.resourceId, resourceId);
+    assert.equal(saved.placementId, originalPlacementId);
     const after = await owner(harness);
-    assert.deepEqual(after.links.filter((link) => link.resourceId === resourceId), [saved.link]);
-    assert.equal(after.profile.version, before.a.profile.version + 1);
-    assert.deepEqual(sortedReceipts(saved.versionChanges), sortedReceipts([
-      { entity: 'profile', id: after.profile.id, before: before.a.profile.version, after: after.profile.version },
-      { entity: 'placement', id: original.placementId, before: 0, after: saved.link.placementVersion },
-    ]));
+    assert.deepEqual(after.placements[originalPlacementId], { resourceId, selectedForDirectory: true });
+    assert.equal(after.creatorVersion, observed.creatorVersion + 1);
+    assert.equal(Object.hasOwn(saved, 'versionChanges'), false);
+    assert.deepEqual(after.series[series.seriesId].chapters, [], 'reinclude starts without chapter memberships');
     assert.deepEqual(await harness.store.get(currentUrlKey(U)), oldRow, 'identity-based re-add does not rewrite the URL index');
     assert.deepEqual(await harness.store.get(`resource:${resourceId}`), before.resources[0]);
-    const repeated = accepted(await api(harness, '/api/creador/enlaces', { resourceId, resourceVersion: retained.version }), 200);
-    assert.deepEqual(repeated.versionChanges, []);
-    assert.deepEqual(repeated.link, saved.link);
+    const repeated = accepted(await api(harness, '/api/creador/enlaces', {
+      creatorVersion: after.creatorVersion, resourceId, resourceVersion: retained.version,
+    }), 200);
+    assert.equal(repeated.disposition, 'already-present');
+    assert.equal(repeated.placementId, originalPlacementId);
     assert.deepEqual(await owner(harness), after, 'a fresh repeated re-add keeps one unchanged placement');
   });
 }
@@ -257,9 +280,10 @@ for (const version of [0, 1, 4]) {
     assert.deepEqual(classifyReservation(destination, V, 'incoming-import'), { status: 'duplicate', resourceIds: [resourceId] });
     const current = await owner(harness);
     if (pathKind === 'retired') accepted(await api(harness, '/api/creador/enlaces', {
-      resourceId, resourceVersion: current.editableResources.find(({ id }) => id === resourceId).version,
+      creatorVersion: current.creatorVersion, resourceId, resourceVersion: ownerResource(current, resourceId).version,
     }), 201);
-    assert.equal((await owner(harness)).links.find((link) => link.resourceId === resourceId).url, V);
+    const after = await owner(harness);
+    assert.equal(ownerResource(after, resourceId).url, V);
   });
 }
 
@@ -274,7 +298,7 @@ for (const rawVersion of [undefined, 0]) {
     assertFullUniqueObservation(urlCondition(harness, offset, U), { ...row, version: 0 });
     assert.equal(await harness.store.get(currentUrlKey(U)), null);
     assert.deepEqual(await harness.store.get(currentUrlKey(V)), currentUrlReservation(V, resourceId));
-    assert.equal((await owner(harness)).links.find((link) => link.resourceId === resourceId).url, V);
+    assert.equal(ownerResource(await owner(harness), resourceId).url, V);
   });
 }
 
@@ -315,13 +339,14 @@ test('title-only and no-op edits do not repair an unrelated index', async () => 
   assert.deepEqual(await harness.store.get(currentUrlKey(U)), unrelated);
   await remove(harness, resourceId);
   const current = await owner(harness);
-  const retained = current.editableResources.find(({ id }) => id === resourceId);
+  const retained = ownerResource(current, resourceId);
   const transactionsBeforeNoop = harness.mock.transactions.length;
   const noop = accepted(await edit(harness, resourceId, 'retired', { title: retained.title }), 200);
   assert.equal(harness.mock.transactions.length, transactionsBeforeNoop + 1, 'a no-op still confirms the observed resource in DynamoDB');
   assert.deepEqual(harness.mock.transactions.at(-1).input.TransactItems.map((item) => Object.keys(item)), [['ConditionCheck']]);
   assert.deepEqual(harness.mock.transactions.at(-1).input.TransactItems[0].ConditionCheck.Key, { id: resourceId });
-  assert.deepEqual(noop.versionChanges, []);
+  assert.equal(noop.disposition, 'unchanged');
+  assert.equal(Object.hasOwn(noop, 'versionChanges'), false);
   assert.deepEqual(await harness.store.get(currentUrlKey(U)), unrelated);
   assert.deepEqual((await owner(harness)).profile, current.profile);
 });
@@ -330,14 +355,14 @@ test('a retired unchanged PATCH conflicts with a concurrent edit, then a fresh s
   const { harness, resourceId } = await fixture(oldStates[0]);
   const original = await remove(harness, resourceId);
   const before = await snapshot(harness, resourceId);
-  const retained = before.a.editableResources.find(({ id }) => id === resourceId);
+  const retained = ownerResource(before.a, resourceId);
   let winner;
   harness.mock.raceBeforeNextTransaction(async () => {
     winner = accepted(await edit(harness, resourceId, 'retired', { title: 'Concurrent winner' }), 200);
   });
 
-  const stale = await api(harness, `/api/creador/recursos/${encodeURIComponent(resourceId)}`, {
-    version: retained.version, title: retained.title,
+  const stale = await api(harness, `/api/creador/recursos/?id=${encodeURIComponent(resourceId)}`, {
+    resourceVersion: retained.version, title: retained.title,
   }, { method: 'PATCH' });
   assert.equal(stale.status, 409, JSON.stringify(stale.body));
   assert.ok(winner, 'the second real service edit committed after the no-op had read its resource');
@@ -345,20 +370,21 @@ test('a retired unchanged PATCH conflicts with a concurrent edit, then a fresh s
   assert.equal(afterWinner.resources[0].title, 'Concurrent winner');
   assert.equal(afterWinner.resources[0].version, retained.version + 1);
   assert.deepEqual(afterWinner.a.profile, before.a.profile, 'the retired no-op did not advance the profile');
-  assert.deepEqual(afterWinner.a.links, before.a.links, 'the retired no-op did not recreate a placement');
+  assert.deepEqual(afterWinner.a.placements, before.a.placements, 'the retired no-op did not recreate a placement');
   assert.deepEqual(afterWinner.resources.slice(1), before.resources.slice(1));
   assert.deepEqual(afterWinner.urls, before.urls);
 
   const freshOwner = await owner(harness);
-  const freshResource = freshOwner.editableResources.find(({ id }) => id === resourceId);
+  const freshResource = ownerResource(freshOwner, resourceId);
   const readded = accepted(await api(harness, '/api/creador/enlaces', {
-    resourceId, resourceVersion: freshResource.version,
+    creatorVersion: freshOwner.creatorVersion, resourceId, resourceVersion: freshResource.version,
   }), 201);
-  assert.equal(readded.link.resourceId, resourceId);
-  assert.equal(readded.link.placementId, original.placementId, 'manual re-add retains the stable placement identity');
-  assert.equal(readded.link.title, 'Concurrent winner');
-  assert.equal(readded.link.resourceVersion, freshResource.version);
-  assert.deepEqual((await owner(harness)).links.filter(({ resourceId: id }) => id === resourceId), [readded.link]);
+  assert.equal(readded.resourceId, resourceId);
+  assert.equal(readded.placementId, original, 'manual re-add retains the stable placement identity');
+  const afterReadd = await owner(harness);
+  assert.equal(ownerResource(afterReadd, resourceId).title, 'Concurrent winner');
+  assert.equal(ownerResource(afterReadd, resourceId).version, freshResource.version);
+  assert.equal(afterReadd.placements[readded.placementId].resourceId, resourceId);
 });
 
 test('two supported cohost departures at version 1 conflict, then a fresh manual edit leaves only the last cohost', async () => {
@@ -382,7 +408,7 @@ test('two supported cohost departures at version 1 conflict, then a fresh manual
   accepted(await edit(harness, resourceId, 'active', { url: V, title: 'Later R title', selectedForDirectory: false }), 200);
   const final = await snapshot(harness, resourceId);
   assert.deepEqual(final.urls, [currentUrlReservation(U, T), currentUrlReservation(V, resourceId), currentUrlReservation(W, S)]);
-  assert.equal(final.a.links.find((link) => link.resourceId === resourceId).selectedForDirectory, false);
+  assert.equal(final.a.placements[ownerPlacementId(final.a, resourceId)].selectedForDirectory, false);
   assert.equal(final.resources[0].url, V);
   assert.deepEqual(final.resources[2], before.resources[2]);
   assert.deepEqual(final.b, rejected.b);
@@ -473,7 +499,7 @@ for (const mode of ['reference', 'add-by-url']) {
       let observed = await owner(harness);
       if (alreadyPresent) {
         accepted(await api(harness, '/api/creador/referencias', {
-          resourceId, url: U, profileVersion: observed.profile.version, selectedForDirectory: false,
+          resourceId, url: U, creatorVersion: observed.creatorVersion, selectedForDirectory: false,
         }), 201);
         observed = await owner(harness);
       }
@@ -481,20 +507,21 @@ for (const mode of ['reference', 'add-by-url']) {
       const offset = harness.mock.transactions.length;
       const path = mode === 'reference' ? '/api/creador/referencias' : '/api/creador/enlaces';
       const body = mode === 'reference'
-        ? { resourceId, url: U, profileVersion: observed.profile.version, selectedForDirectory: true }
-        : { title: 'A reference cannot rename this resource', url: U, selectedForDirectory: true };
+        ? { resourceId, url: U, creatorVersion: observed.creatorVersion, selectedForDirectory: true }
+        : { creatorVersion: observed.creatorVersion, title: 'A reference cannot rename this resource', url: U, selectedForDirectory: true };
       const saved = accepted(await api(harness, path, body), alreadyPresent ? 200 : 201);
       assertFullUniqueObservation(urlCondition(harness, offset, U), currentUrlReservation(U, resourceId));
       const after = await snapshot(harness, resourceId);
       assert.deepEqual(after.resources, before.resources);
       assert.deepEqual(after.urls, before.urls);
-      assert.deepEqual(after.a.editableResources, [], 'placement does not create metadata authority');
-      assert.equal(after.a.links.length, 1);
-      assert.equal(saved.link.resourceId, resourceId);
+      assert.equal(ownerResource(after.a, resourceId).metadataEditable, false, 'placement does not create metadata authority');
+      assert.equal(Object.keys(after.a.placements).length, 1);
+      assert.equal(saved.resourceId, resourceId);
       if (alreadyPresent) {
         assert.deepEqual(after.a, before.a);
-        assert.deepEqual(saved.link, before.a.links[0]);
-        assert.deepEqual(saved.versionChanges, []);
+        assert.equal(saved.disposition, 'already-present');
+        assert.equal(saved.placementId, ownerPlacementId(before.a, resourceId));
+        assert.equal(Object.hasOwn(saved, 'versionChanges'), false);
       }
     });
   }
@@ -506,38 +533,49 @@ test('add-by-URL losing an attach conflict requires an explicit retry instead of
   harness.mock.raceBeforeNextTransaction(async () => {
     const current = await owner(harness);
     winner = accepted(await api(harness, '/api/creador/referencias', {
-      resourceId, url: U, profileVersion: current.profile.version, selectedForDirectory: false,
+      resourceId, url: U, creatorVersion: current.creatorVersion, selectedForDirectory: false,
     }), 201);
   });
-  const losing = await api(harness, '/api/creador/enlaces', { title: 'Ignored title', url: U, selectedForDirectory: true });
+  const losingOwner = await owner(harness);
+  const losing = await api(harness, '/api/creador/enlaces', {
+    creatorVersion: losingOwner.creatorVersion, title: 'Ignored title', url: U, selectedForDirectory: true,
+  });
   assert.equal(losing.status, 409, JSON.stringify(losing.body));
   assert.ok(winner, 'the competing reference really committed');
   const current = await snapshot(harness, resourceId);
-  assert.deepEqual(current.a.links, [winner.link]);
-  const retried = accepted(await api(harness, '/api/creador/enlaces', { title: 'Ignored title', url: U, selectedForDirectory: true }), 200);
-  assert.deepEqual(retried.link, winner.link);
-  assert.deepEqual(retried.versionChanges, []);
+  assert.equal(ownerPlacementId(current.a, resourceId), winner.placementId);
+  const retryOwner = await owner(harness);
+  const retried = accepted(await api(harness, '/api/creador/enlaces', {
+    creatorVersion: retryOwner.creatorVersion, title: 'Ignored title', url: U, selectedForDirectory: true,
+  }), 200);
+  assert.equal(retried.disposition, 'already-present');
+  assert.equal(retried.placementId, winner.placementId);
+  assert.equal(Object.hasOwn(retried, 'versionChanges'), false);
   assert.deepEqual(await snapshot(harness, resourceId), current);
 });
 
 test('already-present exact-ID re-add checks the observed resource even on its no-op path', async () => {
   const { harness, resourceId } = await fixture(oldStates[0]);
   const observed = await owner(harness);
-  const original = observed.links[0];
+  const originalPlacementId = ownerPlacementId(observed, resourceId);
+  const originalResource = ownerResource(observed, resourceId);
   let laterEdit;
   harness.mock.raceBeforeNextTransaction(async () => {
-    laterEdit = accepted(await edit(harness, resourceId, 'retired', { title: 'Concurrent resource correction' }), 200);
+    laterEdit = accepted(await edit(harness, resourceId, 'active', { title: 'Concurrent resource correction' }), 200);
   });
-  const stale = await api(harness, '/api/creador/enlaces', { resourceId, resourceVersion: original.resourceVersion });
+  const stale = await api(harness, '/api/creador/enlaces', {
+    creatorVersion: observed.creatorVersion, resourceId, resourceVersion: originalResource.version,
+  });
   assert.equal(stale.status, 409, JSON.stringify(stale.body));
   assert.ok(laterEdit, 'the no-op reaches the conditional confirmation boundary');
   const current = await owner(harness);
-  const retained = current.editableResources.find(({ id }) => id === resourceId);
-  const retried = accepted(await api(harness, '/api/creador/enlaces', { resourceId, resourceVersion: retained.version }), 200);
-  assert.equal(retried.link.title, 'Concurrent resource correction');
-  assert.equal(retried.link.placementId, original.placementId);
-  assert.deepEqual(retried.versionChanges, []);
-  assert.deepEqual(await owner(harness), current);
+  const retained = ownerResource(current, resourceId);
+  const retried = accepted(await api(harness, '/api/creador/enlaces', {
+    creatorVersion: current.creatorVersion, resourceId, resourceVersion: retained.version,
+  }), 200);
+  assert.equal(retried.disposition, 'already-present');
+  assert.equal(retried.placementId, originalPlacementId);
+  assert.equal(ownerResource(await owner(harness), resourceId).title, 'Concurrent resource correction');
 });
 
 function assertPythonReads(resources, reservations) {

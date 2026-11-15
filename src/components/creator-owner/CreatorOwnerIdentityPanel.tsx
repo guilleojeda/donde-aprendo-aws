@@ -1,14 +1,12 @@
 import type { ComponentChildren } from 'preact';
 import type { CreatorSocial } from '../../types/creators';
-import type { CreatorOwnerState } from '../../lib/creator-owner-state';
+import { CREATOR_FIELD_LIMITS, CREATOR_SLUG_MIN_LENGTH, CREATOR_SLUG_PATTERN, CREATOR_SOCIALS } from '../../lib/creator-values.mjs';
+import { creatorOwnerCanSubmitEditor, type CreatorOwnerRecoveryChoice, type CreatorOwnerState } from '../../lib/creator-owner-state';
 
-const SOCIALS: Array<{ key: CreatorSocial; label: string }> = [
-  { key: 'instagram', label: 'Instagram' },
-  { key: 'x', label: 'X' },
-  { key: 'linkedin', label: 'LinkedIn' },
-  { key: 'awsBuilder', label: 'AWS Builder Center' },
-  { key: 'website', label: 'Sitio web o newsletter' },
-];
+const SOCIAL_LABELS: Record<CreatorSocial, string> = {
+  instagram: 'Instagram', x: 'X', linkedin: 'LinkedIn', awsBuilder: 'AWS Builder Center', website: 'Sitio web o newsletter',
+};
+const SOCIALS = CREATOR_SOCIALS.map((key) => ({ key, label: SOCIAL_LABELS[key] }));
 
 interface Props {
   state: CreatorOwnerState;
@@ -22,11 +20,11 @@ interface Props {
   onActivityPeriod(period: 7 | 30): void;
   onRetryActivity(): void;
   onCreateProfileInput(value: { displayName?: string; slug?: string }): void;
-  onCheck(): void;
+  onRetryRead(): void;
   onCheckSession(): void;
-  onAdopt(comparisonId: string): void;
+  onResolveRecovery(choice: CreatorOwnerRecoveryChoice): void;
+  onSaveRecoveryDraft(): void;
   onCopyLink(url: string): void;
-  onRetryCreateProfile(): void;
 }
 
 function safeSocialUrl(value: string | undefined): string | undefined {
@@ -43,6 +41,12 @@ function socialLabel(value: string | undefined): string {
   return value ?? '—';
 }
 
+function ComparisonRows({ rows }: { rows: Array<[string, string, string]> }) {
+  return <dl>{rows.map(([label, saved, draft]) => <div key={label}>
+    <dt>{label}</dt><dd>Guardado: {saved || '—'} | Tu borrador: {draft || '—'}</dd>
+  </div>)}</dl>;
+}
+
 function OwnerSectionNavigation({ view, period }: { view: CreatorOwnerState['location']['view']; period: 7 | 30 }) {
   return <nav class="creator-owner__link-tools" aria-label="Secciones de Tu página">
     <a class="button button--outline" data-owner-navigation aria-current={view === 'series' ? 'page' : undefined} href="/cuenta/?vista=series">Series</a>
@@ -52,8 +56,20 @@ function OwnerSectionNavigation({ view, period }: { view: CreatorOwnerState['loc
   </nav>;
 }
 
-export default function CreatorOwnerIdentityPanel({ state, children, logout, showActivitySummary = true, disabled, onOpenProfile, onCreateProfile, onPublish, onActivityPeriod, onRetryActivity, onCreateProfileInput, onCheck, onCheckSession, onAdopt, onCopyLink, onRetryCreateProfile }: Props) {
+export default function CreatorOwnerIdentityPanel({ state, children, logout, showActivitySummary = true, disabled, onOpenProfile, onCreateProfile, onPublish, onActivityPeriod, onRetryActivity, onCreateProfileInput, onRetryRead, onCheckSession, onResolveRecovery, onSaveRecoveryDraft, onCopyLink }: Props) {
   const profile = state.observed.profile;
+  const operation = state.operation;
+  const createEditor = state.editor?.kind === 'create-profile' ? state.editor : undefined;
+  const createLocked = operation.status !== 'idle';
+  const createMatchesOperation = Boolean(createEditor && operation.status !== 'idle' && 'intent' in operation
+    && operation.intent?.editorKey === createEditor.key);
+  const createCanSaveAfterConflict = Boolean(createEditor && operation.status === 'conflict'
+    && creatorOwnerCanSubmitEditor({ ...state, operation: { status: 'idle' } }));
+  const createRows = createEditor ? [
+    ['Nombre visible', profile?.displayName ?? 'No hay página guardada', createEditor.draft.displayName],
+    ['Dirección', profile?.slug ?? '—', createEditor.draft.slug],
+  ] as Array<[string, string, string]> : undefined;
+  const publishOperation = operation.status !== 'idle' && 'intent' in operation && operation.intent?.action === 'publish-profile';
   const photoPath = profile?.photo?.version !== undefined
     ? `/media/fotos/${encodeURIComponent(profile.id)}/${encodeURIComponent(String(profile.photo.version))}.webp`
     : undefined;
@@ -78,7 +94,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
   };
 
   return <div class="creator-owner" data-creator-owner data-owner-root data-csrf={state.session.state === 'ready' ? state.session.csrfToken : ''}
-    data-session-binding={state.sessionBinding} data-public-origin={state.publicOrigin} data-profile-version={profile?.version}>
+    data-session-binding={state.sessionBinding} data-public-origin={state.publicOrigin} data-creator-version={state.observed.creatorVersion} data-owner-operation={operation.status}>
     <div class="creator-owner__account-bar">
       <a class="creator-owner__back" data-owner-navigation href="/" aria-label="Volver al sitio">Volver al sitio</a>
       <details class="creator-owner__account-menu">
@@ -103,7 +119,8 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
       </header>
 
       {state.message && <p class={`creator-owner__status${state.message.kind === 'error' ? ' creator-owner__status--error' : ''}`} data-owner-status role={state.message.kind === 'error' ? 'alert' : 'status'} aria-live="polite">{state.message.text}</p>}
-      {state.session.state !== 'ready' && <section class="creator-owner__status" data-session-recovery-shell>
+      {state.session.state !== 'ready' && <section class="creator-owner__status" data-session-recovery-shell
+        hidden={Boolean(state.editor && state.editor.kind !== 'create-profile')}>
         <p data-session-recovery-status role="status" aria-live="polite">{state.session.message}</p>
         {state.session.state === 'recovery-required' || state.session.state === 'checking'
           ? <>
@@ -113,34 +130,46 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
           : <a class="button button--outline" href="/cuenta/">Abrir una página nueva</a>}
       </section>}
 
-      {!profile && <section class="creator-owner__create" data-owner-create-panel aria-labelledby="creator-owner-create-title">
+      {(createEditor || !profile) && <section class="creator-owner__create" data-owner-create-panel aria-labelledby="creator-owner-create-title">
         <p class="creator-owner__eyebrow">Primer paso</p>
-        <h2 id="creator-owner-create-title">Prepara tu página</h2>
-        <p>El nombre y la dirección se pueden elegir por separado. Al crearla queda como borrador; publicar es una acción posterior.</p>
-        <form class="creator-owner__form" data-owner-form="crear" onSubmit={(event) => { event.preventDefault(); onCreateProfile(); }}>
+        <h2 id="creator-owner-create-title">{profile ? 'Borrador conservado' : 'Prepara tu página'}</h2>
+        <p>{profile ? 'Ya hay una página guardada. Conservamos el borrador original para que puedas revisar qué enviaste.' : 'El nombre y la dirección se pueden elegir por separado. Al crearla queda como borrador; publicar es una acción posterior.'}</p>
+        <form class="creator-owner__form" data-owner-form="crear" onSubmit={(event) => { event.preventDefault(); if (event.currentTarget instanceof HTMLFormElement && event.currentTarget.reportValidity() && creatorOwnerCanSubmitEditor(state)) onCreateProfile(); }}>
           <div class="creator-owner__field">
             <label htmlFor="owner-create-name">Nombre visible</label>
-            <input id="owner-create-name" name="displayName" value={state.editor?.kind === 'create-profile' ? state.editor.draft.displayName : ''}
-              autocomplete="name" maxlength={120} required data-owner-create-name
+            <input id="owner-create-name" name="displayName" value={createEditor?.draft.displayName ?? ''}
+              autocomplete="name" maxlength={CREATOR_FIELD_LIMITS.displayName} required data-owner-create-name readOnly={createLocked}
               onInput={(event) => onCreateProfileInput({ displayName: (event.currentTarget as HTMLInputElement).value })} />
           </div>
           <div class="creator-owner__field">
             <label htmlFor="owner-create-slug">Dirección de tu página</label>
             <div class="creator-owner__slug-field"><span aria-hidden="true">/c/</span>
-              <input id="owner-create-slug" name="slug" value={state.editor?.kind === 'create-profile' ? state.editor.draft.slug : ''}
-                required minlength={3} maxlength={40} pattern="[a-z0-9]+(-[a-z0-9]+)*" autocomplete="off" autocapitalize="none" spellcheck={false} data-owner-create-slug
+              <input id="owner-create-slug" name="slug" value={createEditor?.draft.slug ?? ''}
+                required minlength={CREATOR_SLUG_MIN_LENGTH} maxlength={CREATOR_FIELD_LIMITS.slug} pattern={CREATOR_SLUG_PATTERN} autocomplete="off" autocapitalize="none" spellcheck={false} data-owner-create-slug readOnly={createLocked}
                 onInput={(event) => onCreateProfileInput({ slug: (event.currentTarget as HTMLInputElement).value })} />
             </div>
             <small>3–40 caracteres: minúsculas, números y guiones sencillos.</small>
           </div>
-          <button class="button button--dark" type="submit" disabled={disabled}>Crear borrador</button>
-          {(state.attempt.status === 'uncertain' || state.attempt.status === 'conflict') && state.attempt.intent.kind === 'create-profile' && <button class="button button--outline" type="button" onClick={onCheck}>Comprobar</button>}
-          {state.attempt.status === 'uncertain' && state.attempt.comparison && <section class="creator-owner__conflict" data-owner-conflict>
-            <h3>Revisar el borrador</h3><p>{state.attempt.comparison.message}</p>
-            {state.attempt.comparison.canAdopt && <button class="button button--outline" type="button" data-owner-adopt onClick={() => onAdopt(state.attempt.status === 'uncertain' ? state.attempt.comparison?.id ?? '' : '')}>Continuar con los datos guardados</button>}
-            {!state.attempt.comparison.canAdopt && !state.observed.profile && <button class="button button--outline" type="button"
-              disabled={!state.runtimeReady || state.session.state !== 'ready'}
-              onClick={onRetryCreateProfile}>Volver a intentar crear borrador</button>}
+          <button class="button button--dark" type="submit" disabled={disabled || !creatorOwnerCanSubmitEditor(state)}>Crear borrador</button>
+          {createMatchesOperation && operation.status === 'refresh-failed' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind={operation.status} data-owner-stale role="alert">
+            <p>{operation.message}</p><button class="button button--outline" type="button" data-owner-refresh-retry onClick={onRetryRead}>Reintentar actualización</button>
+          </section>}
+          {createMatchesOperation && operation.status === 'reading' && <p class="creator-owner__status" data-owner-operation-message role="status" aria-live="polite">{operation.message}</p>}
+          {createMatchesOperation && operation.status === 'unknown' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind="unknown" aria-live="polite">
+            <h3>No sabemos si se guardó</h3><p>{operation.message}</p>
+            {operation.readCompleted && createRows && <ComparisonRows rows={createRows} />}
+            {!operation.readCompleted ? <button class="button button--outline" type="button" data-owner-check onClick={onRetryRead}>Comprobar estado guardado</button>
+              : <div class="creator-owner__dialog-actions">
+                <button class="button button--outline" type="button" data-owner-use-saved onClick={() => onResolveRecovery('saved')}>Usar lo guardado</button>
+                <button class="button button--outline" type="button" data-owner-return-to-draft onClick={() => onResolveRecovery('draft')}>Volver al borrador</button>
+              </div>}
+          </section>}
+          {createMatchesOperation && operation.status === 'conflict' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind="conflict" aria-live="polite">
+            <h3>El contenido cambió</h3><p>{operation.message}</p>{operation.readCompleted && createRows && <ComparisonRows rows={createRows} />}
+            <div class="creator-owner__dialog-actions">
+              {createCanSaveAfterConflict && <button class="button button--dark" type="button" data-owner-conflict-save onClick={onSaveRecoveryDraft}>Guardar mi borrador</button>}
+              <button class="button button--outline" type="button" data-owner-use-saved onClick={() => onResolveRecovery('saved')}>Usar lo guardado</button>
+            </div>
           </section>}
         </form>
       </section>}
@@ -187,7 +216,9 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
             <p data-owner-draft-copy>Tu página está en borrador. Puedes completar el perfil y publicarla cuando esté lista.</p>
             {!profile.hidden && <button class="button button--dark" type="button" data-owner-publish disabled={disabled} onClick={onPublish}>Publicar página</button>}
           </>}
-          {state.attempt.status === 'uncertain' && state.attempt.intent.kind === 'publish' && <button class="button button--outline" type="button" data-owner-publish-check onClick={onCheck}>Comprobar estado guardado</button>}
+          {publishOperation && operation.status === 'reading' && <p class="creator-owner__status" data-owner-operation-message role="status" aria-live="polite">{operation.message}</p>}
+          {publishOperation && operation.status === 'unknown' && !operation.readCompleted && <button class="button button--outline" type="button" data-owner-publish-check onClick={onRetryRead}>Comprobar estado guardado</button>}
+          {publishOperation && (operation.status === 'unknown' || operation.status === 'conflict') && operation.readCompleted && <button class="button button--outline" type="button" data-owner-use-saved onClick={() => onResolveRecovery('saved')}>Usar lo guardado</button>}
         </section>
 
         {showActivitySummary && <section class="creator-owner__activity" data-owner-activity data-owner-profile-state={profile.hidden ? 'hidden' : profile.published ? 'published' : 'draft'} data-owner-creator-id={profile.id}

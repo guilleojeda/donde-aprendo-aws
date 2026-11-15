@@ -142,12 +142,61 @@ function editorData({ withProfile = true } = {}) {
     }),
   ];
 
+  if (!withProfile) {
+    return {
+      schemaVersion: 2,
+      creatorVersion: null,
+      profile: null,
+      resources: [],
+      placements: {},
+      order: { featured: [], ordinary: [] },
+      series: {},
+      claims: [],
+    };
+  }
+
+  const currentProfile = profile();
+  const { version: creatorVersion, ...profileDto } = currentProfile;
+  const placements = Object.fromEntries(links.map(({ placementId, resourceId, selectedForDirectory }) => [
+    placementId,
+    { resourceId, selectedForDirectory },
+  ]));
+  const resources = links.map(({ resourceId, title, url, description, hidden, directoryApproval }) => ({
+    id: resourceId,
+    version: 1,
+    title,
+    url,
+    description,
+    hidden,
+    directoryApproval,
+    metadataEditable: true,
+    reincludeAllowed: false,
+  }));
+  const order = {
+    featured: links.filter(({ featured }) => featured).sort((left, right) => left.position - right.position)
+      .map(({ placementId }) => placementId),
+    ordinary: links.filter(({ featured }) => !featured).sort((left, right) => left.position - right.position)
+      .map(({ placementId }) => placementId),
+  };
+  const series = Object.fromEntries([seriesOne, seriesTwo].map((item) => [item.id, {
+    name: item.name,
+    slug: item.slug,
+    description: item.description,
+    chapters: links.filter((entry) => entry.series.some(({ seriesId }) => seriesId === item.id))
+      .sort((left, right) => left.series.find(({ seriesId }) => seriesId === item.id).position
+        - right.series.find(({ seriesId }) => seriesId === item.id).position)
+      .map(({ placementId }) => placementId),
+  }]));
+
   return {
-    profile: withProfile ? profile() : null,
-    links,
-    editableResources: links.map(({ resourceId, title, url }) => ({ id: resourceId, title, url, version: 1 })),
+    schemaVersion: 2,
+    creatorVersion,
+    profile: profileDto,
+    resources,
+    placements,
+    order,
     claims: [],
-    series: [seriesOne, seriesTwo],
+    series,
   };
 }
 

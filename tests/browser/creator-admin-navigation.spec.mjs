@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { CLIENT_ID, COGNITO_DOMAIN } from '../fixtures/account-auth.mjs';
-import { expect, test, addCookie } from '../fixtures/creator-browser-test.mjs';
+import { expect, test, addCookie, createProfile } from '../fixtures/creator-browser-test.mjs';
 import { adminResourceCommandMatches, seedResource } from '../fixtures/creator-pages.mjs';
-import { adminPath, loginAsSeparateOwner, openAdmin, prepareAdmin, resource, root, row } from '../fixtures/creator-admin.mjs';
+import { adminPath, loginAsSeparateOwner, openAdmin, prepareAdmin, resource, root, row, submitCreatorClaim } from '../fixtures/creator-admin.mjs';
 
 function watchAdminWrites(page) {
   const writes = [];
@@ -510,17 +510,10 @@ test('a real partial claim commits its stale selections while another admin draf
   await openAdmin(fixture, page, ids);
   const ownerCookie = await loginAsSeparateOwner(fixture, 'phase3-partial-claim-owner', 'phase3-owner@example.invalid');
   const ownerPrincipal = await fixture.principal(ownerCookie);
-  const profileResponse = await fixture.request(ownerCookie, '/api/creador/perfil', {
-    method: 'PUT',
-    body: { displayName: 'Dueña de recursos', slug: 'duena-recursos', socials: {} },
+  await createProfile(fixture, ownerCookie, { displayName: 'Dueña de recursos', slug: 'duena-recursos' });
+  const claim = await submitCreatorClaim(fixture, ownerCookie, ids.slice(0, 3), {
+    evidence: 'Solicitud para validar la revisión administrativa.',
   });
-  assert.equal(profileResponse.status, 200, 'a separate real account creates the target profile');
-  const claimResponse = await fixture.request(ownerCookie, '/api/creador/reclamaciones', {
-    method: 'POST',
-    body: { resourceIds: ids.slice(0, 3), evidence: 'Solicitud para validar la revisión administrativa.' },
-  });
-  assert.equal(claimResponse.status, 202, 'the real creator API creates the claim shown to administration');
-  const claim = (await claimResponse.json()).claim;
   await page.reload();
 
   const claimForm = page.locator(`[data-admin-claim="${claim.id}"] form[data-claim-resolution]`);

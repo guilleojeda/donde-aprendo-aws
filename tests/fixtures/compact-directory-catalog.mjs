@@ -14,17 +14,33 @@ const fixture = {
     ...(record.id === 'fixture-student-argentina' ? { id: identityCommunityId } : {}),
     ...(record.id === 'directory-security' ? { communityId: identityCommunityId } : {}),
   })),
-  profiles: [
-    { id: 'fixture-series-ana', displayName: 'Ana de pruebas', slug: 'fixture-series-ana', published: true, hidden: false },
-    { id: 'fixture-series-bea', displayName: 'Bea de pruebas', slug: 'fixture-series-bea', published: true, hidden: false },
-  ],
-  placements: [
-    { id: 'fixture-placement-ana', profileId: 'fixture-series-ana', resourceId, selected: true, series: { 'fixture-series-visible': { position: 0 } } },
-    { id: 'fixture-placement-bea', profileId: 'fixture-series-bea', resourceId, selected: false, series: { 'fixture-series-withdrawn': { position: 0 } } },
-  ],
-  series: [
-    { id: 'fixture-series-visible', profileId: 'fixture-series-ana', name: 'Ruta Zafiro de pruebas', slug: 'ruta-zafiro', version: 1 },
-    { id: 'fixture-series-withdrawn', profileId: 'fixture-series-bea', name: 'Ruta Opalo retirada', slug: 'ruta-opalo', version: 1 },
+  creators: [
+    {
+      id: 'fixture-series-ana', schemaVersion: 2, version: 1,
+      displayName: 'Ana de pruebas', slug: 'fixture-series-ana', published: true, hidden: false,
+      placements: {
+        'fixture-placement-ana': { resourceId, selectedForDirectory: true },
+      },
+      order: { featured: [], ordinary: ['fixture-placement-ana'] },
+      series: {
+        'fixture-series-visible': {
+          name: 'Ruta Zafiro de pruebas', slug: 'ruta-zafiro', chapters: ['fixture-placement-ana'],
+        },
+      },
+    },
+    {
+      id: 'fixture-series-bea', schemaVersion: 2, version: 1,
+      displayName: 'Bea de pruebas', slug: 'fixture-series-bea', published: true, hidden: false,
+      placements: {
+        'fixture-placement-bea': { resourceId, selectedForDirectory: false },
+      },
+      order: { featured: [], ordinary: ['fixture-placement-bea'] },
+      series: {
+        'fixture-series-withdrawn': {
+          name: 'Ruta Opalo retirada', slug: 'ruta-opalo', chapters: ['fixture-placement-bea'],
+        },
+      },
+    },
   ],
 };
 process.stdout.write(`${JSON.stringify(fixture, null, 2)}\n`);

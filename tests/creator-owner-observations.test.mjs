@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { isDeepStrictEqual } from 'node:util';
 import {
   callApi,
   createCreatorPagesHarness,
@@ -13,44 +12,54 @@ async function api(harness, path, { method = 'GET', body } = {}) {
   return callApi(harness, path, {
     session: 'creator-a',
     csrf: sessionCsrf['creator-a'],
+    creatorContract: '2',
     method,
     ...(body === undefined ? {} : { body }),
   });
 }
 
-async function createProfile(harness, slug) {
-  const response = await api(harness, '/api/creador/perfil', {
-    method: 'PUT', body: { displayName: 'Ana', slug },
-  });
-  assert.equal(response.status, 200);
-  return (await responseJson(response)).profile;
-}
-
-async function addOwnLink(harness, title, slug) {
-  const response = await api(harness, '/api/creador/enlaces', {
-    method: 'POST', body: { title, url: `https://example.com/${slug}`, description: `Descripción ${title}` },
-  });
-  assert.equal(response.status, 201);
-  return responseJson(response);
-}
-
 async function ownerGet(harness) {
   const response = await api(harness, '/api/creador/perfil');
   assert.equal(response.status, 200);
-  return responseJson(response);
+  const snapshot = await responseJson(response);
+  assert.equal(snapshot.schemaVersion, 2);
+  assert.ok(Number.isSafeInteger(snapshot.creatorVersion));
+  assert.equal(Object.hasOwn(snapshot, 'links'), false);
+  assert.equal(Object.hasOwn(snapshot, 'editableResources'), false);
+  return snapshot;
 }
 
-function ownerResourceObservation(link) {
-  return {
-    id: link.resourceId,
-    title: link.title,
-    url: link.url,
-    ...(typeof link.description === 'string' ? { description: link.description } : {}),
-    version: link.resourceVersion,
-  };
+async function createProfile(harness, slug) {
+  const response = await api(harness, '/api/creador/perfil', {
+    method: 'PUT', body: { creatorVersion: null, displayName: 'Ana', slug },
+  });
+  assert.equal(response.status, 200, await response.clone().text());
+  const ack = await responseJson(response);
+  assert.equal(ack.operation, 'save-profile');
+  assert.equal(ack.disposition, 'created');
+  assert.equal(ack.schemaVersion, 2);
+  return ack;
 }
 
-test('owner GET observes each placed and editable resource once and keeps shared and retired authority distinct', async () => {
+async function addOwnLink(harness, title, slug) {
+  const before = await ownerGet(harness);
+  const response = await api(harness, '/api/creador/enlaces', {
+    method: 'POST', body: {
+      creatorVersion: before.creatorVersion,
+      title,
+      url: `https://example.com/${slug}`,
+      description: `Descripción ${title}`,
+    },
+  });
+  assert.equal(response.status, 201, await response.clone().text());
+  const ack = await responseJson(response);
+  assert.equal(ack.schemaVersion, 2);
+  assert.equal(ack.operation, 'add-link');
+  assert.equal(ack.disposition, 'resource-created');
+  return { ...ack, title };
+}
+
+test('owner GET reads the unique active and authorized retained resource union once with current permissions', async () => {
   const harness = await createCreatorPagesHarness();
   await createProfile(harness, 'owner-observations');
   const activeOwn = await addOwnLink(harness, 'Ficha propia', 'owner-observed-own');
@@ -73,18 +82,29 @@ test('owner GET observes each placed and editable resource once and keeps shared
     version: 1,
     directoryControl: 'editorial',
   });
+
   const profileId = (await harness.store.get('account-profile:private-account-a')).profileId;
-  const profile = await harness.store.get(`profile:${profileId}`);
+  const beforeReference = await ownerGet(harness);
   const reference = await api(harness, '/api/creador/referencias', {
-    method: 'POST', body: { resourceId: sharedId, url: sharedUrl, profileVersion: profile.version },
+    method: 'POST', body: {
+      creatorVersion: beforeReference.creatorVersion,
+      resourceId: sharedId,
+      url: sharedUrl,
+    },
   });
-  assert.equal(reference.status, 201);
-  const beforeRetirement = await harness.store.get(`profile:${profileId}`);
-  const retiredPlacement = await harness.store.get(`placement:${profileId}:${retiredOwn.link.placementId}`);
-  const removed = await api(harness, `/api/creador/enlaces/${retiredOwn.link.placementId}`, {
-    method: 'DELETE', body: { profileVersion: beforeRetirement.version },
+  assert.equal(reference.status, 201, await reference.clone().text());
+  const referenceAck = await responseJson(reference);
+  assert.equal(referenceAck.operation, 'reference-link');
+  assert.equal(referenceAck.disposition, 'attached');
+
+  const beforeRemoval = await ownerGet(harness);
+  const removed = await api(harness, `/api/creador/enlaces/${retiredOwn.placementId}`, {
+    method: 'DELETE', body: { creatorVersion: beforeRemoval.creatorVersion },
   });
-  assert.equal(removed.status, 204);
+  assert.equal(removed.status, 200, await removed.clone().text());
+  const removedAck = await responseJson(removed);
+  assert.equal(removedAck.operation, 'remove-link');
+  assert.equal(removedAck.disposition, 'removed');
 
   const baseGet = harness.store.get.bind(harness.store);
   const observedBatches = [];
@@ -99,115 +119,88 @@ test('owner GET observes each placed and editable resource once and keeps shared
   };
   const owner = await ownerGet(harness);
 
-  const requestedIds = [activeOwn.link.resourceId, sharedId, retiredOwn.link.resourceId].sort();
+  const requestedIds = [activeOwn.resourceId, sharedId, retiredOwn.resourceId].sort();
   const actualIds = observedBatches.flat().sort();
   const counts = new Map();
   for (const id of actualIds) counts.set(id, (counts.get(id) ?? 0) + 1);
-  const issues = [];
-  if (JSON.stringify(actualIds) !== JSON.stringify(requestedIds)) {
-    issues.push(`owner GET resource IDs observed were ${JSON.stringify(actualIds)}; expected ${JSON.stringify(requestedIds)}`);
-  }
-  if ([...counts.values()].some((count) => count !== 1)) {
-    issues.push(`resource observations were duplicated: ${JSON.stringify([...counts])}`);
-  }
+  assert.deepEqual(actualIds, requestedIds, 'one resource batch covers active placements and retained editor references');
+  assert.ok([...counts.values()].every((count) => count === 1), 'no resource is observed more than once');
 
-  const activeLink = owner.links.find(({ resourceId }) => resourceId === activeOwn.link.resourceId);
-  const activeEditable = owner.editableResources.find(({ id }) => id === activeOwn.link.resourceId);
-  assert.ok(activeLink && activeEditable, 'a placed own resource appears in both owner projections');
-  assert.deepEqual(ownerResourceObservation(activeLink), activeEditable,
-    'overlapping link and editable-resource DTOs come from the same resource observation');
-  assert.equal(owner.links.some(({ resourceId }) => resourceId === retiredOwn.link.resourceId), false);
-  assert.deepEqual(owner.editableResources.find(({ id }) => id === retiredOwn.link.resourceId), {
-    id: retiredOwn.link.resourceId,
-    title: retiredOwn.link.title,
-    url: retiredOwn.link.url,
-    description: retiredOwn.link.description,
-    version: retiredOwn.link.resourceVersion,
-  }, 'a removed placement retains only the resource owner’s edit projection');
-  assert.equal(owner.links.some(({ resourceId }) => resourceId === sharedId), true,
-    'a shared catalog resource remains visible as a placed link');
-  assert.equal(owner.editableResources.some(({ id }) => id === sharedId), false,
-    'a shared catalog resource does not acquire owner edit authority');
-  assert.equal(retiredPlacement.resourceId, retiredOwn.link.resourceId);
+  const resourceById = new Map(owner.resources.map((resource) => [resource.id, resource]));
+  assert.deepEqual(new Set(resourceById.keys()), new Set(requestedIds));
+  assert.equal(owner.resources.length, 3, 'an active resource and its retained editor reference appear once');
+  assert.equal(resourceById.get(activeOwn.resourceId).metadataEditable, true);
+  assert.equal(resourceById.get(activeOwn.resourceId).reincludeAllowed, false,
+    'metadata rights do not make an active resource eligible for reinclude');
+  assert.equal(resourceById.get(retiredOwn.resourceId).metadataEditable, true);
+  assert.equal(resourceById.get(retiredOwn.resourceId).reincludeAllowed, true,
+    'the retained resource is selectable because its current reference and authority were verified');
+  assert.equal(resourceById.get(sharedId).metadataEditable, false,
+    'visibility as a placed catalog resource does not grant shared metadata authority');
+  assert.equal(resourceById.get(sharedId).reincludeAllowed, false);
+  assert.deepEqual(owner.placements[activeOwn.placementId], {
+    resourceId: activeOwn.resourceId,
+    selectedForDirectory: true,
+  });
+  assert.equal(Object.hasOwn(owner.placements, retiredOwn.placementId), false);
+  assert.equal(owner.order.featured.includes(retiredOwn.placementId), false);
+  assert.equal(owner.order.ordinary.includes(retiredOwn.placementId), false);
+  assert.ok(Object.values(owner.series).every(({ chapters }) => !chapters.includes(retiredOwn.placementId)),
+    'the removed placement is absent from every complete chapter sequence');
 
   const sharedBefore = await harness.store.get(`resource:${sharedId}`);
-  const forbidden = await api(harness, `/api/creador/recursos/${sharedId}`, {
-    method: 'PATCH', body: { title: sharedBefore.title, version: sharedBefore.version },
+  const forbidden = await api(harness, `/api/creador/recursos/?id=${encodeURIComponent(sharedId)}`, {
+    method: 'PATCH', body: { resourceVersion: sharedBefore.version, title: sharedBefore.title },
   });
-  assert.equal(forbidden.status, 403, 'the shared non-editor cannot write metadata through its visible link');
+  assert.equal(forbidden.status, 403, 'a non-editor cannot write metadata through a visible catalog placement');
   assert.deepEqual(await harness.store.get(`resource:${sharedId}`), sharedBefore,
-    'a rejected shared-resource write leaves the raw record unchanged');
-  assert.deepEqual(issues, [], 'the owner GET reads each selected resource once');
+    'the permission rejection leaves the raw shared record unchanged');
+  assert.equal(owner.profile.id, profileId);
 });
 
-test('owner GET uses the common resource batch for placed and retained editor resources', async () => {
+test('owner GET uses one read-only batch for placed and retained editor resources', async () => {
   const harness = await createCreatorPagesHarness();
   await createProfile(harness, 'owner-batch-union');
   const active = await addOwnLink(harness, 'Ficha activa', 'owner-batch-active');
   const retired = await addOwnLink(harness, 'Ficha retirada', 'owner-batch-retired');
-  const profileId = (await harness.store.get('account-profile:private-account-a')).profileId;
-  const profile = await harness.store.get(`profile:${profileId}`);
-  assert.equal((await api(harness, `/api/creador/enlaces/${retired.link.placementId}`, {
-    method: 'DELETE', body: { profileVersion: profile.version },
-  })).status, 204);
+  const before = await ownerGet(harness);
+  const removed = await api(harness, `/api/creador/enlaces/${retired.placementId}`, {
+    method: 'DELETE', body: { creatorVersion: before.creatorVersion },
+  });
+  assert.equal(removed.status, 200);
 
-  const expectedIds = [active.link.resourceId, retired.link.resourceId].sort();
+  const expectedIds = [active.resourceId, retired.resourceId].sort();
   const callsBeforeRead = harness.store.calls.length;
   const owner = await ownerGet(harness);
   const readCalls = harness.store.calls.slice(callsBeforeRead);
   const resourceBatches = readCalls.filter(({ operation }) => operation === 'getResources');
   assert.equal(resourceBatches.length, 1, 'the owner read calls the shared batch operation once');
   assert.deepEqual([...resourceBatches[0].input.ids].sort(), expectedIds,
-    'the shared batch includes the placed and editor-retained resource union');
-  assert.equal(new Set(resourceBatches[0].input.ids).size, expectedIds.length,
-    'the common batch does not request a resource more than once');
+    'the batch covers the placed and retained-resource union');
+  assert.equal(new Set(resourceBatches[0].input.ids).size, expectedIds.length);
   assert.equal(readCalls.some(({ operation, input }) => operation === 'get' && input.key.startsWith('resource:')), false,
     'the owner query does not fall back to individual resource reads');
   assert.equal(readCalls.some(({ operation }) => operation === 'transact'), false,
     'the owner query remains read-only');
-
-  const baseGet = harness.store.get.bind(harness.store);
-  const activeLink = owner.links.find(({ resourceId }) => resourceId === active.link.resourceId);
-  const activeEditable = owner.editableResources.find(({ id }) => id === active.link.resourceId);
-  const activePlacement = await baseGet(`placement:${profileId}:${active.link.placementId}`);
-  const activeResource = await baseGet(`resource:${active.link.resourceId}`);
-  assert.deepEqual(activeLink, {
-    placementId: activePlacement.id,
-    resourceId: activeResource.id,
-    title: activeResource.title,
-    url: activeResource.url,
-    description: activeResource.description,
-    featured: activePlacement.featured,
-    position: activePlacement.position,
-    selectedForDirectory: activePlacement.selectedForDirectory,
-    hidden: false,
-    series: [],
-    directoryApproval: 'pending',
-    resourceVersion: activeResource.version,
-    placementVersion: activePlacement.version,
-  });
-  assert.deepEqual(activeEditable, {
-    id: activeResource.id,
-    title: activeResource.title,
-    url: activeResource.url,
-    description: activeResource.description,
-    version: activeResource.version,
-  });
-  assert.equal(owner.links.some(({ resourceId }) => resourceId === retired.link.resourceId), false);
-  assert.equal(owner.editableResources.some(({ id }) => id === retired.link.resourceId), true);
+  assert.deepEqual(new Set(owner.resources.map(({ id }) => id)), new Set(expectedIds));
+  assert.equal(owner.placements[active.placementId].resourceId, active.resourceId);
+  assert.equal(Object.hasOwn(owner.placements, retired.placementId), false);
+  assert.deepEqual(owner.order, { featured: [], ordinary: [active.placementId] });
+  assert.equal(owner.resources.find(({ id }) => id === active.resourceId).metadataEditable, true);
+  assert.equal(owner.resources.find(({ id }) => id === retired.resourceId).reincludeAllowed, true);
 });
 
-test('owner GET fails closed when a retired editor reference selects a missing resource', async () => {
+test('owner GET fails closed when an authorized retained reference points to a missing resource', async () => {
   const harness = await createCreatorPagesHarness();
   await createProfile(harness, 'owner-missing-retired-resource');
   const retired = await addOwnLink(harness, 'Ficha retirada ausente', 'owner-missing-retired');
-  const profileId = (await harness.store.get('account-profile:private-account-a')).profileId;
-  const profile = await harness.store.get(`profile:${profileId}`);
-  assert.equal((await api(harness, `/api/creador/enlaces/${retired.link.placementId}`, {
-    method: 'DELETE', body: { profileVersion: profile.version },
-  })).status, 204);
+  const before = await ownerGet(harness);
+  const removed = await api(harness, `/api/creador/enlaces/${retired.placementId}`, {
+    method: 'DELETE', body: { creatorVersion: before.creatorVersion },
+  });
+  assert.equal(removed.status, 200);
 
-  const resourceKey = `resource:${retired.link.resourceId}`;
+  const resourceKey = `resource:${retired.resourceId}`;
   const resource = await harness.store.get(resourceKey);
   assert.equal(await harness.store.transact({
     checks: [{ key: resourceKey, version: resource.version }],
@@ -218,7 +211,7 @@ test('owner GET fails closed when a retired editor reference selects a missing r
   assert.equal((await responseJson(response)).error, 'MISSING_RESOURCE');
 });
 
-test('a real metadata write between resource observations cannot split one owner GET', async () => {
+test('one owner snapshot keeps the resource value returned by its batch while a later GET observes the edit', async () => {
   const harness = await createCreatorPagesHarness();
   await createProfile(harness, 'owner-observation-race');
   const created = await addOwnLink(harness, 'Antes de la edición', 'owner-observation-race-resource');
@@ -232,58 +225,34 @@ test('a real metadata write between resource observations cannot split one owner
       const resource = await baseGet(`resource:${id}`);
       if (resource) observed.set(id, resource);
     }
-    const target = observed.get(created.link.resourceId);
+    const target = observed.get(created.resourceId);
     if (!intervened && target) {
       intervened = true;
-      const edit = await api(harness, `/api/creador/recursos/${created.link.resourceId}`, {
-        method: 'PATCH', body: { title: 'Después de la primera observación', version: target.version },
+      const edit = await api(harness, `/api/creador/recursos/?id=${encodeURIComponent(created.resourceId)}`, {
+        method: 'PATCH', body: { resourceVersion: target.version, title: 'Después de la primera observación' },
       });
       assert.equal(edit.status, 200, 'the concurrent metadata command commits through the real API');
+      const ack = await responseJson(edit);
+      assert.equal(ack.schemaVersion, 2);
+      assert.equal(ack.operation, 'edit-resource');
+      assert.equal(ack.resourceVersion, target.version + 1);
+      assert.equal(Object.hasOwn(ack, 'creatorVersion'), false,
+        'resource-only metadata does not fabricate a creator content revision');
     }
     return observed;
   };
 
   const first = await ownerGet(harness);
-  const firstBatches = [...batches];
-  const firstLink = first.links.find(({ resourceId }) => resourceId === created.link.resourceId);
-  const firstEditable = first.editableResources.find(({ id }) => id === created.link.resourceId);
-  const issues = [];
-  if (firstLink?.title !== created.link.title || firstLink?.resourceVersion !== created.link.resourceVersion) {
-    issues.push('first link projection did not retain literal BEFORE title/version');
-  }
-  if (firstEditable?.title !== created.link.title || firstEditable?.version !== created.link.resourceVersion) {
-    issues.push('first editable projection did not retain literal BEFORE title/version');
-  }
-  if (!firstLink || !firstEditable || !isDeepStrictEqual(ownerResourceObservation(firstLink), firstEditable)) {
-    issues.push('first owner GET exposed different values or versions for one resource ID');
-  }
-  const firstCounts = new Map();
-  for (const id of firstBatches.flat()) firstCounts.set(id, (firstCounts.get(id) ?? 0) + 1);
-  if ([...firstCounts.values()].some((count) => count !== 1) || firstCounts.size !== 1) {
-    issues.push(`first owner GET observed the same resource more than once: ${JSON.stringify(firstBatches)}`);
-  }
-  assert.equal(intervened, true, 'the write happens after the provider returned its first observation');
+  assert.equal(intervened, true, 'the resource write commits after the batch captured its first value');
+  assert.equal(first.resources.find(({ id }) => id === created.resourceId).title, 'Antes de la edición');
+  assert.equal(first.resources.find(({ id }) => id === created.resourceId).version, 1);
+  assert.equal(batches.length, 1);
+  assert.deepEqual(batches[0], [created.resourceId]);
 
   batches.length = 0;
   const next = await ownerGet(harness);
-  const nextLink = next.links.find(({ resourceId }) => resourceId === created.link.resourceId);
-  const nextEditable = next.editableResources.find(({ id }) => id === created.link.resourceId);
-  if (nextLink?.title !== 'Después de la primera observación' || nextLink?.resourceVersion !== 2) {
-    issues.push('next link projection did not contain literal AFTER title/version');
-  }
-  if (nextEditable?.title !== 'Después de la primera observación' || nextEditable?.version !== 2) {
-    issues.push('next editable projection did not contain literal AFTER title/version');
-  }
-  if (!nextLink || !nextEditable || !isDeepStrictEqual(ownerResourceObservation(nextLink), nextEditable)) {
-    issues.push('the next owner GET did not expose a coherent resource projection');
-  }
-  assert.equal(nextLink.title, 'Después de la primera observación');
-  assert.equal(nextLink.resourceVersion, created.link.resourceVersion + 1);
-  const nextCounts = new Map();
-  for (const id of batches.flat()) nextCounts.set(id, (nextCounts.get(id) ?? 0) + 1);
-  if ([...nextCounts.values()].some((count) => count !== 1) || nextCounts.size !== 1) {
-    issues.push(`next owner GET observed the same resource more than once: ${JSON.stringify(batches)}`);
-  }
-  assert.deepEqual(issues, [], 'one owner GET has one value and version for each resource ID');
+  const nextResource = next.resources.find(({ id }) => id === created.resourceId);
+  assert.equal(nextResource.title, 'Después de la primera observación');
+  assert.equal(nextResource.version, 2);
+  assert.deepEqual(batches, [[created.resourceId]], 'the next owner GET also uses one unique-resource batch');
 });
-

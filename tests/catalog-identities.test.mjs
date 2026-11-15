@@ -298,7 +298,7 @@ test('public owner-selection output preserves exact 256-byte and Unicode IDs thr
   );
 
   try {
-    await writeFile(fixturePath, JSON.stringify({ items, profiles: [], placements: [] }));
+    await writeFile(fixturePath, JSON.stringify({ items, creators: [] }));
     process.env.CATALOG_FIXTURE = fixturePath;
     delete process.env.CATALOG_TABLE;
     delete process.env.CREATOR_PROFILES_TABLE;

@@ -57,7 +57,11 @@ function seedProfile(mock, id, { hidden, version = 1, updatedAt = 4321 } = {}) {
   mock.seed(PROFILE_TABLE, {
     pk: `PROFILE#${id}`,
     sk: 'META',
-    recordType: 'profile',
+    recordType: 'creatorState',
+    schemaVersion: 2,
+    placements: {},
+    order: { featured: [], ordinary: [] },
+    series: {},
     id,
     displayName: `No-op ${id}`,
     slug: `noop-${id}`,
@@ -67,7 +71,7 @@ function seedProfile(mock, id, { hidden, version = 1, updatedAt = 4321 } = {}) {
     hidden,
     createdAt: 1000,
     updatedAt,
-    ...(version === null ? {} : { version }),
+    version,
   });
 }
 
@@ -194,7 +198,7 @@ test('valid administrative no-ops preserve physical records and confirm only the
   const profileCases = [
     { id: 'noop-profile-hide', action: 'ocultar', hidden: true, version: 6 },
     { id: 'noop-profile-restore', action: 'restaurar', hidden: false, version: 8 },
-    { id: 'noop-profile-legacy-zero', action: 'ocultar', hidden: true, version: null },
+    { id: 'noop-profile-zero', action: 'ocultar', hidden: true, version: 0 },
   ];
   for (const item of profileCases) seedProfile(harness.mock, item.id, item);
 
@@ -286,7 +290,6 @@ test('valid administrative no-ops preserve physical records and confirm only the
         tableName: PROFILE_TABLE, key,
       }),
       transactions: checkSummary(harness.mock.transactions.slice(transactionsBefore)),
-      versionPresenceOK: logicalVersion !== 0 || (!Object.hasOwn(before, 'version') && !Object.hasOwn(raw, 'version')),
     });
   }
 
@@ -360,8 +363,8 @@ test('a competing owner write invalidates an observed profile no-op without addi
     tableName: PROFILE_TABLE,
     key,
     competitor: () => harness.service.handle(apiRequest('/api/creador/perfil', {
-      session: 'creator-a', csrf: sessionCsrf['creator-a'], method: 'PUT',
-      body: { displayName: 'Concurrent owner edit', slug: 'noop-profile-race', version: 5 },
+      session: 'creator-a', csrf: sessionCsrf['creator-a'], method: 'PUT', creatorContract: '2',
+      body: { displayName: 'Concurrent owner edit', slug: 'noop-profile-race', creatorVersion: 5 },
     })),
   });
 
@@ -386,7 +389,7 @@ test('a competing owner write invalidates an observed profile no-op without addi
   if (staleResponse.status !== 409 || staleBody?.error !== 'PROFILE_CONFLICT') {
     issues.push(`stale profile no-op was ${staleResponse.status} ${JSON.stringify(staleBody)}`);
   }
-  if (competitorResponse?.status !== 200 || competitorBody?.profile?.version !== 6) {
+  if (competitorResponse?.status !== 200 || competitorBody?.creatorVersion !== 6) {
     issues.push(`real owner update did not commit: ${competitorResponse?.status} ${JSON.stringify(competitorBody)}`);
   }
   if (afterCompetitor.displayName !== 'Concurrent owner edit' || afterCompetitor.version !== 6 || afterCompetitor.hidden !== true) {

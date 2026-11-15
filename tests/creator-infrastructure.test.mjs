@@ -13,8 +13,8 @@ const publicCatalogFields = [
   'hidden', 'approvalRevoked', 'published',
 ];
 const publicCreatorFields = [
-  'pk', 'sk', 'recordType', 'id', 'profileId', 'resourceId', 'published', 'hidden',
-  'selectedForDirectory', 'selected', 'slug', 'displayName', 'name', 'series',
+  'pk', 'sk', 'recordType', 'schemaVersion', 'id', 'displayName', 'slug', 'published', 'hidden',
+  'placements', 'order', 'series',
 ];
 const creatorTableActions = [
   'dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:DeleteItem',

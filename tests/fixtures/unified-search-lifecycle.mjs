@@ -32,12 +32,39 @@ const community = (id, city) => ({
   published: true,
 });
 
-const placement = (profileId, resourceId, series) => ({
-  profileId,
-  resourceId,
-  selected: true,
-  series: Object.fromEntries(series.map((seriesId, position) => [seriesId, { position }])),
-});
+const creator = (id, displayName, slug, {
+  hidden = false,
+  links = [],
+  series = [],
+  bio,
+} = {}) => {
+  const placements = Object.fromEntries(links.map(({ resourceId, selectedForDirectory = true }) => [
+    `${id}-${resourceId}`,
+    { resourceId, selectedForDirectory },
+  ]));
+  const placementIdByResource = new Map(links.map(({ resourceId }) => [resourceId, `${id}-${resourceId}`]));
+  return {
+    id,
+    schemaVersion: 2,
+    version: 1,
+    displayName,
+    slug,
+    published: true,
+    hidden,
+    ...(bio === undefined ? {} : { bio }),
+    placements,
+    order: { featured: [], ordinary: Object.keys(placements) },
+    series: Object.fromEntries(series.map(({ id: seriesId, name, slug: seriesSlug, resourceIds, description }) => [
+      seriesId,
+      {
+        name,
+        slug: seriesSlug,
+        ...(description === undefined ? {} : { description }),
+        chapters: resourceIds.map((resourceId) => placementIdByResource.get(resourceId)),
+      },
+    ])),
+  };
+};
 
 export const unifiedSearchLifecycleFixture = {
   items: [
@@ -179,29 +206,38 @@ export const unifiedSearchLifecycleFixture = {
       published: false,
     }),
   ],
-  profiles: [
-    { id: 'creator-shared', displayName: 'Creador Compartido', slug: 'creador-compartido', published: true, hidden: false, email: 'private-profile@example.invalid' },
-    { id: 'creator-ephemeral', displayName: 'Creador Efímero', slug: 'creador-efimero', published: true, hidden: false },
-    { id: 'creator-hidden', displayName: 'Creador Oculto', slug: 'creador-oculto', published: true, hidden: true },
-    { id: 'creator-merge-a', displayName: 'Creador A', slug: 'creador-a', published: true, hidden: false },
-    { id: 'creator-merge-b', displayName: 'Creador B', slug: 'creador-b', published: true, hidden: false },
-    { id: 'creator-merge-c', displayName: 'Creador C', slug: 'creador-c', published: true, hidden: false },
-  ],
-  placements: [
-    placement('creator-shared', 'event-series-active', ['series-shared']),
-    placement('creator-shared', 'event-series-expired', ['series-shared']),
-    placement('creator-ephemeral', 'event-series-expired', ['series-expired-only']),
-    placement('creator-hidden', 'event-series-expired', ['series-hidden']),
-    placement('creator-merge-a', 'event-merge-a', ['series-merge-a']),
-    placement('creator-merge-b', 'event-merge-b', ['series-merge-b']),
-    placement('creator-merge-c', 'event-merge-c', ['series-merge-c']),
-  ],
-  series: [
-    { id: 'series-shared', profileId: 'creator-shared', name: 'Serie Compartida', slug: 'serie-compartida', privateNote: 'private-series-field' },
-    { id: 'series-expired-only', profileId: 'creator-ephemeral', name: 'Serie que termina', slug: 'serie-que-termina' },
-    { id: 'series-hidden', profileId: 'creator-hidden', name: 'Serie Oculta', slug: 'serie-oculta' },
-    { id: 'series-merge-a', profileId: 'creator-merge-a', name: 'Serie A', slug: 'serie-a' },
-    { id: 'series-merge-b', profileId: 'creator-merge-b', name: 'Serie B', slug: 'serie-b' },
-    { id: 'series-merge-c', profileId: 'creator-merge-c', name: 'Serie C', slug: 'serie-c' },
+  creators: [
+    creator('creator-shared', 'Creador Compartido', 'creador-compartido', {
+      bio: 'private-profile@example.invalid',
+      links: [
+        { resourceId: 'event-series-active' },
+        { resourceId: 'event-series-expired' },
+      ],
+      series: [{
+        id: 'series-shared', name: 'Serie Compartida', slug: 'serie-compartida',
+        resourceIds: ['event-series-active', 'event-series-expired'], description: 'private-series-field',
+      }],
+    }),
+    creator('creator-ephemeral', 'Creador Efímero', 'creador-efimero', {
+      links: [{ resourceId: 'event-series-expired' }],
+      series: [{ id: 'series-expired-only', name: 'Serie que termina', slug: 'serie-que-termina', resourceIds: ['event-series-expired'] }],
+    }),
+    creator('creator-hidden', 'Creador Oculto', 'creador-oculto', {
+      hidden: true,
+      links: [{ resourceId: 'event-series-expired' }],
+      series: [{ id: 'series-hidden', name: 'Serie Oculta', slug: 'serie-oculta', resourceIds: ['event-series-expired'] }],
+    }),
+    creator('creator-merge-a', 'Creador A', 'creador-a', {
+      links: [{ resourceId: 'event-merge-a' }],
+      series: [{ id: 'series-merge-a', name: 'Serie A', slug: 'serie-a', resourceIds: ['event-merge-a'] }],
+    }),
+    creator('creator-merge-b', 'Creador B', 'creador-b', {
+      links: [{ resourceId: 'event-merge-b' }],
+      series: [{ id: 'series-merge-b', name: 'Serie B', slug: 'serie-b', resourceIds: ['event-merge-b'] }],
+    }),
+    creator('creator-merge-c', 'Creador C', 'creador-c', {
+      links: [{ resourceId: 'event-merge-c' }],
+      series: [{ id: 'series-merge-c', name: 'Serie C', slug: 'serie-c', resourceIds: ['event-merge-c'] }],
+    }),
   ],
 };

@@ -5,6 +5,28 @@ import { createCreatorHttpHandler } from '../src/lib/creator-http.mjs';
 import { requestContextForTestPrincipal, SITE_ORIGIN } from './fixtures/creator-pages.mjs';
 import { createCreatorOwnerRuntime } from './fixtures/creator-owner-runtime.mjs';
 
+async function readOwnerState(runtime, session, binding) {
+  const headers = binding ? { 'x-creator-page-binding': binding } : {};
+  const response = await runtime.fetchApi('/api/creador/perfil/', { headers }, { session });
+  return { response, payload: await response.json() };
+}
+
+async function createOwnerProfile(runtime, { displayName, slug, programs = [], socials = {} }) {
+  const created = await runtime.fetchApi('/api/creador/perfil/', {
+    method: 'PUT',
+    headers: {
+      'content-type': 'application/json', 'x-csrf-token': 'csrf-a', origin: SITE_ORIGIN,
+      'x-creator-contract': '2',
+    },
+    body: JSON.stringify({ creatorVersion: null, displayName, slug, programs, socials }),
+  }, { session: 'creator-a' });
+  assert.equal(created.status, 200);
+  const state = await readOwnerState(runtime, 'creator-a');
+  assert.equal(state.response.status, 200);
+  assert.equal(state.payload.schemaVersion, 2);
+  return state.payload;
+}
+
 test('la lectura owner conserva compatibilidad y liga la respuesta a cuenta y rol cuando se envía el binding', async () => {
   const runtime = await createCreatorOwnerRuntime();
   runtime.setSession('creator-a');
@@ -15,43 +37,30 @@ test('la lectura owner conserva compatibilidad y liga la respuesta a cuenta y ro
     },
   });
 
-  const created = await runtime.fetchApi('/api/creador/perfil/', {
-    method: 'PUT',
-    headers: { 'content-type': 'application/json', 'x-csrf-token': 'csrf-a', origin: SITE_ORIGIN },
-    body: JSON.stringify({ displayName: 'Ana', slug: 'ana-binding', programs: [], socials: {} }),
-  }, { session: 'creator-a' });
-  assert.equal(created.status, 200);
-  const profile = (await created.json()).profile;
+  const state = await createOwnerProfile(runtime, { displayName: 'Ana', slug: 'ana-binding' });
+  const profile = state.profile;
   const originalBinding = creatorPageSessionBinding({ accountId: 'private-account-a', isAdmin: false });
 
-  async function read(session, binding) {
-    const response = await runtime.fetchApi('/api/creador/perfil/', {
-      method: 'GET',
-      headers: binding ? { 'x-creator-page-binding': binding } : {},
-    }, { session });
-    return { response, payload: await response.json() };
-  }
+  const unbound = await readOwnerState(runtime, 'creator-a');
+  assert.equal(unbound.response.status, 200, 'GETs without the optional binding retain their existing behavior');
+  assert.equal(unbound.payload.profile.id, profile.id);
 
-  const legacy = await read('creator-a');
-  assert.equal(legacy.response.status, 200, 'GETs without the optional marker retain their existing behavior');
-  assert.equal(legacy.payload.profile.id, profile.id);
-
-  const malformed = await read('creator-a', 'invalid');
+  const malformed = await readOwnerState(runtime, 'creator-a', 'invalid');
   assert.equal(malformed.response.status, 422);
   assert.deepEqual(malformed.payload, { error: 'INVALID_CONTEXT', message: 'creator page context is invalid' });
 
-  const changedAccount = await read('creator-b', originalBinding);
+  const changedAccount = await readOwnerState(runtime, 'creator-b', originalBinding);
   assert.equal(changedAccount.response.status, 409);
   assert.equal(changedAccount.payload.error, 'SESSION_CONTEXT_CHANGED');
   assert.equal(Object.hasOwn(changedAccount.payload, 'profile'), false,
     'a changed account receives no owner data');
 
-  const changedRole = await read('same-account-admin', originalBinding);
+  const changedRole = await readOwnerState(runtime, 'same-account-admin', originalBinding);
   assert.equal(changedRole.response.status, 409, 'the opaque binding includes the original role');
   assert.equal(Object.hasOwn(changedRole.payload, 'profile'), false,
     'a changed role receives no owner data');
 
-  const sameContext = await read('creator-a', originalBinding);
+  const sameContext = await readOwnerState(runtime, 'creator-a', originalBinding);
   assert.equal(sameContext.response.status, 200);
   assert.equal(sameContext.payload.profile.id, profile.id);
 });
@@ -59,13 +68,8 @@ test('la lectura owner conserva compatibilidad y liga la respuesta a cuenta y ro
 test('disabled owner identities are compared against the page binding before owner routes reach storage', async () => {
   const runtime = await createCreatorOwnerRuntime();
   runtime.setSession('creator-a');
-  const created = await runtime.fetchApi('/api/creador/perfil/', {
-    method: 'PUT',
-    headers: { 'content-type': 'application/json', 'x-csrf-token': 'csrf-a', origin: SITE_ORIGIN },
-    body: JSON.stringify({ displayName: 'Ana disabled-bound', slug: 'ana-disabled-bound' }),
-  }, { session: 'creator-a' });
-  assert.equal(created.status, 200);
-  const profile = (await created.json()).profile;
+  const state = await createOwnerProfile(runtime, { displayName: 'Ana disabled-bound', slug: 'ana-disabled-bound' });
+  const profile = state.profile;
   const originalBinding = creatorPageSessionBinding({ accountId: 'private-account-a', isAdmin: false });
   const storeCallsBefore = runtime.pages.store.calls.length;
 
@@ -78,8 +82,8 @@ test('disabled owner identities are compared against the page binding before own
 
   const changedWrite = await runtime.fetchApi('/api/creador/perfil/', {
     method: 'PUT',
-    headers: { 'content-type': 'application/json', 'x-creator-page-binding': originalBinding },
-    body: JSON.stringify({ displayName: 'No cross-account write', slug: profile.slug, version: profile.version }),
+    headers: { 'content-type': 'application/json', 'x-creator-contract': '2', 'x-creator-page-binding': originalBinding },
+    body: JSON.stringify({ creatorVersion: state.creatorVersion, displayName: 'No cross-account write', slug: profile.slug }),
   }, { session: 'disabled-other' });
   assert.equal(changedWrite.status, 409);
   assert.equal((await changedWrite.json()).error, 'SESSION_CONTEXT_CHANGED');
@@ -93,15 +97,15 @@ test('disabled owner identities are compared against the page binding before own
   assert.equal((await matchingRead.json()).error, 'ACCOUNT_DISABLED');
   const matchingWrite = await runtime.fetchApi('/api/creador/perfil/', {
     method: 'PUT',
-    headers: { 'content-type': 'application/json', 'x-creator-page-binding': originalBinding },
-    body: JSON.stringify({ displayName: 'No disabled write', slug: profile.slug, version: profile.version }),
+    headers: { 'content-type': 'application/json', 'x-creator-contract': '2', 'x-creator-page-binding': originalBinding },
+    body: JSON.stringify({ creatorVersion: state.creatorVersion, displayName: 'No disabled write', slug: profile.slug }),
   }, { session: 'disabled-same' });
   assert.equal(matchingWrite.status, 403);
   assert.equal((await matchingWrite.json()).error, 'ACCOUNT_DISABLED');
   assert.equal(runtime.pages.store.calls.length, storeCallsBefore, 'the matching disabled identity also stops before owner storage');
   runtime.setSession('creator-a');
-  const persisted = await runtime.fetchApi('/api/creador/perfil/', {}, { session: 'creator-a' });
-  assert.equal((await persisted.json()).profile.displayName, 'Ana disabled-bound');
+  const persisted = await readOwnerState(runtime, 'creator-a');
+  assert.equal(persisted.payload.profile.displayName, 'Ana disabled-bound');
 });
 
 test('las escrituras owner comparan el binding de cuenta y rol antes de consultar o mutar el perfil', async () => {
@@ -109,13 +113,8 @@ test('las escrituras owner comparan el binding de cuenta y rol antes de consulta
   runtime.setSession('creator-a');
   runtime.setSession('admin');
 
-  const created = await runtime.fetchApi('/api/creador/perfil/', {
-    method: 'PUT',
-    headers: { 'content-type': 'application/json', 'x-csrf-token': 'csrf-a', origin: SITE_ORIGIN },
-    body: JSON.stringify({ displayName: 'Ana original', slug: 'ana-binding-write' }),
-  }, { session: 'creator-a' });
-  assert.equal(created.status, 200, 'legacy callers without the optional binding remain compatible');
-  const profile = (await created.json()).profile;
+  const state = await createOwnerProfile(runtime, { displayName: 'Ana original', slug: 'ana-binding-write' });
+  const profile = state.profile;
   const originalBinding = creatorPageSessionBinding({ accountId: 'private-account-a', isAdmin: false });
   const principal = { state: 'authenticated', accountId: 'private-account-a', csrfToken: 'csrf-a', isAdmin: true };
   runtime.setSession('creator-a', { principal });
@@ -125,9 +124,9 @@ test('las escrituras owner comparan el binding de cuenta y rol antes de consulta
     method: 'PUT',
     headers: {
       'content-type': 'application/json', 'x-csrf-token': 'csrf-a', origin: SITE_ORIGIN,
-      'x-creator-page-binding': originalBinding,
+      'x-creator-contract': '2', 'x-creator-page-binding': originalBinding,
     },
-    body: JSON.stringify({ displayName: 'No debe guardarse', slug: profile.slug, version: profile.version }),
+    body: JSON.stringify({ creatorVersion: state.creatorVersion, displayName: 'No debe guardarse', slug: profile.slug }),
   }, { session: 'creator-a' });
   assert.equal(changedRole.status, 409);
   assert.equal((await changedRole.json()).error, 'SESSION_CONTEXT_CHANGED');
@@ -140,9 +139,9 @@ test('las escrituras owner comparan el binding de cuenta y rol antes de consulta
     method: 'PUT',
     headers: {
       'content-type': 'application/json', 'x-csrf-token': 'csrf-a', origin: SITE_ORIGIN,
-      'x-creator-page-binding': 'not-a-binding',
+      'x-creator-contract': '2', 'x-creator-page-binding': 'not-a-binding',
     },
-    body: JSON.stringify({ displayName: 'No debe guardarse', slug: profile.slug, version: profile.version }),
+    body: JSON.stringify({ creatorVersion: state.creatorVersion, displayName: 'No debe guardarse', slug: profile.slug }),
   }, { session: 'creator-a' });
   assert.equal(invalidBinding.status, 422);
   assert.equal((await invalidBinding.json()).error, 'INVALID_CONTEXT');
@@ -154,7 +153,7 @@ test('las escrituras owner comparan el binding de cuenta y rol antes de consulta
 
   const unchanged = await runtime.pages.store.get(`profile:${profile.id}`);
   assert.equal(unchanged.displayName, 'Ana original');
-  assert.equal(unchanged.version, profile.version);
+  assert.equal(unchanged.version, state.creatorVersion);
 });
 
 test('autorizar y finalizar fotos validan el binding antes de leer el perfil o invocar el servicio', async () => {
@@ -168,14 +167,15 @@ test('autorizar y finalizar fotos validan el binding antes de leer el perfil o i
     service: { handle: async () => new Response('service') },
     store: { get: async () => { calls.profile += 1; return { profileId: 'profile-photo-owner' }; } },
     photos: {
-      beginUpload: async () => { calls.authorize += 1; return { uploadId: 'upload-photo' }; },
-      finalizeUpload: async () => { calls.finalize += 1; return { photo: { version: 'upload-photo' } }; },
+      beginUpload: async () => { calls.authorize += 1; return { uploadId: 'upload-photo', post: { url: 'https://photos.example.invalid/', fields: { key: 'photos/tmp/profile-photo-owner/upload-photo' } } }; },
+      finalizeUpload: async () => { calls.finalize += 1; return { photo: { version: 'upload-photo', url: '/media/fotos/profile-photo-owner/upload-photo.webp' }, creatorVersion: 2 }; },
     },
   });
   const originalBinding = creatorPageSessionBinding(state.principal);
-  const request = (path, binding = originalBinding, body = { version: 1, uploadId: 'upload-photo' }) => {
+  const request = (path, binding = originalBinding, body = { creatorVersion: 1, uploadId: 'upload-photo' }) => {
     const headers = new Headers({
-      origin: SITE_ORIGIN, 'x-csrf-token': state.principal.csrfToken ?? 'disabled-no-token', 'content-type': 'application/json',
+      origin: SITE_ORIGIN, 'x-csrf-token': state.principal.csrfToken ?? 'disabled-no-token',
+      'x-creator-contract': '2', 'content-type': 'application/json',
     });
     if (binding !== null) headers.set('x-creator-page-binding', binding);
     return new Request(new URL(path, SITE_ORIGIN), { method: 'POST', headers, body: JSON.stringify(body) });
@@ -183,8 +183,8 @@ test('autorizar y finalizar fotos validan el binding antes de leer el perfil o i
 
   state.principal = { ...state.principal, isAdmin: true };
   for (const [path, body] of [
-    ['/api/creador/foto/autorizar/', { version: 1 }],
-    ['/api/creador/foto/finalizar/', { version: 1, uploadId: 'upload-photo' }],
+    ['/api/creador/foto/autorizar/', { creatorVersion: 1 }],
+    ['/api/creador/foto/finalizar/', { creatorVersion: 1, uploadId: 'upload-photo' }],
   ]) {
     const rejected = await handle(request(path, originalBinding, body));
     assert.equal(rejected.status, 409);
@@ -195,8 +195,8 @@ test('autorizar y finalizar fotos validan el binding antes de leer el perfil o i
 
   state.principal = { ...state.principal, isAdmin: false };
   for (const [path, body] of [
-    ['/api/creador/foto/autorizar/', { version: 1 }],
-    ['/api/creador/foto/finalizar/', { version: 1, uploadId: 'upload-photo' }],
+    ['/api/creador/foto/autorizar/', { creatorVersion: 1 }],
+    ['/api/creador/foto/finalizar/', { creatorVersion: 1, uploadId: 'upload-photo' }],
   ]) {
     const rejected = await handle(request(path, 'invalid-binding', body));
     assert.equal(rejected.status, 422);
@@ -205,17 +205,17 @@ test('autorizar y finalizar fotos validan el binding antes de leer el perfil o i
   assert.deepEqual(calls, { profile: 0, authorize: 0, finalize: 0 },
     'a malformed binding has no photo-side effects');
 
-  const legacyAuthorization = await handle(request('/api/creador/foto/autorizar/', null, { version: 1 }));
-  assert.equal(legacyAuthorization.status, 200, 'legacy callers without a binding remain compatible');
-  const legacyFinalization = await handle(request('/api/creador/foto/finalizar/', null));
-  assert.equal(legacyFinalization.status, 200);
+  const unboundAuthorization = await handle(request('/api/creador/foto/autorizar/', null, { creatorVersion: 1 }));
+  assert.equal(unboundAuthorization.status, 200, 'v2 callers without a binding remain compatible');
+  const unboundFinalization = await handle(request('/api/creador/foto/finalizar/', null));
+  assert.equal(unboundFinalization.status, 200);
   assert.deepEqual(calls, { profile: 2, authorize: 1, finalize: 1 });
 
   const beforeDisabled = { ...calls };
   state.principal = { state: 'disabled', accountId: 'private-other-photo-owner', isAdmin: false };
   for (const [path, body] of [
-    ['/api/creador/foto/autorizar/', { version: 1 }],
-    ['/api/creador/foto/finalizar/', { version: 1, uploadId: 'upload-photo' }],
+    ['/api/creador/foto/autorizar/', { creatorVersion: 1 }],
+    ['/api/creador/foto/finalizar/', { creatorVersion: 1, uploadId: 'upload-photo' }],
   ]) {
     const changedAccount = await handle(request(path, originalBinding, body));
     assert.equal(changedAccount.status, 409);
@@ -223,8 +223,8 @@ test('autorizar y finalizar fotos validan el binding antes de leer el perfil o i
   }
   state.principal = { state: 'disabled', accountId: 'private-photo-owner', isAdmin: false };
   for (const [path, body] of [
-    ['/api/creador/foto/autorizar/', { version: 1 }],
-    ['/api/creador/foto/finalizar/', { version: 1, uploadId: 'upload-photo' }],
+    ['/api/creador/foto/autorizar/', { creatorVersion: 1 }],
+    ['/api/creador/foto/finalizar/', { creatorVersion: 1, uploadId: 'upload-photo' }],
   ]) {
     const matchingAccount = await handle(request(path, originalBinding, body));
     assert.equal(matchingAccount.status, 403);

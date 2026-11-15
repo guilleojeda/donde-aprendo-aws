@@ -140,12 +140,13 @@ test('a photo confirmed during guarded Back waits for an explicit exit choice', 
       name: 'confirmed-during-back.png', mimeType: 'image/png', buffer: images.png,
     });
     await page.getByRole('button', { name: 'Subir y guardar foto', exact: true }).click();
-    await expect(page.locator('[data-owner-check-photo]')).toBeEnabled();
+    const checkSaved = page.getByRole('button', { name: 'Comprobar estado guardado', exact: true });
+    await expect(checkSaved).toBeEnabled();
     const saved = await fixture.rawOwner(cookie);
     assert.equal(saved.profile.version, initial.profile.version + 1);
     assert(saved.profile.photo?.version);
 
-    const check = page.locator('[data-owner-check-photo]').click();
+    const check = checkSaved.click();
     const heldBody = await observedRead;
     assert.equal(heldBody.profile.photo.version, saved.profile.photo.version);
     const back = page.goBack();
@@ -154,7 +155,9 @@ test('a photo confirmed during guarded Back waits for an explicit exit choice', 
     releaseRead();
     await check;
     await expect(prompt(page)).toBeVisible();
-    await expect(page).toHaveURL(activeEntry, 'confirming the saved photo does not approve the held Back');
+    await expect(page).toHaveURL(activeEntry, 'reading the saved photo does not approve the held Back');
+    await exitButton(page, 'Usar lo guardado').click();
+    await expect(page).toHaveURL(activeEntry, 'choosing saved state still does not approve the held Back');
     await expect(exitButton(page, 'Seguir a la página solicitada')).toBeVisible();
     await expect(exitButton(page, 'Seguir a la página solicitada')).toBeFocused();
     await expect(exitButton(page, 'Seguir a la página solicitada')).toBeEnabled();

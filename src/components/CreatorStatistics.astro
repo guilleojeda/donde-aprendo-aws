@@ -259,7 +259,7 @@ const sourcesEmptyMessage = report && (hasSectionWarning('sources') || report.to
           {report.links.rows.length > 0 ? (
             <ol class="creator-statistics__link-list">
               {report.links.rows.map((row) => {
-                const isCurrentLink = editor?.links.some(({ placementId }) => placementId === row.linkId) ?? false;
+                const isCurrentLink = editor ? Object.hasOwn(editor.placements, row.linkId) : false;
                 return (
                   <li>
                     <span class="creator-statistics__link-label">{getStatisticsLinkLabel(row.linkId, editor)}</span>

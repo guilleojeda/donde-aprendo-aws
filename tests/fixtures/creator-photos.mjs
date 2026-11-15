@@ -17,8 +17,8 @@ export const TEST_NOW = Date.UTC(2026, 9, 23, 12);
  *   service.finalizeUpload({ profileId, uploadId, expectedVersion })
  *   service.readPhoto({ profileId, version }) -> photo response or null
  *
- * The logical profile document is stored at `profile:<id>` and carries its
- * integer `version` plus an optional `photo` reference. This is an adapter
+ * The logical creator-state document is stored at `profile:<id>` and carries
+ * its integer `version` plus an optional `photo` reference. This is an adapter
  * contract, not a DynamoDB key or item schema. The fake store implements only
  * atomic version checks and writes; it grants no ownership or upload rules.
  * `signPost` captures the requested exact key, expiry, and content-length range.
@@ -55,8 +55,26 @@ export async function createPhotoStore(initialProfiles = []) {
   const store = createDocumentStore();
   for (const profile of initialProfiles) {
     const key = profileStoreKey(profile.id);
+    const state = {
+      recordType: 'creatorState',
+      schemaVersion: 2,
+      id: profile.id,
+      version: 0,
+      displayName: 'Test creator',
+      slug: 'test-creator',
+      programs: [],
+      socials: {},
+      published: false,
+      hidden: false,
+      createdAt: TEST_NOW,
+      updatedAt: TEST_NOW,
+      placements: {},
+      order: { featured: [], ordinary: [] },
+      series: {},
+      ...copy(profile),
+    };
     const written = await store.transact({
-      checks: [{ key, version: null }], puts: [{ key, value: profile }],
+      checks: [{ key, version: null }], puts: [{ key, value: state }],
     });
     if (!written) throw new Error(`duplicate fixture profile: ${profile.id}`);
   }

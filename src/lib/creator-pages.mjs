@@ -2,16 +2,24 @@ import { createHash } from 'node:crypto';
 import { isCatalogResourceIdWithinLimit } from './catalog-identity.mjs';
 import { projectPublicRecord, validateCatalogUrl } from './catalog.mjs';
 import { currentUrlCollision, currentUrlKey, currentUrlReservation, currentUrlReservationId } from './catalog-url.mjs';
-import { normalizeCreatorText } from './creator-values.mjs';
-import { dynamoDbNumberSize } from './creator-dynamodb-size.mjs';
-import { createOrderCalculationBudget, OrderCalculationUnavailableError, solveIntegerOrder } from './creator-order.mjs';
+import {
+  CREATOR_CONTRACT_VERSION,
+  CREATOR_CONTRACT_HEADER,
+  CREATOR_FIELD_LIMITS,
+  CREATOR_PROGRAMS,
+  CREATOR_SOCIALS,
+  isCreatorSlug,
+  isCreatorStateId,
+  normalizeCreatorText,
+} from './creator-values.mjs';
+import { CreatorStateError, assertCreatorStateFits, readCreatorState } from './creator-state.mjs';
 import {
   creatorPageSessionBindingFailureForRequest,
 } from './creator-session-context.mjs';
 import { parseHttpsOrigin } from './account-origin.mjs';
 
-const PROGRAMS = new Set(['User Group Leaders', 'Community Builders', 'Heroes']);
-const SOCIALS = new Set(['instagram', 'x', 'linkedin', 'awsBuilder', 'website']);
+const PROGRAMS = new Set(CREATOR_PROGRAMS);
+const SOCIALS = new Set(CREATOR_SOCIALS);
 const PROTECTED_PROFILE_FIELDS = new Set([
   'accountId', 'email', 'isAdmin', 'published', 'hidden', 'directoryApproval',
   'directoryControl', 'editorProfileId', 'photo', 'ownerAccountId',
@@ -19,33 +27,11 @@ const PROTECTED_PROFILE_FIELDS = new Set([
 const PROTECTED_PLACEMENT_FIELDS = new Set(['published', 'directoryApproval', 'directoryControl', 'editorProfileId', 'accountId', 'isAdmin']);
 const ADMIN_RESOURCE_FIELDS = new Set(['category', 'kind', 'format', 'topics']);
 const CREATOR_RESOURCE_FIELDS = new Set(['title', 'url', 'description']);
-const ATOMIC_LINK_FIELDS = new Set([
-  'profileVersion', 'placementVersion', 'resourceVersion', 'title', 'url', 'description',
-  'featured', 'selectedForDirectory',
-]);
-const ATOMIC_LINK_METADATA_FIELDS = new Set(['title', 'url', 'description']);
-const PROTECTED_ATOMIC_LINK_FIELDS = new Set([
-  ...PROTECTED_PROFILE_FIELDS,
-  ...PROTECTED_PLACEMENT_FIELDS,
-  ...ADMIN_RESOURCE_FIELDS,
-  'hidden', 'approvalRevoked', 'ownerAccountId', 'resourceId', 'placementId', 'profileId',
-]);
 const MAX_REQUEST_BODY_BYTES = 32 * 1024;
 const MAX_DYNAMODB_ITEM_BYTES = 400 * 1024;
-const MAX_DYNAMODB_TRANSACTION_BYTES = 4 * 1024 * 1024;
-const TEXT_FIELD_LIMITS = new Map([
-  ['displayName', 120],
-  ['name', 120],
-  ['city', 100],
-  ['country', 100],
-  ['bio', 2000],
-  ['title', 200],
-  ['url', 2048],
-  ['description', 2000],
-  ['sourceId', 2000],
-  ['evidence', 2000],
-]);
-const SOCIAL_FIELD_LIMIT = 500;
+const TEXT_FIELD_LIMITS = new Map(Object.entries(CREATOR_FIELD_LIMITS)
+  .filter(([field]) => field !== 'social' && field !== 'slug'));
+const SOCIAL_FIELD_LIMIT = CREATOR_FIELD_LIMITS.social;
 
 class ApiError extends Error {
   constructor(status, code, message) {
@@ -131,7 +117,7 @@ function versionChanges(...changes) {
 function normalizeSlug(value) {
   if (typeof value !== 'string') fail(422, 'INVALID_SLUG', 'slug is required');
   const slug = value.trim();
-  if (slug.length < 3 || slug.length > 40 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+  if (!isCreatorSlug(slug)) {
     fail(422, 'INVALID_SLUG', 'slug must use 3 to 40 lowercase ASCII letters, numbers, and single hyphens');
   }
   return slug;
@@ -168,7 +154,11 @@ function validateProfileFields(body, previous) {
   for (const field of PROTECTED_PROFILE_FIELDS) {
     if (Object.hasOwn(body, field)) fail(400, 'FORBIDDEN_FIELD', `${field} is managed by the service`);
   }
-  const next = { ...previous };
+  const next = previous ? Object.fromEntries(
+    ['displayName', 'slug', 'city', 'country', 'bio', 'programs', 'socials']
+      .filter((field) => Object.hasOwn(previous, field))
+      .map((field) => [field, structuredClone(previous[field])]),
+  ) : {};
   if (Object.hasOwn(body, 'displayName')) next.displayName = textField(body.displayName, 'displayName');
   else if (!previous) next.displayName = '';
   if (Object.hasOwn(body, 'slug')) {
@@ -193,16 +183,18 @@ function validateProfileFields(body, previous) {
 
   if (Object.hasOwn(body, 'socials')) {
     if (!isRecord(body.socials)) fail(422, 'INVALID_SOCIALS', 'socials must be an object');
-    const socials = {};
+    const socials = next.socials ?? {};
     for (const [key, value] of Object.entries(body.socials)) {
       if (!SOCIALS.has(key)) fail(422, 'INVALID_SOCIALS', `unsupported social field: ${key}`);
       const url = textField(value, `socials.${key}`);
-      if (url) {
-        try {
-          validateCatalogUrl(url);
-        } catch {
-          fail(422, 'INVALID_SOCIAL_URL', `socials.${key} must be a safe HTTP or HTTPS URL without credentials`);
-        }
+      if (!url) {
+        delete socials[key];
+        continue;
+      }
+      try {
+        validateCatalogUrl(url);
+      } catch {
+        fail(422, 'INVALID_SOCIAL_URL', `socials.${key} must be a safe HTTP or HTTPS URL without credentials`);
       }
       socials[key] = url;
     }
@@ -322,63 +314,6 @@ function cleanPublicProfile(profile) {
   return result;
 }
 
-function publicLink(placement, resource, { includeModerationState = false } = {}) {
-  const url = currentResourceUrl(resource);
-  if (Object.hasOwn(resource, 'description') && typeof resource.description !== 'string') {
-    fail(503, 'INVALID_LINK', 'link description is malformed');
-  }
-  if (includeModerationState && Object.hasOwn(resource, 'hidden') && typeof resource.hidden !== 'boolean') {
-    fail(503, 'INVALID_LINK', 'link moderation state is malformed');
-  }
-  if (typeof resource.id !== 'string' || typeof resource.title !== 'string' || typeof url !== 'string'
-    || typeof placement.position !== 'number' || !Number.isSafeInteger(placement.position)
-    || typeof placement.featured !== 'boolean' || typeof placement.selectedForDirectory !== 'boolean'
-    || !Number.isSafeInteger(resource.version ?? 0) || (resource.version ?? 0) < 0
-    || !Number.isSafeInteger(placement.version ?? 0) || (placement.version ?? 0) < 0) {
-    fail(503, 'INVALID_LINK', 'link data is malformed');
-  }
-  try {
-    validateCatalogUrl(url);
-  } catch {
-    fail(503, 'INVALID_LINK', 'resource URL is malformed');
-  }
-  return {
-    placementId: placement.id,
-    resourceId: resource.id,
-    title: resource.title,
-    url,
-    ...(typeof resource.description === 'string' ? { description: resource.description } : {}),
-    featured: placement.featured,
-    position: placement.position,
-    selectedForDirectory: placement.selectedForDirectory,
-    ...(includeModerationState ? { hidden: resource.hidden === true } : {}),
-    series: [],
-    directoryApproval: approvalState(resource),
-    resourceVersion: resource.version ?? 0,
-    placementVersion: placement.version ?? 0,
-  };
-}
-
-function compareOrderPosition(leftPosition, leftId, rightPosition, rightId) {
-  return leftPosition - rightPosition || leftId.localeCompare(rightId);
-}
-
-function sortLinks(links) {
-  return links.sort((left, right) => Number(right.featured) - Number(left.featured)
-    || compareOrderPosition(left.position, left.placementId, right.position, right.placementId));
-}
-
-function nextPlacementPosition(placements) {
-  const maximum = placements.reduce((current, item) => Math.max(
-    current,
-    Number.isSafeInteger(item.position) ? item.position : 0,
-  ), 0);
-  if (maximum > Number.MAX_SAFE_INTEGER - 10) {
-    fail(409, 'PLACEMENT_ORDER_EXHAUSTED', 'profile placement order has no safe append position');
-  }
-  return maximum + 10;
-}
-
 function jsonResponse(value, status = 200, serialized) {
   const headers = new Headers({
     'content-type': 'application/json; charset=utf-8',
@@ -392,15 +327,6 @@ function jsonResponse(value, status = 200, serialized) {
 function writeJsonResponse(value, status = 200) {
   const { versionChanges: changes = [], ...payload } = value;
   return jsonResponse({ ...payload, versionChanges: changes }, status);
-}
-
-function writeEmptyResponse(changes = []) {
-  const headers = new Headers({
-    'cache-control': 'private, no-store',
-    'x-content-type-options': 'nosniff',
-    'Creator-Write-Versions': JSON.stringify(changes),
-  });
-  return new Response(null, { status: 204, headers });
 }
 
 async function parseRequestBody(request) {
@@ -463,6 +389,11 @@ function assertKnownFields(body, allowed, protectedFields = new Set()) {
   }
 }
 
+function assertOwnerFields(body, allowed, protectedFields = new Set()) {
+  if (Object.hasOwn(body, 'version')) fail(400, 'UNKNOWN_FIELD', 'unsupported field: version');
+  assertKnownFields(body, allowed, protectedFields);
+}
+
 function cleanAdminResource(resource) {
   return {
     id: resource.id,
@@ -498,9 +429,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   const accountKey = (accountId) => `account-profile:${accountId}`;
   const profileKey = (profileId) => `profile:${profileId}`;
   const aliasKey = (slug) => `alias:${slug}`;
-  const seriesKey = (profileId, id) => `series:${profileId}:${id}`;
   const seriesAliasKey = (profileId, slug) => `series-alias:${profileId}:${slug}`;
-  const placementKey = (profileId, id) => `placement:${profileId}:${id}`;
   const editorKey = (profileId, resourceId) => `editor:${profileId}:${resourceId}`;
   const claimKey = (id) => `claim:${id}`;
   const claimRefKey = (profileId, claimId) => `claim-ref:${profileId}:${claimId}`;
@@ -513,7 +442,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
   function newId() {
     const result = createId();
-    if (typeof result !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(result)) throw new TypeError('createId must return an opaque identifier');
+    if (!isCreatorStateId(result)) throw new TypeError('createId must return an opaque identifier');
     return result;
   }
 
@@ -578,6 +507,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
     if (new URL(request.url).pathname.startsWith('/api/creador/')) {
       requireCreatorPageSessionBinding(request, principal);
+      if (request.headers.get(CREATOR_CONTRACT_HEADER) !== CREATOR_CONTRACT_VERSION) {
+        fail(409, 'CREATOR_CONTRACT_OBSOLETE', 'this creator page must be reloaded before it can save');
+      }
     }
   }
 
@@ -585,15 +517,14 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (request.method !== method) fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
   }
 
-  async function ownerProfile(principal, { budget } = {}) {
+  async function ownerProfile(principal) {
     const owner = await store.get(accountKey(principal.accountId));
     if (!owner) return { owner: null, profile: null };
     if (typeof owner.profileId !== 'string' || !owner.profileId) fail(503, 'INVALID_OWNER', 'profile ownership mapping is malformed');
-    if (budget) budget.retainValue(owner);
-    const profileObservation = budget ? await store.observe(profileKey(owner.profileId), { budget }) : null;
-    const profile = profileObservation ? profileObservation.value : await store.get(profileKey(owner.profileId));
-    if (!profile || profile.id !== owner.profileId) fail(503, 'INVALID_PROFILE', 'profile ownership mapping points to missing data');
-    return { owner, profile, profileObservation };
+    const row = await store.get(profileKey(owner.profileId));
+    if (!row) fail(503, 'INVALID_PROFILE', 'profile ownership mapping points to missing data');
+    const profile = readCreatorStateOrFail(row, owner.profileId);
+    return { owner, profile };
   }
 
   async function getRequiredOwnerProfile(principal) {
@@ -606,6 +537,68 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (value === undefined && legacyZero) return 0;
     if (!Number.isSafeInteger(value) || value < 0) fail(503, `INVALID_${entity.toUpperCase()}`, `${entity} version is malformed`);
     return value;
+  }
+
+  function readCreatorStateOrFail(row, expectedId) {
+    try {
+      return readCreatorState(row, expectedId);
+    } catch (error) {
+      if (error instanceof CreatorStateError) fail(error.status, error.code, error.message);
+      throw error;
+    }
+  }
+
+  function creatorStateFits(candidate) {
+    try {
+      return assertCreatorStateFits(candidate);
+    } catch (error) {
+      if (error instanceof CreatorStateError) fail(error.status, error.code, error.message);
+      throw error;
+    }
+  }
+
+  function requireCreatorVersion(body, profile, { allowNull = false } = {}) {
+    if (!Object.hasOwn(body, 'creatorVersion')) {
+      fail(400, 'CREATOR_VERSION_REQUIRED', 'creatorVersion is required');
+    }
+    if (allowNull && profile === null && body.creatorVersion === null) return null;
+    const expected = validVersion(body.creatorVersion);
+    if (!profile || expected !== profile.version) {
+      fail(409, 'CREATOR_CONFLICT', 'creator content changed; reload before saving');
+    }
+    return expected;
+  }
+
+  function creatorAck(operation, profileId, creatorVersion, disposition, fields = {}) {
+    return { schemaVersion: 2, operation, profileId, creatorVersion, ...fields, disposition };
+  }
+
+  function ownerProfileDto(profile) {
+    if (!profile) return null;
+    const { version: _version, ...dto } = cleanPublicProfile(profile);
+    return dto;
+  }
+
+  function nextCreatorState(profile, changes) {
+    const revision = storedVersion(profile.version, 'creator');
+    const candidate = {
+      ...profile,
+      ...changes,
+      version: nextVersion(revision, 'creator'),
+      updatedAt: timestamp(),
+    };
+    return creatorStateFits(candidate);
+  }
+
+  async function commitCreatorState(profile, candidate, { checks = [], puts = [], deletes = [], code = 'CREATOR_CONFLICT' } = {}) {
+    creatorStateFits(candidate);
+    const ok = await store.transact({
+      checks: [{ key: profileKey(profile.id), version: profile.version }, ...checks],
+      puts: [...puts, { key: profileKey(profile.id), value: candidate }],
+      deletes,
+    });
+    if (!ok) fail(409, code, 'creator content or a related record changed while saving');
+    return candidate;
   }
 
   function nextVersion(value, entity) {
@@ -641,13 +634,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     };
   }
 
-  function assertAtomicLinkFields(body) {
-    for (const field of Object.keys(body)) {
-      if (PROTECTED_ATOMIC_LINK_FIELDS.has(field)) fail(400, 'FORBIDDEN_FIELD', `${field} is managed by the service`);
-      if (field === 'version' || !ATOMIC_LINK_FIELDS.has(field)) fail(400, 'UNKNOWN_FIELD', `unsupported field: ${field}`);
-    }
-  }
-
   function creatorResourceChanges(resource, body) {
     const changes = {};
     if (Object.hasOwn(body, 'title')) {
@@ -661,46 +647,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
     if (Object.hasOwn(body, 'description')) changes.description = textField(body.description, 'description');
     return changes;
-  }
-
-  function placementChangesFromBody(body, { allowPosition = false } = {}) {
-    const changes = {};
-    if (Object.hasOwn(body, 'position')) {
-      if (!allowPosition) fail(400, 'UNKNOWN_FIELD', 'unsupported field: position');
-      if (!Number.isSafeInteger(body.position) || body.position < 0) fail(422, 'INVALID_POSITION', 'position must be a non-negative integer');
-      changes.position = body.position;
-    }
-    for (const field of ['featured', 'selectedForDirectory']) {
-      if (!Object.hasOwn(body, field)) continue;
-      if (typeof body[field] !== 'boolean') fail(422, 'INVALID_PLACEMENT', `${field} must be boolean`);
-      changes[field] = body[field];
-    }
-    return changes;
-  }
-
-  function assertPlacementFits(profileId, placement, { budget } = {}) {
-    if (store.measurePut(placementKey(profileId, placement.id), placement, { budget }).itemBytes > MAX_DYNAMODB_ITEM_BYTES) {
-      fail(422, 'PLACEMENT_TOO_LARGE', 'series membership would exceed DynamoDB’s 400 KiB item limit');
-    }
-  }
-
-  function buildPlacementMutation(profileId, placement, requestedChanges, { budget } = {}) {
-    const key = placementKey(profileId, placement.id);
-    const before = storedVersion(placement.version, 'placement', { legacyZero: true });
-    const changes = Object.fromEntries(Object.entries(requestedChanges)
-      .filter(([field, value]) => placement[field] !== value));
-    if (Object.keys(changes).length === 0) {
-      return { placement, before, changed: false, checks: [{ key, version: before }], puts: [] };
-    }
-    const updated = { ...placement, ...changes, version: nextVersion(before, 'placement') };
-    assertPlacementFits(profileId, updated, { budget });
-    return {
-      placement: updated,
-      before,
-      changed: true,
-      checks: [{ key, version: before }],
-      puts: [{ key, value: updated }],
-    };
   }
 
   async function buildCreatorResourceMutation(resource, requestedChanges) {
@@ -776,50 +722,23 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     };
   }
 
-  async function getPlacements(profileId, { budget, includeObservations = false } = {}) {
-    const rows = budget
-      ? await store.observeList(`placement:${profileId}:`, { budget })
-      : await store.list(`placement:${profileId}:`);
-    budget?.reserveMemory(256);
-    const placements = [];
-    for (const row of rows) {
-      budget?.spendWork();
-      if (!row || !row.value || typeof row.key !== 'string') fail(503, 'INVALID_PLACEMENT', 'placement list is malformed');
-      const placement = row.value;
-      if (placement.recordType !== 'placement' || placement.profileId !== profileId || typeof placement.id !== 'string' || row.key !== placementKey(profileId, placement.id)) {
-        fail(503, 'INVALID_PLACEMENT', 'placement list contains an unrelated row');
-      }
-      budget?.reserveMemory(16);
-      placements.push(placement);
-    }
-    return includeObservations ? { placements, observations: rows } : placements;
+  function seriesFromState(profile) {
+    return Object.entries(profile.series).map(([id, item]) => ({
+      id,
+      name: item.name,
+      slug: item.slug,
+      ...(Object.hasOwn(item, 'description') ? { description: item.description } : {}),
+      chapters: [...item.chapters],
+    })).sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
   }
 
-  function cleanSeries(record, profileId, expectedId) {
-    if (!record || record.recordType !== 'series' || record.profileId !== profileId
-      || typeof record.id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(record.id)
-      || (expectedId !== undefined && record.id !== expectedId)
-      || typeof record.name !== 'string' || !record.name.trim() || record.name !== record.name.trim()
-      || record.name.length > 120 || typeof record.slug !== 'string'
-      || !Number.isSafeInteger(record.version) || record.version < 1) {
-      fail(503, 'INVALID_SERIES', 'series metadata is malformed');
-    }
-    try {
-      if (normalizeSlug(record.slug) !== record.slug) throw new Error('non-canonical slug');
-    } catch {
-      fail(503, 'INVALID_SERIES', 'series metadata is malformed');
-    }
-    if (Object.hasOwn(record, 'description')
-      && (typeof record.description !== 'string' || record.description !== record.description.trim() || record.description.length > 2000)) {
-      fail(503, 'INVALID_SERIES', 'series metadata is malformed');
-    }
-    return {
-      id: record.id,
-      name: record.name,
-      slug: record.slug,
-      ...(record.description !== undefined ? { description: record.description } : {}),
-      version: record.version,
-    };
+  function ownerSeriesMap(profile) {
+    return Object.fromEntries(Object.entries(profile.series).map(([id, item]) => [id, {
+      name: item.name,
+      slug: item.slug,
+      ...(Object.hasOwn(item, 'description') ? { description: item.description } : {}),
+      chapters: [...item.chapters],
+    }]));
   }
 
   function validateSeriesAlias(alias, profileId, slug) {
@@ -832,71 +751,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return alias;
   }
 
-  async function getSeries(profileId, id) {
-    const record = await store.get(seriesKey(profileId, id));
-    return record ? cleanSeries(record, profileId, id) : null;
-  }
-
-  async function seriesForProfile(profileId, { budget } = {}) {
-    const rows = budget ? await store.observeList(`series:${profileId}:`, { budget }) : await store.list(`series:${profileId}:`);
-    const series = [];
-    for (const row of rows) {
-      budget?.spendWork();
-      if (!row || typeof row.key !== 'string' || !row.value
-        || !row.key.startsWith(`series:${profileId}:`)) {
-        fail(503, 'INVALID_SERIES_LIST', 'series list is malformed');
-      }
-      const id = row.key.slice(`series:${profileId}:`.length);
-      if (!id || row.key !== seriesKey(profileId, id)) fail(503, 'INVALID_SERIES_LIST', 'series list contains an unrelated row');
-      series.push(cleanSeries(row.value, profileId, id));
-    }
-    budget?.retainValue(series);
-    series.sort((left, right) => {
-      budget?.spendWork();
-      return left.name.localeCompare(right.name) || left.id.localeCompare(right.id);
-    });
-    return series;
-  }
-
-  function placementSeriesMap(placement, currentSeriesIds, budget) {
-    if (!Object.hasOwn(placement, 'series')) return {};
-    if (!isRecord(placement.series)) fail(503, 'INVALID_PLACEMENT', 'series membership map is malformed');
-    const result = {};
-    for (const id in placement.series) {
-      if (!Object.hasOwn(placement.series, id)) continue;
-      budget?.spendWork();
-      const membership = placement.series[id];
-      if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) fail(503, 'INVALID_PLACEMENT', 'series membership ID is malformed');
-      // References left behind by a deleted series are inert and are removed on
-      // the next save to this placement.
-      if (!currentSeriesIds.has(id)) continue;
-      if (!isRecord(membership) || Object.keys(membership).length !== 1
-        || !Number.isSafeInteger(membership.position) || membership.position < 0) {
-        fail(503, 'INVALID_PLACEMENT', 'series membership is malformed');
-      }
-      result[id] = { position: membership.position };
-    }
-    return result;
-  }
-
-  function linkDtoFromRecords(placement, resource, seriesById, currentSeriesIds, {
-    includeModerationState = false,
-    publicTags = false,
-    profileSlug = '',
-  } = {}) {
-    const memberships = placementSeriesMap(placement, currentSeriesIds);
-    const link = publicLink(placement, resource, { includeModerationState });
-    link.series = Object.entries(memberships)
-      .map(([seriesId, membership]) => {
-        const item = seriesById.get(seriesId);
-        if (!item) return null;
-        return publicTags
-          ? { seriesId, position: membership.position, name: item.name, href: `/c/${encodeURIComponent(profileSlug)}/series/${encodeURIComponent(item.slug)}/` }
-          : { seriesId, position: membership.position };
-      })
-      .filter(Boolean)
-      .sort((left, right) => left.position - right.position || left.seriesId.localeCompare(right.seriesId));
-    return link;
+  async function readSeriesAlias(profileId, slug) {
+    const alias = await store.get(seriesAliasKey(profileId, slug));
+    return alias ? validateSeriesAlias(alias, profileId, slug) : null;
   }
 
   function assertResourceBatch(resources, ids) {
@@ -910,9 +767,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   async function resourcesById(ids) {
     const uniqueIds = [...new Set(ids)];
     if (uniqueIds.length === 0) return new Map();
-
     const resources = assertResourceBatch(await store.getResources(uniqueIds), uniqueIds);
-
     for (const id of uniqueIds) {
       const resource = resources.get(id);
       if (!resource || resource.id !== id) fail(503, 'MISSING_RESOURCE', 'a referenced resource is missing or malformed');
@@ -921,94 +776,135 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return resources;
   }
 
-  function projectLinks(placements, resources, series, {
+  function creatorPlacement(profile, id) {
+    const placement = profile.placements[id];
+    if (!placement) return null;
+    return { id, resourceId: placement.resourceId, selectedForDirectory: placement.selectedForDirectory };
+  }
+
+  function orderedPlacementIds(profile) {
+    return [...profile.order.featured, ...profile.order.ordinary];
+  }
+
+  function resourceProjectionFacts(resource) {
+    if (!resource || !isCatalogResource(resource)) fail(503, 'INVALID_RESOURCE', 'a referenced catalog row is not a resource');
+    if (typeof resource.title !== 'string'
+      || (Object.hasOwn(resource, 'description') && typeof resource.description !== 'string')
+      || (Object.hasOwn(resource, 'hidden') && typeof resource.hidden !== 'boolean')) {
+      fail(503, 'INVALID_RESOURCE', 'resource presentation or visibility fields are malformed');
+    }
+    const url = currentResourceUrl(resource);
+    if (typeof url !== 'string') fail(503, 'INVALID_RESOURCE', 'resource URL is malformed');
+    try { validateCatalogUrl(url); } catch { fail(503, 'INVALID_RESOURCE', 'resource URL is malformed'); }
+    return {
+      url,
+      version: storedVersion(resource.version ?? 0, 'resource', { legacyZero: true }),
+      directoryApproval: approvalState(resource),
+    };
+  }
+
+  function projectCreatorLink(profile, placementIdValue, resource, {
     includeHiddenResources = false,
     publicTags = false,
-    profileSlug = '',
+    profileSlug = profile.slug,
   } = {}) {
-    const seriesById = new Map(series.map((item) => [item.id, item]));
-    const currentSeriesIds = new Set(seriesById.keys());
+    const facts = resourceProjectionFacts(resource);
+    if (resource.hidden === true && !includeHiddenResources) return null;
+    const placement = creatorPlacement(profile, placementIdValue);
+    if (!placement) fail(503, 'INVALID_CREATOR_STATE', 'order references a missing placement');
+    const featured = profile.order.featured.includes(placementIdValue);
+    const sequence = featured ? profile.order.featured : profile.order.ordinary;
+    const tags = [];
+    for (const [seriesId, series] of Object.entries(profile.series)) {
+      const index = series.chapters.indexOf(placementIdValue);
+      if (index < 0) continue;
+      tags.push(publicTags
+        ? { seriesId, position: index + 1, name: series.name, href: `/c/${encodeURIComponent(profileSlug)}/series/${encodeURIComponent(series.slug)}/` }
+        : { seriesId, position: index + 1 });
+    }
+    return {
+      placementId: placementIdValue,
+      resourceId: resource.id,
+      title: resource.title,
+      url: facts.url,
+      ...(typeof resource.description === 'string' ? { description: resource.description } : {}),
+      featured,
+      position: sequence.indexOf(placementIdValue) + 1,
+      selectedForDirectory: placement.selectedForDirectory,
+      ...(includeHiddenResources ? { hidden: resource.hidden === true } : {}),
+      series: tags,
+      directoryApproval: facts.directoryApproval,
+      resourceVersion: facts.version,
+    };
+  }
+
+  async function profileLinks(profile, {
+    includeHiddenResources = false,
+    publicTags = false,
+    profileSlug = profile.slug,
+  } = {}) {
+    const ids = orderedPlacementIds(profile);
+    const resources = await resourcesById(ids.map((id) => profile.placements[id].resourceId));
     const links = [];
-    for (const placement of placements) {
-      const resource = resources.get(placement.resourceId);
-      if (Object.hasOwn(resource, 'hidden') && typeof resource.hidden !== 'boolean') fail(503, 'INVALID_RESOURCE', 'resource hidden state is malformed');
-      if (resource.hidden === true && !includeHiddenResources) continue;
-      const link = linkDtoFromRecords(placement, resource, seriesById, currentSeriesIds, {
-        includeModerationState: includeHiddenResources,
-        publicTags,
-        profileSlug,
+    for (const id of ids) {
+      const placement = profile.placements[id];
+      const link = projectCreatorLink(profile, id, resources.get(placement.resourceId), {
+        includeHiddenResources, publicTags, profileSlug,
       });
-      links.push(link);
+      if (link) links.push(link);
     }
-    return sortLinks(links);
+    return links;
   }
 
-  async function profileLinks(profileId, { includeHiddenResources = false, series = undefined, publicTags = false, profileSlug = '' } = {}) {
-    const currentSeries = series ?? await seriesForProfile(profileId);
-    const placements = await getPlacements(profileId);
-    const resourceIds = [];
-    for (const placement of placements) {
-      if (typeof placement.resourceId !== 'string') fail(503, 'INVALID_PLACEMENT', 'placement resource ID is invalid');
-      resourceIds.push(placement.resourceId);
-    }
-    const resources = await resourcesById(resourceIds);
-    return projectLinks(placements, resources, currentSeries, {
-      includeHiddenResources,
-      publicTags,
-      profileSlug,
-    });
-  }
-
-  async function prepareCanonicalLinks(placements, series) {
-    const resourceIds = [];
-    for (const placement of placements) {
-      if (typeof placement.resourceId !== 'string') fail(503, 'INVALID_PLACEMENT', 'placement resource ID is invalid');
-      resourceIds.push(placement.resourceId);
-    }
-    const resources = await resourcesById(resourceIds);
-    const seriesById = new Map(series.map((item) => [item.id, item]));
-    const currentSeriesIds = new Set(seriesById.keys());
-    return placements.map((placement) => linkDtoFromRecords(
-      placement,
-      resources.get(placement.resourceId),
-      seriesById,
-      currentSeriesIds,
-      { includeModerationState: true },
-    ));
+  function ownerResource(resource, { metadataEditable, reincludeAllowed }) {
+    const facts = resourceProjectionFacts(resource);
+    return {
+      id: resource.id,
+      version: facts.version,
+      title: resource.title,
+      url: facts.url,
+      ...(typeof resource.description === 'string' ? { description: resource.description } : {}),
+      hidden: resource.hidden === true,
+      directoryApproval: facts.directoryApproval,
+      metadataEditable,
+      reincludeAllowed,
+    };
   }
 
   async function creatorEditor(principal) {
     const { profile } = await ownerProfile(principal);
-    if (!profile) return { profile: null, links: [], editableResources: [], claims: [], series: [] };
-    const series = await seriesForProfile(profile.id);
-    const placements = await getPlacements(profile.id);
+    if (!profile) return {
+      schemaVersion: 2, creatorVersion: null, profile: null, resources: [], placements: {},
+      order: { featured: [], ordinary: [] }, series: {}, claims: [],
+    };
+
+    const activeIds = orderedPlacementIds(profile);
+    const activeResources = new Set(activeIds.map((id) => profile.placements[id].resourceId));
     const editorRefs = await store.list(`editor:${profile.id}:`);
-    const resourceIds = [];
-    for (const placement of placements) {
-      if (typeof placement.resourceId !== 'string') fail(503, 'INVALID_PLACEMENT', 'placement resource ID is invalid');
-      resourceIds.push(placement.resourceId);
-    }
+    const refsByResource = new Map();
     for (const row of editorRefs) {
       const reference = row.value;
-      if (!reference || reference.profileId !== profile.id || typeof reference.resourceId !== 'string') fail(503, 'INVALID_EDITOR_REFERENCE', 'editor reference is malformed');
-      resourceIds.push(reference.resourceId);
-    }
-    const resources = await resourcesById(resourceIds);
-    const links = projectLinks(placements, resources, series, { includeHiddenResources: true });
-    const editableResources = [];
-    for (const row of editorRefs) {
-      const reference = row.value;
-      const resource = resources.get(reference.resourceId);
-      if (resource?.editorProfileId === profile.id) {
-        editableResources.push({
-          id: resource.id,
-          title: resource.title,
-          url: currentResourceUrl(resource),
-          ...(typeof resource.description === 'string' ? { description: resource.description } : {}),
-          version: resource.version ?? 0,
-        });
+      if (!reference || reference.recordType !== 'editorReference' || reference.profileId !== profile.id
+        || typeof reference.resourceId !== 'string' || !isCatalogResourceIdWithinLimit(reference.resourceId)
+        || !Number.isSafeInteger(reference.version) || reference.version < 0) {
+        fail(503, 'INVALID_EDITOR_REFERENCE', 'editor reference is malformed');
       }
+      refsByResource.set(reference.resourceId, reference);
     }
+    const allResourceIds = [...activeResources, ...refsByResource.keys()];
+    const resourcesByResourceId = await resourcesById(allResourceIds);
+    const resources = [];
+    for (const [id, resource] of resourcesByResourceId) {
+      const authorized = resource.directoryControl === 'creator' && resource.editorProfileId === profile.id;
+      const retainedReference = refsByResource.has(id);
+      if (!activeResources.has(id) && !(authorized && retainedReference)) continue;
+      resources.push(ownerResource(resource, {
+        metadataEditable: authorized,
+        reincludeAllowed: !activeResources.has(id) && authorized && retainedReference,
+      }));
+    }
+    resources.sort((left, right) => left.id.localeCompare(right.id));
+
     const claimRefs = await store.list(`claim-ref:${profile.id}:`);
     const claims = [];
     for (const row of claimRefs) {
@@ -1016,84 +912,79 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (!reference || typeof reference.id !== 'string') fail(503, 'INVALID_CLAIM_REFERENCE', 'claim reference is malformed');
       const claim = await store.get(claimKey(reference.id));
       if (!claim) fail(503, 'MISSING_CLAIM', 'claim reference points to missing claim data');
-      if (claim && claim.profileId === profile.id) {
-        if (claim.version !== undefined && (!Number.isSafeInteger(claim.version) || claim.version < 0)) {
-          fail(503, 'INVALID_CLAIM', 'claim version is malformed');
-        }
-        const resources = storedClaimResources(claim);
-        // The store represents a legacy row with no version as version 0; expose only persisted positive versions.
-        claims.push({
-          id: claim.id,
-          resourceIds: Array.isArray(claim.resourceIds) ? [...claim.resourceIds] : [],
-          ...(Number.isSafeInteger(claim.version) && claim.version >= 1 ? { version: claim.version } : {}),
-          ...(resources ? { resources } : {}),
-          ...(typeof claim.sourceId === 'string' ? { sourceId: claim.sourceId } : {}),
-          ...(typeof claim.status === 'string' ? { status: claim.status } : {}),
-          ...(Number.isSafeInteger(claim.createdAt) ? { createdAt: claim.createdAt } : {}),
-          ...(typeof claim.evidence === 'string' ? { evidence: claim.evidence } : {}),
-        });
+      if (claim.profileId !== profile.id) continue;
+      if (claim.version !== undefined && (!Number.isSafeInteger(claim.version) || claim.version < 0)) {
+        fail(503, 'INVALID_CLAIM', 'claim version is malformed');
       }
+      const claimResources = storedClaimResources(claim);
+      claims.push({
+        id: claim.id,
+        resourceIds: Array.isArray(claim.resourceIds) ? [...claim.resourceIds] : [],
+        ...(Number.isSafeInteger(claim.version) && claim.version >= 1 ? { version: claim.version } : {}),
+        ...(claimResources ? { resources: claimResources } : {}),
+        ...(typeof claim.sourceId === 'string' ? { sourceId: claim.sourceId } : {}),
+        ...(typeof claim.status === 'string' ? { status: claim.status } : {}),
+        ...(Number.isSafeInteger(claim.createdAt) ? { createdAt: claim.createdAt } : {}),
+        ...(typeof claim.evidence === 'string' ? { evidence: claim.evidence } : {}),
+      });
     }
-    // The owner snapshot spans several strongly consistent reads, but those
-    // reads are not one DynamoDB transaction. Recheck the existing profile
-    // version after collecting its projections so a concurrent owner write
-    // cannot be returned as a mixed, apparently successful snapshot.
-    const ownerProfileDto = cleanPublicProfile(profile);
-    const latest = await store.get(profileKey(profile.id));
-    if (!latest || latest.id !== profile.id || !Number.isSafeInteger(latest.version) || latest.version < 0) {
-      fail(503, 'INVALID_PROFILE', 'profile data is missing or malformed');
-    }
-    if (latest.version !== ownerProfileDto.version) fail(409, 'PROFILE_CONFLICT', 'profile changed while reading owner data');
-    return { profile: ownerProfileDto, links, editableResources, claims, series };
+    return {
+      schemaVersion: 2,
+      creatorVersion: profile.version,
+      profile: ownerProfileDto(profile),
+      resources,
+      placements: structuredClone(profile.placements),
+      order: structuredClone(profile.order),
+      series: ownerSeriesMap(profile),
+      claims,
+    };
   }
 
   async function saveProfile(principal, body) {
+    assertOwnerFields(body, new Set([
+      'creatorVersion', 'displayName', 'slug', 'city', 'country', 'bio', 'programs', 'socials',
+    ]));
     const { profile } = await ownerProfile(principal);
-    const expectedVersion = validVersion(body.version, { optional: true });
+    requireCreatorVersion(body, profile, { allowNull: true });
     const fields = validateProfileFields(body, profile);
     if (!profile) {
       const id = newId();
-      const created = {
-        recordType: 'profile', id, ...fields, published: false, hidden: false, version: 1,
+      const created = creatorStateFits({
+        recordType: 'creatorState', schemaVersion: 2, id, version: 1,
+        ...fields, published: false, hidden: false,
+        placements: {}, order: { featured: [], ordinary: [] }, series: {},
         createdAt: timestamp(), updatedAt: timestamp(),
-      };
-      const slugAlias = created.slug ? await store.get(aliasKey(created.slug)) : null;
-      if (slugAlias) fail(409, 'SLUG_TAKEN', 'slug is already reserved');
+      });
+      const alias = created.slug ? await store.get(aliasKey(created.slug)) : null;
+      if (alias) fail(409, 'SLUG_TAKEN', 'slug is already reserved');
       const checks = [
         { key: accountKey(principal.accountId), version: null },
         { key: profileKey(id), version: null },
+        ...(created.slug ? [{ key: aliasKey(created.slug), version: null }] : []),
       ];
       const puts = [
         { key: accountKey(principal.accountId), value: { recordType: 'accountProfile', profileId: id, version: 1 } },
         { key: profileKey(id), value: created },
+        ...(created.slug ? [{ key: aliasKey(created.slug), value: { recordType: 'profileAlias', slug: created.slug, profileId: id, version: 1 } }] : []),
       ];
-      if (created.slug) {
-        checks.push({ key: aliasKey(created.slug), version: null });
-        puts.push({ key: aliasKey(created.slug), value: { recordType: 'profileAlias', slug: created.slug, profileId: id, version: 1 } });
+      if (!await store.transact({ checks, puts })) {
+        fail(409, 'PROFILE_CONFLICT', 'profile ownership or slug changed while saving');
       }
-      const ok = await store.transact({
-        checks,
-        puts,
-      });
-      if (!ok) {
-        const latestOwner = await store.get(accountKey(principal.accountId));
-        if (latestOwner) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before saving');
-        fail(409, 'PROFILE_CONFLICT', 'profile or slug changed while saving');
-      }
-      return {
-        profile: cleanPublicProfile(created),
-        versionChanges: versionChanges(versionChange('profile', id, 0, created.version)),
-      };
+      return creatorAck('save-profile', id, created.version, 'created');
     }
 
-    if (expectedVersion === undefined || expectedVersion !== profile.version) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before saving');
     if (profile.published === true && (!fields.displayName.trim() || !fields.slug)) {
       fail(422, 'PROFILE_INCOMPLETE', 'a published profile must keep its display name and URL name');
     }
     const profileFields = ['displayName', 'slug', 'city', 'country', 'bio', 'programs', 'socials'];
-    if (profileFields.every((field) => JSON.stringify(fields[field]) === JSON.stringify(profile[field]))) {
-      return { profile: cleanPublicProfile(profile), versionChanges: [] };
+    const changed = profileFields.some((field) => JSON.stringify(fields[field]) !== JSON.stringify(profile[field]));
+    if (!changed) {
+      if (!await store.transact({ checks: [{ key: profileKey(profile.id), version: profile.version }] })) {
+        fail(409, 'PROFILE_CONFLICT', 'profile changed while checking the unchanged values');
+      }
+      return creatorAck('save-profile', profile.id, profile.version, 'unchanged');
     }
+
     const slugChanged = fields.slug !== profile.slug;
     let aliasToCreate;
     if (slugChanged && fields.slug) {
@@ -1101,53 +992,28 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (alias && alias.profileId !== profile.id) fail(409, 'SLUG_TAKEN', 'slug is already reserved');
       if (!alias) aliasToCreate = { recordType: 'profileAlias', slug: fields.slug, profileId: profile.id, version: 1 };
     }
-    const updated = { ...profile, ...fields, version: profile.version + 1, updatedAt: timestamp() };
-    const checks = [{ key: profileKey(profile.id), version: profile.version }];
-    const puts = [{ key: profileKey(profile.id), value: updated }];
-    if (aliasToCreate) {
-      checks.push({ key: aliasKey(fields.slug), version: null });
-      puts.push({ key: aliasKey(fields.slug), value: aliasToCreate });
-    }
-    if (!await store.transact({ checks, puts })) fail(409, 'PROFILE_CONFLICT', 'profile or slug changed while saving');
-    return {
-      profile: cleanPublicProfile(updated),
-      versionChanges: versionChanges(versionChange('profile', profile.id, profile.version, updated.version)),
-    };
-  }
-
-  function requireCurrentProfileVersion(body, profile) {
-    const expectedVersion = validVersion(body.profileVersion);
-    if (expectedVersion !== profile.version) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before saving');
-    return expectedVersion;
+    const updated = nextCreatorState(profile, fields);
+    const checks = aliasToCreate ? [{ key: aliasKey(fields.slug), version: null }] : [];
+    const puts = aliasToCreate ? [{ key: aliasKey(fields.slug), value: aliasToCreate }] : [];
+    await commitCreatorState(profile, updated, { checks, puts, code: 'PROFILE_CONFLICT' });
+    return creatorAck('save-profile', profile.id, updated.version, 'saved');
   }
 
   async function listCreatorSeries(principal) {
     const profile = await getRequiredOwnerProfile(principal);
-    const series = await seriesForProfile(profile.id);
-    return { series, profileVersion: profile.version };
-  }
-
-  async function readCreatorEditor(context) {
-    return creatorEditor(requireAuthenticatedContext(context));
+    return { schemaVersion: 2, profileId: profile.id, creatorVersion: profile.version, series: ownerSeriesMap(profile) };
   }
 
   async function readCreatorSeries(context) {
     return listCreatorSeries(requireAuthenticatedContext(context));
   }
 
-  async function readSeriesAlias(profileId, slug) {
-    const alias = await store.get(seriesAliasKey(profileId, slug));
-    return alias ? validateSeriesAlias(alias, profileId, slug) : null;
-  }
-
   function validateSeriesInput(body, previous = {}) {
     const next = { ...previous };
     if (Object.hasOwn(body, 'name')) {
       next.name = textField(body.name, 'name');
-      if (!next.name) fail(422, 'INVALID_NAME', 'name is required');
-    } else if (!previous.name) {
-      fail(422, 'INVALID_NAME', 'name is required');
-    }
+      if (!next.name.trim()) fail(422, 'INVALID_NAME', 'name is required');
+    } else if (!previous.name) fail(422, 'INVALID_NAME', 'name is required');
     if (Object.hasOwn(body, 'slug')) next.slug = normalizeSlug(body.slug);
     else if (!previous.slug) fail(422, 'INVALID_SLUG', 'slug is required');
     if (Object.hasOwn(body, 'description')) next.description = textField(body.description, 'description');
@@ -1155,342 +1021,217 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   }
 
   async function createCreatorSeries(principal, body) {
-    assertKnownFields(body, new Set(['name', 'slug', 'description', 'profileVersion']));
+    assertOwnerFields(body, new Set(['name', 'slug', 'description', 'creatorVersion']));
     const profile = await getRequiredOwnerProfile(principal);
-    requireCurrentProfileVersion(body, profile);
+    requireCreatorVersion(body, profile);
     const fields = validateSeriesInput(body);
     const alias = await readSeriesAlias(profile.id, fields.slug);
     if (alias) fail(409, 'SERIES_SLUG_TAKEN', 'series slug is already reserved');
 
     const id = newId();
-    const created = {
-      recordType: 'series', id, profileId: profile.id, name: fields.name, slug: fields.slug,
-      ...(fields.description !== undefined ? { description: fields.description } : {}),
-      version: 1, createdAt: timestamp(), updatedAt: timestamp(),
+    const moment = timestamp();
+    const item = {
+      name: fields.name,
+      slug: fields.slug,
+      ...(Object.hasOwn(fields, 'description') ? { description: fields.description } : {}),
+      chapters: [], createdAt: moment, updatedAt: moment,
     };
-    const reserved = { recordType: 'seriesAlias', seriesId: id, profileId: profile.id, slug: fields.slug, version: 1 };
-    const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
-    const ok = await store.transact({
-      checks: [
-        { key: profileKey(profile.id), version: profile.version },
-        { key: seriesKey(profile.id, id), version: null },
-        { key: seriesAliasKey(profile.id, fields.slug), version: null },
-      ],
-      puts: [
-        { key: seriesKey(profile.id, id), value: created },
-        { key: seriesAliasKey(profile.id, fields.slug), value: reserved },
-        { key: profileKey(profile.id), value: updatedProfile },
-      ],
+    const candidate = nextCreatorState(profile, { series: { ...profile.series, [id]: item } });
+    await commitCreatorState(profile, candidate, {
+      checks: [{ key: seriesAliasKey(profile.id, fields.slug), version: null }],
+      puts: [{ key: seriesAliasKey(profile.id, fields.slug), value: {
+        recordType: 'seriesAlias', seriesId: id, profileId: profile.id, slug: fields.slug, version: 1,
+      } }],
+      code: 'SERIES_CONFLICT',
     });
-    if (!ok) fail(409, 'SERIES_CONFLICT', 'profile or series slug changed while saving');
-    return {
-      series: cleanSeries(created, profile.id, id),
-      profileVersion: updatedProfile.version,
-      versionChanges: versionChanges(
-        versionChange('profile', profile.id, profile.version, updatedProfile.version),
-        versionChange('series', id, 0, created.version),
-      ),
-    };
+    return creatorAck('create-series', profile.id, candidate.version, 'created', { seriesId: id });
   }
 
   async function patchCreatorSeries(principal, id, body) {
-    assertKnownFields(body, new Set(['name', 'slug', 'description', 'profileVersion']));
+    assertOwnerFields(body, new Set(['name', 'slug', 'description', 'creatorVersion']));
     const profile = await getRequiredOwnerProfile(principal);
-    requireCurrentProfileVersion(body, profile);
-    const expectedSeriesVersion = validVersion(body.version);
-    const stored = await store.get(seriesKey(profile.id, id));
-    if (!stored || stored.profileId !== profile.id || stored.id !== id) fail(404, 'SERIES_NOT_FOUND', 'series does not belong to this profile');
-    const current = cleanSeries(stored, profile.id, id);
-    if (expectedSeriesVersion !== current.version) fail(409, 'SERIES_CONFLICT', 'series changed; reload before saving');
+    const current = profile.series[id];
+    if (!current) fail(404, 'SERIES_NOT_FOUND', 'series does not belong to this profile');
+    requireCreatorVersion(body, profile);
     if (!['name', 'slug', 'description'].some((field) => Object.hasOwn(body, field))) {
       fail(422, 'EMPTY_UPDATE', 'series metadata fields are required');
     }
     const fields = validateSeriesInput(body, current);
-    if (['name', 'slug', 'description'].every((field) => fields[field] === current[field])) {
-      return { series: current, profileVersion: profile.version, versionChanges: [] };
+    const changed = ['name', 'slug', 'description'].some((field) => fields[field] !== current[field]);
+    if (!changed) {
+      if (!await store.transact({ checks: [{ key: profileKey(profile.id), version: profile.version }] })) {
+        fail(409, 'SERIES_CONFLICT', 'creator content changed while checking the unchanged series');
+      }
+      return creatorAck('edit-series', profile.id, profile.version, 'unchanged', { seriesId: id });
     }
-    const slugChanged = fields.slug !== current.slug;
-    const checks = [
-      { key: profileKey(profile.id), version: profile.version },
-      { key: seriesKey(profile.id, id), version: current.version },
-    ];
+
+    const checks = [];
     const puts = [];
-    if (slugChanged) {
+    if (fields.slug !== current.slug) {
       const alias = await readSeriesAlias(profile.id, fields.slug);
       if (alias && alias.seriesId !== id) fail(409, 'SERIES_SLUG_TAKEN', 'series slug is already reserved');
       if (!alias) {
         checks.push({ key: seriesAliasKey(profile.id, fields.slug), version: null });
-        puts.push({ key: seriesAliasKey(profile.id, fields.slug), value: { recordType: 'seriesAlias', seriesId: id, profileId: profile.id, slug: fields.slug, version: 1 } });
+        puts.push({ key: seriesAliasKey(profile.id, fields.slug), value: {
+          recordType: 'seriesAlias', seriesId: id, profileId: profile.id, slug: fields.slug, version: 1,
+        } });
       }
     }
-    const updated = {
-      ...stored,
-      name: fields.name,
-      slug: fields.slug,
-      ...(fields.description !== undefined ? { description: fields.description } : {}),
-      version: current.version + 1,
-      updatedAt: timestamp(),
-    };
-    if (fields.description === undefined) delete updated.description;
-    const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
-    puts.push({ key: seriesKey(profile.id, id), value: updated }, { key: profileKey(profile.id), value: updatedProfile });
-    if (!await store.transact({ checks, puts })) fail(409, 'SERIES_CONFLICT', 'profile or series changed while saving');
-    return {
-      series: cleanSeries(updated, profile.id, id),
-      profileVersion: updatedProfile.version,
-      versionChanges: versionChanges(
-        versionChange('profile', profile.id, profile.version, updatedProfile.version),
-        versionChange('series', id, current.version, updated.version),
-      ),
-    };
+    const updatedSeries = { ...current, ...fields, chapters: [...current.chapters], updatedAt: timestamp() };
+    const candidate = nextCreatorState(profile, { series: { ...profile.series, [id]: updatedSeries } });
+    await commitCreatorState(profile, candidate, { checks, puts, code: 'SERIES_CONFLICT' });
+    return creatorAck('edit-series', profile.id, candidate.version, 'saved', { seriesId: id });
   }
 
   async function deleteCreatorSeries(principal, id, body) {
-    assertKnownFields(body, new Set(['profileVersion']));
+    assertOwnerFields(body, new Set(['creatorVersion']));
     const profile = await getRequiredOwnerProfile(principal);
-    requireCurrentProfileVersion(body, profile);
-    const expectedSeriesVersion = validVersion(body.version);
-    const stored = await store.get(seriesKey(profile.id, id));
-    if (!stored || stored.profileId !== profile.id || stored.id !== id) fail(404, 'SERIES_NOT_FOUND', 'series does not belong to this profile');
-    const series = cleanSeries(stored, profile.id, id);
-    if (expectedSeriesVersion !== series.version) fail(409, 'SERIES_CONFLICT', 'series changed; reload before saving');
-    const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
-    if (!await store.transact({
-      checks: [{ key: profileKey(profile.id), version: profile.version }, { key: seriesKey(profile.id, id), version: series.version }],
-      puts: [{ key: profileKey(profile.id), value: updatedProfile }],
-      deletes: [seriesKey(profile.id, id)],
-    })) fail(409, 'SERIES_CONFLICT', 'profile or series changed while deleting');
-    return versionChanges(versionChange('profile', profile.id, profile.version, updatedProfile.version));
+    if (!Object.hasOwn(profile.series, id)) fail(404, 'SERIES_NOT_FOUND', 'series does not belong to this profile');
+    requireCreatorVersion(body, profile);
+    const series = { ...profile.series };
+    delete series[id];
+    const candidate = nextCreatorState(profile, { series });
+    await commitCreatorState(profile, candidate, { code: 'SERIES_CONFLICT' });
+    return creatorAck('delete-series', profile.id, candidate.version, 'deleted', { seriesId: id });
   }
 
-  async function changeSeriesChapter(principal, seriesId, placementId, body, operation) {
-    assertKnownFields(body, new Set(['profileVersion']));
-    if (Object.hasOwn(body, 'version')) fail(400, 'UNKNOWN_FIELD', 'unsupported field: version');
+  async function changeSeriesChapter(principal, seriesId, chapterId, body, operation) {
+    assertOwnerFields(body, new Set(['creatorVersion']));
     const profile = await getRequiredOwnerProfile(principal);
-    requireCurrentProfileVersion(body, profile);
-    const series = await getSeries(profile.id, seriesId);
-    if (!series) fail(404, 'SERIES_NOT_FOUND', 'series does not belong to this profile');
-    const key = placementKey(profile.id, placementId);
-    const placement = await store.get(key);
-    if (!placement || placement.recordType !== 'placement' || placement.id !== placementId || placement.profileId !== profile.id) {
-      fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
-    }
-    const allSeries = await seriesForProfile(profile.id);
-    const seriesById = new Map(allSeries.map((item) => [item.id, item]));
-    const activeIds = new Set(seriesById.keys());
-    const currentMap = placementSeriesMap(placement, activeIds);
-    const hadStaleReferences = isRecord(placement.series) && Object.keys(placement.series).some((id) => !activeIds.has(id));
-    const hasMembership = Object.hasOwn(currentMap, seriesId);
-    if (operation === 'remove' && !hasMembership) fail(404, 'SERIES_MEMBERSHIP_NOT_FOUND', 'placement is not in this series');
-
-    const placements = await getPlacements(profile.id);
-    const members = [];
-    for (const candidate of placements) {
-      const map = placementSeriesMap(candidate, activeIds);
-      if (Object.hasOwn(map, seriesId)) members.push({ placement: candidate, map });
-    }
-    members.sort((left, right) => left.map[seriesId].position - right.map[seriesId].position
-      || left.placement.id.localeCompare(right.placement.id));
-
-    const updatedPlacements = new Map();
-    const targetMap = currentMap;
-    if (operation === 'add' && hasMembership) {
-      if (!hadStaleReferences) {
-        return {
-          status: 200,
-          profileVersion: profile.version,
-          links: await prepareCanonicalLinks([placement], allSeries),
-        };
+    const current = profile.series[seriesId];
+    if (!current) fail(404, 'SERIES_NOT_FOUND', 'series does not belong to this profile');
+    if (!Object.hasOwn(profile.placements, chapterId)) fail(404, 'PLACEMENT_NOT_FOUND', 'chapter does not belong to this profile');
+    requireCreatorVersion(body, profile);
+    const present = current.chapters.includes(chapterId);
+    const adding = operation === 'add';
+    if (present === adding) {
+      if (!await store.transact({ checks: [{ key: profileKey(profile.id), version: profile.version }] })) {
+        fail(409, 'SERIES_CONFLICT', 'creator content changed while checking the chapter');
       }
-      updatedPlacements.set(placementId, { ...placement, series: targetMap });
-    } else if (operation === 'add') {
-      const maxPosition = members.reduce((maximum, member) => Math.max(maximum, member.map[seriesId].position), -10);
-      if (maxPosition > Number.MAX_SAFE_INTEGER - 10) fail(503, 'INVALID_PLACEMENT', 'series chapter order is malformed');
-      targetMap[seriesId] = { position: maxPosition + 10 };
-      updatedPlacements.set(placementId, { ...placement, series: targetMap });
-    } else if (operation === 'remove') {
-      delete targetMap[seriesId];
-      const updated = { ...placement };
-      if (Object.keys(targetMap).length > 0) updated.series = targetMap;
-      else delete updated.series;
-      updatedPlacements.set(placementId, updated);
+      return creatorAck(adding ? 'add-chapter' : 'remove-chapter', profile.id, profile.version,
+        'unchanged', { seriesId, placementId: chapterId });
     }
-
-    const nextVersion = profile.version + 1;
-    const updatedProfile = { ...profile, version: nextVersion, updatedAt: timestamp() };
-    const checks = [
-      { key: profileKey(profile.id), version: profile.version },
-      { key: seriesKey(profile.id, seriesId), version: series.version },
-    ];
-    const puts = [{ key: profileKey(profile.id), value: updatedProfile }];
-    for (const [id, updated] of updatedPlacements) {
-      updated.version = (updated.version ?? 0) + 1;
-      assertPlacementFits(profile.id, updated);
-      checks.push({ key: placementKey(profile.id, id), version: updated.version - 1 });
-      puts.push({ key: placementKey(profile.id, id), value: updated });
-    }
-    const canonicalResult = operation === 'remove'
-      ? {}
-      : {
-        profileVersion: updatedProfile.version,
-        links: await prepareCanonicalLinks([...updatedPlacements.values()], allSeries),
-      };
-    if (!await store.transact({ checks, puts })) fail(409, 'SERIES_CONFLICT', 'profile, series, or chapter changed while saving');
-    return {
-      status: 200,
-      ...canonicalResult,
-      versionChanges: versionChanges(
-        versionChange('profile', profile.id, profile.version, updatedProfile.version),
-        ...[...updatedPlacements.values()].map((updated) => versionChange('placement', updated.id, updated.version - 1, updated.version)),
-      ),
-    };
+    const chapters = adding ? [...current.chapters, chapterId] : current.chapters.filter((id) => id !== chapterId);
+    const series = { ...profile.series, [seriesId]: { ...current, chapters, updatedAt: timestamp() } };
+    const candidate = nextCreatorState(profile, { series });
+    await commitCreatorState(profile, candidate, { code: 'SERIES_CONFLICT' });
+    return creatorAck(adding ? 'add-chapter' : 'remove-chapter', profile.id, candidate.version,
+      adding ? 'added' : 'removed', { seriesId, placementId: chapterId });
   }
 
   async function publishProfile(principal, body) {
+    assertOwnerFields(body, new Set(['creatorVersion']));
     const profile = await getRequiredOwnerProfile(principal);
-    const expectedVersion = validVersion(body.version, { optional: true });
-    if (expectedVersion !== undefined && expectedVersion !== profile.version) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before publishing');
-    if (typeof profile.displayName !== 'string' || !profile.displayName.trim()) fail(422, 'PROFILE_INCOMPLETE', 'display name is required before publication');
-    normalizeSlug(profile.slug);
-    if (profile.published === true) return { profile: cleanPublicProfile(profile), versionChanges: [] };
-    const updated = { ...profile, published: true, version: profile.version + 1, updatedAt: timestamp() };
-    const ok = await store.transact({ checks: [{ key: profileKey(profile.id), version: profile.version }], puts: [{ key: profileKey(profile.id), value: updated }] });
-    if (!ok) fail(409, 'PROFILE_CONFLICT', 'profile changed while publishing');
-    return {
-      profile: cleanPublicProfile(updated),
-      versionChanges: versionChanges(versionChange('profile', profile.id, profile.version, updated.version)),
-    };
+    requireCreatorVersion(body, profile);
+    if (!profile.displayName.trim() || !profile.slug) fail(422, 'PROFILE_INCOMPLETE', 'save a name and URL name before publishing');
+    if (profile.published) {
+      if (!await store.transact({ checks: [{ key: profileKey(profile.id), version: profile.version }] })) {
+        fail(409, 'PROFILE_CONFLICT', 'creator content changed while checking publication');
+      }
+      return creatorAck('publish-profile', profile.id, profile.version, 'unchanged');
+    }
+    const candidate = nextCreatorState(profile, { published: true });
+    await commitCreatorState(profile, candidate, { code: 'PROFILE_CONFLICT' });
+    return creatorAck('publish-profile', profile.id, candidate.version, 'published');
   }
 
-  function buildLinkDto(placement, resource) {
-    if (!resource || resource.id !== placement.resourceId) fail(503, 'MISSING_RESOURCE', 'placement points to missing resource data');
-    if (!isCatalogResource(resource)) fail(503, 'INVALID_RESOURCE', 'placement points to a non-resource catalog row');
-    return publicLink(placement, resource, { includeModerationState: true });
+  async function readCreatorEditor(context) {
+    return creatorEditor(requireAuthenticatedContext(context));
+  }
+
+  function activePlacementId(profile, resourceId) {
+    return Object.entries(profile.placements).find(([, placement]) => placement.resourceId === resourceId)?.[0] ?? null;
+  }
+
+  function appendPlacement(profile, resourceId, selectedForDirectory = true) {
+    const id = placementId(profile.id, resourceId);
+    if (Object.hasOwn(profile.placements, id)) {
+      const existing = profile.placements[id];
+      if (existing.resourceId !== resourceId) fail(503, 'INVALID_CREATOR_STATE', 'placement identity is inconsistent');
+      return { id, candidate: null };
+    }
+    const placements = { ...profile.placements, [id]: { resourceId, selectedForDirectory } };
+    const candidate = nextCreatorState(profile, {
+      placements,
+      order: { featured: [...profile.order.featured], ordinary: [...profile.order.ordinary, id] },
+    });
+    return { id, candidate };
+  }
+
+  async function checkCreatorState(profile, checks = [], code = 'CREATOR_CONFLICT') {
+    if (!await store.transact({ checks: [{ key: profileKey(profile.id), version: profile.version }, ...checks] })) {
+      fail(409, code, 'creator content or a related record changed while saving');
+    }
   }
 
   async function attachExistingResource(profile, resource, {
     selectedForDirectory = true,
     checks = [],
+    operation = 'add-link',
+    disposition = 'resource-reused',
   } = {}) {
     if (!isCatalogResource(resource)) fail(503, 'INVALID_RESOURCE', 'a catalog control row cannot be attached as a resource');
-    const stableId = placementId(profile.id, resource.id);
-    const stablePlacementKey = placementKey(profile.id, stableId);
-    const existing = await store.get(stablePlacementKey);
-    if (existing) {
-      if (existing.id !== stableId || existing.profileId !== profile.id || existing.resourceId !== resource.id) {
-        fail(503, 'INVALID_PLACEMENT', 'existing placement does not match its resource');
-      }
-      const currentSeries = await seriesForProfile(profile.id);
-      const seriesById = new Map(currentSeries.map((series) => [series.id, series]));
-      const currentSeriesIds = new Set(seriesById.keys());
-      const link = linkDtoFromRecords(existing, resource, seriesById, currentSeriesIds, {
-        includeModerationState: true,
+    const resourceVersion = storedVersion(resource.version ?? 0, 'resource', { legacyZero: true });
+    const activeId = activePlacementId(profile, resource.id);
+    const reservationChecks = [
+      { key: `resource:${resource.id}`, version: resourceVersion },
+      ...checks,
+    ];
+    if (activeId) {
+      await checkCreatorState(profile, reservationChecks, 'LINK_CONFLICT');
+      return creatorAck(operation, profile.id, profile.version, 'already-present', {
+        resourceId: resource.id, placementId: activeId, resourceVersion,
       });
-      const placementVersion = storedVersion(existing.version, 'placement', { legacyZero: true });
-      const ok = await store.transact({
-        checks: [
-          { key: profileKey(profile.id), version: storedVersion(profile.version, 'profile') },
-          ...checks,
-          { key: stablePlacementKey, version: placementVersion },
-        ],
-        puts: [],
-      });
-      if (!ok) fail(409, 'LINK_CONFLICT', 'link changed while checking the existing reference');
-      return { link, created: false, versionChanges: [] };
     }
-
-    const placements = await getPlacements(profile.id);
-    const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
-    const placement = {
-      recordType: 'placement', id: stableId, profileId: profile.id, resourceId: resource.id,
-      position: nextPlacementPosition(placements), featured: false, selectedForDirectory, version: updatedProfile.version,
-    };
-    const link = buildLinkDto(placement, resource);
-    const ok = await store.transact({
-      checks: [
-        { key: profileKey(profile.id), version: profile.version },
-        { key: placementKey(profile.id, stableId), version: null },
-        ...checks,
-      ],
-      puts: [
-        { key: placementKey(profile.id, stableId), value: placement },
-        { key: profileKey(profile.id), value: updatedProfile },
-      ],
+    const { id, candidate } = appendPlacement(profile, resource.id, selectedForDirectory);
+    await commitCreatorState(profile, candidate, {
+      checks: reservationChecks,
+      code: 'LINK_CONFLICT',
     });
-    if (!ok) {
-      fail(409, 'LINK_CONFLICT', 'link changed while adding');
-    }
-    return {
-      link, created: true,
-      versionChanges: versionChanges(
-        versionChange('profile', profile.id, profile.version, updatedProfile.version),
-        versionChange('placement', stableId, 0, placement.version),
-      ),
-    };
-  }
-
-  function requireAddProfileVersion(profile, expectedVersion) {
-    const actualVersion = storedVersion(profile.version, 'profile');
-    if (expectedVersion !== undefined && expectedVersion !== actualVersion) {
-      fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before adding a link');
-    }
+    return creatorAck(operation, profile.id, candidate.version, disposition, {
+      resourceId: resource.id, placementId: id, resourceVersion,
+    });
   }
 
   async function attachReservedUrl(profile, url, reservation, {
     selectedForDirectory = true,
-    onStaleObservation = 'unavailable',
-    expectedProfileVersion,
+    conflictOnStale = false,
   } = {}) {
-    const failStaleObservation = () => {
-      if (onStaleObservation === 'conflict') {
-        fail(409, 'URL_CONFLICT', 'URL or profile changed while adding');
-      }
-      fail(503, 'URL_INDEX_MISMATCH', 'URL reservation is malformed or no longer matches its resource');
-    };
     if (!isValidUrlReservation(reservation, url, { allowOverLimitUniqueId: true })) {
-      failStaleObservation();
+      fail(conflictOnStale ? 409 : 503,
+        conflictOnStale ? 'URL_CONFLICT' : 'URL_INDEX_MISMATCH',
+        'URL reservation is malformed or no longer matches its resource');
     }
-    if (reservation.status === 'collision') {
-      if (onStaleObservation === 'conflict') {
-        fail(409, 'URL_CONFLICT', 'URL or profile changed while adding');
-      }
-      fail(409, 'URL_COLLISION', 'this URL needs administrative review');
-    }
-    requireAddProfileVersion(profile, expectedProfileVersion);
-
+    if (reservation.status === 'collision') fail(409, 'URL_COLLISION', 'this URL needs administrative review');
     requireCatalogResourceIdWithinLimit(reservation.resourceId);
     const resource = await store.get(`resource:${reservation.resourceId}`);
     if (!resource || resource.id !== reservation.resourceId || !isCatalogResource(resource)
       || currentResourceUrl(resource) !== url) {
-      failStaleObservation();
+      fail(conflictOnStale ? 409 : 503,
+        conflictOnStale ? 'URL_CONFLICT' : 'URL_INDEX_MISMATCH',
+        'URL reservation is malformed or no longer matches its resource');
     }
-    const key = currentUrlKey(url);
     return attachExistingResource(profile, resource, {
       selectedForDirectory,
-      checks: [
-        urlReservationCheck(key, reservation),
-        { key: `resource:${resource.id}`, version: resource.version ?? 0 },
-      ],
+      checks: [urlReservationCheck(currentUrlKey(url), reservation)],
+      operation: 'add-link',
+      disposition: 'resource-reused',
     });
   }
 
   async function readdEditableResource(principal, body) {
-    for (const field of Object.keys(body)) {
-      if (field !== 'resourceId' && field !== 'resourceVersion' && field !== 'profileVersion') {
-        fail(400, 'MIXED_RESOURCE_INPUT', 're-adding an existing resource cannot include new-resource fields');
-      }
-    }
-    const expectedProfileVersion = validVersion(body.profileVersion, { optional: true });
+    assertOwnerFields(body, new Set(['resourceId', 'resourceVersion', 'creatorVersion']));
+    const profile = await getRequiredOwnerProfile(principal);
+    requireCreatorVersion(body, profile);
     if (typeof body.resourceId !== 'string' || !body.resourceId) {
       fail(422, 'INVALID_RESOURCE_ID', 'resourceId must identify an editable resource');
     }
     requireCatalogResourceIdWithinLimit(body.resourceId);
-    if (body.resourceVersion === undefined) fail(400, 'RESOURCE_VERSION_REQUIRED', 'resourceVersion is required when re-adding an existing resource');
-    const expectedVersion = validVersion(body.resourceVersion);
-    const profile = await getRequiredOwnerProfile(principal);
-    requireAddProfileVersion(profile, expectedProfileVersion);
+    const expectedResourceVersion = validVersion(body.resourceVersion);
     const resource = await store.get(`resource:${body.resourceId}`);
     if (!resource || resource.id !== body.resourceId || !isCatalogResource(resource)) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
+    const resourceVersion = storedVersion(resource.version ?? 0, 'resource', { legacyZero: true });
+    if (expectedResourceVersion !== resourceVersion) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before re-adding it');
     if (resource.editorProfileId !== profile.id || resource.directoryControl !== 'creator') {
       fail(403, 'RESOURCE_EDIT_FORBIDDEN', 'this profile does not edit the resource');
     }
@@ -1500,665 +1241,276 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       || reference.resourceId !== resource.id || !Number.isSafeInteger(reference.version) || reference.version < 0) {
       fail(403, 'RESOURCE_EDIT_FORBIDDEN', 'this profile does not edit the resource');
     }
-    const resourceVersion = resource.version ?? 0;
-    if (!Number.isSafeInteger(resourceVersion) || resourceVersion < 0) fail(503, 'INVALID_RESOURCE', 'resource version is malformed');
-    if (expectedVersion !== resourceVersion) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before re-adding it');
-
     const url = currentResourceUrl(resource);
-    try {
-      validateCatalogUrl(url);
-    } catch {
-      fail(503, 'INVALID_RESOURCE', 'resource URL is malformed');
-    }
+    try { validateCatalogUrl(url); } catch { fail(503, 'INVALID_RESOURCE', 'resource URL is malformed'); }
     return attachExistingResource(profile, resource, {
-      checks: [
-        { key: `resource:${resource.id}`, version: resourceVersion },
-        { key: referenceKey, version: reference.version },
-      ],
+      selectedForDirectory: true,
+      checks: [{ key: referenceKey, version: reference.version }],
+      operation: 'reinclude-link',
+      disposition: 'attached',
     });
   }
 
   async function referenceResource(principal, body) {
-    if (Object.hasOwn(body, 'version')) fail(400, 'UNKNOWN_FIELD', 'unsupported field: version');
-    assertKnownFields(body, new Set(['resourceId', 'url', 'profileVersion', 'selectedForDirectory']));
-    if (typeof body.resourceId !== 'string' || body.resourceId.length === 0) {
-      fail(422, 'INVALID_RESOURCE_ID', 'resourceId must identify a catalog resource');
-    }
+    assertOwnerFields(body, new Set(['resourceId', 'url', 'creatorVersion', 'selectedForDirectory']));
+    const profile = await getRequiredOwnerProfile(principal);
+    requireCreatorVersion(body, profile);
+    if (typeof body.resourceId !== 'string' || !body.resourceId) fail(422, 'INVALID_RESOURCE_ID', 'resourceId must identify a catalog resource');
     requireCatalogResourceIdWithinLimit(body.resourceId);
-    if (body.profileVersion === undefined) fail(400, 'PROFILE_VERSION_REQUIRED', 'profileVersion is required');
-    const expectedProfileVersion = validVersion(body.profileVersion);
     const url = validateResourceUrl(body.url);
     if (body.selectedForDirectory !== undefined && typeof body.selectedForDirectory !== 'boolean') {
       fail(422, 'INVALID_SELECTION', 'selectedForDirectory must be boolean');
     }
-    const selectedForDirectory = body.selectedForDirectory ?? true;
-
-    const profile = await getRequiredOwnerProfile(principal);
-    const profileVersion = storedVersion(profile.version, 'profile');
-    if (expectedProfileVersion !== profileVersion) {
-      fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before referencing catalog content');
-    }
-
-    const resourceKey = `resource:${body.resourceId}`;
-    const resource = await store.get(resourceKey);
-    if (!resource || resource.id !== body.resourceId || !isCatalogResource(resource)) {
-      fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
-    }
-    const resourceVersion = storedVersion(resource.version, 'resource', { legacyZero: true });
+    const resource = await store.get(`resource:${body.resourceId}`);
+    if (!resource || resource.id !== body.resourceId || !isCatalogResource(resource)) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
     const currentUrl = currentResourceUrl(resource);
-    try {
-      validateResourceUrl(currentUrl);
-    } catch {
-      fail(503, 'INVALID_RESOURCE', 'resource URL is malformed');
-    }
-    if (url !== currentUrl) {
-      fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
-    }
-
+    try { validateResourceUrl(currentUrl); } catch { fail(503, 'INVALID_RESOURCE', 'resource URL is malformed'); }
+    if (currentUrl !== url) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
     const reservationKey = currentUrlKey(url);
     const reservation = await store.get(reservationKey);
-    if (!reservation || !isValidUrlReservation(reservation, url)) {
-      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the selected resource');
-    }
-    if (reservation?.status === 'collision') {
-      fail(409, 'URL_COLLISION', 'this URL needs administrative review');
-    }
-    if (reservation.resourceId !== resource.id) {
-      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the selected resource');
-    }
-
-    try {
-      return await attachExistingResource(profile, resource, {
-        selectedForDirectory,
-        checks: [
-          { key: resourceKey, version: resourceVersion },
-          urlReservationCheck(reservationKey, reservation),
-        ],
-      });
-    } catch (error) {
-      if (!(error instanceof ApiError) || error.code !== 'LINK_CONFLICT') throw error;
-      let latestResource;
-      try {
-        latestResource = await store.get(resourceKey);
-      } catch {
-        throw error;
-      }
-      if (!latestResource) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
-      if (latestResource.id !== body.resourceId || !isCatalogResource(latestResource)) throw error;
-      let latestUrl;
-      try {
-        latestUrl = validateResourceUrl(currentResourceUrl(latestResource));
-      } catch {
-        throw error;
-      }
-      if (latestUrl !== url) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
-
-      let latestReservation;
-      try {
-        latestReservation = await store.get(reservationKey);
-      } catch {
-        throw error;
-      }
-      if (!latestReservation) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
-      if (!isValidUrlReservation(latestReservation, url)) throw error;
-      if (latestReservation.status === 'collision' || latestReservation.resourceId !== body.resourceId) {
-        fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
-      }
-      throw error;
-    }
+    if (!reservation || !isValidUrlReservation(reservation, url)) fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the selected resource');
+    if (reservation.status === 'collision') fail(409, 'URL_COLLISION', 'this URL needs administrative review');
+    if (reservation.resourceId !== resource.id) fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the selected resource');
+    return attachExistingResource(profile, resource, {
+      selectedForDirectory: body.selectedForDirectory ?? true,
+      checks: [urlReservationCheck(reservationKey, reservation)],
+      operation: 'reference-link',
+      disposition: 'attached',
+    });
   }
 
   async function addLink(principal, body) {
-    if (Object.hasOwn(body, 'resourceId') || Object.hasOwn(body, 'resourceVersion')) {
-      return readdEditableResource(principal, body);
-    }
+    if (Object.hasOwn(body, 'resourceId') || Object.hasOwn(body, 'resourceVersion')) return readdEditableResource(principal, body);
+    assertOwnerFields(body, new Set(['creatorVersion', 'title', 'url', 'description', 'selectedForDirectory']));
     const profile = await getRequiredOwnerProfile(principal);
-    assertKnownFields(body, new Set(['title', 'url', 'description', 'selectedForDirectory', 'profileVersion']));
-    const expectedProfileVersion = validVersion(body.profileVersion, { optional: true });
+    requireCreatorVersion(body, profile);
     const title = textField(body.title, 'title');
     if (!title.trim()) fail(422, 'INVALID_TITLE', 'title is required');
     const url = validateResourceUrl(body.url);
     const description = body.description === undefined ? '' : textField(body.description, 'description');
-    if (body.selectedForDirectory !== undefined && typeof body.selectedForDirectory !== 'boolean') fail(422, 'INVALID_SELECTION', 'selectedForDirectory must be boolean');
-    const selectedForDirectory = body.selectedForDirectory ?? true;
-    const key = currentUrlKey(url);
-    const reservation = await store.get(key);
-    if (reservation) {
-      return attachReservedUrl(profile, url, reservation, {
-        selectedForDirectory, expectedProfileVersion,
-      });
+    if (body.selectedForDirectory !== undefined && typeof body.selectedForDirectory !== 'boolean') {
+      fail(422, 'INVALID_SELECTION', 'selectedForDirectory must be boolean');
     }
-    requireAddProfileVersion(profile, expectedProfileVersion);
+    const selectedForDirectory = body.selectedForDirectory ?? true;
+    const reservationKey = currentUrlKey(url);
+    const reservation = await store.get(reservationKey);
+    if (reservation) return attachReservedUrl(profile, url, reservation, { selectedForDirectory });
 
     const resourceId = `resource-${newId()}`;
     const resource = {
-      id: resourceId,
-      title,
-      url,
-      description,
-      order: 0,
-      featured: false,
-      published: false,
-      hidden: false,
-      approvalRevoked: false,
-      directoryControl: 'creator',
-      editorProfileId: profile.id,
-      autoSync: false,
-      version: 1,
+      id: resourceId, title, url, description, order: 0, featured: false,
+      published: false, hidden: false, approvalRevoked: false,
+      directoryControl: 'creator', editorProfileId: profile.id, autoSync: false, version: 1,
     };
-    const placements = await getPlacements(profile.id);
-    const position = nextPlacementPosition(placements);
-    const stableId = placementId(profile.id, resourceId);
-    const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
-    const placement = {
-      recordType: 'placement', id: stableId, profileId: profile.id, resourceId,
-      position, featured: false, selectedForDirectory, version: updatedProfile.version,
-    };
-    const link = buildLinkDto(placement, resource);
-    const ok = await store.transact({
-      checks: [
-        { key, version: null },
-        { key: `resource:${resourceId}`, version: null },
-        { key: profileKey(profile.id), version: profile.version },
-        { key: placementKey(profile.id, stableId), version: null },
-        { key: editorKey(profile.id, resourceId), version: null },
-      ],
-      puts: [
-        { key, value: currentUrlReservation(url, resourceId) },
-        { key: `resource:${resourceId}`, value: resource },
-        { key: profileKey(profile.id), value: updatedProfile },
-        { key: placementKey(profile.id, stableId), value: placement },
-        { key: editorKey(profile.id, resourceId), value: { recordType: 'editorReference', profileId: profile.id, resourceId, version: 1 } },
-      ],
-    });
-    if (!ok) {
-      const latestReservation = await store.get(key);
-      if (!latestReservation) {
-        fail(409, 'URL_CONFLICT', 'URL or profile changed while adding');
-      }
-      return attachReservedUrl(profile, url, latestReservation, {
-        selectedForDirectory,
-        onStaleObservation: 'conflict',
-        expectedProfileVersion,
+    const { id, candidate } = appendPlacement(profile, resourceId, selectedForDirectory);
+    const key = `resource:${resourceId}`;
+    const editKey = editorKey(profile.id, resourceId);
+    try {
+      await commitCreatorState(profile, candidate, {
+        checks: [
+          { key: reservationKey, version: null },
+          { key, version: null },
+          { key: editKey, version: null },
+        ],
+        puts: [
+          { key: reservationKey, value: currentUrlReservation(url, resourceId) },
+          { key, value: resource },
+          { key: editKey, value: { recordType: 'editorReference', profileId: profile.id, resourceId, version: 1 } },
+        ],
+        code: 'LINK_CONFLICT',
       });
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.code !== 'LINK_CONFLICT') throw error;
+      const latestReservation = await store.get(reservationKey);
+      if (latestReservation) return attachReservedUrl(profile, url, latestReservation, { selectedForDirectory, conflictOnStale: true });
+      throw error;
     }
-    return {
-      link, created: true,
-      versionChanges: versionChanges(
-        versionChange('profile', profile.id, profile.version, updatedProfile.version),
-        versionChange('resource', resourceId, 0, resource.version),
-        versionChange('placement', stableId, 0, placement.version),
-      ),
-    };
+    return creatorAck('add-link', profile.id, candidate.version, 'resource-created', {
+      resourceId, placementId: id, resourceVersion: resource.version,
+    });
   }
 
   async function editLink(principal, id, body) {
-    assertAtomicLinkFields(body);
+    const fields = new Set(['creatorVersion', 'resourceVersion', 'title', 'url', 'description', 'featured', 'selectedForDirectory']);
+    assertOwnerFields(body, fields);
     const profile = await getRequiredOwnerProfile(principal);
-    const expectedProfileVersion = body.profileVersion === undefined
-      ? fail(400, 'PROFILE_VERSION_REQUIRED', 'profileVersion is required')
-      : validVersion(body.profileVersion);
-    const expectedPlacementVersion = body.placementVersion === undefined
-      ? fail(400, 'PLACEMENT_VERSION_REQUIRED', 'placementVersion is required')
-      : validVersion(body.placementVersion);
-    const expectedResourceVersion = body.resourceVersion === undefined
-      ? fail(400, 'RESOURCE_VERSION_REQUIRED', 'resourceVersion is required')
-      : validVersion(body.resourceVersion);
-
-    const profileVersion = storedVersion(profile.version, 'profile');
-    const placementKeyValue = placementKey(profile.id, id);
-    const placement = await store.get(placementKeyValue);
-    if (!placement || placement.id !== id || placement.profileId !== profile.id) {
-      fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
-    }
-    if (expectedProfileVersion !== profileVersion) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before saving');
-    const placementVersion = storedVersion(placement.version, 'placement', { legacyZero: true });
-    if (expectedPlacementVersion !== placementVersion) fail(409, 'PLACEMENT_CONFLICT', 'placement changed; reload before saving');
-
+    const placement = profile.placements[id];
+    if (!placement) fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
+    requireCreatorVersion(body, profile);
     const resource = await store.get(`resource:${placement.resourceId}`);
     if (!resource || resource.id !== placement.resourceId || !isCatalogResource(resource)) {
       fail(503, 'MISSING_RESOURCE', 'placement points to missing resource data');
     }
-    const resourceVersion = storedVersion(resource.version, 'resource', { legacyZero: true });
-    if (expectedResourceVersion !== resourceVersion) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before saving');
-
-    const includesMetadata = [...ATOMIC_LINK_METADATA_FIELDS].some((field) => Object.hasOwn(body, field));
-    if (includesMetadata && (resource.editorProfileId !== profile.id || resource.directoryControl !== 'creator')) {
-      fail(403, 'RESOURCE_EDIT_FORBIDDEN', 'this profile does not edit the resource');
+    const resourceVersion = storedVersion(resource.version ?? 0, 'resource', { legacyZero: true });
+    const metadataFields = ['title', 'url', 'description'];
+    const includesMetadata = metadataFields.some((field) => Object.hasOwn(body, field));
+    if (includesMetadata) {
+      if (body.resourceVersion === undefined) fail(400, 'RESOURCE_VERSION_REQUIRED', 'resourceVersion is required for metadata changes');
+      if (validVersion(body.resourceVersion) !== resourceVersion) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before saving');
+      if (resource.editorProfileId !== profile.id || resource.directoryControl !== 'creator') {
+        fail(403, 'RESOURCE_EDIT_FORBIDDEN', 'this profile does not edit the resource');
+      }
+    } else if (Object.hasOwn(body, 'resourceVersion')) {
+      validVersion(body.resourceVersion);
+      if (body.resourceVersion !== resourceVersion) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before saving');
     }
-
     const resourceChanges = creatorResourceChanges(resource, body);
-    const placementChanges = placementChangesFromBody(body);
     const resourceMutation = await buildCreatorResourceMutation(resource, resourceChanges);
-    const placementMutation = buildPlacementMutation(profile.id, placement, placementChanges);
-    const changed = resourceMutation.changed || placementMutation.changed;
-    const updatedProfile = changed
-      ? { ...profile, version: nextVersion(profileVersion, 'profile'), updatedAt: timestamp() }
-      : profile;
-    const currentSeries = await seriesForProfile(profile.id);
-    const seriesById = new Map(currentSeries.map((item) => [item.id, item]));
-    const currentSeriesIds = new Set(seriesById.keys());
-    const link = linkDtoFromRecords(placementMutation.placement, resourceMutation.resource, seriesById, currentSeriesIds, {
-      includeModerationState: true,
-    });
+    const options = {};
+    for (const field of ['featured', 'selectedForDirectory']) {
+      if (!Object.hasOwn(body, field)) continue;
+      if (typeof body[field] !== 'boolean') fail(422, 'INVALID_PLACEMENT', `${field} must be boolean`);
+      options[field] = body[field];
+    }
+    const currentFeatured = profile.order.featured.includes(id);
+    const nextFeatured = Object.hasOwn(options, 'featured') ? options.featured : currentFeatured;
+    const currentSelected = placement.selectedForDirectory;
+    const nextSelected = Object.hasOwn(options, 'selectedForDirectory') ? options.selectedForDirectory : currentSelected;
+    const placementChanged = nextFeatured !== currentFeatured || nextSelected !== currentSelected;
+    const stateChanged = placementChanged;
+    let candidate = null;
+    if (stateChanged) {
+      const placements = { ...profile.placements, [id]: { ...placement, selectedForDirectory: nextSelected } };
+      const featured = profile.order.featured.filter((value) => value !== id);
+      const ordinary = profile.order.ordinary.filter((value) => value !== id);
+      const nextOrder = nextFeatured
+        ? { featured: [...featured, id], ordinary }
+        : { featured, ordinary: [...ordinary, id] };
+      candidate = nextCreatorState(profile, { placements, order: nextOrder });
+    }
     const checks = [
-      { key: profileKey(profile.id), version: profileVersion },
-      ...resourceMutation.checks,
-      ...placementMutation.checks,
+      { key: `resource:${resource.id}`, version: resourceVersion },
+      ...resourceMutation.checks.filter((check) => check.key !== `resource:${resource.id}`),
     ];
-    const puts = [
-      ...resourceMutation.puts,
-      ...placementMutation.puts,
-      ...(changed ? [{ key: profileKey(profile.id), value: updatedProfile }] : []),
-    ];
+    const puts = [...resourceMutation.puts];
     const deletes = [...resourceMutation.deletes];
-    if (!await store.transact({ checks, puts, deletes })) {
-      fail(409, 'LINK_CONFLICT', 'link changed while saving');
+    if (candidate) puts.push({ key: profileKey(profile.id), value: candidate });
+    const transactionChecks = [{ key: profileKey(profile.id), version: profile.version }, ...checks];
+    if (!await store.transact({ checks: transactionChecks, puts, deletes })) {
+      fail(409, 'LINK_CONFLICT', 'creator link or shared resource changed while saving');
     }
-
-    return {
-      link,
-      versionChanges: changed ? versionChanges(
-        versionChange('profile', profile.id, profileVersion, updatedProfile.version),
-        versionChange('resource', resource.id, resourceVersion, resourceMutation.resource.version ?? 0),
-        versionChange('placement', placement.id, placementVersion, placementMutation.placement.version ?? 0),
-      ) : [],
-    };
+    return creatorAck('edit-link', profile.id, candidate?.version ?? profile.version,
+      candidate || resourceMutation.changed ? 'saved' : 'unchanged', {
+        placementId: id, resourceId: resource.id,
+        resourceVersion: resourceMutation.resource.version ?? resourceVersion,
+      });
   }
 
-  function orderLimitError(viablePosition) {
-    const error = new ApiError(422, 'ORDER_MOVE_LIMIT', 'the order move exceeds DynamoDB transaction limits');
-    if (viablePosition !== undefined) error.details = { viablePosition };
-    return error;
-  }
-
-  // Both public commands share the same integer problem and physical facts.
-  // The optional series changes only the order scope and its extra CAS check.
-  async function moveCreatorOrder(principal, placementId, body, seriesId = null, { legacyAdjacent = false } = {}) {
-    const chapter = seriesId !== null;
-    const adjacentDirection = chapter && legacyAdjacent;
-    const allowed = adjacentDirection
-      ? new Set(['profileVersion', 'direction'])
-      : new Set(['profileVersion', 'placementVersion', 'targetPosition', ...(chapter ? ['seriesVersion'] : [])]);
-    assertKnownFields(body, allowed);
-    if (adjacentDirection && Object.hasOwn(body, 'version')) {
-      fail(400, 'UNKNOWN_FIELD', 'unsupported field: version');
+  async function moveCreatorOrder(principal, id, body, seriesId = null) {
+    assertOwnerFields(body, new Set(['creatorVersion', 'destination']));
+    const profile = await getRequiredOwnerProfile(principal);
+    if (!Number.isSafeInteger(body.destination) || body.destination < 1) {
+      fail(422, 'INVALID_POSITION', 'destination must be a positive ordinal');
     }
-    for (const field of allowed) {
-      if (field === 'direction' && body[field] === undefined) continue;
-      if (body[field] === undefined) {
-        const code = adjacentDirection && field === 'profileVersion' ? 'INVALID_VERSION'
-          : chapter ? `${field.toUpperCase()}_REQUIRED`
-          : field === 'profileVersion' ? 'PROFILE_VERSION_REQUIRED'
-            : field === 'placementVersion' ? 'PLACEMENT_VERSION_REQUIRED' : 'INVALID_POSITION';
-        fail(400, code, `${field} is required`);
-      }
+    if (!Object.hasOwn(profile.placements, id)) fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
+    const isChapterMove = seriesId !== null;
+    let currentSequence;
+    let target;
+    if (isChapterMove) {
+      target = profile.series[seriesId];
+      if (!target) fail(404, 'SERIES_NOT_FOUND', 'series does not belong to this profile');
+      currentSequence = target.chapters;
+      if (!currentSequence.includes(id)) fail(404, 'SERIES_MEMBERSHIP_NOT_FOUND', 'placement is not in this series');
+    } else {
+      const featured = profile.order.featured.includes(id);
+      currentSequence = featured ? profile.order.featured : profile.order.ordinary;
+      target = null;
     }
-    const expectedProfileVersion = validVersion(body.profileVersion);
-    const expectedPlacementVersion = adjacentDirection ? undefined : validVersion(body.placementVersion);
-    const expectedSeriesVersion = chapter && !adjacentDirection ? validVersion(body.seriesVersion) : null;
-    if (adjacentDirection && body.direction !== 'up' && body.direction !== 'down') {
-      fail(422, 'INVALID_DIRECTION', 'direction must be up or down');
-    }
-    if (!adjacentDirection && (!Number.isSafeInteger(body.targetPosition) || body.targetPosition < 1)) {
-      fail(422, 'INVALID_POSITION', 'targetPosition must be a positive ordinal');
-    }
-
-    const budget = createOrderCalculationBudget();
-    budget.reserveMemory(64 * 1024);
-    try {
-      const { profile, profileObservation } = await ownerProfile(principal, { budget });
-      if (!profile) fail(404, 'PROFILE_NOT_FOUND', 'profile does not exist');
-      const profileVersion = storedVersion(profile.version, 'profile');
-      if (chapter && expectedProfileVersion !== profileVersion) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before moving');
-      let selectedSeries;
-      let seriesObservation;
-      if (chapter) {
-        seriesObservation = await store.observe(seriesKey(profile.id, seriesId), { budget });
-        const stored = seriesObservation.value;
-        if (!stored || stored.profileId !== profile.id || stored.id !== seriesId) fail(404, 'SERIES_NOT_FOUND', 'series does not belong to this profile');
-        selectedSeries = cleanSeries(stored, profile.id, seriesId);
-        if (!adjacentDirection && selectedSeries.version !== expectedSeriesVersion) fail(409, 'SERIES_CONFLICT', 'series changed; reload before moving');
-      }
-      const { placements, observations } = await getPlacements(profile.id, { budget, includeObservations: true });
-      budget.spendWork(placements.length);
-      const target = placements.find((placement) => placement.id === placementId);
-      if (!target) fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
-      if (expectedProfileVersion !== profileVersion) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before moving');
-      const targetVersion = storedVersion(target.version, 'placement', { legacyZero: true });
-      if (!adjacentDirection && targetVersion !== expectedPlacementVersion) fail(409, 'PLACEMENT_CONFLICT', 'placement changed; reload before moving');
-
-      const series = await seriesForProfile(profile.id, { budget });
-      const seriesById = new Map(series.map((item) => [item.id, item]));
-      if (chapter) seriesById.set(seriesId, selectedSeries);
-      const currentSeriesIds = new Set(seriesById.keys());
-      budget.retainValue(seriesById);
-      budget.retainValue(currentSeriesIds);
-      budget.reserveMemory(256);
-      const group = [];
-      for (const placement of placements) {
-        budget.spendWork();
-        if (chapter) {
-          const memberships = placementSeriesMap(placement, currentSeriesIds, budget);
-          if (Object.hasOwn(memberships, seriesId)) {
-            budget.reserveMemory(338);
-            group.push({ placement, position: memberships[seriesId].position });
-          }
-        } else if (placement.featured === target.featured) {
-          if (!Number.isSafeInteger(placement.position) || placement.position < 0 || typeof placement.featured !== 'boolean') {
-            fail(503, 'INVALID_PLACEMENT', 'placement order is malformed');
-          }
-          budget.reserveMemory(338);
-          group.push({ placement, position: placement.position });
-        }
-      }
-      budget.reserveMemory(group.length * 16);
-      group.sort((left, right) => {
-        budget.spendWork();
-        return compareOrderPosition(left.position, left.placement.id, right.position, right.placement.id);
+    requireCreatorVersion(body, profile);
+    if (body.destination > currentSequence.length) fail(422, 'INVALID_POSITION', 'destination exceeds the current order group');
+    const oldIndex = currentSequence.indexOf(id);
+    if (oldIndex + 1 === body.destination) {
+      await checkCreatorState(profile, [], isChapterMove ? 'SERIES_CONFLICT' : 'ORDER_CONFLICT');
+      return creatorAck(isChapterMove ? 'move-chapter' : 'move-link', profile.id, profile.version, 'unchanged', {
+        ...(isChapterMove ? { seriesId } : {}), placementId: id,
       });
-      budget.releaseMemory(group.length * 16);
-      budget.spendWork(group.length);
-      const currentIndex = group.findIndex(({ placement }) => placement.id === placementId);
-      if (currentIndex < 0) fail(chapter ? 404 : 503, chapter ? 'SERIES_MEMBERSHIP_NOT_FOUND' : 'INVALID_PLACEMENT', 'placement is not in this order');
-      const currentOrdinal = currentIndex + 1;
-      // Legacy direction carries adjacent intent only; its neighbor ordinal comes from this complete observation.
-      const targetPosition = adjacentDirection
-        ? body.direction === 'up'
-          ? Math.max(1, currentOrdinal - 1)
-          : Math.min(group.length, currentOrdinal + 1)
-        : body.targetPosition;
-      if (targetPosition > group.length) fail(422, 'INVALID_POSITION', 'targetPosition exceeds the order group');
-
-      const targetCheck = { key: placementKey(profile.id, placementId), version: targetVersion };
-      const fixedChecks = [{ key: profileKey(profile.id), version: profileVersion },
-        ...(chapter ? [{ key: seriesKey(profile.id, seriesId), version: selectedSeries.version }] : [])];
-      const allObservations = [profileObservation, ...(chapter ? [seriesObservation] : []), ...observations];
-      budget.retainValue(allObservations);
-      const rankChanges = (placement, position) => chapter
-        ? { series: { ...placement.series, [seriesId]: { ...placement.series[seriesId], position } } }
-        : { position };
-      const makeResponseLink = async (placement) => {
-        const resource = await store.get(`resource:${placement.resourceId}`);
-        budget.retainValue(resource);
-        if (!resource || resource.id !== placement.resourceId) fail(503, 'MISSING_RESOURCE', 'placement points to missing resource data');
-        if (!isCatalogResource(resource)) fail(503, 'INVALID_RESOURCE', 'placement points to a non-resource catalog row');
-        budget.spendWork(Object.keys(placement.series ?? {}).length + 1);
-        const link = linkDtoFromRecords(placement, resource, seriesById, currentSeriesIds, { includeModerationState: true });
-        budget.retainValue(link);
-        return link;
-      };
-      const successBody = (links, changes, commandProfileVersion) => ({
-        ...(adjacentDirection ? { status: 200, profileVersion: commandProfileVersion } : {}),
-        links,
-        versionChanges: changes,
-      });
-      const prepareResponse = (value) => {
-        budget.retainValue(value);
-        // JSON DTOs contain only plain containers and scalar values. Six
-        // bytes per UTF-16 unit covers JSON escaping and UTF-8 encoding.
-        const sizeBound = (item) => {
-          budget.spendWork();
-          if (typeof item === 'string') {
-            budget.spendWork(Math.ceil(item.length / 64));
-            return 2 + item.length * 6;
-          }
-          if (item === null || typeof item !== 'object') return 25;
-          let bytes = 2;
-          if (Array.isArray(item)) {
-            for (const entry of item) bytes += 1 + sizeBound(entry);
-          } else {
-            for (const key in item) {
-              if (!Object.hasOwn(item, key)) continue;
-              bytes += 4 + key.length * 6 + sizeBound(item[key]);
-            }
-          }
-          return bytes;
-        };
-        const maximumBytes = sizeBound(value);
-        const reserved = maximumBytes * 3 + 2048;
-        budget.reserveMemory(reserved);
-        budget.spendWork(Math.ceil(maximumBytes / 64) * 2 + 1);
-        const serialized = JSON.stringify(value);
-        const actualBytes = serialized.length * 2 + Buffer.byteLength(serialized, 'utf8') + 2048;
-        budget.releaseMemory(reserved - actualBytes);
-        return jsonResponse(value, 200, serialized);
-      };
-      const commit = async (prepared, response) => {
-        if (!prepared.metrics.fits) throw orderLimitError();
-        if (!await prepared.commit()) fail(409, chapter ? 'SERIES_CONFLICT' : 'ORDER_CONFLICT', 'profile, series or placement changed while moving');
-        return response;
-      };
-      if (targetPosition === currentOrdinal) {
-        const prepared = await store.prepareTransaction({ checks: [...fixedChecks, targetCheck] }, allObservations, { budget });
-        if (!prepared.metrics.fits) throw orderLimitError();
-        const response = prepareResponse(successBody([await makeResponseLink(target)], [], profileVersion));
-        return await commit(prepared, response);
-      }
-
-      const updatedProfile = { ...profile, version: nextVersion(profileVersion, 'profile'), updatedAt: timestamp() };
-      const profileBytes = store.measurePut(profileKey(profile.id), updatedProfile, { budget }).itemBytes;
-      const fixedBytes = profileBytes + (chapter ? seriesObservation.itemBytes : 0);
-      const fixedActions = fixedChecks.length;
-      if (profileBytes > MAX_DYNAMODB_ITEM_BYTES || (chapter && seriesObservation.itemBytes > MAX_DYNAMODB_ITEM_BYTES)
-        || fixedBytes > MAX_DYNAMODB_TRANSACTION_BYTES) throw orderLimitError();
-      const byId = new Map(observations.map((observation) => [observation.value.id, observation]));
-      budget.retainValue(byId);
-      const facts = group.map(({ placement, position }) => {
-        budget.spendWork();
-        const version = storedVersion(placement.version, 'placement', { legacyZero: true });
-        const canChange = version < Number.MAX_SAFE_INTEGER;
-        const candidate = canChange ? { ...placement, version: version + 1 } : null;
-        return {
-          id: placement.id, position, canChange,
-          unchangedBytes: byId.get(placement.id).itemBytes,
-          changedBaseBytes: candidate ? store.measurePut(placementKey(profile.id, placement.id), candidate, { budget }).itemBytes - dynamoDbNumberSize(position, '', { budget }) : 0,
-        };
-      });
-      budget.retainValue(facts);
-      const limits = { targetId: placementId, maxRank: Number.MAX_SAFE_INTEGER,
-        maxActions: 100 - fixedActions, maxBytes: MAX_DYNAMODB_TRANSACTION_BYTES - fixedBytes,
-        maxItemBytes: MAX_DYNAMODB_ITEM_BYTES };
-      const findPlan = async (ordinal) => {
-        budget.spendWork(facts.length);
-        // The ordinal array is temporary across alternatives, unlike facts.
-        budget.reserveMemory(256 + facts.length * 16);
-        const desired = [...facts];
-        const [moving] = desired.splice(currentIndex, 1);
-        desired.splice(ordinal - 1, 0, moving);
-        try {
-          const result = solveIntegerOrder(desired, limits, budget);
-          if (result.kind === 'unavailable') throw new OrderCalculationUnavailableError();
-          if (result.kind === 'impossible') return null;
-          const mutations = [];
-          for (let index = 0; index < desired.length; index += 1) {
-            budget.spendWork();
-            if (result.positions[index] === desired[index].position) continue;
-            const placement = byId.get(desired[index].id).value;
-            mutations.push(buildPlacementMutation(profile.id, placement, rankChanges(placement, result.positions[index]), { budget }));
-          }
-          budget.retainValue(mutations);
-          const targetChanged = mutations.some(({ placement }) => placement.id === placementId);
-          const prepared = await store.prepareTransaction({
-            checks: [...fixedChecks, ...mutations.flatMap((mutation) => mutation.checks), ...(!targetChanged ? [targetCheck] : [])],
-            puts: [...mutations.flatMap((mutation) => mutation.puts), { key: profileKey(profile.id), value: updatedProfile }],
-          }, allObservations, { budget });
-          if (!prepared.metrics.fits) throw new Error('order witness and prepared physical images disagree');
-          return { mutations, prepared };
-        } finally {
-          budget.releaseMemory(256 + desired.length * 16);
-        }
-      };
-      const plan = await findPlan(targetPosition);
-      if (plan) {
-        const updated = new Map(plan.mutations.map(({ placement }) => [placement.id, placement]));
-        budget.retainValue(updated);
-        const responsePlacements = [updated.get(target.id) ?? target,
-          ...plan.mutations.map(({ placement }) => placement).filter(({ id }) => id !== target.id)];
-        const links = [];
-        for (const placement of responsePlacements) links.push(await makeResponseLink(placement));
-        const changes = versionChanges(
-          versionChange('profile', profile.id, profileVersion, updatedProfile.version),
-          ...plan.mutations.map((mutation) => versionChange('placement', mutation.placement.id, mutation.before, mutation.placement.version)),
-        );
-        const response = prepareResponse(successBody(links, changes, updatedProfile.version));
-        return await commit(plan.prepared, response);
-      }
-      const direction = Math.sign(targetPosition - currentOrdinal);
-      // Adjacent first usually proves a useful intermediate cheaply. Every
-      // strict intermediate is still considered before a complete rejection.
-      for (let ordinal = currentOrdinal + direction; ordinal !== targetPosition; ordinal += direction) {
-        if (await findPlan(ordinal)) throw orderLimitError(ordinal);
-      }
-      // A frozen row elsewhere does not explain a physical rejection. Only
-      // report exhausted versions if even unconstrained mutable ranks cannot
-      // satisfy the requested order around the immutable anchors.
-      budget.reserveMemory(256 + facts.length * 16);
-      try {
-        const requested = [...facts];
-        const [moving] = requested.splice(currentIndex, 1);
-        requested.splice(targetPosition - 1, 0, moving);
-        let minimum = 0;
-        let previous;
-        for (const row of requested) {
-          budget.spendWork();
-          if (previous && previous.id.localeCompare(row.id) > 0) {
-            if (minimum === Number.MAX_SAFE_INTEGER) {
-              fail(409, 'PLACEMENT_VERSION_EXHAUSTED', 'placement version cannot be incremented safely');
-            }
-            minimum += 1;
-          }
-          if (!row.canChange) {
-            if (row.position < minimum) {
-              fail(409, 'PLACEMENT_VERSION_EXHAUSTED', 'placement version cannot be incremented safely');
-            }
-            minimum = row.position;
-          }
-          previous = row;
-        }
-      } finally {
-        budget.releaseMemory(256 + facts.length * 16);
-      }
-      throw orderLimitError();
-    } catch (error) {
-      if (error instanceof OrderCalculationUnavailableError) {
-        fail(503, 'ORDER_MOVE_CALCULATION_UNAVAILABLE', 'No pudimos calcular este movimiento');
-      }
-      throw error;
     }
+    const sequence = [...currentSequence];
+    sequence.splice(oldIndex, 1);
+    sequence.splice(body.destination - 1, 0, id);
+    const changes = isChapterMove
+      ? { series: { ...profile.series, [seriesId]: { ...target, chapters: sequence, updatedAt: timestamp() } } }
+      : { order: { ...profile.order, [profile.order.featured.includes(id) ? 'featured' : 'ordinary']: sequence } };
+    const candidate = nextCreatorState(profile, changes);
+    await commitCreatorState(profile, candidate, { code: isChapterMove ? 'SERIES_CONFLICT' : 'ORDER_CONFLICT' });
+    return creatorAck(isChapterMove ? 'move-chapter' : 'move-link', profile.id, candidate.version, 'moved', {
+      ...(isChapterMove ? { seriesId } : {}), placementId: id,
+    });
   }
 
   async function patchPlacement(principal, id, body) {
-    assertKnownFields(body, new Set(['position', 'featured', 'selectedForDirectory', 'profileVersion']), PROTECTED_PLACEMENT_FIELDS);
+    assertOwnerFields(body, new Set(['creatorVersion', 'featured', 'selectedForDirectory']), PROTECTED_PLACEMENT_FIELDS);
     const profile = await getRequiredOwnerProfile(principal);
-    const key = placementKey(profile.id, id);
-    const placement = await store.get(key);
-    if (!placement || placement.id !== id || placement.profileId !== profile.id) fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
-    const expectedVersion = validVersion(body.version, { optional: true });
-    if (expectedVersion !== undefined && expectedVersion !== placement.version) fail(409, 'PLACEMENT_CONFLICT', 'placement changed; reload before saving');
-    const expectedProfileVersion = validVersion(body.profileVersion, { optional: true });
-    const changes = placementChangesFromBody(body, { allowPosition: true });
-    if (Object.hasOwn(body, 'position')) {
-      if (expectedVersion === undefined) fail(400, 'PLACEMENT_VERSION_REQUIRED', 'version is required when changing order');
-      if (expectedProfileVersion === undefined) fail(400, 'PROFILE_VERSION_REQUIRED', 'profileVersion is required when changing order');
-      if (expectedProfileVersion !== profile.version) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before changing order');
+    const placement = profile.placements[id];
+    if (!placement) fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
+    requireCreatorVersion(body, profile);
+    const currentFeatured = profile.order.featured.includes(id);
+    const nextFeatured = Object.hasOwn(body, 'featured') ? body.featured : currentFeatured;
+    const nextSelected = Object.hasOwn(body, 'selectedForDirectory') ? body.selectedForDirectory : placement.selectedForDirectory;
+    if (typeof nextFeatured !== 'boolean' || typeof nextSelected !== 'boolean') fail(422, 'INVALID_PLACEMENT', 'placement options must be boolean');
+    if (nextFeatured === currentFeatured && nextSelected === placement.selectedForDirectory) {
+      await checkCreatorState(profile);
+      return creatorAck('set-link-options', profile.id, profile.version, 'unchanged', { placementId: id });
     }
-    if (Object.keys(changes).length === 0) fail(422, 'EMPTY_UPDATE', 'no placement fields were provided');
-    const mutation = buildPlacementMutation(profile.id, placement, changes);
-    if (!mutation.changed) {
-      const [link] = await prepareCanonicalLinks([placement], await seriesForProfile(profile.id));
-      return { link, links: [link], versionChanges: [] };
-    }
-
-    const checks = [
-      { key: profileKey(profile.id), version: profile.version },
-      ...mutation.checks,
-    ];
-    const puts = [...mutation.puts];
-    let neighborMutation;
-    if (Object.hasOwn(changes, 'position') && changes.position !== placement.position) {
-      const all = await getPlacements(profile.id);
-      const other = all.find((item) => item.id !== id && item.position === changes.position && item.featured === placement.featured);
-      if (other) {
-        neighborMutation = buildPlacementMutation(profile.id, other, { position: placement.position });
-        checks.push(...neighborMutation.checks);
-        puts.push(...neighborMutation.puts);
-      }
-    }
-    const updated = mutation.placement;
-    const updatedProfile = { ...profile, version: nextVersion(profile.version, 'profile'), updatedAt: timestamp() };
-    puts.push({ key: profileKey(profile.id), value: updatedProfile });
-    const responsePlacements = [updated, ...(neighborMutation?.changed ? [neighborMutation.placement] : [])];
-    const links = await prepareCanonicalLinks(responsePlacements, await seriesForProfile(profile.id));
-    if (!await store.transact({ checks, puts })) fail(409, 'PLACEMENT_CONFLICT', 'placement changed while saving');
-    return {
-      link: links.find((item) => item.placementId === id),
-      links,
-      versionChanges: versionChanges(
-        versionChange('profile', profile.id, profile.version, updatedProfile.version),
-        versionChange('placement', id, mutation.before, updated.version),
-        neighborMutation?.changed
-          ? versionChange('placement', neighborMutation.placement.id, neighborMutation.before, neighborMutation.placement.version)
-          : null,
-      ),
-    };
+    const placements = { ...profile.placements, [id]: { ...placement, selectedForDirectory: nextSelected } };
+    const featured = profile.order.featured.filter((value) => value !== id);
+    const ordinary = profile.order.ordinary.filter((value) => value !== id);
+    const order = nextFeatured ? { featured: [...featured, id], ordinary } : { featured, ordinary: [...ordinary, id] };
+    const candidate = nextCreatorState(profile, { placements, order });
+    await commitCreatorState(profile, candidate, { code: 'LINK_CONFLICT' });
+    return creatorAck('set-link-options', profile.id, candidate.version, 'saved', { placementId: id });
   }
 
   async function deletePlacement(principal, id, body = {}) {
-    assertKnownFields(body, new Set(['profileVersion']));
+    assertOwnerFields(body, new Set(['creatorVersion']));
     const profile = await getRequiredOwnerProfile(principal);
-    const key = placementKey(profile.id, id);
-    const placement = await store.get(key);
-    if (!placement || placement.id !== id || placement.profileId !== profile.id) fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
-    const expectedProfileVersion = body.profileVersion === undefined ? undefined : validVersion(body.profileVersion);
-    if (expectedProfileVersion !== undefined && expectedProfileVersion !== profile.version) {
-      fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before saving');
-    }
-    const currentSeries = await seriesForProfile(profile.id);
-    const activeIds = new Set(currentSeries.map((item) => item.id));
-    const memberships = placementSeriesMap(placement, activeIds);
-    if (Object.keys(memberships).length > 0 && expectedProfileVersion === undefined) {
-      fail(400, 'PROFILE_VERSION_REQUIRED', 'profileVersion is required when removing a placement with series chapters');
-    }
-    const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
-    const ok = await store.transact({
-      checks: [{ key: profileKey(profile.id), version: profile.version }, { key, version: placement.version }],
-      puts: [{ key: profileKey(profile.id), value: updatedProfile }],
-      deletes: [key],
+    if (!Object.hasOwn(profile.placements, id)) fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
+    requireCreatorVersion(body, profile);
+    const placements = { ...profile.placements };
+    delete placements[id];
+    const series = Object.fromEntries(Object.entries(profile.series).map(([seriesId, item]) => [seriesId, {
+      ...item, chapters: item.chapters.filter((placementIdValue) => placementIdValue !== id),
+    }]));
+    const candidate = nextCreatorState(profile, {
+      placements,
+      order: {
+        featured: profile.order.featured.filter((placementIdValue) => placementIdValue !== id),
+        ordinary: profile.order.ordinary.filter((placementIdValue) => placementIdValue !== id),
+      },
+      series,
     });
-    if (!ok) fail(409, 'PLACEMENT_CONFLICT', 'placement changed while removing');
-    return versionChanges(versionChange('profile', profile.id, profile.version, updatedProfile.version));
+    await commitCreatorState(profile, candidate, { code: 'LINK_CONFLICT' });
+    return creatorAck('remove-link', profile.id, candidate.version, 'removed', { placementId: id });
   }
 
   async function patchCreatorResource(principal, resourceId, body) {
-    assertKnownFields(body, CREATOR_RESOURCE_FIELDS);
+    assertOwnerFields(body, new Set([...CREATOR_RESOURCE_FIELDS, 'resourceVersion']));
     requireCatalogResourceIdWithinLimit(resourceId);
     const profile = await getRequiredOwnerProfile(principal);
     const resource = await store.get(`resource:${resourceId}`);
     if (!resource || !isCatalogResource(resource)) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
-    if (resource.editorProfileId !== profile.id || resource.directoryControl !== 'creator') fail(403, 'RESOURCE_EDIT_FORBIDDEN', 'this profile does not edit the resource');
-    const expectedVersion = validVersion(body.version, { optional: true });
-    const resourceVersion = storedVersion(resource.version, 'resource', { legacyZero: true });
-    if (expectedVersion !== undefined && expectedVersion !== resourceVersion) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before saving');
+    if (resource.editorProfileId !== profile.id || resource.directoryControl !== 'creator') {
+      fail(403, 'RESOURCE_EDIT_FORBIDDEN', 'this profile does not edit the resource');
+    }
+    const expectedVersion = validVersion(body.resourceVersion);
+    const resourceVersion = storedVersion(resource.version ?? 0, 'resource', { legacyZero: true });
+    if (expectedVersion !== resourceVersion) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before saving');
     const changedFields = creatorResourceChanges(resource, body);
     if (Object.keys(changedFields).length === 0) fail(422, 'EMPTY_UPDATE', 'no resource fields were provided');
     const mutation = await buildCreatorResourceMutation(resource, changedFields);
     if (!mutation.changed) {
-      if (!await store.transact({ checks: mutation.checks })) {
-        fail(409, 'RESOURCE_CONFLICT', 'resource changed while saving');
-      }
+      if (!await store.transact({ checks: mutation.checks })) fail(409, 'RESOURCE_CONFLICT', 'resource changed while saving');
       return {
-        resource: { id: resource.id, title: resource.title, url: currentResourceUrl(resource), description: resource.description, version: resourceVersion },
-        versionChanges: [],
+        schemaVersion: 2, operation: 'edit-resource', profileId: profile.id, resourceId,
+        resourceVersion, disposition: 'unchanged',
       };
     }
     if (!await store.transact({ checks: mutation.checks, puts: mutation.puts, deletes: mutation.deletes })) {
       fail(409, 'RESOURCE_CONFLICT', 'resource or URL changed while saving');
     }
-    const updated = mutation.resource;
     return {
-      resource: { id: updated.id, title: updated.title, url: currentResourceUrl(updated), description: updated.description, version: updated.version },
-      versionChanges: versionChanges(versionChange('resource', resourceId, resourceVersion, updated.version)),
+      schemaVersion: 2, operation: 'edit-resource', profileId: profile.id, resourceId,
+      resourceVersion: mutation.resource.version, disposition: 'saved',
     };
   }
 
@@ -2169,14 +1521,19 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
   async function adminProfileList() {
     const rows = await store.list('profile:');
-    return rows.map(({ value }) => ({
-      id: value.id,
-      displayName: value.displayName,
-      slug: value.slug,
-      published: value.published === true,
-      hidden: value.hidden === true,
-      version: value.version ?? 0,
-    }));
+    return rows.map(({ value }) => {
+      if (!isRecord(value) || value.recordType !== 'creatorState'
+        || typeof value.id !== 'string' || !value.id
+        || typeof value.displayName !== 'string' || typeof value.slug !== 'string'
+        || typeof value.published !== 'boolean' || typeof value.hidden !== 'boolean'
+        || !Number.isSafeInteger(value.version) || value.version < 0) {
+        fail(503, 'INVALID_PROFILE', 'profile summary is malformed');
+      }
+      return {
+        id: value.id, displayName: value.displayName, slug: value.slug,
+        published: value.published, hidden: value.hidden, version: value.version,
+      };
+    });
   }
 
   async function adminClaimList() {
@@ -2295,8 +1652,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   async function adminProfileAction(profileId, action, body) {
     const observedVersion = requiredModerationVersion(body);
     const key = profileKey(profileId);
-    const profile = await store.get(key);
-    if (!profile) fail(404, 'PROFILE_NOT_FOUND', 'profile does not exist');
+    const row = await store.get(key);
+    if (!row) fail(404, 'PROFILE_NOT_FOUND', 'profile does not exist');
+    const profile = readCreatorStateOrFail(row, profileId);
     const currentVersion = profile.version ?? 0;
     if (observedVersion !== currentVersion) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before applying action');
     if (action !== 'ocultar' && action !== 'restaurar') fail(404, 'ACTION_NOT_FOUND', 'action does not exist');
@@ -2307,7 +1665,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       }
       return { profile: cleanPublicProfile(profile), versionChanges: [] };
     }
-    const updated = { ...profile, hidden, version: observedVersion + 1, updatedAt: timestamp() };
+    const updated = nextCreatorState(profile, { hidden });
+    creatorStateFits(updated);
     const ok = await store.transact({ checks: [{ key, version: observedVersion }], puts: [{ key, value: updated }] });
     if (!ok) fail(409, 'PROFILE_CONFLICT', 'profile changed while applying action');
     return {
@@ -2348,102 +1707,63 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
   async function createClaim(principal, body) {
     const profile = await getRequiredOwnerProfile(principal);
-    const usesResources = Object.hasOwn(body, 'resources');
-    const usesResourceIds = Object.hasOwn(body, 'resourceIds');
-    if (usesResources && Object.hasOwn(body, 'version')) {
-      fail(400, 'UNKNOWN_FIELD', 'unsupported field: version');
-    }
-    assertKnownFields(body, new Set(['resources', 'resourceIds', 'sourceId', 'evidence']));
-    if (usesResources === usesResourceIds) {
-      fail(422, 'INVALID_CLAIM_SELECTION', 'provide exactly one of resources or resourceIds');
+    assertOwnerFields(body, new Set(['resources', 'sourceId', 'evidence']));
+    if (!Array.isArray(body.resources) || body.resources.length === 0) {
+      fail(422, 'INVALID_CLAIM_RESOURCES', 'resources must contain at least one target');
     }
     const sourceId = body.sourceId === undefined ? undefined : textField(body.sourceId, 'sourceId');
     const evidence = body.evidence === undefined || body.evidence === '' ? undefined : textField(body.evidence, 'evidence');
-
-    let submittedResources;
-    if (usesResources) {
-      if (!Array.isArray(body.resources) || body.resources.length === 0) {
-        fail(422, 'INVALID_CLAIM_RESOURCES', 'resources must contain at least one target');
+    const submittedResources = body.resources.map((value) => {
+      if (!isRecord(value)) fail(422, 'INVALID_CLAIM_RESOURCES', 'each resource must contain a URL and optional exact resource ID');
+      assertOwnerFields(value, new Set(['resourceId', 'url']));
+      if (!Object.hasOwn(value, 'url')) fail(422, 'INVALID_CLAIM_RESOURCES', 'each resource URL is required');
+      const url = validateResourceUrl(value.url);
+      let resourceId;
+      if (Object.hasOwn(value, 'resourceId')) {
+        if (typeof value.resourceId !== 'string' || !value.resourceId) fail(422, 'INVALID_RESOURCE_ID', 'resourceId must identify a catalog resource');
+        requireCatalogResourceIdWithinLimit(value.resourceId);
+        resourceId = value.resourceId;
       }
-      submittedResources = body.resources.map((value) => {
-        if (!isRecord(value)) fail(422, 'INVALID_CLAIM_RESOURCES', 'each resource must contain a URL and optional exact resource ID');
-        if (Object.hasOwn(value, 'version')) fail(400, 'UNKNOWN_FIELD', 'unsupported field: version');
-        assertKnownFields(value, new Set(['resourceId', 'url']));
-        if (!Object.hasOwn(value, 'url')) fail(422, 'INVALID_CLAIM_RESOURCES', 'each resource URL is required');
-        const url = validateResourceUrl(value.url);
-        let resourceId;
-        if (Object.hasOwn(value, 'resourceId')) {
-          if (typeof value.resourceId !== 'string' || !value.resourceId) {
-            fail(422, 'INVALID_RESOURCE_ID', 'resourceId must identify a catalog resource');
-          }
-          requireCatalogResourceIdWithinLimit(value.resourceId);
-          resourceId = value.resourceId;
-        }
-        return { ...(resourceId ? { resourceId } : {}), url };
-      });
-    } else if (!Array.isArray(body.resourceIds) || body.resourceIds.length === 0
-      || body.resourceIds.some((id) => typeof id !== 'string' || !id || !isCatalogResourceIdWithinLimit(id))
-      || new Set(body.resourceIds).size !== body.resourceIds.length) {
-      fail(422, 'INVALID_RESOURCE_IDS', 'resourceIds must contain exact unique resource IDs');
+      return { ...(resourceId ? { resourceId } : {}), url };
+    });
+
+    const resolvedIds = [];
+    for (const target of submittedResources) {
+      const resourceId = target.resourceId ?? await claimResourceIdForUrl(target.url);
+      requireCatalogResourceIdWithinLimit(resourceId);
+      resolvedIds.push(resourceId);
     }
-
-    let resourceIds;
-    let resources;
-    if (usesResources) {
-      const resolvedIds = [];
-      for (const target of submittedResources) {
-        const resourceId = target.resourceId ?? await claimResourceIdForUrl(target.url);
-        requireCatalogResourceIdWithinLimit(resourceId);
-        resolvedIds.push(resourceId);
+    const records = await claimResourcesById(resolvedIds);
+    const resolved = submittedResources.map((target, index) => {
+      const resourceId = resolvedIds[index];
+      const resource = records.get(resourceId);
+      if (!resource) {
+        if (target.resourceId !== undefined) fail(404, 'RESOURCE_NOT_FOUND', 'selected catalog resource does not exist');
+        fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation points to missing catalog data');
       }
-      const records = await claimResourcesById(resolvedIds);
-      const resolved = submittedResources.map((target, index) => {
-        const resourceId = resolvedIds[index];
-        const resource = records.get(resourceId);
-        if (!resource) {
-          if (target.resourceId !== undefined) fail(404, 'RESOURCE_NOT_FOUND', 'selected catalog resource does not exist');
-          fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation points to missing catalog data');
-        }
-        if (resource.id !== resourceId) fail(503, 'INVALID_RESOURCE', 'catalog resource identity is inconsistent');
-        if (!isCatalogResource(resource)) {
-          if (target.resourceId !== undefined) fail(422, 'INVALID_RESOURCE_IDS', 'selected record is not a catalog resource');
-          fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not point to a catalog resource');
-        }
-        const currentUrl = currentResourceUrl(resource);
-        try {
-          validateCatalogUrl(currentUrl);
-        } catch {
-          fail(503, 'INVALID_RESOURCE', 'catalog resource URL is malformed');
-        }
-        if (currentUrl !== target.url) {
-          if (target.resourceId !== undefined) fail(409, 'RESOURCE_CONFLICT', 'selected resource URL changed; review the current catalog entry');
-          fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the catalog resource');
-        }
-        return { resourceId, url: target.url };
-      });
-
-      const unique = new Map();
-      for (const target of resolved) {
-        if (!unique.has(target.resourceId)) unique.set(target.resourceId, target);
+      if (resource.id !== resourceId) fail(503, 'INVALID_RESOURCE', 'catalog resource identity is inconsistent');
+      if (!isCatalogResource(resource)) {
+        if (target.resourceId !== undefined) fail(422, 'INVALID_CLAIM_RESOURCES', 'selected record is not a catalog resource');
+        fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not point to a catalog resource');
       }
-      resources = [...unique.values()];
-      resourceIds = resources.map(({ resourceId }) => resourceId);
-    } else {
-      resourceIds = [...body.resourceIds];
-      const records = await claimResourcesById(resourceIds);
-      for (const id of resourceIds) {
-        const resource = records.get(id);
-        if (!resource) fail(404, 'RESOURCE_NOT_FOUND', `resource ${id} does not exist`);
-        if (resource.id !== id) fail(503, 'INVALID_RESOURCE', 'catalog resource identity is inconsistent');
-        if (!isCatalogResource(resource)) fail(422, 'INVALID_RESOURCE_IDS', 'resourceIds may reference catalog resources only');
+      const currentUrl = currentResourceUrl(resource);
+      try { validateCatalogUrl(currentUrl); } catch { fail(503, 'INVALID_RESOURCE', 'catalog resource URL is malformed'); }
+      if (currentUrl !== target.url) {
+        if (target.resourceId !== undefined) fail(409, 'RESOURCE_CONFLICT', 'selected resource URL changed; review the current catalog entry');
+        fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the catalog resource');
       }
-    }
+      return { resourceId, url: target.url };
+    });
 
+    const unique = new Map();
+    for (const target of resolved) if (!unique.has(target.resourceId)) unique.set(target.resourceId, target);
+    const resources = [...unique.values()];
+    const resourceIds = resources.map(({ resourceId }) => resourceId);
     const id = newId();
     const createdAt = timestamp();
     const claim = {
       recordType: 'claim', id, accountId: principal.accountId, profileId: profile.id,
-      resourceIds, ...(resources ? { resources } : {}), ...(sourceId ? { sourceId } : {}), ...(evidence ? { evidence } : {}),
+      resourceIds, resources, ...(sourceId ? { sourceId } : {}), ...(evidence ? { evidence } : {}),
       status: 'pending', createdAt, version: 1,
     };
     if (store.measurePut(claimKey(id), claim).itemBytes > MAX_DYNAMODB_ITEM_BYTES) {
@@ -2460,16 +1780,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       ],
     });
     if (!ok) fail(409, 'CLAIM_CONFLICT', 'claim changed while saving');
-    return { claim: {
-      id,
-      resourceIds,
-      ...(resources ? { resources } : {}),
-      ...(sourceId ? { sourceId } : {}),
-      ...(evidence ? { evidence } : {}),
-      status: 'pending',
-      createdAt,
-      version: claim.version,
-    } };
+    return {
+      schemaVersion: 2, operation: 'create-claim', profileId: profile.id,
+      claimId: id, claimVersion: 1, disposition: 'submitted',
+    };
   }
 
   async function linkClaim(body) {
@@ -2482,10 +1796,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
     const owner = await store.get(accountKey(body.accountId));
     if (!owner || typeof owner.profileId !== 'string') fail(404, 'PROFILE_NOT_FOUND', 'target account has no creator profile');
-    const profile = await store.get(profileKey(owner.profileId));
-    if (!profile || profile.id !== owner.profileId) fail(503, 'INVALID_PROFILE', 'account mapping points to missing profile data');
+    const stateRow = await store.get(profileKey(owner.profileId));
+    if (!stateRow) fail(503, 'INVALID_PROFILE', 'account mapping points to missing profile data');
+    let profile = readCreatorStateOrFail(stateRow, owner.profileId);
     const requestedIds = [...body.resourceIds];
-    const resources = new Map();
+    const observedResources = new Map();
     for (const resourceId of requestedIds) {
       const resource = await store.get(`resource:${resourceId}`);
       if (!resource) fail(404, 'RESOURCE_NOT_FOUND', `resource ${resourceId} does not exist`);
@@ -2495,73 +1810,66 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         || (resource.directoryControl === 'creator' && resource.editorProfileId !== profile.id)) {
         fail(409, 'RESOURCE_ALREADY_CLAIMED', `resource ${resourceId} has another editor`);
       }
-      resources.set(resourceId, resource);
+      observedResources.set(resourceId, resource);
     }
+
     const didLink = [];
     const committedVersionChanges = [];
     try {
       for (const resourceId of requestedIds) {
         const resourceKey = `resource:${resourceId}`;
-        const resource = resources.get(resourceId);
-        const id = placementId(profile.id, resourceId);
-        const pKey = placementKey(profile.id, id);
-        const eKey = editorKey(profile.id, resourceId);
-        const currentPlacement = await store.get(pKey);
-        const currentEditor = await store.get(eKey);
-        const nextProfileVersion = profile.version + 1;
-        const hasEditor = resource.directoryControl === 'creator' && resource.editorProfileId === profile.id;
-        const alreadyLinked = hasEditor && currentPlacement && currentEditor;
+        const resource = observedResources.get(resourceId);
+        const resourceVersion = storedVersion(resource.version ?? 0, 'resource', { legacyZero: true });
+        const editKey = editorKey(profile.id, resourceId);
+        const currentEditor = await store.get(editKey);
+        if (currentEditor && (currentEditor.recordType !== 'editorReference' || currentEditor.profileId !== profile.id
+          || currentEditor.resourceId !== resourceId || !Number.isSafeInteger(currentEditor.version) || currentEditor.version < 0)) {
+          fail(503, 'INVALID_EDITOR_REFERENCE', 'editor reference is malformed');
+        }
+        const hasAuthority = resource.directoryControl === 'creator' && resource.editorProfileId === profile.id;
+        const hasPlacement = activePlacementId(profile, resourceId) !== null;
+        const hasEditor = Boolean(currentEditor);
+        const alreadyLinked = hasAuthority && hasPlacement && hasEditor;
         if (alreadyLinked) {
           didLink.push(resourceId);
           continue;
         }
-        const checks = [
-          { key: resourceKey, version: resource.version ?? 0 },
-          { key: profileKey(profile.id), version: profile.version },
-        ];
+
+        let candidate = null;
+        if (!hasPlacement) {
+          const appended = appendPlacement(profile, resourceId, true);
+          candidate = appended.candidate;
+        }
+        const checks = [{ key: resourceKey, version: resourceVersion }];
         const puts = [];
-        let resourceUpdated = null;
-        if (!hasEditor) {
-          resourceUpdated = {
-            ...resource,
-            directoryControl: 'creator',
-            editorProfileId: profile.id,
-            autoSync: false,
-            version: (resource.version ?? 0) + 1,
+        let updatedResource = null;
+        if (!hasAuthority) {
+          updatedResource = {
+            ...resource, directoryControl: 'creator', editorProfileId: profile.id,
+            autoSync: false, version: nextVersion(resourceVersion, 'resource'),
           };
-          puts.push({ key: resourceKey, value: resourceUpdated });
+          puts.push({ key: resourceKey, value: updatedResource });
         }
-        if (!currentEditor) {
-          checks.push({ key: eKey, version: null });
-          puts.push({ key: eKey, value: { recordType: 'editorReference', profileId: profile.id, resourceId, version: 1 } });
+        if (currentEditor) checks.push({ key: editKey, version: currentEditor.version });
+        else {
+          checks.push({ key: editKey, version: null });
+          puts.push({ key: editKey, value: { recordType: 'editorReference', profileId: profile.id, resourceId, version: 1 } });
         }
-        if (!currentPlacement) {
-          const all = await getPlacements(profile.id);
-          const position = nextPlacementPosition(all);
-          checks.push({ key: pKey, version: null });
-          puts.push({ key: pKey, value: { recordType: 'placement', id, profileId: profile.id, resourceId, position, featured: false, selectedForDirectory: true, version: nextProfileVersion } });
+        if (candidate) puts.push({ key: profileKey(profile.id), value: candidate });
+        else checks.push({ key: profileKey(profile.id), version: profile.version });
+        if (!await store.transact({ checks, puts })) fail(409, 'CLAIM_CONFLICT', `resource ${resourceId} changed while linking`);
+
+        if (candidate) {
+          committedVersionChanges.push(versionChange('profile', profile.id, profile.version, candidate.version));
+          profile = candidate;
         }
-        if (puts.length === 0) {
-          didLink.push(resourceId);
-          continue;
+        if (updatedResource) {
+          committedVersionChanges.push(versionChange('resource', resourceId, resourceVersion, updatedResource.version));
+          observedResources.set(resourceId, updatedResource);
         }
-        const updatedProfile = { ...profile, version: nextProfileVersion, updatedAt: timestamp() };
-        puts.push({ key: profileKey(profile.id), value: updatedProfile });
-        const ok = await store.transact({ checks, puts });
-        if (!ok) fail(409, 'CLAIM_CONFLICT', `resource ${resourceId} changed while linking`);
-        committedVersionChanges.push(versionChange('profile', profile.id, profile.version, updatedProfile.version));
-        if (resourceUpdated) {
-          committedVersionChanges.push(versionChange('resource', resourceId, resource.version ?? 0, resourceUpdated.version));
-        }
-        if (!currentPlacement) {
-          committedVersionChanges.push(versionChange('placement', id, 0, nextProfileVersion));
-        }
-        profile.version = updatedProfile.version;
         didLink.push(resourceId);
       }
 
-      // Keep a request pending after a partial selection; resolve it only when every
-      // explicitly requested resource is under this creator's current edit control.
       const claims = await store.list('claim:');
       for (const row of claims) {
         const claim = row.value;
@@ -2575,7 +1883,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         const linkedCount = linked.filter(Boolean).length;
         const nextStatus = linkedCount === claimIds.length ? 'resolved' : linkedCount > 0 ? 'partial' : 'pending';
         if (nextStatus === claim.status) continue;
-        const updated = { ...claim, status: nextStatus, ...(nextStatus === 'resolved' ? { resolvedAt: timestamp() } : {}), version: claim.version + 1 };
+        const updated = { ...claim, status: nextStatus,
+          ...(nextStatus === 'resolved' ? { resolvedAt: timestamp() } : {}), version: claim.version + 1 };
         const refKey = claimRefKey(profile.id, claim.id);
         const ref = await store.get(refKey);
         const checks = [{ key: row.key, version: claim.version }];
@@ -2606,7 +1915,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       const chapterCount = links.reduce((count, link) => count + Number(link.series.some((tag) => tag.seriesId === item.id)), 0);
       if (chapterCount === 0) return null;
       return {
-        ...item,
+        id: item.id,
+        name: item.name,
+        slug: item.slug,
+        ...(Object.hasOwn(item, 'description') ? { description: item.description } : {}),
         chapterCount,
         href: `/c/${encodeURIComponent(profile.slug)}/series/${encodeURIComponent(item.slug)}/`,
       };
@@ -2617,30 +1929,24 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     try {
       let slug;
       try { slug = normalizeSlug(slugValue); } catch { return { status: 404 }; }
-      if (typeof suffix !== 'string' || (suffix && (!suffix.startsWith('/') || suffix.startsWith('//') || suffix.includes('?') || suffix.includes('#')))) {
-        return { status: 404 };
-      }
+      if (typeof suffix !== 'string' || (suffix && (!suffix.startsWith('/') || suffix.startsWith('//') || suffix.includes('?') || suffix.includes('#')))) return { status: 404 };
       if (suffix.includes('\\') || /[\u0000-\u001f\u007f]/.test(suffix)
         || suffix.split('/').some((part) => part === '.' || part === '..')) return { status: 404 };
       if (typeof search !== 'string' || (search && (!search.startsWith('?') || /[\u0000-\u001f\u007f]/.test(search)))) return { status: 404 };
       const alias = await store.get(aliasKey(slug));
       if (!alias) return { status: 404 };
       if (alias.recordType !== 'profileAlias' || alias.slug !== slug || typeof alias.profileId !== 'string') fail(503, 'INVALID_ALIAS', 'profile alias is malformed');
-      const profile = await store.get(profileKey(alias.profileId));
-      if (!profile || profile.id !== alias.profileId) fail(503, 'INVALID_ALIAS', 'profile alias points to missing data');
-      if (Object.hasOwn(profile, 'hidden') && typeof profile.hidden !== 'boolean') fail(503, 'INVALID_PROFILE', 'profile hidden state is malformed');
-      if (typeof profile.published !== 'boolean') fail(503, 'INVALID_PROFILE', 'profile publication state is malformed');
-      if (typeof profile.slug !== 'string') fail(503, 'INVALID_PROFILE', 'profile slug is malformed');
-      if (profile.hidden === true || profile.published !== true) return { status: 404 };
-      try { normalizeSlug(profile.slug); } catch { fail(503, 'INVALID_PROFILE', 'profile slug is malformed'); }
+      const row = await store.get(profileKey(alias.profileId));
+      if (!row) fail(503, 'INVALID_ALIAS', 'profile alias points to missing data');
+      const profile = readCreatorStateOrFail(row, alias.profileId);
+      if (profile.hidden || !profile.published) return { status: 404 };
       const publicProfile = cleanPublicProfile(profile);
       if (!publicProfile.displayName.trim()) fail(503, 'INVALID_PROFILE', 'profile display name is malformed');
       if (profile.slug !== slug) {
-        const pathSuffix = suffix || '/';
-        return { status: 308, redirectTo: `/c/${encodeURIComponent(profile.slug)}${pathSuffix}${search}` };
+        return { status: 308, redirectTo: `/c/${encodeURIComponent(profile.slug)}${suffix || '/'}${search}` };
       }
-      const series = await seriesForProfile(profile.id);
-      const links = await profileLinks(profile.id, { series, publicTags: true, profileSlug: profile.slug });
+      const series = seriesFromState(profile);
+      const links = await profileLinks(profile, { publicTags: true, profileSlug: profile.slug });
       return { status: 200, profile: publicProfile, links, series: publicSeriesSummaries(profile, series, links) };
     } catch {
       return { status: 503 };
@@ -2661,36 +1967,39 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       const profileAlias = await store.get(aliasKey(profileSlug));
       if (!profileAlias) return { status: 404 };
       if (profileAlias.recordType !== 'profileAlias' || profileAlias.slug !== profileSlug || typeof profileAlias.profileId !== 'string') fail(503, 'INVALID_ALIAS', 'profile alias is malformed');
-      const profile = await store.get(profileKey(profileAlias.profileId));
-      if (!profile || profile.id !== profileAlias.profileId) fail(503, 'INVALID_ALIAS', 'profile alias points to missing data');
-      if (Object.hasOwn(profile, 'hidden') && typeof profile.hidden !== 'boolean') fail(503, 'INVALID_PROFILE', 'profile hidden state is malformed');
-      if (typeof profile.published !== 'boolean' || typeof profile.slug !== 'string') fail(503, 'INVALID_PROFILE', 'profile publication state is malformed');
-      if (profile.hidden === true || profile.published !== true) return { status: 404 };
-      try { normalizeSlug(profile.slug); } catch { fail(503, 'INVALID_PROFILE', 'profile slug is malformed'); }
+      const row = await store.get(profileKey(profileAlias.profileId));
+      if (!row) fail(503, 'INVALID_ALIAS', 'profile alias points to missing data');
+      const profile = readCreatorStateOrFail(row, profileAlias.profileId);
+      if (profile.hidden || !profile.published) return { status: 404 };
       const publicProfile = cleanPublicProfile(profile);
       if (!publicProfile.displayName.trim()) fail(503, 'INVALID_PROFILE', 'profile display name is malformed');
 
       const seriesAlias = await readSeriesAlias(profile.id, seriesSlug);
       if (!seriesAlias) return { status: 404 };
-      const series = await getSeries(profile.id, seriesAlias.seriesId);
-      // Retained aliases whose series was deleted remain reserved but are no
-      // longer public.
-      if (!series) return { status: 404 };
-      const allSeries = await seriesForProfile(profile.id);
-      const links = await profileLinks(profile.id, { series: allSeries, publicTags: true, profileSlug: profile.slug });
-      const chapters = links.filter((link) => link.series.some((tag) => tag.seriesId === series.id))
-        .sort((left, right) => left.series.find((tag) => tag.seriesId === series.id).position
-          - right.series.find((tag) => tag.seriesId === series.id).position
-          || left.placementId.localeCompare(right.placementId));
-      if (chapters.length === 0) return { status: 404 };
-      const canonicalProfile = profile.slug;
-      if (canonicalProfile !== profileSlug || series.slug !== seriesSlug) {
+      const seriesState = profile.series[seriesAlias.seriesId];
+      if (!seriesState) return { status: 404 };
+      const metadata = {
+        id: seriesAlias.seriesId,
+        name: seriesState.name,
+        slug: seriesState.slug,
+        ...(Object.hasOwn(seriesState, 'description') ? { description: seriesState.description } : {}),
+      };
+      const resources = await resourcesById(seriesState.chapters.map((id) => profile.placements[id].resourceId));
+      const links = [];
+      for (const id of seriesState.chapters) {
+        const placement = profile.placements[id];
+        const resource = resources.get(placement.resourceId);
+        const link = projectCreatorLink(profile, id, resource, { publicTags: true, profileSlug: profile.slug });
+        if (link) links.push(link);
+      }
+      if (links.length === 0) return { status: 404 };
+      if (profile.slug !== profileSlug || seriesState.slug !== seriesSlug) {
         return {
           status: 308,
-          redirectTo: `/c/${encodeURIComponent(canonicalProfile)}/series/${encodeURIComponent(series.slug)}/${search}`,
+          redirectTo: `/c/${encodeURIComponent(profile.slug)}/series/${encodeURIComponent(seriesState.slug)}/${search}`,
         };
       }
-      return { status: 200, profile: publicProfile, series, links: chapters };
+      return { status: 200, profile: publicProfile, series: metadata, links };
     } catch {
       return { status: 503 };
     }
@@ -2752,6 +2061,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       return jsonResponse(await readCreatorStatistics(context, { period, page }));
     }
 
+    // Retired owner paths must reject obsolete open documents consistently,
+    // before route dispatch can obscure the compatibility boundary with 404.
+    if (path.startsWith('/api/creador/') && request.method !== 'GET') {
+      requireWriteRequest(request, principal);
+    }
+
     if (path === '/api/creador/perfil') {
       if (request.method === 'GET') {
         requireCreatorPageSessionBinding(request, principal);
@@ -2760,7 +2075,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (request.method === 'PUT') {
         requireWriteRequest(request, principal);
         const body = await parseRequestBody(request);
-        return writeJsonResponse(await saveProfile(principal, body));
+        return jsonResponse(await saveProfile(principal, body));
       }
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
     }
@@ -2769,8 +2084,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (request.method === 'POST') {
         requireWriteRequest(request, principal);
         const body = await parseRequestBody(request);
-        if (Object.hasOwn(body, 'version')) fail(400, 'UNKNOWN_FIELD', 'unsupported field: version');
-        return writeJsonResponse(await createCreatorSeries(principal, body), 201);
+        return jsonResponse(await createCreatorSeries(principal, body), 201);
       }
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
     }
@@ -2778,69 +2092,65 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (seriesChapterMoveMatch) {
       requireMethod(request, 'POST');
       requireWriteRequest(request, principal);
-      return moveCreatorOrder(
+      return jsonResponse(await moveCreatorOrder(
         principal,
         decodeSegment(seriesChapterMoveMatch[2]),
         await parseRequestBody(request),
         decodeSegment(seriesChapterMoveMatch[1]),
-      );
+      ));
     }
     const seriesChapterMatch = path.match(/^\/api\/creador\/series\/([^/]+)\/capitulos\/([^/]+)$/);
     if (seriesChapterMatch) {
       const seriesId = decodeSegment(seriesChapterMatch[1]);
       const chapterId = decodeSegment(seriesChapterMatch[2]);
-      if (!['PUT', 'PATCH', 'DELETE'].includes(request.method)) fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
+      if (!['PUT', 'DELETE'].includes(request.method)) fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
       requireWriteRequest(request, principal);
       const body = await parseRequestBody(request);
-      if (request.method === 'PATCH') {
-        return moveCreatorOrder(principal, chapterId, body, seriesId, { legacyAdjacent: true });
-      }
       const operation = request.method === 'PUT' ? 'add' : 'remove';
       const result = await changeSeriesChapter(principal, seriesId, chapterId, body, operation);
-      return request.method === 'DELETE' ? writeEmptyResponse(result.versionChanges) : writeJsonResponse(result);
+      return jsonResponse(result);
     }
     const seriesMatch = path.match(/^\/api\/creador\/series\/([^/]+)$/);
     if (seriesMatch) {
       const id = decodeSegment(seriesMatch[1]);
       if (request.method === 'PATCH') {
         requireWriteRequest(request, principal);
-        return writeJsonResponse(await patchCreatorSeries(principal, id, await parseRequestBody(request)));
+        return jsonResponse(await patchCreatorSeries(principal, id, await parseRequestBody(request)));
       }
       if (request.method === 'DELETE') {
         requireWriteRequest(request, principal);
-        const changes = await deleteCreatorSeries(principal, id, await parseRequestBody(request));
-        return writeEmptyResponse(changes);
+        return jsonResponse(await deleteCreatorSeries(principal, id, await parseRequestBody(request)));
       }
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
     }
     if (path === '/api/creador/perfil/publicar') {
       requireMethod(request, 'POST');
       requireWriteRequest(request, principal);
-      return writeJsonResponse(await publishProfile(principal, await parseRequestBody(request)));
+      return jsonResponse(await publishProfile(principal, await parseRequestBody(request)));
     }
     if (path === '/api/creador/referencias') {
       requireMethod(request, 'POST');
       requireWriteRequest(request, principal);
       const result = await referenceResource(principal, await parseRequestBody(request));
-      return writeJsonResponse(result, result.created ? 201 : 200);
+      return jsonResponse(result, result.disposition === 'attached' ? 201 : 200);
     }
     if (path === '/api/creador/enlaces') {
       requireMethod(request, 'POST');
       requireWriteRequest(request, principal);
       const result = await addLink(principal, await parseRequestBody(request));
-      return writeJsonResponse(result, result.created ? 201 : 200);
+      return jsonResponse(result, result.disposition === 'already-present' ? 200 : 201);
     }
     const linkEditMatch = path.match(/^\/api\/creador\/enlaces\/([^/]+)\/editar$/);
     if (linkEditMatch) {
       requireMethod(request, 'PATCH');
       requireWriteRequest(request, principal);
-      return writeJsonResponse(await editLink(principal, decodeSegment(linkEditMatch[1]), await parseRequestBody(request)));
+      return jsonResponse(await editLink(principal, decodeSegment(linkEditMatch[1]), await parseRequestBody(request)));
     }
     const placementMoveMatch = path.match(/^\/api\/creador\/enlaces\/([^/]+)\/mover$/);
     if (placementMoveMatch) {
       requireMethod(request, 'POST');
       requireWriteRequest(request, principal);
-      return moveCreatorOrder(principal, decodeSegment(placementMoveMatch[1]), await parseRequestBody(request));
+      return jsonResponse(await moveCreatorOrder(principal, decodeSegment(placementMoveMatch[1]), await parseRequestBody(request)));
     }
     const placementMatch = path.match(/^\/api\/creador\/enlaces\/([^/]+)$/);
     if (placementMatch) {
@@ -2848,11 +2158,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (request.method === 'DELETE') {
         requireWriteRequest(request, principal);
         const changes = await deletePlacement(principal, id, request.body ? await parseRequestBody(request) : {});
-        return writeEmptyResponse(changes);
+        return jsonResponse(changes);
       }
       if (request.method === 'PATCH') {
         requireWriteRequest(request, principal);
-        return writeJsonResponse(await patchPlacement(principal, id, await parseRequestBody(request)));
+        return jsonResponse(await patchPlacement(principal, id, await parseRequestBody(request)));
       }
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
     }
@@ -2865,19 +2175,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       }
       const resourceId = resourceIds[0];
       requireCatalogResourceIdWithinLimit(resourceId);
-      if (resourceId !== '.' && resourceId !== '..') fail(404, 'NOT_FOUND', 'route not found');
-      return writeJsonResponse(await patchCreatorResource(principal, resourceId, await parseRequestBody(request)));
-    }
-    const creatorResourceMatch = path.match(/^\/api\/creador\/recursos\/([^/]+)$/);
-    if (creatorResourceMatch) {
-      requireMethod(request, 'PATCH');
-      requireWriteRequest(request, principal);
-      return writeJsonResponse(await patchCreatorResource(principal, decodeSegment(creatorResourceMatch[1]), await parseRequestBody(request)));
+      return jsonResponse(await patchCreatorResource(principal, resourceId, await parseRequestBody(request)));
     }
     if (path === '/api/creador/reclamaciones') {
       requireMethod(request, 'POST');
       requireWriteRequest(request, principal);
-      return writeJsonResponse(await createClaim(principal, await parseRequestBody(request)), 202);
+      return jsonResponse(await createClaim(principal, await parseRequestBody(request)), 202);
     }
 
     const adminResourceCollectionPath = '/api/admin/recursos';

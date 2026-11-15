@@ -11,35 +11,9 @@ import {
 import { dynamoDbItemSize } from './creator-dynamodb-size.mjs';
 
 const MAX_TRANSACTION_ACTIONS = 100;
-const MAX_TRANSACTION_ITEM_BYTES = 400 * 1024;
-const MAX_TRANSACTION_BYTES = 4 * 1024 * 1024;
 const MAX_BATCH_GET_KEYS = 100;
 const MAX_UNPROCESSED_RETRIES = 3;
 const BATCH_GET_RETRY_DELAYS_MS = [10, 20, 40];
-
-function spendBudgetWork(budget, amount = 1) {
-  if (!budget) return;
-  if (typeof budget.spendWork !== 'function') throw new TypeError('budget must expose spendWork');
-  budget.spendWork(amount);
-}
-
-function retainBudgetValue(budget, value) {
-  if (!budget || value === undefined) return;
-  if (typeof budget.retainValue !== 'function') throw new TypeError('budget must expose retainValue');
-  budget.retainValue(value);
-}
-
-function reserveBudgetMemory(budget, byteCount) {
-  if (!budget || byteCount === 0) return;
-  if (typeof budget.reserveMemory !== 'function') throw new TypeError('budget must expose reserveMemory');
-  budget.reserveMemory(byteCount);
-}
-
-function cloneBudgetValue(budget, value) {
-  if (!budget) return structuredClone(value);
-  if (typeof budget.cloneValue !== 'function') throw new TypeError('budget must expose cloneValue');
-  return budget.cloneValue(value);
-}
 
 function sha256(value) {
   return createHash('sha256').update(value, 'utf8').digest('hex');
@@ -88,20 +62,6 @@ function logicalKey(key) {
       type: 'seriesAlias',
     };
   }
-  if (key.startsWith('series:')) {
-    const { profileId, id } = parseProfileAndId(key, 'series:', 'series');
-    return {
-      table: 'profiles',
-      key: { pk: `PROFILE#${profileId}`, sk: `SERIES#${id}` },
-      profileId,
-      id,
-      type: 'series',
-    };
-  }
-  if (key.startsWith('placement:')) {
-    const { profileId, id } = parseProfileAndId(key, 'placement:', 'placement');
-    return { table: 'profiles', key: { pk: `PROFILE#${profileId}`, sk: `PLACEMENT#${id}` }, profileId, id, type: 'placement' };
-  }
   if (key.startsWith('editor:')) {
     const { profileId, id } = parseProfileAndId(key, 'editor:', 'editor reference', { allowIdColon: true });
     return { table: 'profiles', key: { pk: `PROFILE#${profileId}`, sk: `EDITOR#${id}` }, profileId, id, type: 'editor' };
@@ -144,7 +104,9 @@ function tableNameFor(descriptor, tables) {
 function cleanItem(item) {
   if (!item) return null;
   const { pk: _pk, sk: _sk, ttl: _ttl, ...value } = item;
-  return { ...value, version: value.version ?? 0 };
+  // Aggregate revisions are mandatory persisted state. Do not turn a malformed
+  // creatorState row with a missing revision into an apparent revision zero.
+  return value.recordType === 'creatorState' ? value : { ...value, version: value.version ?? 0 };
 }
 
 function conflictCancel(error) {
@@ -242,21 +204,9 @@ function addPageCursor(parameters, cursor) {
 }
 
 function profileProjection() {
-  const fields = ['pk', 'sk', 'recordType', 'id', 'slug', 'displayName', 'city', 'country', 'programs', 'bio', 'socials', 'photo', 'published', 'hidden', 'version', 'createdAt', 'updatedAt'];
+  const fields = ['pk', 'sk', 'recordType', 'schemaVersion', 'id', 'slug', 'displayName', 'published', 'hidden', 'version'];
   const names = Object.fromEntries(fields.map((field, index) => [`#p${index}`, field]));
   return { ProjectionExpression: fields.map((_, index) => `#p${index}`).join(', '), ExpressionAttributeNames: names };
-}
-
-function placementProjection() {
-  const fields = ['pk', 'sk', 'recordType', 'id', 'profileId', 'resourceId', 'position', 'featured', 'selectedForDirectory', 'series', 'version'];
-  const names = Object.fromEntries(fields.map((field, index) => [`#p${index}`, field]));
-  return { ProjectionExpression: fields.map((_, index) => `#p${index}`).join(', '), ExpressionAttributeNames: names };
-}
-
-function seriesProjection() {
-  const fields = ['pk', 'sk', 'recordType', 'id', 'profileId', 'name', 'slug', 'description', 'version'];
-  const names = Object.fromEntries(fields.map((field, index) => [`#s${index}`, field]));
-  return { ProjectionExpression: fields.map((_, index) => `#s${index}`).join(', '), ExpressionAttributeNames: names };
 }
 
 function resourceProjection() {
@@ -271,16 +221,6 @@ function claimProjection() {
   return { ProjectionExpression: fields.map((_, index) => `#c${index}`).join(', '), ExpressionAttributeNames: names };
 }
 
-function projectedRow(item, projection) {
-  const names = projection.ExpressionAttributeNames;
-  const fields = projection.ProjectionExpression.split(',').map((field) => names[field.trim()] ?? field.trim());
-  const result = {};
-  for (const field of fields) {
-    if (Object.hasOwn(item, field)) result[field] = item[field];
-  }
-  return result;
-}
-
 export function createCreatorStore({ accountsTableName, profilesTableName, catalogTableName, region, client } = {}) {
   const tables = {
     accounts: requireTableName(accountsTableName, 'accountsTableName'),
@@ -293,27 +233,18 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
   );
   if (!documentClient || typeof documentClient.send !== 'function') throw new TypeError('client must implement send');
 
-  async function readPages(commandFactory, table, parameters, { budget, mapPage } = {}) {
+  async function readPages(commandFactory, table, parameters) {
     const rows = [];
-    retainBudgetValue(budget, rows);
     let cursor;
     const seen = new Set();
     for (;;) {
-      spendBudgetWork(budget);
       const page = await documentClient.send(new commandFactory({ TableName: table, ...addPageCursor({ ...parameters }, cursor) }));
       if (!page || !Array.isArray(page.Items)) throw new Error('DynamoDB list response is missing Items');
-      retainBudgetValue(budget, page.Items);
-      const pageRows = mapPage ? mapPage(page.Items) : page.Items;
-      if (!Array.isArray(pageRows)) throw new Error('DynamoDB page mapper must return an array');
-      retainBudgetValue(budget, pageRows);
-      reserveBudgetMemory(budget, pageRows.length * 16);
-      spendBudgetWork(budget, pageRows.length);
-      rows.push(...pageRows);
+      rows.push(...page.Items);
       const next = page.LastEvaluatedKey;
       if (next === undefined || next === null) return rows;
       if (typeof next !== 'object' || Array.isArray(next)) throw new Error('DynamoDB list response has an invalid LastEvaluatedKey');
       if (Object.keys(next).length === 0) return rows;
-      retainBudgetValue(budget, next);
       const fingerprint = paginationFingerprint(next);
       if (seen.has(fingerprint)) throw new Error('DynamoDB list repeated a pagination key');
       seen.add(fingerprint);
@@ -401,69 +332,8 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
     return resources;
   }
 
-  function profileScan(prefix) {
-    if (prefix === 'profile:') {
-      const projection = profileProjection();
-      return { table: tables.profiles, params: { ConsistentRead: true, ...projection } };
-    }
-    if (prefix === 'placement:') {
-      const projection = placementProjection();
-      return { table: tables.profiles, params: { ConsistentRead: true, ...projection } };
-    }
-    throw new TypeError(`unsupported profile scan prefix: ${prefix}`);
-  }
-
-  async function list(prefix, { includeStoredVersionPresence = false } = {}) {
+  async function list(prefix) {
     if (typeof prefix !== 'string') throw new TypeError('prefix must be a string');
-    if (includeStoredVersionPresence && !/^placement:[^:]+:$/.test(prefix)) {
-      throw new TypeError('stored version presence is available only for a profile placement query');
-    }
-    if (prefix.startsWith('series:') && prefix !== 'series:') {
-      const match = prefix.match(/^series:([^:]+):$/);
-      const profileId = match?.[1];
-      if (!profileId) throw new TypeError('series query requires a profile ID and trailing separator');
-      const projection = seriesProjection();
-      const rows = await readPages(QueryCommand, tables.profiles, {
-        ConsistentRead: true,
-        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :sk)',
-        ExpressionAttributeValues: { ':pk': `PROFILE#${profileId}`, ':sk': 'SERIES#' },
-        ...projection,
-        ExpressionAttributeNames: { ...projection.ExpressionAttributeNames, '#pk': 'pk', '#sk': 'sk' },
-      });
-      return rows.map((row) => {
-        const id = typeof row.sk === 'string' && row.sk.startsWith('SERIES#') ? row.sk.slice('SERIES#'.length) : '';
-        return { key: `series:${profileId}:${id}`, value: cleanItem(row) };
-      });
-    }
-    if (prefix.startsWith('placement:') && prefix !== 'placement:') {
-      const match = prefix.match(/^placement:([^:]+):$/);
-      const profileId = match?.[1];
-      if (!profileId) throw new TypeError('placement query requires a profile ID and trailing separator');
-      const projection = placementProjection();
-      const rows = await readPages(QueryCommand, tables.profiles, {
-        ConsistentRead: true,
-        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :sk)',
-        ExpressionAttributeValues: { ':pk': `PROFILE#${profileId}`, ':sk': 'PLACEMENT#' },
-        ...projection,
-        ExpressionAttributeNames: { ...projection.ExpressionAttributeNames, '#pk': 'pk', '#sk': 'sk' },
-      });
-      return rows.map((row) => {
-        const storedProfileId = typeof row.pk === 'string' && row.pk.startsWith('PROFILE#')
-          ? row.pk.slice('PROFILE#'.length)
-          : '';
-        const placementId = typeof row.sk === 'string' && row.sk.startsWith('PLACEMENT#')
-          ? row.sk.slice('PLACEMENT#'.length)
-          : '';
-        if (!storedProfileId || storedProfileId.includes(':') || !placementId || placementId.includes(':')) {
-          throw new Error('DynamoDB placement query returned an invalid storage key');
-        }
-        return {
-          key: `placement:${storedProfileId}:${placementId}`,
-          value: cleanItem(row),
-          ...(includeStoredVersionPresence ? { storedVersionPresent: Object.hasOwn(row, 'version') } : {}),
-        };
-      });
-    }
     if (prefix.startsWith('editor:') && prefix !== 'editor:') {
       const match = prefix.match(/^editor:([^:]+):$/);
       const profileId = match?.[1];
@@ -496,13 +366,12 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
         value: cleanItem(row),
       }));
     }
-    if (prefix === 'profile:' || prefix === 'placement:') {
-      const { table, params } = profileScan(prefix);
-      const rows = await readPages(ScanCommand, table, params);
-      if (prefix === 'profile:') return rows.filter((row) => row.recordType === 'profile' && typeof row.id === 'string')
+    if (prefix === 'profile:') {
+      const projection = profileProjection();
+      const rows = await readPages(ScanCommand, tables.profiles, { ConsistentRead: true, ...projection });
+      return rows.filter((row) => row.recordType === 'creatorState'
+        && row.schemaVersion === 2 && typeof row.id === 'string')
         .map((row) => ({ key: `profile:${row.id}`, value: cleanItem(row) }));
-      return rows.filter((row) => row.recordType === 'placement' && typeof row.profileId === 'string' && typeof row.id === 'string')
-        .map((row) => ({ key: `placement:${row.profileId}:${row.id}`, value: cleanItem(row) }));
     }
     if (prefix === 'resource:') {
       const rows = await readPages(ScanCommand, tables.catalog, { ConsistentRead: true, ...resourceProjection() });
@@ -523,70 +392,15 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
     throw new TypeError(`unsupported logical list prefix: ${prefix}`);
   }
 
-  async function observeList(prefix, { budget } = {}) {
-    if (typeof prefix !== 'string') throw new TypeError('prefix must be a string');
-    const match = prefix.match(/^(placement|series):([^:]+):$/);
-    const kind = match?.[1];
-    const profileId = match?.[2];
-    if (!profileId) throw new TypeError('physical observations require a profile placement or series query');
-
-    const placementQuery = kind === 'placement';
-    const projection = placementQuery ? placementProjection() : seriesProjection();
-    const keyPrefix = placementQuery ? 'PLACEMENT#' : 'SERIES#';
-    const parameters = {
-      ConsistentRead: true,
-      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :sk)',
-      ExpressionAttributeValues: { ':pk': `PROFILE#${profileId}`, ':sk': keyPrefix },
-      // Read the full physical image once, then restore the established logical
-      // projection locally. This preserves unknown/TTL data for sizing without
-      // leaking it into existing owner values.
-      ExpressionAttributeNames: { '#pk': 'pk', '#sk': 'sk' },
-    };
-    return readPages(QueryCommand, tables.profiles, parameters, {
-      budget,
-      mapPage: (items) => items.map((physicalImage) => {
-        const storedProfileId = typeof physicalImage.pk === 'string' && physicalImage.pk.startsWith('PROFILE#')
-          ? physicalImage.pk.slice('PROFILE#'.length) : '';
-        const id = typeof physicalImage.sk === 'string' && physicalImage.sk.startsWith(keyPrefix)
-          ? physicalImage.sk.slice(keyPrefix.length) : '';
-        if (!storedProfileId || storedProfileId.includes(':') || !id || id.includes(':')) {
-          throw new Error(`DynamoDB ${kind} query returned an invalid storage key`);
-        }
-        const value = cleanItem(projectedRow(physicalImage, projection));
-        retainBudgetValue(budget, value);
-        const itemBytes = dynamoDbItemSize(physicalImage, { budget });
-        const observation = {
-          key: `${kind}:${storedProfileId}:${id}`,
-          value,
-          physicalImage,
-          itemBytes,
-        };
-        retainBudgetValue(budget, observation);
-        return observation;
-      }),
-    });
-  }
-
-  function buildPutItem(key, value, { snapshot = false, budget } = {}) {
+  function buildPutItem(key, value) {
     const descriptor = logicalKey(key);
-    retainBudgetValue(budget, value);
-    const physicalItem = withPhysicalKeys(descriptor, value);
-    const item = snapshot ? cloneBudgetValue(budget, physicalItem) : physicalItem;
-    retainBudgetValue(budget, item);
-    return { descriptor, item };
+    return { descriptor, item: withPhysicalKeys(descriptor, value) };
   }
 
-  function buildTransactionEntries({ checks = [], puts = [], deletes = [] } = {}, {
-    snapshotPuts = false,
-    enforceActionLimit = false,
-    budget,
-  } = {}) {
+  function buildTransactionEntries({ checks = [], puts = [], deletes = [] } = {}, { enforceActionLimit = false } = {}) {
     if (!Array.isArray(checks) || !Array.isArray(puts) || !Array.isArray(deletes)) {
       throw new TypeError('transaction inputs must be arrays');
     }
-    retainBudgetValue(budget, { checks, puts, deletes });
-    spendBudgetWork(budget, checks.length + puts.length + deletes.length);
-    reserveBudgetMemory(budget, (checks.length + puts.length + deletes.length) * 32);
 
     const actions = new Map();
     const conditions = new Map();
@@ -603,7 +417,6 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
           ? expressionForExpectedReservation(descriptor, check.version, check.expectedReservation)
           : expressionForCheck(descriptor, check.version),
       };
-      retainBudgetValue(budget, condition);
       conditions.set(id, condition);
     }
     for (const put of puts) {
@@ -612,7 +425,6 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
       const id = physicalId(descriptor);
       if (actions.has(id)) throw new TypeError('duplicate transaction action for one item');
       const action = { kind: 'put', descriptor, key: put.key, value: put.value };
-      retainBudgetValue(budget, action);
       actions.set(id, action);
     }
     for (const key of deletes) {
@@ -620,7 +432,6 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
       const id = physicalId(descriptor);
       if (actions.has(id)) throw new TypeError('duplicate transaction action for one item');
       const action = { kind: 'delete', descriptor, key };
-      retainBudgetValue(budget, action);
       actions.set(id, action);
     }
 
@@ -628,17 +439,15 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
     if (enforceActionLimit && ids.size > MAX_TRANSACTION_ACTIONS) {
       throw new RangeError(`DynamoDB transaction exceeds ${MAX_TRANSACTION_ACTIONS} physical actions`);
     }
-    reserveBudgetMemory(budget, ids.size * 48);
     const entries = [];
     for (const id of ids) {
-      spendBudgetWork(budget);
       const action = actions.get(id);
       const condition = conditions.get(id);
       if (!action && !condition) continue;
       const descriptor = action?.descriptor ?? condition.descriptor;
       const TableName = tableNameFor(descriptor, tables);
       if (action?.kind === 'put') {
-        const { item } = buildPutItem(action.key, action.value, { snapshot: snapshotPuts, budget });
+        const { item } = buildPutItem(action.key, action.value);
         entries.push({
           id,
           key: action.key,
@@ -662,36 +471,8 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
           request: { ConditionCheck: { TableName, Key: descriptor.key, ...condition.expression } },
         });
       }
-      retainBudgetValue(budget, entries.at(-1));
-      reserveBudgetMemory(budget, 8);
     }
     return entries;
-  }
-
-  function observationIndex(observations, budget) {
-    if (!Array.isArray(observations)) throw new TypeError('transaction observations must be an array');
-    retainBudgetValue(budget, observations);
-    spendBudgetWork(budget, observations.length);
-    reserveBudgetMemory(budget, observations.length * 48);
-    const byPhysicalId = new Map();
-    for (const observation of observations) {
-      if (!observation || typeof observation !== 'object' || typeof observation.key !== 'string'
-        || !Object.hasOwn(observation, 'physicalImage')
-        || !Number.isSafeInteger(observation.itemBytes) || observation.itemBytes < 0) {
-        throw new TypeError('invalid transaction observation');
-      }
-      const descriptor = logicalKey(observation.key);
-      const id = physicalId(descriptor);
-      if (byPhysicalId.has(id)) throw new TypeError('duplicate physical transaction observation');
-      const image = observation.physicalImage;
-      if (image === null && observation.itemBytes !== 0) throw new TypeError('missing image must have zero item size');
-      if (image !== null && (!image || typeof image !== 'object' || Array.isArray(image)
-        || Object.entries(descriptor.key).some(([name, value]) => image[name] !== value))) {
-        throw new TypeError('transaction observation image does not match its logical key');
-      }
-      byPhysicalId.set(id, observation);
-    }
-    return byPhysicalId;
   }
 
   async function sendTransaction(transactItems) {
@@ -705,52 +486,6 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
     }
   }
 
-  async function prepareTransaction(transaction = {}, observations = [], { budget } = {}) {
-    retainBudgetValue(budget, transaction);
-    const entries = buildTransactionEntries(transaction, { snapshotPuts: true, budget });
-    const observationsById = observationIndex(observations, budget);
-    const itemBytes = [];
-    let aggregateBytes = 0;
-    for (const entry of entries) {
-      spendBudgetWork(budget);
-      let bytes;
-      if (entry.kind === 'put') {
-        bytes = dynamoDbItemSize(entry.request.Put.Item, { budget });
-      } else {
-        const observation = observationsById.get(entry.id);
-        if (!observation) {
-          if (entry.kind === 'condition' && entry.conditionVersion === null) bytes = 0;
-          else throw new Error(`physical image observation is required for ${entry.key}`);
-        } else {
-          bytes = observation.itemBytes;
-        }
-      }
-      itemBytes.push(bytes);
-      aggregateBytes += bytes;
-    }
-    const actionCount = entries.length;
-    const fits = actionCount <= MAX_TRANSACTION_ACTIONS
-      && itemBytes.every((bytes) => bytes <= MAX_TRANSACTION_ITEM_BYTES)
-      && aggregateBytes <= MAX_TRANSACTION_BYTES;
-    const metrics = Object.freeze({
-      actionCount,
-      itemBytes: Object.freeze(itemBytes),
-      aggregateBytes,
-      fits,
-    });
-    const transactItems = entries.map(({ request }) => request);
-    retainBudgetValue(budget, entries);
-    retainBudgetValue(budget, transactItems);
-    retainBudgetValue(budget, metrics);
-    const preparedFits = fits;
-    return Object.freeze({
-      metrics,
-      async commit() {
-        if (!preparedFits) throw new RangeError('prepared DynamoDB transaction exceeds physical limits');
-        return sendTransaction(transactItems);
-      },
-    });
-  }
 
   return {
     async get(key) {
@@ -763,44 +498,14 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
       return cleanItem(result?.Item);
     },
 
-    async observe(key, { budget } = {}) {
-      const descriptor = logicalKey(key);
-      spendBudgetWork(budget);
-      const result = await documentClient.send(new GetCommand({
-        TableName: tableNameFor(descriptor, tables),
-        Key: descriptor.key,
-        ConsistentRead: true,
-      }));
-      const physicalImage = result?.Item ?? null;
-      retainBudgetValue(budget, physicalImage);
-      const value = cleanItem(physicalImage);
-      if (value) retainBudgetValue(budget, value);
-      spendBudgetWork(budget, 1 + (physicalImage ? Object.keys(physicalImage).length : 0));
-      const itemBytes = physicalImage ? dynamoDbItemSize(physicalImage, { budget }) : 0;
-      const observation = {
-        key,
-        value,
-        physicalImage,
-        itemBytes,
-      };
-      retainBudgetValue(budget, observation);
-      return Object.freeze(observation);
-    },
-
     list,
-    observeList,
     getResources,
 
-    measurePut(key, value, { budget } = {}) {
-      spendBudgetWork(budget);
-      retainBudgetValue(budget, value);
+    measurePut(key, value) {
       const descriptor = logicalKey(key);
       const item = withPhysicalKeys(descriptor, value);
-      retainBudgetValue(budget, item);
-      return { itemBytes: dynamoDbItemSize(item, { budget }) };
+      return { itemBytes: dynamoDbItemSize(item) };
     },
-
-    prepareTransaction,
 
     async transact(transaction = {}) {
       const entries = buildTransactionEntries(transaction, { enforceActionLimit: true });
@@ -809,4 +514,4 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
   };
 }
 
-export const creatorStoreInternals = Object.freeze({ logicalKey, physicalId, sha256, withPhysicalKeys, MAX_TRANSACTION_ACTIONS });
+export const creatorStoreInternals = Object.freeze({ logicalKey, withPhysicalKeys });

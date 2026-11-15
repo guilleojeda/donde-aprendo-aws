@@ -38,7 +38,12 @@ function createPhysicalClaimService({ failingResourceId, reservation, batchResou
       }
       if (TableName === TABLES.profilesTableName
         && Key.pk === `PROFILE#${PROFILE_ID}` && Key.sk === 'META') {
-        return { Item: { recordType: 'profile', id: PROFILE_ID, version: 1 } };
+        return { Item: {
+          ...Key, recordType: 'creatorState', schemaVersion: 2, id: PROFILE_ID, version: 1,
+          displayName: 'Fixture owner', slug: 'fixture-owner', published: false, hidden: false,
+          programs: [], socials: {}, createdAt: 1000, updatedAt: 1000,
+          placements: {}, order: { featured: [], ordinary: [] }, series: {},
+        } };
       }
       if (TableName === TABLES.catalogTableName && reservation && Key.id === reservation.id) {
         return { Item: reservation };
@@ -66,6 +71,7 @@ async function submitClaim(service, resourceId, submittedUrl = `https://catalog.
       origin: ORIGIN,
       'content-type': 'application/json',
       'x-csrf-token': 'phase7-csrf',
+      'x-creator-contract': '2',
     },
     body: JSON.stringify({
       resources: [{ ...(resourceId === undefined ? {} : { resourceId }), url: submittedUrl }],

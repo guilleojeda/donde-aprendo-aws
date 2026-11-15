@@ -1,4 +1,9 @@
-import type { CreatorEditorDTO, CreatorLinkDTO, CreatorSeriesDTO } from '../types/creators';
+import type {
+  CreatorOwnerPlacementViewDTO,
+  CreatorOwnerSeriesRecordDTO,
+  CreatorOwnerSnapshotDTO,
+} from '../types/creators';
+import { joinCreatorOwnerPlacements } from './creator-owner-data';
 
 export const CREATOR_OWNER_SERIES_PAGE_SIZE = 25;
 
@@ -17,18 +22,20 @@ export type CreatorOwnerSeriesQueryResult =
   | { valid: true; query: CreatorOwnerSeriesQuery }
   | { valid: false; reason: 'repeated' | 'membership' | 'page' | 'series' };
 
+export type CreatorOwnerSeriesListItem = CreatorOwnerSeriesRecordDTO & { id: string };
+
 export interface CreatorOwnerSeriesSelection {
-  rows: CreatorSeriesDTO[];
-  matches: CreatorSeriesDTO[];
+  rows: CreatorOwnerSeriesListItem[];
+  matches: CreatorOwnerSeriesListItem[];
   query: CreatorOwnerSeriesQuery;
   totalMatches: number;
   pageCount: number;
 }
 
 export interface CreatorOwnerChapterSelection {
-  rows: CreatorLinkDTO[];
-  matches: CreatorLinkDTO[];
-  completeOrder: CreatorLinkDTO[];
+  rows: CreatorOwnerPlacementViewDTO[];
+  matches: CreatorOwnerPlacementViewDTO[];
+  completeOrder: CreatorOwnerPlacementViewDTO[];
   query: CreatorOwnerSeriesQuery;
   totalMatches: number;
   pageCount: number;
@@ -53,7 +60,7 @@ function pageNumber(value: string | undefined): number | undefined {
 
 export function parseCreatorOwnerSeriesQuery(
   params: URLSearchParams,
-  series: readonly CreatorSeriesDTO[],
+  snapshot: CreatorOwnerSnapshotDTO,
 ): CreatorOwnerSeriesQueryResult {
   if (KEYS.some((key) => params.getAll(key).length > 1)) return { valid: false, reason: 'repeated' };
   const seriesId = params.get('serie') ?? '';
@@ -62,7 +69,7 @@ export function parseCreatorOwnerSeriesQuery(
   const chapterPage = pageNumber(params.get('paginaCapitulos') ?? undefined);
   if (!MEMBERSHIPS.has(membership as CreatorOwnerSeriesMembership)) return { valid: false, reason: 'membership' };
   if (seriesPage === undefined || chapterPage === undefined) return { valid: false, reason: 'page' };
-  if (seriesId && !series.some(({ id }) => id === seriesId)) return { valid: false, reason: 'series' };
+  if (seriesId && !Object.hasOwn(snapshot.series, seriesId)) return { valid: false, reason: 'series' };
   return {
     valid: true,
     query: {
@@ -83,12 +90,16 @@ function slicePage<T>(matches: T[], requestedPage: number) {
   return { rows: matches.slice(start, start + CREATOR_OWNER_SERIES_PAGE_SIZE), pageCount, page };
 }
 
+function seriesList(snapshot: CreatorOwnerSnapshotDTO): CreatorOwnerSeriesListItem[] {
+  return Object.entries(snapshot.series).map(([id, item]) => ({ id, ...item }));
+}
+
 export function selectCreatorOwnerSeries(
-  series: readonly CreatorSeriesDTO[],
+  snapshot: CreatorOwnerSnapshotDTO,
   query: CreatorOwnerSeriesQuery,
 ): CreatorOwnerSeriesSelection {
   const search = normalizeCreatorOwnerSeriesSearch(query.buscarSeries);
-  const matches = series.filter((item) => !search
+  const matches = seriesList(snapshot).filter((item) => !search
     || normalizeCreatorOwnerSeriesSearch(`${item.name} ${item.slug}`).includes(search))
     .sort((left, right) => left.name.localeCompare(right.name, 'es', { sensitivity: 'base' })
       || left.id.localeCompare(right.id));
@@ -99,22 +110,36 @@ export function selectCreatorOwnerSeries(
   };
 }
 
-export function creatorOwnerChapterOrder(links: readonly CreatorLinkDTO[], seriesId: string): CreatorLinkDTO[] {
-  return links.filter((link) => link.series.some((membership) => membership.seriesId === seriesId))
-    .sort((left, right) => {
-      const leftPosition = left.series.find((item) => item.seriesId === seriesId)?.position ?? 0;
-      const rightPosition = right.series.find((item) => item.seriesId === seriesId)?.position ?? 0;
-      return leftPosition - rightPosition || left.placementId.localeCompare(right.placementId);
-    });
+/** Return chapters in the server's literal sequence; no rank reconstruction or tie-break is applied. */
+export function creatorOwnerChapterOrder(
+  snapshot: CreatorOwnerSnapshotDTO,
+  seriesId: string,
+): CreatorOwnerPlacementViewDTO[] {
+  const chapterIds = snapshot.series[seriesId]?.chapters ?? [];
+  const byPlacement = new Map(joinCreatorOwnerPlacements(snapshot).map((placement) => [placement.placementId, placement]));
+  return chapterOrderFromJoined(chapterIds, byPlacement);
+}
+
+function chapterOrderFromJoined(
+  chapterIds: readonly string[],
+  byPlacement: ReadonlyMap<string, CreatorOwnerPlacementViewDTO>,
+): CreatorOwnerPlacementViewDTO[] {
+  return chapterIds.map((placementId) => {
+    const placement = byPlacement.get(placementId);
+    if (!placement) throw new TypeError('La secuencia de capítulos referencia un enlace ausente.');
+    return placement;
+  });
 }
 
 export function selectCreatorOwnerChapters(
-  data: Pick<CreatorEditorDTO, 'links' | 'series'>,
+  snapshot: CreatorOwnerSnapshotDTO,
   query: CreatorOwnerSeriesQuery,
 ): CreatorOwnerChapterSelection {
-  const completeOrder = creatorOwnerChapterOrder(data.links, query.serie);
+  const links = joinCreatorOwnerPlacements(snapshot);
+  const byPlacement = new Map(links.map((placement) => [placement.placementId, placement]));
+  const completeOrder = chapterOrderFromJoined(snapshot.series[query.serie]?.chapters ?? [], byPlacement);
   const search = normalizeCreatorOwnerSeriesSearch(query.buscarCapitulos);
-  const matches = data.links.filter((link) => {
+  const matches = links.filter((link) => {
     const included = link.series.some((item) => item.seriesId === query.serie);
     if (query.pertenencia === 'incluidos' && !included) return false;
     if (query.pertenencia === 'disponibles' && included) return false;
