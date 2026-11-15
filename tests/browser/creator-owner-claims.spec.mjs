@@ -242,6 +242,7 @@ test('Solicitudes acepta URLs conocidas aunque falle el índice público', async
     title: 'Contenido identificado por la URL conocida',
     url: 'https://catalog.example.invalid/known-during-index-error',
   });
+  const paddedKnownUrl = `  ${known.url}  `;
   await seedCatalogRecord(fixture, known);
   await serveSelectionIndex(page, [], { firstStatus: 503, alwaysFail: true });
   const capture = await captureCreatorApi(page);
@@ -255,7 +256,7 @@ test('Solicitudes acepta URLs conocidas aunque falle el índice público', async
     'an unavailable catalog is exposed as an error, not as an empty valid result');
 
   const urls = page.getByLabel(/URLs conocidas/i);
-  await urls.fill(known.url);
+  await urls.fill(paddedKnownUrl);
   const ownerReadsBeforeSubmit = ownerReads(capture).length;
   await page.getByRole('button', { name: /Enviar solicitud/i }).click();
   await expect.poll(() => claimWrites(capture).length).toBe(1);
@@ -263,11 +264,13 @@ test('Solicitudes acepta URLs conocidas aunque falle el índice público', async
   await expect.poll(() => ownerReads(capture).length).toBe(ownerReadsBeforeSubmit + 1);
   await expect.poll(() => ownerReads(capture).at(-1)?.status).toBe(200);
   const post = claimWrites(capture)[0];
-  assert.deepEqual(post.body, { resources: [{ url: known.url }], evidence: '' },
-    'the form sends the manually supplied URL and raw empty evidence without inventing an ID while the index is unavailable');
+  assert.deepEqual(post.body, { resources: [{ url: paddedKnownUrl }], evidence: '' },
+    'the form preserves the manually typed padded URL and raw empty evidence without inventing an ID while the index is unavailable');
   assert.equal(post.responseBody.operation, 'create-claim');
   const stored = await fixture.creatorStore.get(`claim:${post.responseBody.claimId}`);
-  assert.deepEqual(stored.resourceIds, [known.id], 'the real service resolves the known URL reservation');
+  assert.deepEqual(stored.resourceIds, [known.id], 'the real service trims the free-text URL and resolves its current reservation');
+  assert.deepEqual(stored.resources, [{ resourceId: known.id, url: known.url }],
+    'the persisted claim points to the exact currently published resource and canonical URL');
   assert.equal((await api(fixture, cookie, '/api/creador/perfil')).body.creatorVersion, ownerBefore.creatorVersion,
     'a URL based request does not alter the owner profile');
   assert.equal(claimWrites(capture).length, 1, 'the acknowledgement and full read do not replay claim creation');

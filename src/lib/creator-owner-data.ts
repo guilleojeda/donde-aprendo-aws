@@ -52,7 +52,8 @@ function isProfile(value: unknown): boolean {
   if ((Object.hasOwn(value, 'city') && !text(value.city))
     || (Object.hasOwn(value, 'country') && !text(value.country))
     || (Object.hasOwn(value, 'bio') && !text(value.bio))) return false;
-  if (Object.entries(value.socials).some(([key, social]) => !SOCIALS.has(key) || !isSafeCatalogUrl(social))) return false;
+  if (Object.entries(value.socials).some(([key, social]) => !SOCIALS.has(key)
+    || !text(social) || (social !== '' && !isSafeCatalogUrl(social)))) return false;
   if (Object.hasOwn(value, 'photo')) {
     const photo = value.photo;
     if (!record(photo) || !hasOnlyKeys(photo, ['version'], ['url'])
@@ -179,19 +180,6 @@ export function readCreatorOwnerSnapshot(value: unknown): CreatorOwnerSnapshotDT
   }
 
   return value as unknown as CreatorOwnerSnapshotDTO;
-}
-
-/** Compatibility name for callers being moved to the canonical owner contract. */
-export const readCreatorEditorData = readCreatorOwnerSnapshot;
-
-/** Type guard uses the same decoder and therefore the same trust-boundary rules. */
-export function isCreatorOwnerSnapshot(value: unknown): value is CreatorOwnerSnapshotDTO {
-  try {
-    readCreatorOwnerSnapshot(value);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /** Display join: resource metadata is read once; group and positions come from explicit sequences. */

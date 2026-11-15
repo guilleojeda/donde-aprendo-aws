@@ -2,7 +2,7 @@ import type { CreatorVersionChange, CreatorVersionEntity } from '../types/creato
 
 export type { CreatorVersionChange } from '../types/creators';
 
-const VERSION_ENTITIES = new Set<CreatorVersionEntity>(['profile', 'resource', 'placement', 'series']);
+const VERSION_ENTITIES = new Set<CreatorVersionEntity>(['profile', 'resource']);
 
 function isVersionChange(value: unknown): value is CreatorVersionChange {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
@@ -18,74 +18,12 @@ function isVersionChange(value: unknown): value is CreatorVersionChange {
     && change.before !== change.after;
 }
 
-export async function readCreatorVersionChanges(response: Response): Promise<CreatorVersionChange[] | null> {
-  let value: unknown;
-  if (response.status === 204) {
-    const header = response.headers.get('Creator-Write-Versions');
-    if (!header) return null;
-    try {
-      value = JSON.parse(header);
-    } catch {
-      return null;
-    }
-  } else {
-    try {
-      const body: unknown = await response.clone().json();
-      value = typeof body === 'object' && body !== null && !Array.isArray(body)
-        ? (body as Record<string, unknown>).versionChanges
-        : undefined;
-    } catch {
-      return null;
-    }
-  }
+export function readCreatorVersionChanges(payload: unknown): CreatorVersionChange[] | null {
+  const value = typeof payload === 'object' && payload !== null && !Array.isArray(payload)
+    ? (payload as Record<string, unknown>).versionChanges
+    : undefined;
   if (!Array.isArray(value) || !value.every(isVersionChange)) return null;
   return value;
-}
-
-export type CreatorOwnerReceiptTransition = 'increment' | 'created' | 'created-one';
-
-export interface CreatorOwnerReceiptParticipant {
-  entity: CreatorVersionEntity;
-  id: string;
-  before: number;
-  transition: CreatorOwnerReceiptTransition;
-  required?: boolean;
-}
-
-/**
- * Owner commands have one atomic receipt per changed entity. Administration
- * intentionally keeps using the permissive syntactic reader above because a
- * single admin response can contain chained receipts from several commits.
- */
-export function validateCreatorOwnerReceipts(
-  changes: CreatorVersionChange[] | null,
-  participants: CreatorOwnerReceiptParticipant[],
-): boolean {
-  if (changes === null) return false;
-  const key = (entity: CreatorVersionEntity, id: string) => `${entity}:${id}`;
-  const participantByKey = new Map<string, CreatorOwnerReceiptParticipant>();
-  for (const participant of participants) {
-    const participantKey = key(participant.entity, participant.id);
-    if (!participant.id || !Number.isSafeInteger(participant.before) || participant.before < 0
-      || participantByKey.has(participantKey)) return false;
-    participantByKey.set(participantKey, participant);
-  }
-
-  const seen = new Set<string>();
-  for (const change of changes) {
-    const changeKey = key(change.entity, change.id);
-    const participant = participantByKey.get(changeKey);
-    if (!participant || seen.has(changeKey) || change.before !== participant.before) return false;
-    const legalAfter = participant.transition === 'increment'
-      ? change.after === participant.before + 1
-      : participant.transition === 'created-one'
-        ? participant.before === 0 && change.after === 1
-        : participant.before === 0 && change.after > 0;
-    if (!legalAfter) return false;
-    seen.add(changeKey);
-  }
-
-  return participants.every((participant) => !participant.required || seen.has(key(participant.entity, participant.id)));
 }
 
 type WriteControl = HTMLButtonElement | HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;

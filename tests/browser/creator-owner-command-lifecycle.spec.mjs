@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {
-  test, expect, api, createSeries, addLink, captureCreatorApi, seriesRow, loggedInOwner,
+  test, expect, api, readOwnerSnapshot, createSeries, addLink, addChapter, captureCreatorApi, seriesRow, loggedInOwner,
 } from '../fixtures/creator-browser-test.mjs';
+import { rasterPhotoFixtures } from '../fixtures/creator-photos.mjs';
 
 function deferred() {
   let resolve;
@@ -29,6 +30,27 @@ function ownerWrites(capture, method = 'PUT') {
 
 function ownerReads(capture) {
   return capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil');
+}
+
+async function installPhotoProvider({ fixture, page, bytes, afterPost }) {
+  const uploads = [];
+  await page.route('https://creator-photos.example.invalid/**', async (route) => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      return route.fulfill({ status: 204, headers: { 'access-control-allow-origin': fixture.origin,
+        'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': request.headers()['access-control-request-headers'] ?? '' } });
+    }
+    assert.equal(request.method(), 'POST');
+    const multipart = request.postDataBuffer();
+    assert.ok(multipart.includes(bytes), 'the selected photo bytes reach the authorized upload');
+    const key = multipart.toString('latin1').match(/Content-Disposition: form-data; name="key"\r\n\r\n([^\r\n]+)/u)?.[1];
+    assert.ok(key, 'the upload uses the key from its authorization');
+    fixture.photoObjects.seed(key, bytes);
+    uploads.push({ key, multipart });
+    await afterPost?.(uploads.length);
+    return route.fulfill({ status: 204, headers: { 'access-control-allow-origin': fixture.origin } });
+  });
+  return uploads;
 }
 
 function trackProfileWrites(page) {
@@ -159,7 +181,7 @@ async function holdNextOwnerRead(page) {
     try {
       const response = await route.fetch();
       const body = await response.body();
-      actual = { status: response.status() };
+      actual = { status: response.status(), body: JSON.parse(body.toString('utf8')) };
       entered.resolve();
       await release.promise;
       await route.fulfill({ status: response.status(), headers: response.headers(), body });
@@ -420,6 +442,148 @@ async function reconcileChapterChangeWithFailedRead({ fixture, page, operation }
   assert.equal(nextSeriesWrite?.status, 201, 'the later operation reaches the real command service');
   await capture.stop({ skipErrorBodies: true });
 }
+
+async function recoverChapterAfterBack({ fixture, page, operation }) {
+  const cookie = await loggedInOwner(fixture, page);
+  const target = await createSeries(fixture, cookie, { name: 'Ruta de recuperación', slug: 'ruta-de-recuperacion' });
+  const unrelated = await createSeries(fixture, cookie, { name: 'Otra ruta intacta', slug: 'otra-ruta-intacta' });
+  const chapter = await addLink(fixture, cookie, { title: 'Capítulo confirmado en servidor', url: 'https://links.example/back-recovery' });
+  await addChapter(fixture, cookie, unrelated.id, chapter.placementId);
+  if (operation === 'remove') await addChapter(fixture, cookie, target.id, chapter.placementId);
+  const before = await readOwnerSnapshot(fixture, cookie);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  let failedRead;
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=series&buscarSeries=Ruta`);
+    const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
+    const targetRow = seriesRow(page, target.id);
+    const staleVisibleCount = operation === 'add' ? '0 capítulos visibles' : '1 capítulo visible';
+    await expect(targetRow).toContainText(staleVisibleCount);
+    await targetRow.getByRole('link', { name: 'Gestionar capítulos', exact: true }).click();
+    await expect(page).toHaveURL((url) => url.searchParams.get('serie') === target.id);
+
+    failedRead = await failNextOwnerRead(page);
+    const row = page.locator(`[data-chapter-row="${chapter.placementId}"]`);
+    const method = operation === 'add' ? 'PUT' : 'DELETE';
+    const path = `/api/creador/series/${target.id}/capitulos/${chapter.placementId}`;
+    await row.getByRole('button', { name: operation === 'add' ? 'Agregar capítulo' : 'Quitar capítulo', exact: true }).click();
+    await failedRead.entered;
+    await expect.poll(() => capture.writes().find((write) => write.method === method && write.path === path)?.status).toBe(200);
+    assert.equal(failedRead.actual.status, 200, 'the app only loses the response after the real full owner GET succeeds');
+    const committed = await readOwnerSnapshot(fixture, cookie);
+    assert.equal(committed.creatorVersion, before.creatorVersion + 1);
+    assert.deepEqual(committed.series[target.id].chapters, operation === 'add' ? [chapter.placementId] : []);
+    assert.deepEqual(committed.series[unrelated.id].chapters, [chapter.placementId], 'the unrelated membership survives');
+    assert.equal(capture.writes().length, 1, 'the acknowledged chapter command is sent exactly once');
+
+    await page.evaluate(() => window.history.back());
+    const exit = page.locator('[data-owner-exit-prompt]');
+    await expect(exit).toBeVisible();
+    await exit.getByRole('button', { name: 'Descartar y seguir', exact: true }).click();
+    await expect(page).toHaveURL((url) => !url.searchParams.has('serie'));
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin, 'native Back keeps the owner document alive');
+    await expect(seriesRow(page, target.id)).toContainText(staleVisibleCount, 'the list remains read-only on its older coherent snapshot');
+    const recovery = page.locator('[data-owner-list-recovery="series"][data-owner-stale="true"]');
+    await expect(recovery).toBeVisible();
+    const retry = recovery.getByRole('button', { name: 'Reintentar actualización', exact: true });
+    await expect(retry).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Crear serie', exact: true })).toBeDisabled();
+    assert.deepEqual(capture.writes().map(({ method: writeMethod, path: writePath }) => [writeMethod, writePath]), [[method, path]],
+      'discarding navigation neither replays the chapter write nor enables a dependent write');
+
+    await failedRead.remove();
+    await retry.click();
+    await expect.poll(() => capture.records.filter(({ method: readMethod, path: readPath, status }) => readMethod === 'GET'
+      && readPath === '/api/creador/perfil' && status === 200).length).toBe(1);
+    await expect(page.locator('[data-owner-list-recovery]')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Crear serie', exact: true })).toBeEnabled();
+    const installedVersion = Number(await page.locator('[data-owner-root]').getAttribute('data-creator-version'));
+    const installed = await readOwnerSnapshot(fixture, cookie);
+    assert.equal(installedVersion, installed.creatorVersion, 'the page installs the newer complete server snapshot');
+    assert.deepEqual(installed.series[target.id].chapters, operation === 'add' ? [chapter.placementId] : []);
+    assert.deepEqual(installed.series[unrelated.id].chapters, [chapter.placementId]);
+    assert.deepEqual(capture.records.filter(({ method: readMethod, path: readPath }) => readMethod === 'GET' && readPath === '/api/creador/perfil')
+      .map(({ status }) => status), [503, 200], 'Back recovery consists only of the failed delivery and one fresh full GET');
+    assert.equal(capture.writes().length, 1, 'installing the fresh snapshot never replays the chapter command');
+
+    await page.getByRole('button', { name: 'Crear serie', exact: true }).click();
+    const form = page.locator('[data-owner-dialog][open] form[data-owner-form="serie"]');
+    await form.getByLabel('Nombre de la serie').fill('Ruta posterior a la lectura');
+    await form.getByLabel('Dirección de la serie').fill('ruta-posterior-a-la-lectura');
+    await form.getByRole('button', { name: 'Guardar serie', exact: true }).click();
+    await expect.poll(() => capture.writes().find(({ method: writeMethod, path: writePath }) => writeMethod === 'POST'
+      && writePath === '/api/creador/series')?.status).toBe(201);
+    const final = await readOwnerSnapshot(fixture, cookie);
+    assert.ok(Object.values(final.series).some(({ slug }) => slug === 'ruta-posterior-a-la-lectura'), 'the next explicit write commits on the real server');
+    assert.deepEqual(final.series[target.id].chapters, operation === 'add' ? [chapter.placementId] : []);
+    assert.deepEqual(final.series[unrelated.id].chapters, [chapter.placementId]);
+    assert.equal(capture.writes().filter(({ method: writeMethod, path: writePath }) => writeMethod === method && writePath === path).length, 1);
+  } finally {
+    await failedRead?.remove();
+    await capture.stop({ skipErrorBodies: true });
+  }
+}
+
+test('Back deja terminar y adoptar la lectura completa de un capítulo ya confirmado', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const target = await createSeries(fixture, cookie, { name: 'Ruta con lectura pendiente', slug: 'ruta-lectura-pendiente' });
+  const chapter = await addLink(fixture, cookie, { title: 'Capítulo con lectura pendiente', url: 'https://links.example/pending-read' });
+  const before = await readOwnerSnapshot(fixture, cookie);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  let read;
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=series&buscarSeries=pendiente`);
+    const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
+    await seriesRow(page, target.id).getByRole('link', { name: 'Gestionar capítulos', exact: true }).click();
+    read = await holdNextOwnerRead(page);
+    await page.locator(`[data-chapter-row="${chapter.placementId}"]`)
+      .getByRole('button', { name: 'Agregar capítulo', exact: true }).click();
+    await read.entered;
+    await expect.poll(() => capture.writes().find(({ method, path }) => method === 'PUT'
+      && path === `/api/creador/series/${target.id}/capitulos/${chapter.placementId}`)?.status).toBe(200);
+    assert.equal(read.actual.status, 200, 'the held GET is the real complete owner read after the acknowledged command');
+    assert.deepEqual(read.actual.body.series[target.id].chapters, [chapter.placementId]);
+    const persisted = await readOwnerSnapshot(fixture, cookie);
+    assert.equal(persisted.creatorVersion, before.creatorVersion + 1);
+
+    await page.evaluate(() => window.history.back());
+    const exit = page.locator('[data-owner-exit-prompt]');
+    await expect(exit).toBeVisible();
+    await exit.getByRole('button', { name: 'Descartar y seguir', exact: true }).click();
+    await expect(page).toHaveURL((url) => !url.searchParams.has('serie'));
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin);
+    const pendingRecovery = page.locator('[data-owner-list-recovery="series"][data-recovery-kind="acknowledged"]');
+    await expect(pendingRecovery).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Crear serie', exact: true })).toBeDisabled();
+    assert.equal(capture.writes().length, 1, 'discarding the Back prompt does not cancel or replay the committed command');
+    assert.equal(Number(await page.locator('[data-owner-root]').getAttribute('data-creator-version')), before.creatorVersion,
+      'the stale page cannot adopt the pending snapshot before the held GET is delivered');
+
+    read.release();
+    await read.finished;
+    await expect(page.locator('[data-owner-list-recovery]')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Crear serie', exact: true })).toBeEnabled();
+    assert.equal(Number(await page.locator('[data-owner-root]').getAttribute('data-creator-version')), persisted.creatorVersion,
+      'the still-current GET installs its newer coherent snapshot after navigation');
+    assert.deepEqual(capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil')
+      .map(({ status }) => status), [200], 'Back recovery adopts the in-flight read and issues no second read');
+
+    await page.getByRole('button', { name: 'Crear serie', exact: true }).click();
+    const form = page.locator('[data-owner-dialog][open] form[data-owner-form="serie"]');
+    await form.getByLabel('Nombre de la serie').fill('Serie después de leer');
+    await form.getByLabel('Dirección de la serie').fill('serie-despues-de-leer');
+    await form.getByRole('button', { name: 'Guardar serie', exact: true }).click();
+    await expect.poll(() => capture.writes().find(({ method, path }) => method === 'POST' && path === '/api/creador/series')?.status).toBe(201);
+    const final = await readOwnerSnapshot(fixture, cookie);
+    assert.deepEqual(final.series[target.id].chapters, [chapter.placementId]);
+    assert.ok(Object.values(final.series).some(({ slug }) => slug === 'serie-despues-de-leer'));
+    assert.equal(capture.writes().length, 2, 'only the original chapter command and the later explicit series save are written');
+  } finally {
+    read?.release();
+    await read?.remove();
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
 
 test('el guardado de perfil congela el borrador y Solicitudes espera el acuse y la lectura completa', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
@@ -855,6 +1019,209 @@ test('un acuse válido conserva la confirmación aunque la lectura completa incl
 for (const operation of ['add', 'remove']) {
   test(`un capítulo ${operation === 'add' ? 'agregado' : 'quitado'} conserva la confirmación y reintenta sólo el GET`, async ({ fixture, page }) => {
     await reconcileChapterChangeWithFailedRead({ fixture, page, operation });
+  });
+
+  test(`Back conserva la recuperación de un capítulo ${operation === 'add' ? 'agregado' : 'quitado'} hasta una lectura completa`, async ({ fixture, page }) => {
+    await recoverChapterAfterBack({ fixture, page, operation });
+  });
+}
+
+for (const conflictStage of ['authorization', 'finalization']) {
+  test(`un conflicto de versión en ${conflictStage === 'authorization' ? 'autorizar' : 'finalizar'} permite una carga nueva con el mismo archivo`, async ({ fixture, page }) => {
+    const cookie = await loggedInOwner(fixture, page);
+    const initial = await readOwnerSnapshot(fixture, cookie);
+    const images = await rasterPhotoFixtures();
+    const capture = await captureCreatorApi(page);
+    let concurrent;
+    const uploads = await installPhotoProvider({ fixture, page, bytes: images.png,
+      afterPost: async (count) => {
+        if (conflictStage !== 'finalization' || count !== 1) return;
+        concurrent = await api(fixture, cookie, '/api/creador/perfil', {
+          method: 'PUT', body: { creatorVersion: initial.creatorVersion, displayName: 'Perfil actualizado mientras sube la foto',
+            slug: initial.profile.slug },
+        });
+        assert.equal(concurrent.response.status, 200, JSON.stringify(concurrent.body));
+      } });
+    try {
+      await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+      await page.getByRole('button', { name: 'Editar foto', exact: true }).click();
+      const form = page.locator('[data-owner-dialog][open] form[data-owner-form="foto"]');
+      const file = form.getByLabel('Elegir una foto');
+      await file.setInputFiles({ name: 'foto-recuperable.png', mimeType: 'image/png', buffer: images.png });
+      const selectedFile = await file.evaluateHandle((input) => input.files[0]);
+
+      if (conflictStage === 'authorization') {
+        concurrent = await api(fixture, cookie, '/api/creador/perfil', {
+          method: 'PUT', body: { creatorVersion: initial.creatorVersion, displayName: 'Perfil actualizado antes de autorizar',
+            slug: initial.profile.slug },
+        });
+        assert.equal(concurrent.response.status, 200, JSON.stringify(concurrent.body));
+      }
+      await form.getByRole('button', { name: 'Subir y guardar foto', exact: true }).click();
+      const recovery = form.locator('[data-owner-recovery][data-recovery-kind="conflict"]');
+      await expect(recovery).toBeVisible();
+      const apiCalls = () => capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil'
+        || method === 'POST' && (path === '/api/creador/foto/autorizar' || path === '/api/creador/foto/finalizar'));
+      const conflictPath = conflictStage === 'authorization' ? '/api/creador/foto/autorizar' : '/api/creador/foto/finalizar';
+      await expect.poll(() => capture.records.filter(({ method, path }) => method === 'POST' && path === conflictPath)[0]?.status).toBe(409);
+      await expect.poll(() => ownerReads(capture).filter(({ status }) => status === 200).length).toBe(1);
+      const rejected = capture.records.filter(({ method, path }) => method === 'POST' && path === conflictPath)[0];
+      await rejected.settled;
+      assert.equal(rejected.responseBody.error, 'PROFILE_VERSION_CONFLICT');
+      const concurrentSnapshot = await readOwnerSnapshot(fixture, cookie);
+      assert.equal(concurrentSnapshot.creatorVersion, initial.creatorVersion + 1);
+      assert.equal(await file.evaluate((input, original) => input.files[0] === original, selectedFile), true,
+        'the exact native File remains selected after the coherent conflict read');
+      await expect(file).toBeDisabled();
+      await expect(recovery.getByRole('button', { name: 'Cargar de nuevo esta foto', exact: true })).toBeEnabled();
+      await expect(recovery.getByRole('button', { name: 'Usar lo guardado', exact: true })).toBeEnabled();
+      await expect(recovery.locator('[data-owner-photo-recovery]')).toContainText('Tu archivo sigue seleccionado. Puedes cargarlo con la versión actual del perfil.');
+      assert.equal(Number(await page.locator('[data-owner-root]').getAttribute('data-creator-version')), concurrentSnapshot.creatorVersion);
+
+      await recovery.getByRole('button', { name: 'Cargar de nuevo esta foto', exact: true }).click();
+      const authorizations = () => capture.records.filter(({ method, path }) => method === 'POST' && path === '/api/creador/foto/autorizar');
+      const finalizations = () => capture.records.filter(({ method, path }) => method === 'POST' && path === '/api/creador/foto/finalizar');
+      await expect.poll(() => authorizations().length).toBe(2);
+      await expect.poll(() => finalizations().filter(({ status }) => status === 200).length).toBe(1);
+      await expect.poll(() => ownerReads(capture).filter(({ status }) => status === 200).length).toBe(2);
+      await capture.settle();
+      assert.deepEqual(authorizations().map(({ status }) => status), conflictStage === 'authorization' ? [409, 200] : [200, 200]);
+      assert.deepEqual(finalizations().map(({ status }) => status), conflictStage === 'authorization' ? [200] : [409, 200]);
+      const retriedAuthorization = authorizations().at(-1);
+      assert.equal(retriedAuthorization.body.creatorVersion, concurrentSnapshot.creatorVersion,
+        'the manual retry authorizes against the complete current creator revision');
+      const retriedUploadId = retriedAuthorization.responseBody.uploadId;
+      assert.ok(retriedUploadId);
+      if (conflictStage === 'finalization') {
+        assert.notEqual(retriedUploadId, authorizations()[0].responseBody.uploadId,
+          'manual recovery has a new upload ID rather than reusing the rejected finalization');
+        assert.notEqual(finalizations()[1].body.uploadId, finalizations()[0].body.uploadId);
+        assert.equal(finalizations()[0].body.creatorVersion, initial.creatorVersion);
+      }
+      assert.equal(uploads.length, conflictStage === 'authorization' ? 1 : 2,
+        'only explicitly authorized uploads reach the provider');
+      assert.deepEqual(uploads.map(({ key }) => key), fixture.photoPolicies.map(({ key }) => key));
+      assert.equal(new Set(uploads.map(({ key }) => key)).size, uploads.length,
+        'each manual recovery upload gets a new authorized object key');
+      await expect(form).toHaveCount(0, 'the dialog closes only after the new photo and complete snapshot are confirmed');
+      await page.getByRole('button', { name: 'Editar foto', exact: true }).click();
+      const replacementForm = page.locator('[data-owner-dialog][open] form[data-owner-form="foto"]');
+      assert.equal(await replacementForm.getByLabel('Elegir una foto').evaluate((input) => input.files.length), 0,
+        'the successful new upload consumes the selected photo draft');
+      const saved = await readOwnerSnapshot(fixture, cookie);
+      assert.equal(saved.profile.photo.version, retriedUploadId);
+      assert.equal(saved.creatorVersion, concurrentSnapshot.creatorVersion + 1);
+      assert.equal(saved.profile.displayName, conflictStage === 'authorization'
+        ? 'Perfil actualizado antes de autorizar' : 'Perfil actualizado mientras sube la foto');
+      assert.deepEqual(apiCalls().filter(({ method }) => method === 'POST').map(({ status }) => status),
+        conflictStage === 'authorization' ? [409, 200, 200] : [200, 409, 200, 200],
+        'the old authorization or finalization is never replayed automatically');
+      assert.equal(uploads.length, fixture.photoPolicies.length, 'each provider upload has a distinct server authorization');
+    } finally {
+      await page.unroute('https://creator-photos.example.invalid/**').catch(() => {});
+      await capture.stop();
+    }
+  });
+}
+
+test('la foto retenida no se puede cargar si el perfil de destino dejó de existir', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const principal = await fixture.principal(cookie);
+  const current = await readOwnerSnapshot(fixture, cookie);
+  const images = await rasterPhotoFixtures();
+  const capture = await captureCreatorApi(page);
+  const uploads = await installPhotoProvider({ fixture, page, bytes: images.png });
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+    await page.getByRole('button', { name: 'Editar foto', exact: true }).click();
+    const form = page.locator('[data-owner-dialog][open] form[data-owner-form="foto"]');
+    const file = form.getByLabel('Elegir una foto');
+    await file.setInputFiles({ name: 'foto-sin-destino.png', mimeType: 'image/png', buffer: images.png });
+    const selectedFile = await file.evaluateHandle((input) => input.files[0]);
+
+    const mappingKey = `account-profile:${principal.accountId}`;
+    const mapping = await fixture.creatorStore.get(mappingKey);
+    assert.ok(mapping?.profileId);
+    assert.equal(await fixture.creatorStore.transact({ checks: [{ key: mappingKey, version: mapping.version }], deletes: [mappingKey] }), true,
+      'the concurrent change removes the real owner-to-profile target mapping');
+
+    await form.getByRole('button', { name: 'Subir y guardar foto', exact: true }).click();
+    const recovery = form.locator('[data-owner-recovery][data-recovery-kind="refresh-failed"]');
+    await expect(recovery).toBeVisible();
+    await expect.poll(() => capture.records.filter(({ method, path }) => method === 'POST' && path === '/api/creador/foto/autorizar').length).toBe(1);
+    await expect.poll(() => ownerReads(capture).length).toBe(1);
+    const authorization = capture.records.find(({ method, path }) => method === 'POST' && path === '/api/creador/foto/autorizar');
+    await authorization.settled;
+    assert.equal(authorization.status, 404);
+    assert.equal(authorization.responseBody.error, 'PROFILE_NOT_FOUND');
+    await expect(recovery.getByRole('button', { name: 'Reintentar actualización', exact: true })).toBeEnabled();
+    await expect(recovery.getByRole('button', { name: 'Cargar de nuevo esta foto', exact: true })).toHaveCount(0);
+    await expect(recovery.getByRole('button', { name: 'Usar lo guardado', exact: true })).toHaveCount(0,
+      'a read that cannot validate the missing target cannot offer either adopt-saved or upload-again');
+    assert.equal(await file.evaluate((input, original) => input.files[0] === original, selectedFile), true);
+    assert.equal(uploads.length, 0, 'the unbound photo never reaches the provider');
+    assert.equal(capture.writes().length, 1, 'the missing target does not trigger a second authorization or a finalize');
+    assert.equal(capture.records.filter(({ method, path }) => method === 'POST' && path === '/api/creador/foto/finalizar').length, 0);
+    assert.equal(current.profile.id, mapping.profileId);
+  } finally {
+    await page.unroute('https://creator-photos.example.invalid/**').catch(() => {});
+    await capture.stop();
+  }
+});
+
+for (const group of ['ordinary', 'featured']) {
+  test(`mover un enlace de grupo ${group === 'ordinary' ? 'ordinario' : 'destacado'} usa su ordinal y guarda el cambio`, async ({ fixture, page }) => {
+    const cookie = await loggedInOwner(fixture, page);
+    const featuredFirst = await addLink(fixture, cookie, { title: 'Destacado primero', url: 'https://links.example/featured-first' });
+    const featuredSecond = await addLink(fixture, cookie, { title: 'Destacado segundo', url: 'https://links.example/featured-second' });
+    const ordinaryFirst = await addLink(fixture, cookie, { title: 'Ordinario primero', url: 'https://links.example/ordinary-first' });
+    const ordinarySecond = await addLink(fixture, cookie, { title: 'Ordinario segundo', url: 'https://links.example/ordinary-second' });
+    for (const placementId of [featuredFirst.placementId, featuredSecond.placementId]) {
+      const current = await readOwnerSnapshot(fixture, cookie);
+      const promoted = await api(fixture, cookie, `/api/creador/enlaces/${encodeURIComponent(placementId)}`, {
+        method: 'PATCH', body: { creatorVersion: current.creatorVersion, featured: true },
+      });
+      assert.equal(promoted.response.status, 200, JSON.stringify(promoted.body));
+    }
+    const initial = await readOwnerSnapshot(fixture, cookie);
+    assert.deepEqual(initial.order.featured, [featuredFirst.placementId, featuredSecond.placementId]);
+    assert.deepEqual(initial.order.ordinary, [ordinaryFirst.placementId, ordinarySecond.placementId]);
+    const movedPlacementId = group === 'ordinary' ? ordinaryFirst.placementId : featuredFirst.placementId;
+    const groupOrder = group === 'ordinary' ? initial.order.ordinary : initial.order.featured;
+    const capture = await captureCreatorApi(page);
+    try {
+      await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+      const openMove = page.locator(`[data-link-move][data-placement-id="${movedPlacementId}"]`);
+      await openMove.click();
+      const form = page.locator('[data-owner-dialog][open] form[data-link-move-form]');
+      const position = form.getByLabel('Posición dentro del grupo');
+      await expect(position).toHaveValue('1');
+      await form.getByRole('button', { name: 'Cancelar', exact: true }).click();
+      await expect(page.locator('[data-owner-exit-prompt]')).toHaveCount(0,
+        'canceling the untouched group ordinal closes the dialog without a dirty prompt');
+
+      await openMove.click();
+      const reopened = page.locator('[data-owner-dialog][open] form[data-link-move-form]');
+      const editedPosition = reopened.getByLabel('Posición dentro del grupo');
+      await editedPosition.fill('2');
+      await reopened.getByRole('button', { name: 'Cancelar', exact: true }).click();
+      const guard = page.locator('[data-owner-exit-prompt]');
+      await expect(guard).toBeVisible();
+      await guard.getByRole('button', { name: 'Seguir editando', exact: true }).click();
+      await expect(editedPosition).toHaveValue('2');
+      await reopened.getByRole('button', { name: 'Guardar posición', exact: true }).click();
+      await expect.poll(() => capture.writes()[0]?.status).toBe(200);
+      await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0);
+      const saved = await readOwnerSnapshot(fixture, cookie);
+      const savedGroup = group === 'ordinary' ? saved.order.ordinary : saved.order.featured;
+      assert.deepEqual(savedGroup, [groupOrder[1], groupOrder[0]], 'the submitted position reorders only its own group');
+      assert.deepEqual(group === 'ordinary' ? saved.order.featured : saved.order.ordinary,
+        group === 'ordinary' ? initial.order.featured : initial.order.ordinary, 'the other group remains untouched');
+      assert.equal(capture.writes().length, 1, 'only the explicit position save reaches the server');
+      assert.equal(capture.writes()[0].body.destination, 2);
+    } finally {
+      await capture.stop();
+    }
   });
 }
 

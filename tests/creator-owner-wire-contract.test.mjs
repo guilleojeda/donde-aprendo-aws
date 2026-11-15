@@ -33,7 +33,7 @@ try {
   await rm(temporaryDirectory, { recursive: true, force: true });
 }
 
-const { readCreatorOwnerSnapshot, isCreatorOwnerSnapshot, joinCreatorOwnerPlacements } = modules.data;
+const { readCreatorOwnerSnapshot, joinCreatorOwnerPlacements } = modules.data;
 const { creatorOwnerChapterOrder } = modules.series;
 const {
   CREATOR_CONTRACT_HEADER,
@@ -76,10 +76,8 @@ function snapshot() {
 test('one strict decoder preserves explicit sequences and returns the wire observation unchanged', () => {
   const raw = snapshot();
   assert.strictEqual(readCreatorOwnerSnapshot(raw), raw);
-  assert.equal(isCreatorOwnerSnapshot(raw), true);
   const invalid = structuredClone(raw);
   invalid.order.ordinary.pop();
-  assert.equal(isCreatorOwnerSnapshot(invalid), false);
   assert.throws(() => readCreatorOwnerSnapshot(invalid), TypeError);
 });
 

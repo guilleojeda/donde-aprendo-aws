@@ -523,7 +523,9 @@ test('la moderación de eventos muestra fallos recuperables y conserva los formu
     assert.ok(status.textContent.length > 0, `${action} conserva el mensaje de éxito`);
   }
 
-  page.responses.push(503, 200);
+  page.responses.push(503, { status: 200, body: {
+    linkedResourceIds: ['resource-feedback'], profileChanged: false, versionChanges: [],
+  } });
   await claimForm.dispatch('submit');
   assert.equal(page.claimRows[0].status.textContent, 'No pudimos guardar el cambio. Inténtalo de nuevo en unos minutos.');
   assert.ok(claimForm.fields.every((control) => !control.disabled), 'a rejected request restores its editable selections');
@@ -569,7 +571,7 @@ test('R9 partial claim freezes only that form, retains receipts, and allows safe
   format.value = 'Artículo';
   uncheckedResource.checked = false;
 
-  page.responses.push({ status: 503, body: { linkedResourceIds: ['resource-feedback'], versionChanges: [
+  page.responses.push({ status: 503, body: { linkedResourceIds: ['resource-feedback'], profileChanged: true, versionChanges: [
     { entity: 'resource', id: 'resource-feedback', before: 1, after: 2 },
     { entity: 'profile', id: 'profile-feedback', before: 1, after: 2 },
   ] } });
@@ -597,6 +599,82 @@ test('R9 partial claim freezes only that form, retains receipts, and allows safe
     'the partial response receipt advances only the resource version used by the other form');
   assert.equal(JSON.parse(page.requests[1].init.body).category, 'Certificaciones');
   assert.equal(page.reloads(), 1, 'saving the remaining pending form enables the safe refresh');
+});
+
+test('a contradictory partial receipt confirms only its exact prefix and adopts no unlinked version', async () => {
+  const claimIds = ['resource-feedback', 'resource-two', 'resource-three'];
+  const html = await renderAdminPage({
+    claimRecords: [{
+      id: 'claim-contradictory-prefix', accountId: 'owner', profileId: 'profile-feedback',
+      resourceIds: claimIds, status: 'pending',
+    }],
+    resourceRecords: [
+      ...resources,
+      { ...resources[1], id: 'resource-two', url: 'https://example.com/resource-two' },
+      { ...resources[1], id: 'resource-three', url: 'https://example.com/resource-three' },
+      { ...resources[1], id: 'resource-independent', url: 'https://example.com/resource-independent' },
+    ],
+  });
+  const page = await executeAdminScript(html);
+  const form = page.claimForms[0];
+  const [first, second, third] = form.fields;
+  const independent = page.classificationForms.find(({ rowId }) => rowId === 'resource-independent');
+  assert.ok(independent);
+  independent.fields[0].value = 'Borrador independiente';
+  page.responses.push({ status: 503, body: {
+    linkedResourceIds: ['resource-feedback'],
+    profileChanged: true,
+    versionChanges: [
+      { entity: 'resource', id: 'resource-feedback', before: 1, after: 2 },
+      { entity: 'resource', id: 'resource-two', before: 1, after: 2 },
+      { entity: 'profile', id: 'profile-feedback', before: 1, after: 2 },
+    ],
+  } });
+
+  await form.dispatch('submit');
+
+  assert.equal(first.checked, true);
+  assert.equal(first.hasAttribute('data-creator-stale'), true, 'only the confirmed leading resource is labeled as linked');
+  assert.equal(second.checked, true, 'the remaining selected resource stays checked for inspection');
+  assert.equal(third.checked, true, 'the final selected resource stays checked for inspection');
+  assert.ok(form.fields.every((control) => control.disabled), 'the ambiguous selection cannot be retried before refresh');
+  assert.match(page.claimRows[0].status.textContent, /Ya vinculados: resource-feedback\. Pendientes: resource-two, resource-three/);
+  assert.match(page.claimRows[0].status.textContent, /no coincide/i);
+  assert.equal(page.classificationForms.find(({ rowId }) => rowId === 'resource-feedback').saveButton.disabled, true);
+  assert.equal(page.classificationForms.find(({ rowId }) => rowId === 'resource-two').saveButton.disabled, true,
+    'a delta for an unlinked resource makes the receipt untrustworthy for every submitted target');
+  assert.equal(independent.fields[0].value, 'Borrador independiente');
+  assert.equal(independent.saveButton.disabled, false, 'the unrelated draft remains usable');
+  assert.equal(page.reloads(), 0);
+});
+
+test('a partial receipt missing profileChanged keeps its confirmed prefix but cannot advance versions', async () => {
+  const html = await renderAdminPage({ claimRecords: [{
+    id: 'claim-missing-profile-changed', accountId: 'owner', profileId: 'profile-feedback',
+    resourceIds: ['resource-feedback', 'resource-two'], status: 'pending',
+  }] });
+  const page = await executeAdminScript(html);
+  const form = page.claimForms[0];
+  const [linked, pending] = form.fields;
+  page.responses.push({ status: 503, body: {
+    linkedResourceIds: ['resource-feedback'],
+    versionChanges: [
+      { entity: 'resource', id: 'resource-feedback', before: 1, after: 2 },
+      { entity: 'profile', id: 'profile-feedback', before: 1, after: 2 },
+    ],
+  } });
+
+  await form.dispatch('submit');
+
+  assert.equal(linked.hasAttribute('data-creator-stale'), true);
+  assert.equal(linked.checked, true);
+  assert.equal(pending.checked, true);
+  assert.ok(form.fields.every((control) => control.disabled), 'the missing receipt fact cannot permit a duplicate retry');
+  assert.match(page.claimRows[0].status.textContent, /Ya vinculados: resource-feedback/);
+  assert.match(page.claimRows[0].status.textContent, /no coincide/i);
+  assert.equal(page.classificationForms.find(({ rowId }) => rowId === 'resource-feedback').saveButton.disabled, true,
+    'receipt versions are not adopted when the new contract fact is missing');
+  assert.equal(page.reloads(), 0);
 });
 
 test('R11 partial claim with one receipt gap pauses only stale records and recovers before saving the unrelated draft', async () => {
@@ -758,6 +836,7 @@ test('successful claim resolution pauses its selection and preserves another sav
   format.value = 'Artículo';
   releaseClaim(Response.json({
     linkedResourceIds: ['resource-feedback', 'resource-two'],
+    profileChanged: true,
     versionChanges: [
       { entity: 'profile', id: 'profile-feedback', before: 1, after: 2 },
       { entity: 'resource', id: 'resource-feedback', before: 1, after: 2 },

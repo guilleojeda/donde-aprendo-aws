@@ -204,6 +204,40 @@ test('resource-only metadata keeps the aggregate revision while option changes a
   assert.deepEqual(await rows(harness.store), beforeNoop, 'an unchanged command checks observations without writing');
 });
 
+test('directory-only changes keep a nonterminal link position and its chapter membership through both edit routes', async () => {
+  const state = await fixture({ withSeries: true });
+  let snapshot = await owner(state.harness);
+  const addSecondChapter = await jsonCommand(state.harness,
+    `/api/creador/series/${state.seriesId}/capitulos/${state.second.placementId}`,
+    { creatorVersion: snapshot.creatorVersion }, { method: 'PUT' });
+  assert.equal(addSecondChapter.result.disposition, 'added');
+  snapshot = await owner(state.harness);
+  assert.deepEqual(snapshot.order.ordinary, [state.first.placementId, state.second.placementId]);
+  assert.deepEqual(snapshot.series[state.seriesId].chapters, [state.first.placementId, state.second.placementId]);
+
+  const optionRoute = await jsonCommand(state.harness, `/api/creador/enlaces/${state.first.placementId}`, {
+    creatorVersion: snapshot.creatorVersion,
+    selectedForDirectory: false,
+  }, { method: 'PATCH' });
+  assert.equal(optionRoute.result.disposition, 'saved');
+  snapshot = await owner(state.harness);
+  assert.deepEqual(snapshot.order.ordinary, [state.first.placementId, state.second.placementId],
+    'changing directory selection does not move a nonterminal ordinary link');
+  assert.deepEqual(snapshot.series[state.seriesId].chapters, [state.first.placementId, state.second.placementId]);
+
+  const editRoute = await jsonCommand(state.harness, state.path, {
+    creatorVersion: snapshot.creatorVersion,
+    selectedForDirectory: true,
+  }, { method: 'PATCH' });
+  assert.equal(editRoute.result.disposition, 'saved');
+  snapshot = await owner(state.harness);
+  assert.deepEqual(snapshot.order.ordinary, [state.first.placementId, state.second.placementId],
+    'combined edit keeps the same position when only directory selection changes');
+  assert.deepEqual(snapshot.series[state.seriesId].chapters, [state.first.placementId, state.second.placementId],
+    'directory-only edits preserve chapter membership in the same series');
+  assert.equal(snapshot.placements[state.first.placementId].selectedForDirectory, true);
+});
+
 test('current creator and resource observations are required even for same-value intent; unknown or malformed fields write nothing', async () => {
   const state = await fixture();
   const { harness, current, resource } = state;

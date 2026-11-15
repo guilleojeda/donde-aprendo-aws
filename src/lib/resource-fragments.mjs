@@ -1,7 +1,9 @@
 const RESOURCE_FRAGMENT_PREFIX = '#resource-';
 
 export function resourceFragment(id) {
-  return `${RESOURCE_FRAGMENT_PREFIX}${encodeURIComponent(id).replaceAll('%3A', ':')}`;
+  const serializedId = encodeURIComponent(id).replaceAll('%3A', ':');
+  // Leave the trailing colon available to match overlapping browser directives.
+  return `${RESOURCE_FRAGMENT_PREFIX}${serializedId.replace(/:~(?=:)/gu, ':%7E')}`;
 }
 
 function hasIdentity(identities, id) {

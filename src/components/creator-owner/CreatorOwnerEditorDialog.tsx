@@ -13,6 +13,7 @@ import {
 } from '../../lib/creator-values.mjs';
 import {
   creatorOwnerCanSubmitEditor,
+  creatorOwnerLinkMoveContext,
   creatorOwnerReferenceSubmissionStatus,
   type CreatorOwnerEditorDraft,
   type CreatorOwnerLinkDraft,
@@ -134,10 +135,9 @@ function comparisonRows(editor: CreatorOwnerEditorDraft, snapshot: CreatorOwnerS
   }
   if (editor.kind === 'move-link') {
     const display = creatorOwnerNavigationLists(snapshot);
-    const groupIds = snapshot.order.featured.includes(editor.placementId) ? snapshot.order.featured : snapshot.order.ordinary;
-    const savedPosition = groupIds.indexOf(editor.placementId) + 1;
+    const position = creatorOwnerLinkMoveContext(snapshot, editor.placementId);
     const saved = display.links.find(({ placementId }) => placementId === editor.placementId);
-    return [['Posición guardada', savedPosition > 0 ? `${savedPosition} de ${groupIds.length}` : 'El enlace ya no está en la página', editor.targetPosition],
+    return [['Posición guardada', position ? `${position.position} de ${position.count}` : 'El enlace ya no está en la página', editor.targetPosition],
       ...(saved ? [['Enlace', saved.title, saved.title] as [string, string, string]] : [])];
   }
   if (editor.kind === 'add-link') return [['URL enviada', editor.draft.url, editor.draft.url]];
@@ -184,8 +184,11 @@ export default function CreatorOwnerEditorDialog({
   const locked = operation.status !== 'idle';
   const matches = Boolean(editor && operationMatchesEditor(state, editor));
   const canSubmit = creatorOwnerCanSubmitEditor(state);
+  const recoverablePhotoConflict = editor?.kind === 'photo' && operation.status === 'conflict'
+    && !operation.intent.targetMissing && (operation.intent.action === 'photo-authorize' || operation.intent.action === 'photo-finalize');
   const canSubmitAfterConflict = editor && operation.status === 'conflict' && !operation.intent.targetMissing
     && !(state.catalog.needsRefresh && operation.intent.action === 'create-claim')
+    && (editor.kind !== 'photo' || recoverablePhotoConflict)
     ? creatorOwnerCanSubmitEditor({ ...state, operation: { status: 'idle' } })
     : false;
   const rows = editor && matches ? comparisonRows(editor, state.observed) : [];
@@ -297,7 +300,7 @@ export default function CreatorOwnerEditorDialog({
         <div class="creator-owner__field"><label htmlFor="owner-photo-file">Elegir una foto</label><input id="owner-photo-file" name="photo" type="file" accept={CREATOR_PHOTO_MIME_TYPES.join(',')} required disabled={locked} data-busy-control
           onChange={(event) => onSetPhoto((event.currentTarget as HTMLInputElement).files?.[0])} /></div>
         <p class="creator-owner__status" data-owner-form-status="foto" role="status" aria-live="polite">{feedback}</p>
-        {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={false} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
+        {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Subir y guardar foto</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
@@ -328,8 +331,7 @@ export default function CreatorOwnerEditorDialog({
       </form>}
 
       {editorIsDialog && editor?.kind === 'link-placement' && <form class="creator-owner__form" hidden={prompt} data-owner-form="enlace" data-link-edit-form onSubmit={editorSubmit}>
-        <p class="creator-owner__form-context">{editor.optionsOnly ? 'Estás editando las opciones de este enlace en tu página.'
-          : editor.editable ? 'Esta ficha es tuya: los cambios del contenido y las opciones de la página se guardan juntos.'
+        <p class="creator-owner__form-context">{editor.editable ? 'Esta ficha es tuya: los cambios del contenido y las opciones de la página se guardan juntos.'
             : 'Esta ficha es compartida. Puedes editar sus opciones; su título, URL y descripción siguen a cargo de quien la administra.'}</p>
         <fieldset class="creator-owner__field creator-owner__link-fields" data-link-metadata-fields>
           <legend>Ficha del contenido</legend>
@@ -380,12 +382,11 @@ export default function CreatorOwnerEditorDialog({
       {editorIsDialog && editor?.kind === 'move-link' && <form class="creator-owner__form" hidden={prompt} data-owner-form="mover-enlace" data-link-move-form aria-label="Mover enlace a una posición" onSubmit={editorSubmit}>
         {(() => {
           const link = creatorOwnerNavigationLists(state.observed).links.find(({ placementId }) => placementId === editor.placementId);
-          const group = link?.featured ? state.observed.order.featured : state.observed.order.ordinary;
-          const position = group.indexOf(editor.placementId) + 1;
-          return <p class="creator-owner__move-context" id="owner-link-move-context" data-link-move-context aria-live="polite">Grupo {link?.featured ? 'destacado' : 'sin destacar'}: {group.length} enlaces. {link ? `«${link.title}» está en la posición ${position}.` : 'El enlace ya no está en tu página.'}</p>;
+          const position = creatorOwnerLinkMoveContext(state.observed, editor.placementId);
+          return <p class="creator-owner__move-context" id="owner-link-move-context" data-link-move-context aria-live="polite">Grupo {position?.group === 'featured' ? 'destacado' : 'sin destacar'}: {position?.count ?? 0} enlaces. {link && position ? `«${link.title}» está en la posición ${position.position}.` : 'El enlace ya no está en tu página.'}</p>;
         })()}
         <div class="creator-owner__field"><label htmlFor="owner-link-target-position">Posición dentro del grupo</label><input id="owner-link-target-position" name="targetPosition" type="number" min={1}
-          max={Math.max(1, state.observed.order.featured.includes(editor.placementId) ? state.observed.order.featured.length : state.observed.order.ordinary.length)} step={1} required inputMode="numeric" aria-describedby="owner-link-move-context" value={editor.targetPosition} readOnly={locked}
+          max={Math.max(1, creatorOwnerLinkMoveContext(state.observed, editor.placementId)?.count ?? 0)} step={1} required inputMode="numeric" aria-describedby="owner-link-move-context" value={editor.targetPosition} readOnly={locked}
           onInput={(event) => onUpdateMoveLink((event.currentTarget as HTMLInputElement).value)} /></div>
         <p class="creator-owner__status" data-owner-form-status="mover-enlace" role="status" aria-live="polite">{feedback}</p>
         {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
@@ -452,6 +453,8 @@ function OperationFeedback({ state, rows, canSaveDraft, onRetryRead, onResolve, 
   if (operation.status === 'idle' || operation.status === 'sending') return null;
   const fact = operation.status === 'reading' || operation.status === 'refresh-failed' ? operation.fact : undefined;
   const claimIntent = (operation.status === 'unknown' || operation.status === 'conflict') && operation.intent.action === 'create-claim';
+  const photoConflict = operation.status === 'conflict'
+    && (operation.intent.action === 'photo-authorize' || operation.intent.action === 'photo-finalize');
   const canReselect = operation.status === 'conflict' && state.catalog.needsRefresh
     && (operation.intent.action === 'reference-link' || operation.intent.action === 'create-claim');
   const title = fact === 'acknowledged' ? 'La acción está confirmada'
@@ -461,6 +464,7 @@ function OperationFeedback({ state, rows, canSaveDraft, onRetryRead, onResolve, 
   return <section class="creator-owner__conflict" data-owner-conflict data-owner-recovery data-recovery-kind={operation.status} data-owner-stale={operation.status === 'refresh-failed' ? true : undefined} aria-live="polite">
     <h3>{title}</h3>
     <p data-owner-conflict-copy>{operation.message}</p>
+    {photoConflict && <p data-owner-photo-recovery>Tu archivo sigue seleccionado. Puedes cargarlo con la versión actual del perfil.</p>}
     {claimIntent && operation.status === 'unknown' && <p>El historial puede mostrar solicitudes parecidas, pero no permite confirmar si este envío fue el original. Volver al borrador y enviarlo otra vez puede crear un duplicado.</p>}
     {rows && <div class="creator-owner__comparison" data-owner-comparison><ComparisonRows rows={rows} /></div>}
     {operation.status === 'refresh-failed' && <button class="button button--outline" type="button" data-owner-refresh-retry onClick={onRetryRead}>Reintentar actualización</button>}
@@ -470,7 +474,7 @@ function OperationFeedback({ state, rows, canSaveDraft, onRetryRead, onResolve, 
       <button class="button button--outline" type="button" data-owner-return-to-draft onClick={() => onResolve('draft')}>Volver al borrador</button>
     </div>}
     {operation.status === 'conflict' && operation.readCompleted && <div class="creator-owner__dialog-actions">
-      {canSaveDraft && <button class="button button--dark" type="button" data-owner-conflict-save onClick={onSaveDraft}>Guardar mi borrador</button>}
+      {canSaveDraft && <button class="button button--dark" type="button" data-owner-conflict-save data-owner-photo-retry={photoConflict ? true : undefined} onClick={onSaveDraft}>{photoConflict ? 'Cargar de nuevo esta foto' : 'Guardar mi borrador'}</button>}
       {canReselect && <button class="button button--outline" type="button" data-owner-return-to-draft onClick={() => onResolve('draft')}>Volver al borrador</button>}
       <button class="button button--outline" type="button" data-owner-use-saved onClick={() => onResolve('saved')}>Usar lo guardado</button>
     </div>}

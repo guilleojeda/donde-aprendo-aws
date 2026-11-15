@@ -415,6 +415,94 @@ test('Add URL reports new, reused, and already-present outcomes without overwrit
   assert.equal(literalB.body.resourceId, 'literal-lower', 'literal URL identity selects the exact catalog reservation');
 });
 
+test('Add, edit, and free-text claim URLs trim outer spaces while exact claim pairs stay literal', async () => {
+  const urlLimit = 2048;
+  const prefix = 'https://catalog.example/';
+  const boundaryUrl = `${prefix}${'x'.repeat(urlLimit - prefix.length)}`;
+  const tooLongUrl = `${prefix}${'x'.repeat(urlLimit - prefix.length + 1)}`;
+  const exactResource = resource('claim-exact-pair', 'https://catalog.example/claim-exact-pair');
+  const harness = await createCreatorContentHarness({ resources: [exactResource] });
+  let snapshot = await requireSnapshot(harness);
+
+  const added = await command(harness, '/api/creador/enlaces/', 'POST', {
+    creatorVersion: snapshot.creatorVersion,
+    title: ' URL con espacios ',
+    url: `  ${boundaryUrl}  `,
+  });
+  assert.equal(added.response.status, 201, JSON.stringify(added.body));
+  assert.equal((await harness.store.get(`resource:${added.body.resourceId}`)).url, boundaryUrl,
+    'outer spaces are trimmed before URL validation and persistence at the 2048-character limit');
+  snapshot = await requireSnapshot(harness);
+
+  const transactionsBeforeTooLongAdd = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+  const tooLongAdd = await command(harness, '/api/creador/enlaces/', 'POST', {
+    creatorVersion: snapshot.creatorVersion,
+    title: 'URL excesiva',
+    url: `  ${tooLongUrl}  `,
+  });
+  assert.equal(tooLongAdd.response.status, 422);
+  assert.equal(tooLongAdd.body.error, 'FIELD_TOO_LONG');
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length,
+    transactionsBeforeTooLongAdd, 'the over-limit URL is rejected before writes');
+
+  const claimsBefore = await harness.store.list('claim:');
+  const freeTextClaim = await command(harness, '/api/creador/reclamaciones/', 'POST', {
+    resources: [{ url: `  ${boundaryUrl}  ` }],
+  });
+  assert.equal(freeTextClaim.response.status, 202, JSON.stringify(freeTextClaim.body));
+  const storedClaim = await harness.store.get(`claim:${freeTextClaim.body.claimId}`);
+  assert.deepEqual(storedClaim.resources, [{ resourceId: added.body.resourceId, url: boundaryUrl }],
+    'a free-text claim resolves the trimmed literal reservation and stores the bounded URL');
+
+  const claimsAfterFreeText = await harness.store.list('claim:');
+  const explicitPair = await command(harness, '/api/creador/reclamaciones/', 'POST', {
+    resources: [{ resourceId: exactResource.id, url: `  ${exactResource.url}  ` }],
+  });
+  assert.equal(explicitPair.response.status, 422);
+  assert.equal(explicitPair.body.error, 'INVALID_URL',
+    'an explicit resource ID keeps URL comparison literal instead of trimming the selected pair');
+  assert.deepEqual(await harness.store.list('claim:'), claimsAfterFreeText,
+    'the rejected exact pair creates no claim');
+  assert.equal(claimsBefore.length, 0);
+
+  snapshot = await requireSnapshot(harness);
+  const beforeEdit = await harness.store.get(`resource:${added.body.resourceId}`);
+  const editedUrl = 'https://catalog.example/edit-trimmed';
+  const edited = await command(harness, `/api/creador/enlaces/${added.body.placementId}/editar`, 'PATCH', {
+    creatorVersion: snapshot.creatorVersion,
+    resourceVersion: beforeEdit.version,
+    url: `  ${editedUrl}  `,
+  });
+  assert.equal(edited.response.status, 200, JSON.stringify(edited.body));
+  assert.equal((await harness.store.get(`resource:${added.body.resourceId}`)).url, editedUrl,
+    'the combined edit stores the trimmed URL');
+  snapshot = await requireSnapshot(harness);
+
+  const beforeRetainedEdit = await harness.store.get(`resource:${added.body.resourceId}`);
+  const retainedEditUrl = 'https://catalog.example/retained-edit-trimmed';
+  const retainedEdit = await command(harness, resourceEditPath(added.body.resourceId), 'PATCH', {
+    resourceVersion: beforeRetainedEdit.version,
+    url: `  ${retainedEditUrl}  `,
+  });
+  assert.equal(retainedEdit.response.status, 200, JSON.stringify(retainedEdit.body));
+  assert.equal(retainedEdit.body.operation, 'edit-resource');
+  assert.equal((await harness.store.get(`resource:${added.body.resourceId}`)).url, retainedEditUrl,
+    'the retained-resource edit uses the same pre-validation URL trim');
+
+  const editResourceBeforeReject = await harness.store.get(`resource:${added.body.resourceId}`);
+  const editTransactionsBeforeReject = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+  const tooLongEdit = await command(harness, `/api/creador/enlaces/${added.body.placementId}/editar`, 'PATCH', {
+    creatorVersion: snapshot.creatorVersion,
+    resourceVersion: editResourceBeforeReject.version,
+    url: `  ${tooLongUrl}  `,
+  });
+  assert.equal(tooLongEdit.response.status, 422);
+  assert.equal(tooLongEdit.body.error, 'FIELD_TOO_LONG');
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length,
+    editTransactionsBeforeReject, 'an over-limit edit is rejected before writes');
+  assert.deepEqual(await harness.store.get(`resource:${added.body.resourceId}`), editResourceBeforeReject);
+});
+
 test('a second real edit before the first response returns cannot rewrite the first transaction acknowledgement', async () => {
   const state = defaultState({
     creatorVersion: 40,
@@ -507,6 +595,7 @@ test('one admin grant command preserves the first grant in the aggregate while g
     }],
   });
   const before = await requireSnapshot(harness);
+  const callOffset = harness.store.calls.length;
   const grant = await creatorRequest(harness, '/api/admin/reclamaciones/vincular', {
     session: 'admin',
     method: 'POST',
@@ -516,10 +605,22 @@ test('one admin grant command preserves the first grant in the aggregate while g
   assert.equal(grant.status, 200, await grant.clone().text());
   const grantBody = await json(grant);
   assert.deepEqual(grantBody.linkedResourceIds, ['grant-a', 'grant-b']);
+  assert.equal(grantBody.profileChanged, true);
 
   const after = await requireSnapshot(harness);
   assert.equal(after.creatorVersion, before.creatorVersion + 2,
     'each committed resource grant advances the aggregate while carrying forward prior content');
+  const aggregateTransactions = harness.store.calls.slice(callOffset)
+    .filter(({ operation, input }) => operation === 'transact'
+      && input.puts.some(({ key }) => key === `profile:${PROFILE_ID}`));
+  assert.equal(aggregateTransactions.length, 2);
+  for (const [index, { input }] of aggregateTransactions.entries()) {
+    assert.deepEqual(input.checks.filter(({ key }) => key === `profile:${PROFILE_ID}`), [{
+      key: `profile:${PROFILE_ID}`, version: before.creatorVersion + index,
+    }], 'each aggregate grant is conditioned on the exact revision it observed');
+    assert.equal(input.puts.find(({ key }) => key === `profile:${PROFILE_ID}`).value.version,
+      before.creatorVersion + index + 1);
+  }
   const placementByResource = new Map(Object.entries(after.placements).map(([id, placement]) => [placement.resourceId, id]));
   assert.equal(placementByResource.size, 2);
   assert.ok(placementByResource.has('grant-a'));
@@ -529,6 +630,77 @@ test('one admin grant command preserves the first grant in the aggregate while g
   assert.deepEqual(new Set(after.resources.map(({ id }) => id)), new Set(['grant-a', 'grant-b']));
   assert.ok(after.resources.every(({ metadataEditable }) => metadataEditable === true));
   assert.equal(after.claims.find(({ id }) => id === 'grant-claim').status, 'resolved');
+
+  const transactionsBeforeNoop = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+  const repeated = await creatorRequest(harness, '/api/admin/reclamaciones/vincular', {
+    session: 'admin',
+    method: 'POST',
+    body: { accountId: 'private-account-a', resourceIds: ['grant-a', 'grant-b'] },
+    creatorContract: null,
+  });
+  assert.equal(repeated.status, 200, await repeated.clone().text());
+  const repeatedBody = await json(repeated);
+  assert.deepEqual(repeatedBody.linkedResourceIds, ['grant-a', 'grant-b']);
+  assert.equal(repeatedBody.profileChanged, false);
+  assert.deepEqual(repeatedBody.versionChanges, []);
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length,
+    transactionsBeforeNoop, 'a fully linked no-op performs no transaction checks or writes');
+});
+
+test('a rejected conditional admin grant keeps the already committed prefix without attempting a stale overwrite', async () => {
+  const state = defaultState({ creatorVersion: 70 });
+  const originalB = resource('grant-rejected-b', 'https://catalog.example/grant-rejected-b');
+  const harness = await createCreatorContentHarness({
+    state,
+    resources: [
+      resource('grant-rejected-a', 'https://catalog.example/grant-rejected-a'),
+      originalB,
+    ],
+  });
+  const rawTransact = harness.store.transact.bind(harness.store);
+  let aggregateWrites = 0;
+  let rejectedChecks;
+  harness.store.transact = async (transaction) => {
+    const profilePut = transaction.puts.find(({ key }) => key === `profile:${PROFILE_ID}`);
+    if (profilePut && ++aggregateWrites === 2) {
+      rejectedChecks = transaction.checks.filter(({ key }) => key === `profile:${PROFILE_ID}`);
+      const impossibleRevision = rejectedChecks[0].version + 1;
+      const safeRejectedTransaction = {
+        ...transaction,
+        checks: transaction.checks.map((check) => check.key === `profile:${PROFILE_ID}`
+          ? { ...check, version: impossibleRevision } : check),
+      };
+      assert.equal(await rawTransact(safeRejectedTransaction), false,
+        'the real store rejects the second candidate before any write because its expected revision is impossible');
+      return false;
+    }
+    return rawTransact(transaction);
+  };
+
+  const response = await creatorRequest(harness, '/api/admin/reclamaciones/vincular', {
+    session: 'admin',
+    method: 'POST',
+    body: { accountId: 'private-account-a', resourceIds: ['grant-rejected-a', 'grant-rejected-b'] },
+    creatorContract: null,
+  });
+  assert.equal(response.status, 409);
+  const body = await json(response);
+  assert.equal(body.error, 'CLAIM_CONFLICT');
+  assert.deepEqual(body.linkedResourceIds, ['grant-rejected-a']);
+  assert.equal(body.profileChanged, true);
+  assert.equal(aggregateWrites, 2);
+  assert.deepEqual(rejectedChecks, [{ key: `profile:${PROFILE_ID}`, version: state.version + 1 }],
+    'the second grant is based on the prefix revision, then safely rejected by the injected impossible condition');
+
+  const after = await requireSnapshot(harness);
+  assert.equal(after.creatorVersion, state.version + 1);
+  assert.deepEqual(Object.values(after.placements).map(({ resourceId }) => resourceId), ['grant-rejected-a']);
+  assert.equal((await harness.store.get('resource:grant-rejected-a')).directoryControl, 'creator');
+  assert.deepEqual(await harness.store.get('resource:grant-rejected-b'), originalB);
+  assert.equal(await harness.store.get(`editor:${PROFILE_ID}:grant-rejected-b`), null);
+  assert.deepEqual(body.versionChanges.filter(({ entity }) => entity === 'profile'), [{
+    entity: 'profile', id: PROFILE_ID, before: state.version, after: state.version + 1,
+  }]);
 });
 
 test('explicit general and chapter sequences preserve hidden members through feature moves, removal, reinclude, and alias 404', async () => {

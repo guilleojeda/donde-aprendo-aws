@@ -40,10 +40,10 @@ export type CreatorOwnerEditorDraft =
   | { kind: 'create-profile'; key: 'create-profile'; draft: Pick<CreatorOwnerProfileDraft, 'displayName' | 'slug'> }
   | { kind: 'profile'; key: string; section: 'datos'; draft: CreatorOwnerProfileDraft; touchedFields: CreatorOwnerProfileField[] }
   | { kind: 'profile'; key: string; section: 'redes'; draft: CreatorOwnerSocialsDraft; touchedFields: CreatorSocial[] }
-  | { kind: 'photo'; key: string; file?: File; uploadId?: string; uploadedFile?: File }
+  | { kind: 'photo'; key: string; file?: File }
   | { kind: 'series'; key: string; seriesId: string | null; draft: CreatorOwnerSeriesDraft; touchedFields: CreatorOwnerSeriesField[]; slugManuallyEdited: boolean }
   | { kind: 'move-chapter'; key: string; seriesId: string; placementId: string; targetPosition: string }
-  | { kind: 'link-placement'; key: string; placementId: string; editable: boolean; draft: CreatorOwnerLinkDraft; touchedFields: CreatorOwnerPlacementField[]; optionsOnly?: true }
+  | { kind: 'link-placement'; key: string; placementId: string; editable: boolean; draft: CreatorOwnerLinkDraft; touchedFields: CreatorOwnerPlacementField[] }
   | { kind: 'link-resource'; key: string; resourceId: string; draft: Pick<CreatorOwnerLinkDraft, 'title' | 'url' | 'description'>; touchedFields: CreatorOwnerResourceField[] }
   | { kind: 'add-link'; key: 'add-link'; draft: CreatorOwnerLinkDraft; touchedFields: CreatorOwnerAddLinkField[] }
   | { kind: 'move-link'; key: string; placementId: string; targetPosition: string }
@@ -110,8 +110,7 @@ export interface CreatorOwnerLocation {
   linksQueryError?: string;
   exitRequest?: CreatorOwnerTransition;
   transition?: CreatorOwnerTransition;
-  prompt: 'none' | 'exit' | 'delete-series';
-  deleteSeriesId?: string;
+  prompt: 'none' | 'exit';
   focusAfterRender?: string;
 }
 
@@ -167,8 +166,6 @@ export type CreatorOwnerAction = CreatorOwnerSessionPolicyAction
   | { type: 'update-reference-draft'; selected?: CreatorOwnerReferenceCandidate; selectedForDirectory?: boolean }
   | { type: 'update-claim-draft'; value: { selected?: CreatorOwnerClaimSelection[]; knownUrls?: string; evidence?: string } }
   | { type: 'update-photo-file'; file?: File }
-  | { type: 'photo-upload-started'; intentId: string; uploadId: string; file: File }
-  | { type: 'clear-photo-upload'; intentId: string }
   | { type: 'catalog-load-started' }
   | { type: 'catalog-load-ready'; entries: CreatorCatalogSelectionDTO[]; message?: string }
   | { type: 'catalog-load-failed'; message: string }
@@ -195,7 +192,7 @@ export type CreatorOwnerAction = CreatorOwnerSessionPolicyAction
   | { type: 'request-exit'; transition: CreatorOwnerTransition }
   | { type: 'clear-transition' }
   | { type: 'resolve-transition'; action: 'discard' | 'continue' }
-  | { type: 'set-prompt'; prompt: CreatorOwnerLocation['prompt']; seriesId?: string }
+  | { type: 'set-prompt'; prompt: CreatorOwnerLocation['prompt'] }
   | { type: 'activity-loading'; period: 7 | 30; sequence: number }
   | { type: 'set-activity-period'; period: 7 | 30 }
   | { type: 'activity-retry' }
@@ -362,6 +359,12 @@ function operationMatches(state: CreatorOwnerState, intentId: string): CreatorOw
   return operation.status !== 'idle' && 'intent' in operation && operation.intent?.id === intentId ? operation.intent : undefined;
 }
 
+export function creatorOwnerPreservesAcknowledgedRead(operation: CreatorOwnerOperation, transition?: CreatorOwnerTransition): boolean {
+  return (!transition || transition.kind === 'history')
+    && (operation.status === 'reading' || operation.status === 'refresh-failed')
+    && operation.fact === 'acknowledged' && Boolean(operation.intent?.acknowledgement);
+}
+
 function normalizeAfterRead(state: CreatorOwnerState, snapshot: CreatorOwnerSnapshotDTO) {
   const query = normalizeOwnerSeriesQuery(snapshot, state.location.query);
   const linksQuery = normalizeOwnerLinksQuery(snapshot, state.location.linksQuery);
@@ -388,7 +391,7 @@ export function creatorOwnerDraftIsDirty(editor: CreatorOwnerEditorDraft | undef
         || editor.draft.city !== (profile.city ?? '') || editor.draft.country !== (profile.country ?? '')
         || editor.draft.bio !== (profile.bio ?? '') || editor.draft.programs.join('\0') !== profile.programs.join('\0');
     }
-    case 'photo': return Boolean(editor.file || editor.uploadId);
+    case 'photo': return Boolean(editor.file);
     case 'series': {
       const saved = editor.seriesId ? snapshot.series[editor.seriesId] : undefined;
       return editor.draft.name !== (saved?.name ?? '') || editor.draft.slug !== (saved?.slug ?? '')
@@ -415,18 +418,23 @@ export function creatorOwnerDraftIsDirty(editor: CreatorOwnerEditorDraft | undef
     case 'add-link': return Boolean(editor.draft.title || editor.draft.url || editor.draft.description
       || editor.draft.featured || !editor.draft.selectedForDirectory);
     case 'move-link': {
-      const currentOrder = [...snapshot.order.featured, ...snapshot.order.ordinary];
-      return editor.targetPosition !== String(currentOrder.indexOf(editor.placementId) + 1);
+      const current = creatorOwnerLinkMoveContext(snapshot, editor.placementId);
+      return !current || editor.targetPosition !== String(current.position);
     }
     case 'reference': return Boolean(editor.selected) || !editor.selectedForDirectory;
     case 'claim': return editor.selected.length > 0 || Boolean(editor.knownUrls.trim() || editor.evidence.trim());
   }
 }
 
-export function creatorOwnerCanLeave(state: CreatorOwnerState): boolean {
-  const operation = state.operation;
-  return !(operation.status === 'sending' || operation.status === 'reading')
-    && !creatorOwnerDraftIsDirty(state.editor, state.observed);
+export function creatorOwnerLinkMoveContext(snapshot: CreatorOwnerSnapshotDTO, placementId: string): {
+  group: 'featured' | 'ordinary';
+  position: number;
+  count: number;
+} | undefined {
+  const group = snapshot.order.featured.includes(placementId) ? 'featured' : 'ordinary';
+  const order = snapshot.order[group];
+  const index = order.indexOf(placementId);
+  return index < 0 ? undefined : { group, position: index + 1, count: order.length };
 }
 
 export function creatorOwnerCanSubmitEditor(state: CreatorOwnerState): boolean {
@@ -436,7 +444,7 @@ export function creatorOwnerCanSubmitEditor(state: CreatorOwnerState): boolean {
   if (editor.kind === 'create-profile') return snapshot.profile === null;
   if (!snapshot.profile) return false;
   if (editor.kind === 'profile') return true;
-  if (editor.kind === 'photo') return Boolean(editor.file) && snapshot.profile.id === state.observed.profile?.id;
+  if (editor.kind === 'photo') return Boolean(editor.file) && editor.key === `photo:${snapshot.profile.id}`;
   if (editor.kind === 'series') return editor.seriesId === null || Boolean(snapshot.series[editor.seriesId]);
   if (editor.kind === 'move-chapter') return Boolean(snapshot.series[editor.seriesId]?.chapters.includes(editor.placementId));
   if (editor.kind === 'link-placement') {
@@ -518,17 +526,7 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
     case 'update-claim-draft': return updateEditor(state, (editor) => editor.kind === 'claim'
       ? { ...editor, ...(action.value.selected ? { selected: action.value.selected.map((item) => ({ ...item })) } : {}),
         ...(action.value.knownUrls !== undefined ? { knownUrls: action.value.knownUrls } : {}), ...(action.value.evidence !== undefined ? { evidence: action.value.evidence } : {}) } : editor);
-    case 'update-photo-file': return updateEditor(state, (editor) => editor.kind === 'photo' ? { ...editor, file: action.file, uploadId: undefined, uploadedFile: undefined } : editor);
-    case 'photo-upload-started': {
-      const intent = operationMatches(state, action.intentId);
-      if (!intent || state.editor?.kind !== 'photo') return state;
-      return { ...state, editor: { ...state.editor, uploadId: action.uploadId, uploadedFile: action.file } };
-    }
-    case 'clear-photo-upload': {
-      const intent = operationMatches(state, action.intentId);
-      if (!intent || state.editor?.kind !== 'photo') return state;
-      return { ...state, editor: { ...state.editor, uploadId: undefined, uploadedFile: undefined } };
-    }
+    case 'update-photo-file': return updateEditor(state, (editor) => editor.kind === 'photo' ? { ...editor, file: action.file } : editor);
     case 'catalog-load-started': return { ...state, catalog: { ...state.catalog, status: 'loading', message: undefined } };
     case 'catalog-load-ready': return { ...state, catalog: { ...state.catalog, status: 'ready', entries: action.entries.map((entry) => ({ ...entry })), message: action.message,
       needsRefresh: false, rejectedReferenceSelections: state.catalog.rejectedReferenceSelections.filter(({ id, url }) => action.entries.some((entry) => entry.id === id && entry.url === url)) } };
@@ -590,11 +588,13 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
     case 'clear-transition': return { ...state, location: { ...state.location, exitRequest: undefined, transition: undefined, prompt: 'none' } };
     case 'resolve-transition': {
       if (action.action === 'continue') return { ...state, location: { ...state.location,
-        transition: undefined, exitRequest: undefined, prompt: 'none', deleteSeriesId: undefined } };
-      return { ...state, editor: undefined, operation: { status: 'idle' }, location: { ...state.location,
-        transition: state.location.exitRequest, exitRequest: undefined, prompt: 'none', deleteSeriesId: undefined } };
+        transition: undefined, exitRequest: undefined, prompt: 'none' } };
+      const operation = state.operation;
+      const keepsConfirmedRead = creatorOwnerPreservesAcknowledgedRead(operation, state.location.exitRequest);
+      return { ...state, editor: undefined, operation: keepsConfirmedRead ? operation : { status: 'idle' }, location: { ...state.location,
+        transition: state.location.exitRequest, exitRequest: undefined, prompt: 'none' } };
     }
-    case 'set-prompt': return { ...state, location: { ...state.location, prompt: action.prompt, deleteSeriesId: action.seriesId } };
+    case 'set-prompt': return { ...state, location: { ...state.location, prompt: action.prompt } };
     case 'activity-loading': return action.sequence > state.activity.sequence ? { ...state, activity: { ...state.activity, period: action.period, sequence: action.sequence, status: 'loading', message: undefined } } : state;
     case 'set-activity-period': return { ...state, activity: { period: action.period, sequence: state.activity.sequence, status: 'idle' } };
     case 'activity-retry': return { ...state, activity: { ...state.activity, sequence: state.activity.sequence + 1, status: 'idle' } };

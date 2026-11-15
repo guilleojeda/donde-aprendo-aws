@@ -452,6 +452,11 @@ test('an admin grant commits only the fitting prefix and manual continuations pr
   assert.equal(failed.body.error, 'CREATOR_CONTENT_TOO_LARGE');
   assert.deepEqual(failed.body.linkedResourceIds, [resourceA],
     'the partial result identifies only the successfully committed resource');
+  assert.equal(failed.body.profileChanged, true,
+    'the quota response reports that the committed prefix advanced the creator aggregate');
+  assert.deepEqual(failed.body.versionChanges.filter(({ entity }) => entity === 'profile'), [{
+    entity: 'profile', id: CREATOR_PROFILE_ID, before: initialState.version, after: initialState.version + 1,
+  }]);
 
   let committed = await harness.store.get(CREATOR_KEY);
   assert.equal(creatorContentBytes(committed), CONTENT_LIMIT,
@@ -472,6 +477,9 @@ test('an admin grant commits only the fitting prefix and manual continuations pr
   const repeatedA = await grant([resourceA]);
   assert.equal(repeatedA.response.status, 200, JSON.stringify(repeatedA.body));
   assert.deepEqual(repeatedA.body.linkedResourceIds, [resourceA]);
+  assert.equal(repeatedA.body.profileChanged, false,
+    'confirming an already linked resource does not advance the creator aggregate');
+  assert.deepEqual(repeatedA.body.versionChanges, []);
   claim = await harness.store.get('claim:capacity-grant-claim');
   assert.equal(claim.status, 'partial',
     'an explicit selection of the already-linked resource performs the normal claim-status update');

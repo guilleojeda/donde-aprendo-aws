@@ -28,6 +28,8 @@ import { parseCreatorOwnerCatalog, parseCreatorOwnerClaimUrls } from '../../lib/
 import {
   createCreatorOwnerState,
   creatorOwnerClaimSelectionIsCurrent,
+  creatorOwnerLinkMoveContext,
+  creatorOwnerPreservesAcknowledgedRead,
   creatorOwnerReferenceSubmissionStatus,
   creatorOwnerDraftIsDirty,
   creatorOwnerReducer,
@@ -68,11 +70,10 @@ interface Props {
 
 interface PendingOwnerCommand extends CreatorOwnerIntent {
   fields: Record<string, unknown>;
-  capture?: CreatorOwnerEditorDraft;
 }
 
 function ownerIntent(command: PendingOwnerCommand): CreatorOwnerIntent {
-  const { fields: _fields, capture: _capture, ...intent } = command;
+  const { fields: _fields, ...intent } = command;
   return intent;
 }
 
@@ -148,12 +149,13 @@ type ListRecoveryOperation = Extract<CreatorOwnerOperation,
 
 function isListRecoveryOperation(operation: CreatorOwnerOperation): operation is ListRecoveryOperation {
   if (operation.status === 'idle' || operation.status === 'sending' || !operation.intent) return false;
-  const chapterReadFailure = (operation.status === 'reading' || operation.status === 'refresh-failed')
-    && operation.fact === 'acknowledged'
-    && (operation.intent.action === 'add-chapter' || operation.intent.action === 'remove-chapter');
-  if (chapterReadFailure) return false;
   return ['publish-profile', 'delete-series', 'add-chapter', 'remove-chapter', 'remove-link', 'reinclude-link']
     .includes(operation.intent.action);
+}
+
+function isAcknowledgedReadRecovery(operation: CreatorOwnerOperation): operation is Extract<CreatorOwnerOperation, { status: 'reading' | 'refresh-failed' }> & { intent: CreatorOwnerIntent } {
+  return (operation.status === 'reading' || operation.status === 'refresh-failed')
+    && operation.fact === 'acknowledged' && Boolean(operation.intent?.acknowledgement);
 }
 
 function isWriteActive(state: CreatorOwnerState): boolean {
@@ -813,11 +815,10 @@ export default function CreatorOwnerApp(props: Props) {
     const latest = stateRef.current;
     const link = ownerLinks(latest.observed).find((item) => item.placementId === placementId);
     if (!latest.observed.profile || !link) return;
-    const group = link.featured ? latest.observed.order.featured : latest.observed.order.ordinary;
-    const index = group.indexOf(placementId);
-    if (index < 0) return;
+    const position = creatorOwnerLinkMoveContext(latest.observed, placementId);
+    if (!position) return;
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dispatch({ type: 'open-editor', editor: { kind: 'move-link', key: `move-link:${placementId}`, placementId, targetPosition: String(index + 1) } });
+    dispatch({ type: 'open-editor', editor: { kind: 'move-link', key: `move-link:${placementId}`, placementId, targetPosition: String(position.position) } });
   }
 
   function openReferenceEditor() {
@@ -848,7 +849,7 @@ export default function CreatorOwnerApp(props: Props) {
     target?: CreatorOwnerIntent['target']; resourceVersion?: number; editor?: CreatorOwnerEditorDraft;
   } = {}): PendingOwnerCommand {
     const latest = stateRef.current;
-    return { id: nextId(action), ...(options.editor ? { editorKey: options.editor.key, capture: options.editor } : {}),
+    return { id: nextId(action), ...(options.editor ? { editorKey: options.editor.key } : {}),
       action, profileId: latest.observed.profile?.id ?? null, creatorVersion: latest.observed.creatorVersion,
       ...(options.target ? { target: options.target } : {}),
       ...(options.resourceVersion !== undefined ? { base: { resourceVersion: options.resourceVersion } } : {}),
@@ -1282,7 +1283,11 @@ export default function CreatorOwnerApp(props: Props) {
     const latest = stateRef.current;
     const profile = latest.observed.profile;
     const file = editor.file;
-    if (!file || !profile || latest.session.state !== 'ready' || latest.operation.status !== 'idle') return;
+    const retryingConflict = latest.operation.status === 'conflict' && latest.operation.readCompleted
+      && latest.operation.intent.editorKey === editor.key
+      && (latest.operation.intent.action === 'photo-authorize' || latest.operation.intent.action === 'photo-finalize');
+    if (!file || !profile || editor.key !== `photo:${profile.id}` || latest.session.state !== 'ready'
+      || latest.operation.status !== 'idle' && !retryingConflict) return;
     if (!CREATOR_PHOTO_MIME_TYPES.includes(file.type) || file.size > CREATOR_PHOTO_MAX_UPLOAD_BYTES) {
       setMessage('Elige una imagen JPEG, PNG o WebP de hasta 15 MiB.', 'error');
       return;
@@ -1313,7 +1318,11 @@ export default function CreatorOwnerApp(props: Props) {
         const payload = await readCreatorSessionResponse(authorization);
         if (!current()) return;
         if (rejectBoundWrite(authorization.status, payload, operationId, intent.id)) return;
-        if (authorization.status === 409) { await readOwnerSnapshot('conflict', intent); return; }
+        if (authorization.status === 409 || authorization.status === 404 && payload?.error === 'PROFILE_NOT_FOUND') {
+          await readOwnerSnapshot('conflict', { ...intent,
+            ...(authorization.status === 404 ? { targetMissing: true as const } : {}) });
+          return;
+        }
         if (authorization.status >= 500 || authorization.status === 408) {
           dispatch({ type: 'operation-unknown', intent, message: 'No pudimos confirmar la preparación. Comprueba el estado guardado antes de volver a cargar.' });
         } else dispatch({ type: 'operation-rejected', intentId: intent.id, message: 'No pudimos preparar la carga. El archivo seleccionado sigue disponible.' });
@@ -1333,11 +1342,9 @@ export default function CreatorOwnerApp(props: Props) {
       const uploadResponse = await fetch(prepared.post.url, { method: 'POST', mode: 'cors', credentials: 'omit', body: form });
       if (!current()) return;
       if (!uploadResponse.ok) {
-        dispatch({ type: 'clear-photo-upload', intentId: intent.id });
         dispatch({ type: 'operation-rejected', intentId: intent.id, message: 'No pudimos subir la foto. La anterior sigue activa y conservamos el archivo seleccionado.' });
         return;
       }
-      dispatch({ type: 'photo-upload-started', intentId: intent.id, uploadId: prepared.uploadId, file });
       finalizeIntent = { ...intent, action: 'photo-finalize' };
       dispatch({ type: 'operation-started', intent: finalizeIntent });
       const finalizeId = nextSessionOperationId();
@@ -1351,11 +1358,14 @@ export default function CreatorOwnerApp(props: Props) {
         const payload = await readCreatorSessionResponse(finish);
         if (!current()) return;
         if (rejectBoundWrite(finish.status, payload, finalizeId, intent.id)) return;
-        if (finish.status === 409) { await readOwnerSnapshot('conflict', finalizeIntent); return; }
+        if (finish.status === 409 || finish.status === 404 && payload?.error === 'PROFILE_NOT_FOUND') {
+          await readOwnerSnapshot('conflict', { ...finalizeIntent,
+            ...(finish.status === 404 ? { targetMissing: true as const } : {}) });
+          return;
+        }
         if (finish.status >= 500 || finish.status === 408) {
           dispatch({ type: 'operation-unknown', intent: finalizeIntent, message: 'No pudimos confirmar si la foto se guardó. Comprueba el estado antes de volver a cargar.' });
         } else {
-          dispatch({ type: 'clear-photo-upload', intentId: intent.id });
           dispatch({ type: 'operation-rejected', intentId: intent.id, message: 'No pudimos guardar la foto. La anterior sigue activa y conservamos el archivo.' });
         }
         return;
@@ -1526,8 +1536,10 @@ export default function CreatorOwnerApp(props: Props) {
         setMessage('Estamos guardando la acción iniciada. Espera a que termine antes de salir.', 'info');
         return;
       }
-      if (latest.operation.status === 'reading' || latest.operation.status === 'refresh-failed'
-        || latest.operation.status === 'unknown' || latest.operation.status === 'conflict') operationGenerationRef.current += 1;
+      const acknowledgedReadCanFinish = latest.operation.status === 'reading'
+        && creatorOwnerPreservesAcknowledgedRead(latest.operation, latest.location.exitRequest);
+      if (!acknowledgedReadCanFinish && (latest.operation.status === 'reading' || latest.operation.status === 'refresh-failed'
+        || latest.operation.status === 'unknown' || latest.operation.status === 'conflict')) operationGenerationRef.current += 1;
       dispatch({ type: 'resolve-transition', action });
       if (!latest.location.exitRequest) queueMicrotask(() => returnFocusRef.current?.focus({ preventScroll: true }));
       return;
@@ -1564,7 +1576,11 @@ export default function CreatorOwnerApp(props: Props) {
   }
 
   const operation = state.operation;
-  const listOperation = !state.editor && isListRecoveryOperation(operation) ? operation : undefined;
+  const chapterRecoveryInDetail = isAcknowledgedReadRecovery(operation)
+    && (operation.intent.action === 'add-chapter' || operation.intent.action === 'remove-chapter')
+    && state.location.view === 'series' && Boolean(state.location.query.serie);
+  const listOperation = !state.editor && !chapterRecoveryInDetail
+    && (isListRecoveryOperation(operation) || isAcknowledgedReadRecovery(operation)) ? operation : undefined;
   const listRecoveryKind = listOperation
     ? listOperation.status === 'reading' || listOperation.status === 'refresh-failed' ? listOperation.fact : listOperation.status
     : undefined;
@@ -1590,11 +1606,15 @@ export default function CreatorOwnerApp(props: Props) {
       onCopyLink={copyLink}
     >
       {listOperation && <section class="creator-owner__conflict" data-owner-recovery data-owner-stale={listOperation.status === 'refresh-failed' ? 'true' : undefined} data-recovery-kind={listRecoveryKind}
-        data-owner-list-recovery={['remove-link', 'reinclude-link'].includes(listOperation.intent.action) ? 'links' : 'series'}>
+        data-owner-list-recovery={['remove-link', 'reinclude-link'].includes(listOperation.intent.action) ? 'links'
+          : ['add-chapter', 'remove-chapter', 'delete-series'].includes(listOperation.intent.action) ? 'series' : 'owner'}>
         <h3>{listOperation.intent.action === 'delete-series' ? 'Comprobar eliminación'
           : listOperation.intent.action === 'publish-profile' ? 'Comprobar publicación'
             : listOperation.intent.action === 'remove-link' ? 'Comprobar que se quitó el enlace'
-              : listOperation.intent.action === 'reinclude-link' ? 'Comprobar la reincorporación' : 'Comprobar capítulos'}</h3>
+              : listOperation.intent.action === 'reinclude-link' ? 'Comprobar la reincorporación'
+                : listOperation.intent.action === 'add-chapter' || listOperation.intent.action === 'remove-chapter' ? 'Comprobar capítulos'
+                  : listOperation.intent.action === 'photo-authorize' || listOperation.intent.action === 'photo-finalize' ? 'Comprobar la foto'
+                    : 'Actualizar el estado guardado'}</h3>
         <p role={listOperation.status === 'reading' ? 'status' : undefined} aria-live={listOperation.status === 'reading' ? 'polite' : undefined}>{listOperation.message}</p>
         {listOperation.status === 'refresh-failed' && <button class="button button--outline" type="button" data-owner-refresh-retry onClick={checkClick}>Reintentar actualización</button>}
         {listOperation.status === 'unknown' && !listOperation.readCompleted && <button class="button button--outline" type="button" data-owner-compare onClick={checkClick}>Comprobar el estado guardado</button>}

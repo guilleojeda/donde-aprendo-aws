@@ -21,7 +21,7 @@ try {
 } finally {
   await rm(temporaryDirectory, { recursive: true, force: true });
 }
-const { readCreatorEditorData } = decoder;
+const { readCreatorOwnerSnapshot } = decoder;
 
 function snapshot() {
   return {
@@ -53,7 +53,7 @@ function snapshot() {
 test('the owner decoder preserves one resource collection and independent complete sequences without filling absent fields', () => {
   const raw = snapshot();
   const original = structuredClone(raw);
-  const decoded = readCreatorEditorData(raw);
+  const decoded = readCreatorOwnerSnapshot(raw);
   assert.deepEqual(decoded, original);
   assert.deepEqual(raw, original, 'reading does not modify the received observation');
   assert.equal(Object.hasOwn(decoded.resources[0], 'description'), false);
@@ -70,7 +70,7 @@ test('the owner decoder accepts the explicit not-yet-created state without manuf
     schemaVersion: 2, creatorVersion: null, profile: null, resources: [],
     placements: {}, order: { featured: [], ordinary: [] }, series: {}, claims: [],
   };
-  assert.deepEqual(readCreatorEditorData(raw), raw);
+  assert.deepEqual(readCreatorOwnerSnapshot(raw), raw);
 });
 
 test('the owner decoder preserves a literal 256-byte UTF-8 resource identity', () => {
@@ -79,9 +79,19 @@ test('the owner decoder preserves a literal 256-byte UTF-8 resource identity', (
   assert.equal(Buffer.byteLength(id, 'utf8'), 256);
   raw.resources[0].id = id;
   raw.placements.z.resourceId = id;
-  const decoded = readCreatorEditorData(raw);
+  const decoded = readCreatorOwnerSnapshot(raw);
   assert.equal(decoded.resources[0].id, id);
   assert.equal(decoded.placements.z.resourceId, id);
+});
+
+test('the owner decoder accepts a legacy blank social URL without normalizing the observation', () => {
+  const raw = snapshot();
+  raw.profile.socials.website = '';
+  const original = structuredClone(raw);
+  const decoded = readCreatorOwnerSnapshot(raw);
+  assert.strictEqual(decoded, raw);
+  assert.deepEqual(decoded.profile.socials, { website: '' });
+  assert.deepEqual(raw, original);
 });
 
 const corruptions = [
@@ -120,7 +130,7 @@ for (const [name, corrupt] of corruptions) {
     const raw = snapshot();
     corrupt(raw);
     const malformed = structuredClone(raw);
-    assert.throws(() => readCreatorEditorData(raw), TypeError);
+    assert.throws(() => readCreatorOwnerSnapshot(raw), TypeError);
     assert.deepEqual(raw, malformed);
   });
 }
