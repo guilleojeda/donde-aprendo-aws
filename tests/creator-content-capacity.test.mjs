@@ -162,7 +162,7 @@ function stateAtContentBytes(targetBytes) {
   assert.ok(remaining <= SERIES_COUNT * SERIES_DESCRIPTION_LIMIT,
     'bounded Series descriptions can represent the requested content size');
 
-  for (const [id, entry] of Object.entries(state.series)) {
+  for (const entry of Object.values(state.series)) {
     const length = Math.min(remaining, SERIES_DESCRIPTION_LIMIT);
     entry.description = 'x'.repeat(length);
     remaining -= length;

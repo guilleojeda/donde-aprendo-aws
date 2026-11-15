@@ -113,8 +113,7 @@ async function rows(store) {
 
 test('one combined edit commits metadata and placement options atomically, then the full read and public view agree', async () => {
   const state = await fixture({ withSeries: true });
-  const { harness, current, first, second, resource, placement, seriesId } = state;
-  const beforeRows = await rows(harness.store);
+  const { harness, current, first, second, resource, seriesId } = state;
   const transactionsBefore = harness.store.calls.filter((call) => call.operation === 'transact').length;
 
   const { result: saved } = await jsonCommand(harness, state.path, {

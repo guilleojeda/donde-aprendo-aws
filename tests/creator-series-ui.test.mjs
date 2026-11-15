@@ -157,7 +157,7 @@ function editorData({ withProfile = true } = {}) {
 
   const currentProfile = profile();
   const { version: creatorVersion, ...profileDto } = currentProfile;
-  const placements = Object.fromEntries(links.map(({ placementId, resourceId, featured, selectedForDirectory }) => [
+  const placements = Object.fromEntries(links.map(({ placementId, resourceId, selectedForDirectory }) => [
     placementId,
     { resourceId, selectedForDirectory },
   ]));

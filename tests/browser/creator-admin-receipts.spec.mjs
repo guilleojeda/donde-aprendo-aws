@@ -18,8 +18,8 @@ const claimSelection = (form, id) => form.locator(`input[name="resourceIds"][val
 const saveButton = (page, id) => row(page, id).getByRole('button', { name: 'Guardar clasificación' });
 const moderateResource = (page, id) => row(page, id).getByRole('button', { name: 'Ocultar recurso' });
 
-async function openAdmin(fixture, page, resources, query = '?state=all&page=1') {
-  await page.goto(`${fixture.origin}${adminPath}${query}`);
+async function openAdmin(fixture, page) {
+  await page.goto(`${fixture.origin}${adminPath}?state=all&page=1`);
   await expect(root(page)).toBeVisible();
 }
 
@@ -155,7 +155,7 @@ for (const scenario of badClassificationReceipts) {
   test(`an unreadable classification receipt pauses only its known row (${scenario.label})`, async ({ fixture, page }) => {
     const ids = ['admin-receipt-target', 'admin-receipt-draft'];
     await prepareAdmin(fixture, page, ids);
-    await openAdmin(fixture, page, ids);
+    await openAdmin(fixture, page);
     await row(page, ids[1]).getByLabel('Categoría').fill('Borrador conservado');
 
     const route = await interceptAdminWrite(page,
@@ -181,7 +181,7 @@ for (const scenario of badClassificationReceipts) {
 test('an empty classification receipt contradicting the canonical increment pauses its target', async ({ fixture, page }) => {
   const ids = ['admin-empty-increment-target', 'admin-empty-increment-draft'];
   await prepareAdmin(fixture, page, ids);
-  await openAdmin(fixture, page, ids);
+  await openAdmin(fixture, page);
   await row(page, ids[1]).getByLabel('Categoría').fill('Borrador paralelo');
   const route = await interceptAdminWrite(page,
     (request) => request.method() === 'PATCH' && adminResourceCommandMatches(request.url(), ids[0]),
@@ -209,7 +209,7 @@ for (const foreign of [
     const ids = ['admin-scope-target-resource', 'admin-scope-foreign-resource', 'admin-scope-target-profile', 'admin-scope-draft'];
     await prepareAdmin(fixture, page, ids);
     const owner = await createOwnerProfile(fixture, `admin-scope-owner-${foreign.label}`, `scope-owner-${foreign.label}@example.invalid`);
-    await openAdmin(fixture, page, ids);
+    await openAdmin(fixture, page);
     await row(page, ids[3]).getByLabel('Categoría').fill('Borrador para mantener la página');
 
     const targetId = ids[foreign.entity === 'resource' ? 0 : 2];
@@ -257,7 +257,7 @@ for (const foreign of [
 test('a malformed resource moderation receipt pauses its whole row after both finally blocks', async ({ fixture, page }) => {
   const ids = ['admin-resource-moderation-target', 'admin-resource-moderation-other'];
   await prepareAdmin(fixture, page, ids);
-  await openAdmin(fixture, page, ids);
+  await openAdmin(fixture, page);
   await row(page, ids[1]).getByLabel('Categoría').fill('Borrador de otro recurso');
   const route = await interceptAdminWrite(page,
     (request) => request.method() === 'POST' && adminResourceCommandMatches(request.url(), ids[0], 'ocultar'),
@@ -287,7 +287,7 @@ test('a malformed profile moderation receipt stays paused while unrelated profil
     slug: 'otro-perfil-admin',
     displayName: 'Otro perfil',
   });
-  await openAdmin(fixture, page, ids);
+  await openAdmin(fixture, page);
   await row(page, ids[0]).getByLabel('Categoría').fill('Borrador de recurso');
   const route = await interceptAdminWrite(page,
     (request) => request.method() === 'POST'
@@ -322,7 +322,7 @@ test('a changed claim response missing only profile receipts pauses its submitte
   await prepareAdmin(fixture, page, records);
   const owner = await createOwnerProfile(fixture, 'admin-claim-target', 'claim-target@example.invalid');
   const claim = await createClaim(fixture, owner.cookie, ids.slice(0, 3), sourceId);
-  await openAdmin(fixture, page, ids);
+  await openAdmin(fixture, page);
   const initial = JSON.parse(await page.locator('#creator-admin-data').textContent());
   assert.equal(initial.claims.find(({ id }) => id === claim.id)?.profileId, owner.profile.id,
     'the private admin loader retains the claim profile ID produced by the real claim service');
@@ -384,7 +384,7 @@ test('an out-of-scope claim receipt pauses the submitted selection without adopt
   await prepareAdmin(fixture, page, records);
   const owner = await createOwnerProfile(fixture, 'admin-claim-scope-owner', 'admin-claim-scope@example.invalid');
   const claim = await createClaim(fixture, owner.cookie, ids.slice(0, 3), sourceId);
-  await openAdmin(fixture, page, ids);
+  await openAdmin(fixture, page);
   const form = claimForm(page, claim.id);
   await claimSelection(form, ids[2]).uncheck();
   await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
@@ -448,7 +448,7 @@ test('an off-page claim target and absent profile row do not create placeholder 
     const rows = await list(prefix);
     return prefix === 'profile:' ? rows.filter(({ key }) => key !== `profile:${owner.profile.id}`) : rows;
   };
-  await openAdmin(fixture, page, records);
+  await openAdmin(fixture, page);
   await expect(row(page, ids[27])).toHaveCount(0, 'the selected target is on page 2 and has no rendered row');
   await expect(profileRow(page, owner.profile.id)).toHaveCount(0, 'the controlled admin listing omits only this otherwise real profile row');
   const initial = JSON.parse(await page.locator('#creator-admin-data').textContent());
@@ -529,7 +529,7 @@ test(`a legacy claim without profileId does not guess the account profile as a p
     } }],
   });
   assert.equal(inserted, true, 'only the historical claim prerequisite is prepared directly');
-  await openAdmin(fixture, page, ids);
+  await openAdmin(fixture, page);
   const initial = JSON.parse(await page.locator('#creator-admin-data').textContent());
   assert.equal(Object.hasOwn(initial.claims.find(({ id }) => id === claimId), 'profileId'), false);
   const form = claimForm(page, claimId);
@@ -574,7 +574,7 @@ test('a real partial claim with an unreadable receipt pauses every submitted tar
   await prepareAdmin(fixture, page, records);
   const owner = await createOwnerProfile(fixture, 'admin-partial-owner', 'admin-partial-owner@example.invalid');
   const claim = await createClaim(fixture, owner.cookie, ids.slice(0, 3), sourceId);
-  await openAdmin(fixture, page, ids);
+  await openAdmin(fixture, page);
   const form = claimForm(page, claim.id);
   await claimSelection(form, ids[2]).uncheck();
   await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
@@ -640,7 +640,7 @@ test('valid multi-resource grants accept chained profile receipts and keep unrel
     displayName: 'Otro perfil no relacionado',
   });
   const claim = await createClaim(fixture, owner.cookie, ids.slice(0, 2));
-  await openAdmin(fixture, page, ids);
+  await openAdmin(fixture, page);
   const form = claimForm(page, claim.id);
   await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
   await row(page, ids[2]).getByLabel('Categoría').fill('Mantener vivo el documento');
@@ -699,7 +699,7 @@ test('a real already-linked claim with linkedResourceIds and [] remains a valid 
   assert.equal(resolve.status, 200, 'the first real admin command establishes the editor, reference and placement');
   assert.deepEqual((await resolve.json()).linkedResourceIds, [ids[0]]);
   const nextClaim = await createClaim(fixture, owner.cookie, [ids[0]]);
-  await openAdmin(fixture, page, ids);
+  await openAdmin(fixture, page);
   const form = claimForm(page, nextClaim.id);
   await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
   await row(page, ids[1]).getByLabel('Categoría').fill('Otra corrección local');
@@ -741,7 +741,7 @@ test('a genuine version gap pauses one row while the valid receipt chain for ano
   const adminCookie = await prepareAdmin(fixture, page, ids);
   const owner = await createOwnerProfile(fixture, 'admin-gap-owner', 'admin-gap-owner@example.invalid');
   const claim = await createClaim(fixture, owner.cookie, ids.slice(0, 2));
-  await openAdmin(fixture, page, ids);
+  await openAdmin(fixture, page);
 
   const externalUpdate = await fixture.request(adminCookie, `/api/admin/recursos/?id=${encodeURIComponent(ids[0])}`, {
     method: 'PATCH',
@@ -791,7 +791,7 @@ test('a bad receipt remains stale through same-account session recovery, unrelat
   const ids = ['admin-recovery-target', 'admin-recovery-save', 'admin-recovery-later-draft'];
   const oldCookie = await prepareAdmin(fixture, page, ids);
   const originalPrincipal = await fixture.principal(oldCookie);
-  await openAdmin(fixture, page, ids);
+  await openAdmin(fixture, page);
   await row(page, ids[1]).getByLabel('Categoría').fill('Unrelated write after recovery');
   await row(page, ids[2]).getByLabel('Categoría').fill('Later draft to retain');
 
@@ -871,7 +871,7 @@ test('a bad receipt remains stale through same-account session recovery, unrelat
 test('classification sends the raw scalar, persists server normalization, and gives taxonomy feedback', async ({ fixture, page }) => {
   const ids = ['admin-classification-ownership', 'admin-classification-draft'];
   await prepareAdmin(fixture, page, ids);
-  await openAdmin(fixture, page, ids);
+  await openAdmin(fixture, page);
   await row(page, ids[1]).getByLabel('Categoría').fill('Borrador concurrente');
   const route = await interceptAdminWrite(page,
     (request) => request.method() === 'PATCH' && adminResourceCommandMatches(request.url(), ids[0]),
@@ -907,7 +907,7 @@ test('classification sends the raw scalar, persists server normalization, and gi
 test('a genuine unchanged classification accepts [] and keeps its observed version usable', async ({ fixture, page }) => {
   const ids = ['admin-classification-noop', 'admin-classification-noop-draft'];
   await prepareAdmin(fixture, page, ids);
-  await openAdmin(fixture, page, ids);
+  await openAdmin(fixture, page);
   await row(page, ids[1]).getByLabel('Categoría').fill('Otro borrador');
   const route = await interceptAdminWrite(page,
     (request) => request.method() === 'PATCH' && adminResourceCommandMatches(request.url(), ids[0]),

@@ -19,7 +19,7 @@ async function api(harness, path, {
   return { response, status: response.status, body: response.status === 204 ? null : await responseJson(response) };
 }
 
-async function owner(harness, session = 'creator-a') {
+async function owner(harness) {
   const result = await api(harness, '/api/creador/perfil/');
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.schemaVersion, 2);

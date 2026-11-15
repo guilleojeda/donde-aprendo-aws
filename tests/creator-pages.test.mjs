@@ -74,15 +74,6 @@ async function editor(harness, session = 'creator-a') {
   return responseJson(response);
 }
 
-async function publicLink(harness, session, placementId) {
-  const snapshot = await editor(harness, session);
-  const page = await harness.service.readPublicProfile(snapshot.profile.slug);
-  assert.equal(page.status, 200);
-  const link = page.links.find((item) => item.placementId === placementId);
-  assert.ok(link, `public projection contains placement ${placementId}`);
-  return link;
-}
-
 test('an authenticated account and a saved draft have no public page until explicit publication', async () => {
   const harness = await createCreatorPagesHarness();
   const accountProfile = await api(harness, '/api/creador/perfil', 'creator-a');

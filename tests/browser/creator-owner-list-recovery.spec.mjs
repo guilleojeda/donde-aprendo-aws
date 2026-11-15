@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { test, expect, api, addLink, captureCreatorApi, loggedInOwner, readOwnerSnapshot } from '../fixtures/creator-browser-test.mjs';
+import { test, expect, addLink, captureCreatorApi, loggedInOwner, readOwnerSnapshot } from '../fixtures/creator-browser-test.mjs';
 
 const OWNER_PATH = '/api/creador/perfil';
 const STALE_LINK_RECOVERY = '[data-owner-list-recovery="links"][data-owner-stale="true"]';

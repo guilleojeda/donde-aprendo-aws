@@ -11,7 +11,6 @@ import {
   seriesRow,
   loggedInOwner,
 } from '../fixtures/creator-browser-test.mjs';
-import { rasterPhotoFixtures } from '../fixtures/creator-photos.mjs';
 
 function dataForm(page) {
   return page.locator('[data-owner-dialog] form[data-owner-form="datos"]');
@@ -19,16 +18,6 @@ function dataForm(page) {
 
 function sessionCheck(page) {
   return page.locator('[data-owner-dialog][open] [data-session-recovery-check]');
-}
-
-function multipartField(payload, fieldName) {
-  const escapedName = fieldName.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-  const field = payload.toString('latin1').match(new RegExp(`Content-Disposition: form-data; name="${escapedName}"\\r\\n\\r\\n([^\\r\\n]+)`, 'iu'));
-  return field?.[1];
-}
-
-function photoForm(page) {
-  return page.locator('[data-owner-dialog] form[data-owner-form="foto"]');
 }
 
 async function openSeries(page, fixture, suffix = '') {
@@ -47,12 +36,6 @@ async function ensureDataEditor(page) {
   const form = dataForm(page);
   if (await form.isVisible()) return form;
   return openDataEditor(page);
-}
-
-async function writeProfileFromForm(form, name, city) {
-  await form.getByLabel('Nombre visible').fill(name);
-  if (city !== undefined) await form.getByLabel(/Ciudad/).fill(city);
-  await form.getByRole('button', { name: 'Guardar datos' }).click();
 }
 
 function gate() {

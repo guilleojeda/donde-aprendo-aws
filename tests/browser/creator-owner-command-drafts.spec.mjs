@@ -111,7 +111,7 @@ function installPhotoProvider(page, fixture, images, { failPngOnce = false, paus
 }
 
 test('el alta ya presente conserva todos los campos crudos y no consume la salida pendiente', async ({ fixture, page }) => {
-  const cookie = await loggedInOwner(fixture, page);
+  await loggedInOwner(fixture, page);
   await openView(page, fixture, 'enlaces');
   await page.locator('#owner-link-order').selectOption('titulo-desc');
   const activeUrl = page.url();
@@ -198,7 +198,7 @@ test('el alta ya presente conserva todos los campos crudos y no consume la salid
 });
 
 test('un recurso reutilizado crea su colocación sin consumir el borrador y permite guardar opciones aparte', async ({ fixture, page }) => {
-  const cookie = await loggedInOwner(fixture, page);
+  await loggedInOwner(fixture, page);
   const shared = {
     id: 'phase5-resource-reused-draft',
     title: 'Metadatos editoriales guardados',
@@ -282,7 +282,7 @@ test('un recurso reutilizado crea su colocación sin consumir el borrador y perm
 });
 
 test('una reclamación confirmada por el servidor sigue incierta ante un historial parecido y sólo se reenvía por decisión manual', async ({ fixture, page }) => {
-  const cookie = await loggedInOwner(fixture, page);
+  await loggedInOwner(fixture, page);
   const candidate = {
     id: 'phase5-claim-uncertain-draft',
     title: 'Contenido para la solicitud incierta',
@@ -565,7 +565,7 @@ test('un fallo del proveedor antes del finalize retiene el archivo y la foto act
 });
 
 test('los campos de texto llegan crudos al servicio, las ausencias se conservan y los vacíos se envían como intención de borrar', async ({ fixture, page }) => {
-  const cookie = await loggedInOwner(fixture, page, {
+  await loggedInOwner(fixture, page, {
     profileFields: { city: 'Córdoba', bio: 'Presentación que no se edita', socials: { website: 'https://saved.example/about' } },
   });
   await openView(page, fixture, 'enlaces');

@@ -11,17 +11,6 @@ import { creatorPageSessionBinding } from '../../src/lib/creator-session-context
 const ownerPath = '/api/creador/perfil';
 const sessionPath = '/api/creador/sesion';
 
-function deferred() {
-  let resolve;
-  const promise = new Promise((done) => { resolve = done; });
-  return { promise, resolve };
-}
-
-const pathOf = (request) => new URL(request.url()).pathname.replace(/\/$/u, '');
-const ownerResponse = (page, method, path, status) => page.waitForResponse((response) => response.request().method() === method
-  && pathOf(response.request()) === path && response.status() === status);
-const waitForRender = (page) => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-
 function dataForm(page) {
   return page.locator('[data-owner-dialog] form[data-owner-form="datos"]');
 }

@@ -239,7 +239,6 @@ async function failNextOwnerRead(page) {
     }
     reads += 1;
     const response = await route.fetch();
-    const body = await response.body();
     actual = { status: response.status() };
     entered.resolve();
     await route.fulfill({ response, status: 503 });

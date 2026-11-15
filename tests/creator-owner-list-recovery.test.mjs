@@ -17,7 +17,7 @@ const presentation = await loadModule('../src/lib/creator-owner-presentation.ts'
 
 function ownerSnapshot({ linkCount = 26, seriesCount = 0 } = {}) {
   const placementIds = Array.from({ length: linkCount }, (_, index) => `placement-${String(index).padStart(3, '0')}`);
-  const resources = placementIds.map((placementId, index) => ({
+  const resources = placementIds.map((_, index) => ({
     id: `resource-${String(index).padStart(3, '0')}`,
     version: 1,
     title: `Recovery resource ${String(index).padStart(3, '0')}`,

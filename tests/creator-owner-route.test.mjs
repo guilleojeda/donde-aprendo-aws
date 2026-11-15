@@ -25,15 +25,6 @@ const editorRoute = compiled.routes.editor.default;
 const container = await createCreatorOwnerAstroContainer({ astroConfig: { site: SITE_ORIGIN } });
 let runtime;
 
-function assertPrivate(response, html) {
-  assert.equal(response.status, 200);
-  assert.match(response.headers.get('cache-control') ?? '', /private.*no-store/i);
-  assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
-  assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
-  assert.match(html, /<meta[^>]+name="robots"[^>]+noindex/i);
-  assert.doesNotMatch(html, /analytics\.js|gtag\(|google-analytics/i);
-}
-
 async function resetRuntime() {
   runtime = await createCreatorOwnerRuntime();
   runtime.setSession('creator-a');
@@ -168,7 +159,7 @@ test('el acceso antiguo lleva a Solicitudes sin duplicar gestión ni alterar enl
   const before = await ownerSnapshot();
   assert.equal(Object.values(before.placements).some(({ resourceId }) => resourceId === shared.resourceId), true);
   assert.equal(Object.keys(before.series).length, 1);
-  const { response, html } = await renderPage(editorRoute, { pathname: '/cuenta/creador/' });
+  const { response } = await renderPage(editorRoute, { pathname: '/cuenta/creador/' });
   assert.equal(response.status, 302);
   assert.equal(response.headers.get('location'), '/cuenta/?vista=solicitudes');
   assert.match(response.headers.get('cache-control') ?? '', /private.*no-store/);

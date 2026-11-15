@@ -195,45 +195,6 @@ async function holdReferencePost(page, { commit }) {
   };
 }
 
-async function holdReferenceResponse(page) {
-  const gate = deferred();
-  let arrive;
-  const reached = new Promise((resolve) => { arrive = resolve; });
-  let actual;
-  let used = false;
-  let finished;
-  const done = new Promise((resolve) => { finished = resolve; });
-  const handler = async (route) => {
-    const request = route.request();
-    if (used || request.method() !== 'POST'
-      || new URL(request.url()).pathname.replace(/\/$/u, '') !== '/api/creador/referencias') {
-      await route.continue();
-      return;
-    }
-    used = true;
-    try {
-      const response = await route.fetch();
-      actual = { status: response.status(), body: await response.json() };
-      arrive(actual);
-      await gate.promise;
-      await route.fulfill({ response, json: actual.body });
-    } finally {
-      finished();
-    }
-  };
-  await page.route('**/api/creador/**', handler);
-  return {
-    reached,
-    get actual() { return actual; },
-    release: () => gate.release(),
-    async close() {
-      gate.release();
-      if (used) await done;
-      await page.unroute('**/api/creador/**', handler).catch(() => {});
-    },
-  };
-}
-
 test('el catálogo público carga con reintento y busca por título y URL entre tipos publicados', async ({ fixture, page }) => {
   await loggedInOwner(fixture, page);
   const community = catalogEntry({
