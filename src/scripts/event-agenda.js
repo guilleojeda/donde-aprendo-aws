@@ -429,7 +429,6 @@ if (agenda && empty) {
     card.dataset.eventDate = eventLocalDate(member.startsAt, period.timeZone);
     card.dataset.eventCity = physical.city ? `${country}:${physical.city}` : '';
     card.dataset.eventCountries = [...new Set(group.events.map((item) => effectiveEventLocation(item, communityById).country).filter(Boolean))].join('|');
-    card.dataset.eventCommunities = [...new Set(group.events.map((item) => item.communityId).filter(Boolean))].join('|');
   }
 
   function currentCardOrder() {

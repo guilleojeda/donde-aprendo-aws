@@ -27,6 +27,7 @@ import { creatorOwnerLinksHref, type CreatorOwnerLinksQuery } from '../../lib/cr
 import { parseCreatorOwnerCatalog, parseCreatorOwnerClaimUrls } from '../../lib/creator-owner-catalog';
 import {
   createCreatorOwnerState,
+  creatorOwnerChapterRecoveryIsVisibleInDetail,
   creatorOwnerClaimSelectionIsCurrent,
   creatorOwnerLinkMoveContext,
   creatorOwnerPreservesAcknowledgedRead,
@@ -1055,15 +1056,19 @@ export default function CreatorOwnerApp(props: Props) {
             : 'Esta acción no se guardó. Compara el estado actual y elige cómo continuar.'
             : 'La lectura no confirma si la acción anterior se guardó. Elige cómo continuar.';
       const active = document.activeElement;
-      const currentLocation = stateRef.current.location;
+      const currentState = stateRef.current;
+      const currentLocation = currentState.location;
       const listAction = intent?.action;
       const focusWasLost = active === document.body || active?.matches('[data-owner-refresh-retry]');
       let focusAfterRender: string | undefined;
+      if (focusWasLost && currentLocation.view === 'series' && currentLocation.query.serie
+        && !snapshot.series[currentLocation.query.serie]) focusAfterRender = '#owner-series-title';
       if (fact === 'acknowledged') {
-        if ((listAction === 'add-chapter' || listAction === 'remove-chapter')
-          && currentLocation.query.serie === intent?.target?.seriesId
-          && (focusWasLost || active?.matches('[data-chapter-add], [data-chapter-remove]'))) {
-          focusAfterRender = '#owner-chapter-search';
+        if (listAction === 'add-chapter' || listAction === 'remove-chapter') {
+          const matchingDetail = creatorOwnerChapterRecoveryIsVisibleInDetail({ ...currentState, observed: snapshot });
+          if (currentLocation.view === 'series' && (focusWasLost || active?.matches('[data-chapter-add], [data-chapter-remove]'))) {
+            focusAfterRender = matchingDetail ? '#owner-chapter-search' : '#owner-series-title';
+          }
         }
         if ((listAction === 'remove-link' || listAction === 'reinclude-link') && currentLocation.view === 'enlaces'
           && (focusWasLost || active?.matches('[data-link-remove], [data-resource-reinclude]'))) {
@@ -1520,8 +1525,18 @@ export default function CreatorOwnerApp(props: Props) {
   function resolveRecovery(choice: 'saved' | 'draft') {
     const operation = stateRef.current.operation;
     if ((operation.status === 'unknown' || operation.status === 'conflict') && operation.readCompleted) {
+      const editor = stateRef.current.editor;
       dispatch({ type: 'resolve-operation', choice });
       if (choice === 'saved') returnFocusRef.current?.focus({ preventScroll: true });
+      else if (editor?.kind === 'move-chapter' || editor?.kind === 'move-link') {
+        const selector = editor.kind === 'move-chapter' ? '#owner-chapter-target-position' : '#owner-link-target-position';
+        window.requestAnimationFrame(() => {
+          if (stateRef.current.editor?.key !== editor.key || stateRef.current.operation.status !== 'idle') return;
+          const input = rootRef.current?.querySelector<HTMLInputElement>(selector);
+          input?.focus({ preventScroll: true });
+          input?.scrollIntoView({ block: 'center', inline: 'nearest' });
+        });
+      }
     }
   }
 
@@ -1576,9 +1591,7 @@ export default function CreatorOwnerApp(props: Props) {
   }
 
   const operation = state.operation;
-  const chapterRecoveryInDetail = isAcknowledgedReadRecovery(operation)
-    && (operation.intent.action === 'add-chapter' || operation.intent.action === 'remove-chapter')
-    && state.location.view === 'series' && Boolean(state.location.query.serie);
+  const chapterRecoveryInDetail = creatorOwnerChapterRecoveryIsVisibleInDetail(state);
   const listOperation = !state.editor && !chapterRecoveryInDetail
     && (isListRecoveryOperation(operation) || isAcknowledgedReadRecovery(operation)) ? operation : undefined;
   const listRecoveryKind = listOperation

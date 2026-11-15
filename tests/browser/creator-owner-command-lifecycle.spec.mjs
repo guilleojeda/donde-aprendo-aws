@@ -443,7 +443,7 @@ async function reconcileChapterChangeWithFailedRead({ fixture, page, operation }
   await capture.stop({ skipErrorBodies: true });
 }
 
-async function recoverChapterAfterBack({ fixture, page, operation }) {
+async function recoverChapterAfterBack({ fixture, page, operation, malformedBack = false }) {
   const cookie = await loggedInOwner(fixture, page);
   const target = await createSeries(fixture, cookie, { name: 'Ruta de recuperación', slug: 'ruta-de-recuperacion' });
   const unrelated = await createSeries(fixture, cookie, { name: 'Otra ruta intacta', slug: 'otra-ruta-intacta' });
@@ -454,7 +454,15 @@ async function recoverChapterAfterBack({ fixture, page, operation }) {
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
   let failedRead;
   try {
-    await page.goto(`${fixture.origin}/cuenta/?vista=series&buscarSeries=Ruta`);
+    const validListUrl = `${fixture.origin}/cuenta/?vista=series&buscarSeries=Ruta`;
+    if (malformedBack) {
+      await page.goto(`${fixture.origin}/cuenta/?vista=series&paginaSeries=0`);
+      await expect(page.locator('[data-series-query-error]')).toBeVisible();
+      await page.locator('[data-owner-navigation][href="/cuenta/?vista=series"]').click();
+      await expect(page.locator('[data-owner-series-list-view]')).toBeVisible();
+      await expect(page).toHaveURL((url) => url.searchParams.get('vista') === 'series'
+        && !url.searchParams.has('paginaSeries') && !url.searchParams.has('serie'));
+    } else await page.goto(validListUrl);
     const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
     const targetRow = seriesRow(page, target.id);
     const staleVisibleCount = operation === 'add' ? '0 capítulos visibles' : '1 capítulo visible';
@@ -476,15 +484,21 @@ async function recoverChapterAfterBack({ fixture, page, operation }) {
     assert.deepEqual(committed.series[unrelated.id].chapters, [chapter.placementId], 'the unrelated membership survives');
     assert.equal(capture.writes().length, 1, 'the acknowledged chapter command is sent exactly once');
 
-    await page.evaluate(() => window.history.back());
+    await page.evaluate((steps) => window.history.go(steps), malformedBack ? -2 : -1);
     const exit = page.locator('[data-owner-exit-prompt]');
     await expect(exit).toBeVisible();
     await exit.getByRole('button', { name: 'Descartar y seguir', exact: true }).click();
-    await expect(page).toHaveURL((url) => !url.searchParams.has('serie'));
     assert.equal(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin, 'native Back keeps the owner document alive');
-    await expect(seriesRow(page, target.id)).toContainText(staleVisibleCount, 'the list remains read-only on its older coherent snapshot');
     const recovery = page.locator('[data-owner-list-recovery="series"][data-owner-stale="true"]');
     await expect(recovery).toBeVisible();
+    if (malformedBack) {
+      await expect(page).toHaveURL((url) => url.searchParams.get('paginaSeries') === '0' && !url.searchParams.has('serie'));
+      await expect(page.locator('[data-series-query-error]')).toBeVisible();
+      await expect(page.locator('[data-owner-series-list-view]')).toBeHidden();
+    } else {
+      await expect(page).toHaveURL((url) => !url.searchParams.has('serie'));
+      await expect(seriesRow(page, target.id)).toContainText(staleVisibleCount, 'the list remains read-only on its older coherent snapshot');
+    }
     const retry = recovery.getByRole('button', { name: 'Reintentar actualización', exact: true });
     await expect(retry).toBeEnabled();
     await expect(page.getByRole('button', { name: 'Crear serie', exact: true })).toBeDisabled();
@@ -492,11 +506,43 @@ async function recoverChapterAfterBack({ fixture, page, operation }) {
       'discarding navigation neither replays the chapter write nor enables a dependent write');
 
     await failedRead.remove();
-    await retry.click();
+    let heldRead;
+    let unrelatedFocus;
+    if (malformedBack && operation === 'remove') {
+      heldRead = await holdNextOwnerRead(page);
+      await retry.focus();
+      await retry.press('Enter');
+      await heldRead.entered;
+      unrelatedFocus = page.locator('.creator-owner__account-menu summary');
+      await unrelatedFocus.focus();
+      heldRead.release();
+      await heldRead.finished;
+      await expect(unrelatedFocus).toBeFocused();
+    } else if (malformedBack) {
+      await retry.focus();
+      await retry.press('Enter');
+    } else {
+      await retry.focus();
+      await retry.press('Enter');
+    }
     await expect.poll(() => capture.records.filter(({ method: readMethod, path: readPath, status }) => readMethod === 'GET'
       && readPath === '/api/creador/perfil' && status === 200).length).toBe(1);
     await expect(page.locator('[data-owner-list-recovery]')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Crear serie', exact: true })).toBeEnabled();
+    if (malformedBack) {
+      await expect(page.locator('[data-series-query-error]')).toBeVisible();
+      await expect(page).toHaveURL((url) => url.searchParams.get('vista') === 'series'
+        && url.searchParams.get('paginaSeries') === '0' && !url.searchParams.has('serie'));
+      await expect(page.locator('[data-owner-series-list-view]')).toBeHidden();
+      if (operation === 'add') await expect(page.locator('#owner-series-title')).toBeFocused();
+      else await expect(unrelatedFocus).toBeFocused();
+      await expect(page.getByRole('button', { name: 'Crear serie', exact: true })).toBeEnabled();
+      await page.getByRole('link', { name: 'Series', exact: true }).click();
+      await expect(page.locator('[data-owner-series-list-view]')).toBeVisible();
+      await expect(page).toHaveURL((url) => !url.searchParams.has('paginaSeries') && !url.searchParams.has('serie'));
+    } else {
+      await expect(page.getByRole('button', { name: 'Crear serie', exact: true })).toBeEnabled();
+      if (operation === 'add') await expect(page.locator('#owner-series-title')).toBeFocused();
+    }
     const installedVersion = Number(await page.locator('[data-owner-root]').getAttribute('data-creator-version'));
     const installed = await readOwnerSnapshot(fixture, cookie);
     assert.equal(installedVersion, installed.creatorVersion, 'the page installs the newer complete server snapshot');
@@ -520,6 +566,90 @@ async function recoverChapterAfterBack({ fixture, page, operation }) {
     assert.equal(capture.writes().filter(({ method: writeMethod, path: writePath }) => writeMethod === method && writePath === path).length, 1);
   } finally {
     await failedRead?.remove();
+    await capture.stop({ skipErrorBodies: true });
+  }
+}
+
+async function recoverMoveAfterRangeShrinks({ fixture, page, kind }) {
+  const cookie = await loggedInOwner(fixture, page);
+  const target = await addLink(fixture, cookie, { title: `Elemento objetivo ${kind}`, url: `https://links.example/move-target-${kind}` });
+  const middle = await addLink(fixture, cookie, { title: `Elemento medio ${kind}`, url: `https://links.example/move-middle-${kind}` });
+  const removed = await addLink(fixture, cookie, { title: `Elemento que sale ${kind}`, url: `https://links.example/move-removed-${kind}` });
+  let series;
+  if (kind === 'chapter') {
+    series = await createSeries(fixture, cookie, { name: 'Serie para mover capítulo', slug: 'serie-mover-capitulo' });
+    await addChapter(fixture, cookie, series.id, target.placementId);
+    await addChapter(fixture, cookie, series.id, middle.placementId);
+    await addChapter(fixture, cookie, series.id, removed.placementId);
+  }
+  const before = await readOwnerSnapshot(fixture, cookie);
+  const capture = await captureCreatorApi(page);
+  const pageUrl = kind === 'link' ? `${fixture.origin}/cuenta/?vista=enlaces`
+    : `${fixture.origin}/cuenta/?vista=series&serie=${encodeURIComponent(series.id)}`;
+  const movePath = kind === 'link' ? `/api/creador/enlaces/${target.placementId}/mover`
+    : `/api/creador/series/${series.id}/capitulos/${target.placementId}/mover`;
+  try {
+    if (kind === 'link') {
+      assert.deepEqual(before.order.ordinary, [target.placementId, middle.placementId, removed.placementId]);
+    } else assert.deepEqual(before.series[series.id].chapters, [target.placementId, middle.placementId, removed.placementId]);
+    await page.goto(pageUrl);
+    const targetRow = kind === 'link' ? page.locator(`[data-link-row="${target.placementId}"]`)
+      : page.locator(`[data-chapter-row="${target.placementId}"]`);
+    await targetRow.locator(kind === 'link' ? '[data-link-move]' : '[data-chapter-move]').click();
+    const form = page.locator(kind === 'link' ? '[data-owner-dialog] form[data-link-move-form]' : '[data-owner-dialog] form[data-chapter-move-form]');
+    await expect(form).toBeVisible();
+    const position = form.locator(kind === 'link' ? '#owner-link-target-position' : '#owner-chapter-target-position');
+    await position.fill('3');
+
+    const removePath = kind === 'link' ? `/api/creador/enlaces/${removed.placementId}`
+      : `/api/creador/series/${series.id}/capitulos/${removed.placementId}`;
+    const concurrent = await api(fixture, cookie, removePath, { method: 'DELETE', body: { creatorVersion: before.creatorVersion } });
+    assert.equal(concurrent.response.status, 200, JSON.stringify(concurrent.body));
+    assert.equal(concurrent.body.operation, kind === 'link' ? 'remove-link' : 'remove-chapter');
+
+    await form.getByRole('button', { name: 'Guardar posición', exact: true }).click();
+    await expect.poll(() => capture.writes().find(({ method, path }) => method === 'POST' && path === movePath)?.status).toBe(409);
+    await expect.poll(() => ownerReads(capture).filter(({ status }) => status === 200).length).toBe(1);
+    const correction = form.locator('[data-owner-move-draft-correction]');
+    await expect(correction).toBeVisible();
+    await expect(form.locator('[data-owner-use-saved]')).toBeVisible();
+    await expect(form.locator('[data-owner-conflict-save]')).toHaveCount(0,
+      'an out-of-range retained move cannot be submitted until its draft is corrected');
+    await expect(position).toHaveAttribute('readonly', '');
+    await expect(position).toHaveAttribute('max', '2');
+    assert.deepEqual(capture.writes().map(({ status }) => status), [409], 'the stale out-of-range move is the only browser write so far');
+
+    await correction.click();
+    await expect(position).not.toHaveAttribute('readonly', '');
+    await expect(position, 'the original draft remains available for correction').toHaveValue('3');
+    await expect(position).toBeFocused();
+    assert.equal(await position.evaluate((input) => input.validity.rangeOverflow), true,
+      'the updated native max marks the retained destination as out of range');
+    assert.equal(await form.evaluate((element) => element.checkValidity()), false,
+      'the restored form uses native range validation before sending another command');
+    await form.getByRole('button', { name: 'Guardar posición', exact: true }).click();
+    assert.deepEqual(capture.writes().map(({ status }) => status), [409], 'native validation prevents a doomed second request');
+
+    await position.fill('2');
+    assert.equal(await form.evaluate((element) => element.checkValidity()), true);
+    await form.getByRole('button', { name: 'Guardar posición', exact: true }).click();
+    await expect.poll(() => capture.writes().filter(({ method, path }) => method === 'POST' && path === movePath).length).toBe(2);
+    await expect.poll(() => capture.writes().filter(({ method, path, status }) => method === 'POST' && path === movePath && status === 200).length).toBe(1);
+    await expect.poll(() => ownerReads(capture).filter(({ status }) => status === 200).length).toBe(2);
+
+    const after = await readOwnerSnapshot(fixture, cookie);
+    if (kind === 'link') {
+      assert.deepEqual(after.order.ordinary, [middle.placementId, target.placementId], 'the corrected move persists the intended order');
+      assert.equal(after.placements[removed.placementId], undefined, 'the concurrent removal persists');
+    } else {
+      assert.deepEqual(after.series[series.id].chapters, [middle.placementId, target.placementId], 'the corrected chapter move persists');
+      assert.equal(after.placements[removed.placementId].resourceId, before.placements[removed.placementId].resourceId,
+        'removing the chapter from the Series keeps its link placement');
+    }
+    assert.deepEqual(capture.writes().map(({ method, path, status }) => [method, path, status]), [
+      ['POST', movePath, 409], ['POST', movePath, 200],
+    ], 'the UI sends one stale move and one corrected move, with no 422 replay');
+  } finally {
     await capture.stop({ skipErrorBodies: true });
   }
 }
@@ -1023,6 +1153,16 @@ for (const operation of ['add', 'remove']) {
 
   test(`Back conserva la recuperación de un capítulo ${operation === 'add' ? 'agregado' : 'quitado'} hasta una lectura completa`, async ({ fixture, page }) => {
     await recoverChapterAfterBack({ fixture, page, operation });
+  });
+
+  test(`Back con query de series inválida conserva la recuperación del capítulo ${operation === 'add' ? 'agregado' : 'quitado'}`, async ({ fixture, page }) => {
+    await recoverChapterAfterBack({ fixture, page, operation, malformedBack: true });
+  });
+}
+
+for (const kind of ['link', 'chapter']) {
+  test(`un conflicto de movimiento ${kind === 'link' ? 'de enlace' : 'de capítulo'} conserva el borrador y permite corregir la posición`, async ({ fixture, page }) => {
+    await recoverMoveAfterRangeShrinks({ fixture, page, kind });
   });
 }
 

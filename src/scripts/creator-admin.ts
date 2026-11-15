@@ -26,7 +26,7 @@ interface AdminCommandContext {
 interface AdminCompletion {
   payload: Record<string, unknown> | null;
   linkedIds: string[];
-  confirmedPartial: boolean;
+  partialCommitKnown: boolean;
   receiptProblem: boolean;
   gaps: CreatorVersionChange[];
 }
@@ -132,10 +132,13 @@ function errorMessage(status: number): string {
   return 'No pudimos completar la acción. Revisa los datos e inténtalo de nuevo.';
 }
 
-async function responseErrorMessage(response: Response): Promise<string> {
+async function responseErrorMessage(
+  response: Response,
+  knownPayload?: Record<string, unknown> | null,
+): Promise<string> {
   if (response.status !== 409 && response.status !== 422) return errorMessage(response.status);
   try {
-    const payload: unknown = await response.clone().json();
+    const payload: unknown = knownPayload ?? await response.clone().json();
     const code = isRecord(payload) && typeof payload.error === 'string' ? payload.error : '';
     if (response.status === 422 && code === 'CREATOR_CONTENT_TOO_LARGE') {
       return 'La página alcanzó su capacidad. Libera espacio en ella antes de volver a vincular recursos.';
@@ -244,13 +247,21 @@ function receiptScopeIsValid(
     && (target.version === undefined || change.before === target.version);
 }
 
-function receiptChainIsValid(changes: CreatorVersionChange[]): boolean {
-  const lastAfter = new Map<string, number>();
+function receiptChainIsValid(
+  changes: CreatorVersionChange[],
+  context: AdminCommandContext,
+  linkedIds: readonly string[],
+): boolean {
+  const lastReceipt = new Map<string, { after: number; count: number }>();
   for (const change of changes) {
     const key = targetKey(change.entity, change.id);
-    const previousAfter = lastAfter.get(key);
-    if (previousAfter !== undefined && change.before !== previousAfter) return false;
-    lastAfter.set(key, change.after);
+    const previous = lastReceipt.get(key);
+    const nextCount = (previous?.count ?? 0) + 1;
+    if (!Number.isSafeInteger(change.before + 1) || change.after !== change.before + 1
+      || (change.entity === 'resource' && nextCount > 1)
+      || (context.kind === 'claim' && change.entity === 'profile' && nextCount > linkedIds.length)) return false;
+    if (previous !== undefined && change.before !== previous.after) return false;
+    lastReceipt.set(key, { after: change.after, count: nextCount });
   }
   return true;
 }
@@ -292,10 +303,12 @@ function claimLinkedPrefix(
 
 async function completeAdminWrite(response: Response, context: AdminCommandContext): Promise<AdminCompletion> {
   const payload = await responsePayload(response);
-  const partialAttempt = context.kind === 'claim' && !response.ok
-    && Array.isArray(payload?.linkedResourceIds);
-  if (!response.ok && !partialAttempt) {
-    return { payload, linkedIds: [], confirmedPartial: false, receiptProblem: false, gaps: [] };
+  const partialCommitKnown = context.kind === 'claim' && !response.ok
+    && (Array.isArray(payload?.linkedResourceIds)
+      || payload?.error === 'PARTIAL_CLAIM_WRITE'
+      || typeof payload?.profileChanged === 'boolean');
+  if (!response.ok && !partialCommitKnown) {
+    return { payload, linkedIds: [], partialCommitKnown: false, receiptProblem: false, gaps: [] };
   }
 
   const changes = readCreatorVersionChanges(payload);
@@ -307,14 +320,14 @@ async function completeAdminWrite(response: Response, context: AdminCommandConte
   const usable = changes !== null && linkedReceipt.valid
     && profileChangedMatchesReceipt
     && receiptScopeIsValid(changes ?? [], context, linkedIds)
-    && receiptChainIsValid(changes ?? [])
+    && receiptChainIsValid(changes ?? [], context, linkedIds)
     && singleTargetCanonicalIsValid(payload, changes ?? [], context);
   if (!usable) {
     pauseAdminRows(context.targets);
     return {
       payload,
       linkedIds,
-      confirmedPartial: partialAttempt,
+      partialCommitKnown,
       receiptProblem: true,
       gaps: [],
     };
@@ -325,7 +338,7 @@ async function completeAdminWrite(response: Response, context: AdminCommandConte
   return {
     payload,
     linkedIds,
-    confirmedPartial: partialAttempt,
+    partialCommitKnown,
     receiptProblem: false,
     gaps,
   };
@@ -613,7 +626,7 @@ if (root && state && csrfToken) {
         if (!response.ok) {
           const completion = await completeAdminWrite(response, context);
           const linkedIds = completion.linkedIds;
-          if (completion.confirmedPartial) {
+          if (completion.partialCommitKnown) {
             const linked = new Set(linkedIds);
             form.querySelectorAll<HTMLInputElement>('input[name="resourceIds"]').forEach((checkbox) => {
               if (linked.has(checkbox.value)) {
@@ -636,6 +649,9 @@ if (root && state && csrfToken) {
                 : `Los recursos ya vinculados son: ${linkedIds.join(', ')}. Recarga para actualizar el estado de la solicitud.`;
             if (completion.receiptProblem || completion.gaps.length > 0) {
               partialMessage += ' El recibo no coincide con las versiones observadas; actualiza la vista antes de resolver otra vez esta solicitud.';
+            }
+            if (response.status === 422 && completion.payload?.error === 'CREATOR_CONTENT_TOO_LARGE') {
+              partialMessage += ` ${await responseErrorMessage(response, completion.payload)}`;
             }
             announce(itemStatus(item), partialMessage, 'error');
             return;

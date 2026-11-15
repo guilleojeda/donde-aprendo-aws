@@ -500,7 +500,84 @@ test('a real URL edit between reference admission and commit rejects the stale p
   assert.equal(moveAck.resourceVersion, selected.version + 1);
 });
 
-async function rejectReferenceWithoutWrite({ name, expectedStatuses, request, prepare, resourceCount = 1 }) {
+test('a real URL edit between resource and reservation reads requires reselection and the current pair succeeds', async () => {
+  const harness = await createCreatorPagesHarness();
+  await createProfile(harness);
+  const requestedUrl = 'https://catalog.example/read-gap-selected';
+  const movedUrl = 'https://catalog.example/read-gap-current';
+  const created = await addByUrl(harness, 'creator-a', { title: 'Recurso editable', url: requestedUrl });
+  let current = await owner(harness);
+  const removed = await api(harness, `/api/creador/enlaces/${created.placementId}`, {
+    method: 'DELETE', body: { creatorVersion: current.creatorVersion },
+  });
+  assert.equal(removed.status, 200);
+  current = await owner(harness);
+  const selected = current.resources.find(({ id }) => id === created.resourceId);
+  assert.equal(selected.reincludeAllowed, true);
+
+  const before = await ownerLinkWriteState(harness, current.profile.id, [requestedUrl, movedUrl]);
+  const callsBefore = harness.store.calls.length;
+  const rawGet = harness.store.get.bind(harness.store);
+  let raced = false;
+  let moveAck;
+  harness.store.get = async (key) => {
+    const observed = await rawGet(key);
+    if (!raced && key === `resource:${created.resourceId}`) {
+      raced = true;
+      const moved = await api(harness, `/api/creador/recursos/?id=${encodeURIComponent(created.resourceId)}`, {
+        method: 'PATCH', body: { resourceVersion: selected.version, url: movedUrl },
+      });
+      assert.equal(moved.status, 200, await moved.clone().text());
+      moveAck = await responseJson(moved);
+      assert.equal(moveAck.operation, 'edit-resource');
+    }
+    return observed;
+  };
+
+  let stale;
+  try {
+    stale = await reference(harness, {
+      resourceId: created.resourceId, url: requestedUrl, creatorVersion: current.creatorVersion,
+    });
+  } finally {
+    harness.store.get = rawGet;
+  }
+
+  assert.equal(raced, true, 'the actual edit commits after the selected resource read and before its reservation read');
+  assert.equal(stale.status, 409);
+  assertPrivateJson(stale);
+  const staleBody = await stale.json();
+  assert.equal(staleBody.error, 'RESOURCE_CONFLICT');
+  assert.deepEqual(Object.keys(staleBody).sort(), ['error', 'message']);
+  assert.doesNotMatch(JSON.stringify(staleBody), /read-gap-current/u);
+  assert.equal(moveAck.resourceVersion, selected.version + 1);
+  const afterStale = await ownerLinkWriteState(harness, current.profile.id, [requestedUrl, movedUrl]);
+  assert.deepEqual(afterStale.profile.placements, before.profile.placements,
+    'the failed stale selection creates no placement');
+  assert.deepEqual(afterStale.profile.order, before.profile.order);
+  assert.equal(afterStale.resources.find(({ value }) => value.id === created.resourceId).value.url, movedUrl);
+  assert.deepEqual(afterStale.reservations, [null, await harness.store.get(currentUrlKey(movedUrl))]);
+  const serviceWrites = harness.store.calls.slice(callsBefore)
+    .filter(({ operation, input }) => operation === 'transact'
+      && input.puts.some(({ key }) => key === `profile:${current.profile.id}`));
+  assert.deepEqual(serviceWrites, [], 'the stale pair is rejected before a placement transaction is attempted');
+
+  const currentSnapshot = await owner(harness);
+  const selectedCurrent = currentSnapshot.resources.find(({ id }) => id === created.resourceId);
+  assert.equal(selectedCurrent.url, movedUrl);
+  const reselected = await reference(harness, {
+    resourceId: created.resourceId, url: selectedCurrent.url, creatorVersion: currentSnapshot.creatorVersion,
+  });
+  assert.equal(reselected.status, 201, await reselected.clone().text());
+  const reselectedAck = await responseJson(reselected);
+  assert.equal(reselectedAck.disposition, 'attached');
+  assert.equal(reselectedAck.resourceId, created.resourceId);
+  const final = await owner(harness);
+  assert.equal(Object.values(final.placements).filter(({ resourceId }) => resourceId === created.resourceId).length, 1);
+  assert.equal(final.order.ordinary.length, 1);
+});
+
+async function rejectReferenceWithoutWrite({ name, expectedStatuses, expectedError, request, prepare, resourceCount = 1 }) {
   const harness = await createCreatorPagesHarness();
   const current = await createProfile(harness);
   const selected = resource(`catalog-reference-reject-${name}`, `https://catalog.example/reject-${name}`);
@@ -514,6 +591,7 @@ async function rejectReferenceWithoutWrite({ name, expectedStatuses, request, pr
   assertPrivateJson(response);
   const error = await response.json();
   assert.deepEqual(Object.keys(error).sort(), ['error', 'message']);
+  if (expectedError) assert.equal(error.error, expectedError);
   assert.deepEqual(await ownerLinkWriteState(harness, current.profile.id, [selected.url]), stateBefore,
     'rejected input does not change the aggregate, placement, editor reference, resource, or reservation');
   assert.equal((await harness.store.list('resource:')).length, resourceCount,
@@ -536,7 +614,7 @@ const rejectedReferenceCases = [
     request: (current, selected) => ({ creatorVersion: current.creatorVersion, resourceId: currentUrlKey(selected.url), url: selected.url }),
   },
   {
-    name: 'missing-reservation', expectedStatuses: [409, 503],
+    name: 'missing-reservation', expectedStatuses: [503], expectedError: 'URL_INDEX_MISMATCH',
     prepare: async (harness, selected) => {
       const key = currentUrlKey(selected.url);
       const reservation = await harness.store.get(key);
@@ -545,7 +623,7 @@ const rejectedReferenceCases = [
     request: (current, selected) => ({ creatorVersion: current.creatorVersion, resourceId: selected.id, url: selected.url }),
   },
   {
-    name: 'inconsistent-reservation', expectedStatuses: [409, 503],
+    name: 'inconsistent-reservation', expectedStatuses: [503], expectedError: 'URL_INDEX_MISMATCH',
     prepare: async (harness, selected) => {
       const key = currentUrlKey(selected.url);
       const reservation = await harness.store.get(key);
@@ -557,7 +635,7 @@ const rejectedReferenceCases = [
     request: (current, selected) => ({ creatorVersion: current.creatorVersion, resourceId: selected.id, url: selected.url }),
   },
   {
-    name: 'collision-reservation', expectedStatuses: [409], resourceCount: 2,
+    name: 'collision-reservation', expectedStatuses: [409], expectedError: 'URL_COLLISION', resourceCount: 2,
     prepare: async (harness, selected) => {
       const key = currentUrlKey(selected.url);
       const reservation = await harness.store.get(key);
