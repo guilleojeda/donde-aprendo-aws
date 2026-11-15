@@ -305,15 +305,21 @@ test('an authenticated request after property midnight does not join a fresh res
   const saved = await callApi(harness, '/api/creador/perfil', {
     session: 'creator-a',
     method: 'PUT',
+    creatorContract: '2',
     csrf: sessionCsrf['creator-a'],
-    body: { displayName: 'Creador de prueba', slug: 'creador-de-prueba' },
+    body: { creatorVersion: null, displayName: 'Creador de prueba', slug: 'creador-de-prueba' },
   });
   assert.equal(saved.status, 200);
+  const snapshotResponse = await callApi(harness, '/api/creador/perfil/', { session: 'creator-a' });
+  assert.equal(snapshotResponse.status, 200);
+  const snapshot = await snapshotResponse.json();
+  assert.equal(snapshot.schemaVersion, 2);
   const published = await callApi(harness, '/api/creador/perfil/publicar', {
     session: 'creator-a',
     method: 'POST',
+    creatorContract: '2',
     csrf: sessionCsrf['creator-a'],
-    body: {},
+    body: { creatorVersion: snapshot.creatorVersion },
   });
   assert.equal(published.status, 200);
 

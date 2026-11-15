@@ -127,7 +127,11 @@ Creator pages read current profile data on request. Directory membership remains
 
 Creators manage series in the existing editor using links already on their profile. A series with visible chapters becomes public with its published profile; chapter order is independent of profile highlights and other series. Directory labels and search include only each selected placement's eligible series, under the same snapshot delay. See [series behavior and aliases](docs/intent/creator-pages.md#series-de-contenido). Their views and clicks contribute to the existing creator aggregates; the dashboard explains this scope without adding a per-series report.
 
-When introducing the series scan projection, apply the reviewed directory/publication IAM updates before a live build requests `displayName`, `name` and `series`. Preserve all existing stack parameters and resources. Deliver the new packaged publication Lambda too: it must hash the same enriched projection as the site build. Series use the existing profile table and compute authority; no account-stack migration, writer pause, new table or scheduler is required.
+The public build and publication checker read the same narrow projection of the creator aggregate. Apply both reviewed scan-policy updates before deploying readers that request the new top-level attributes. Deploy the matching packaged publication Lambda so it hashes the same data as the site build.
+
+A release from legacy profile, placement and Series rows requires a finite maintenance cutover. Pause creator writes, manual and scheduled publication, and automatic build starts. Make a private, consistent export of each profile partition and its related rows. Run `node scripts/creator-state-cutover.mjs plan --input EXPORT.json --output PLAN.json` for each creator, and compare the output with the captured identities and orders. Under the pause, use `apply --plan PLAN.json --phase convert --table TABLE --region REGION` to replace the META row conditionally. Restore automatic builds for the compatible main release. Once that release and both readers are verified, use `--phase cleanup` to remove the unchanged legacy placement and Series rows. Reopen creator writes and restore the publication triggers after verification.
+
+Keep the private backup through the cutover. Under the pause, `--phase restore` can restore the exact legacy rows for rollback with the prior compatible code. After writes reopen, repair forward to preserve accepted changes.
 
 ### Private creator statistics and GA4 setup
 

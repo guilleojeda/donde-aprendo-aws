@@ -16,7 +16,6 @@ function appWithCatalog(itemIds) {
       const fixture = {
         ...unifiedSearchLifecycleFixture,
         items: unifiedSearchLifecycleFixture.items.filter(({ id }) => selectedIds.has(id)),
-        placements: unifiedSearchLifecycleFixture.placements.filter(({ resourceId }) => selectedIds.has(resourceId)),
       };
       await writeFile(catalogFixture, `${JSON.stringify(fixture, null, 2)}\n`);
       app = await startCreatorBrowserApp({ catalogFixture });

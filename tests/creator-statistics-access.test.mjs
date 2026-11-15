@@ -32,11 +32,21 @@ function createStatisticsReader({ fail = false } = {}) {
 }
 
 async function api(harness, path, session, options = {}) {
+  const creatorWrite = path.startsWith('/api/creador/') && (options.method ?? 'GET') !== 'GET';
   return callApi(harness, path, {
     session,
     ...(session && sessionCsrf[session] ? { csrf: sessionCsrf[session] } : {}),
+    ...(creatorWrite ? { creatorContract: '2' } : {}),
     ...options,
   });
+}
+
+async function ownerSnapshot(harness, session = 'creator-a') {
+  const response = await api(harness, '/api/creador/perfil/', session);
+  assert.equal(response.status, 200, `reading ${session} creator state failed`);
+  const snapshot = await responseJson(response);
+  assert.equal(snapshot.schemaVersion, 2);
+  return snapshot;
 }
 
 async function adminVersion(harness, type, id) {
@@ -46,37 +56,43 @@ async function adminVersion(harness, type, id) {
 async function createProfile(harness, session = 'creator-a', { publish = true } = {}) {
   const saved = await api(harness, '/api/creador/perfil', session, {
     method: 'PUT',
-    body: { displayName: `Creador ${session}`, slug: `ruta-${session}` },
+    body: { creatorVersion: null, displayName: `Creador ${session}`, slug: `ruta-${session}` },
   });
   assert.equal(saved.status, 200, `saving ${session} profile failed`);
-  let profile = (await responseJson(saved)).profile;
+  let snapshot = await ownerSnapshot(harness, session);
   if (publish) {
     const published = await api(harness, '/api/creador/perfil/publicar', session, {
       method: 'POST',
-      body: {},
+      body: { creatorVersion: snapshot.creatorVersion },
     });
     assert.equal(published.status, 200, `publishing ${session} profile failed`);
-    profile = (await responseJson(published)).profile ?? profile;
+    snapshot = await ownerSnapshot(harness, session);
   }
-  return profile;
+  return snapshot.profile;
 }
 
 async function addSharedLink(harness, session) {
+  const snapshot = await ownerSnapshot(harness, session);
   const response = await api(harness, '/api/creador/enlaces', session, {
     method: 'POST',
-    body: { title: 'Guía compartida', url: 'https://example.com/guia-compartida' },
+    body: { creatorVersion: snapshot.creatorVersion, title: 'Guía compartida', url: 'https://example.com/guia-compartida' },
   });
   assert.equal(response.status, 201, `adding the shared URL for ${session} failed`);
-  return (await responseJson(response)).link;
+  const acknowledgement = await responseJson(response);
+  assert.equal(acknowledgement.operation, 'add-link');
+  assert.equal(acknowledgement.schemaVersion, 2);
+  return acknowledgement;
 }
 
 async function saveProfile(harness, session, profile, slug) {
+  const snapshot = await ownerSnapshot(harness, session);
+  assert.equal(snapshot.profile.id, profile.id);
   const response = await api(harness, '/api/creador/perfil', session, {
     method: 'PUT',
-    body: { displayName: profile.displayName, slug, version: profile.version },
+    body: { creatorVersion: snapshot.creatorVersion, displayName: profile.displayName, slug },
   });
   assert.equal(response.status, 200, `changing ${session} slug failed`);
-  return (await responseJson(response)).profile;
+  return (await ownerSnapshot(harness, session)).profile;
 }
 
 function assertPrivateNoStore(response) {

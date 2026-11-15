@@ -84,14 +84,26 @@ const catalogRows = [
 ];
 
 const creatorState = {
-  profiles: [
-    { id: 'selection-profile-visible', published: true, hidden: false },
-    { id: 'selection-profile-private', published: false, hidden: false },
-  ],
-  placements: [
-    { profileId: 'selection-profile-visible', resourceId: 'selection-creator-visible', selected: true },
-    { profileId: 'selection-profile-visible', resourceId: 'selection-creator-unselected', selected: false },
-    { profileId: 'selection-profile-private', resourceId: 'selection-creator-private-profile', selected: true },
+  creators: [
+    {
+      id: 'selection-profile-visible', schemaVersion: 2, version: 1,
+      displayName: 'Creador Visible', slug: 'selection-profile-visible', published: true, hidden: false,
+      placements: {
+        'selection-placement-visible': { resourceId: 'selection-creator-visible', selectedForDirectory: true },
+        'selection-placement-unselected': { resourceId: 'selection-creator-unselected', selectedForDirectory: false },
+      },
+      order: { featured: [], ordinary: ['selection-placement-visible', 'selection-placement-unselected'] },
+      series: {},
+    },
+    {
+      id: 'selection-profile-private', schemaVersion: 2, version: 1,
+      displayName: 'Creador Privado', slug: 'selection-profile-private', published: false, hidden: false,
+      placements: {
+        'selection-placement-private': { resourceId: 'selection-creator-private-profile', selectedForDirectory: true },
+      },
+      order: { featured: [], ordinary: ['selection-placement-private'] },
+      series: {},
+    },
   ],
 };
 

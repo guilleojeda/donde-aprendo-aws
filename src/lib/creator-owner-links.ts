@@ -1,4 +1,4 @@
-import type { CreatorLinkDTO, CreatorSeriesDTO } from '../types/creators';
+import type { CreatorOwnerPlacementViewDTO, CreatorOwnerSeriesRecordDTO } from '../types/creators';
 
 export const CREATOR_OWNER_LINK_PAGE_SIZE = 25;
 
@@ -28,8 +28,8 @@ export type CreatorOwnerLinksQueryResult =
   | { valid: false; reason: 'repeated' | 'directory' | 'featured' | 'order' | 'series' | 'page' };
 
 export interface CreatorOwnerLinksSelection {
-  rows: CreatorLinkDTO[];
-  matches: CreatorLinkDTO[];
+  rows: CreatorOwnerPlacementViewDTO[];
+  matches: CreatorOwnerPlacementViewDTO[];
   query: CreatorOwnerLinksQuery;
   totalMatches: number;
   totalLinks: number;
@@ -61,7 +61,7 @@ function singleValue(params: URLSearchParams, key: string): { repeated: boolean;
 
 export function parseCreatorOwnerLinksQuery(
   params: URLSearchParams,
-  series: readonly CreatorSeriesDTO[],
+  seriesIds: ReadonlySet<string>,
 ): CreatorOwnerLinksQueryResult {
   for (const key of QUERY_KEYS) {
     if (params.getAll(key).length > 1) return { valid: false, reason: 'repeated' };
@@ -73,12 +73,11 @@ export function parseCreatorOwnerLinksQuery(
   const featuredValue = singleValue(params, 'destacado').value ?? 'todos';
   const orderValue = singleValue(params, 'orden').value ?? 'pagina';
   const pageValue = singleValue(params, 'paginaEnlaces').value ?? '1';
-  const knownSeries = new Set(series.map(({ id }) => id));
 
   if (!DIRECTORY_FILTERS.has(directoryValue as CreatorOwnerDirectoryFilter)) return { valid: false, reason: 'directory' };
   if (!FEATURED_FILTERS.has(featuredValue as CreatorOwnerFeaturedFilter)) return { valid: false, reason: 'featured' };
   if (!LINK_ORDERS.has(orderValue as CreatorOwnerLinkOrder)) return { valid: false, reason: 'order' };
-  if (seriesId !== 'todos' && seriesId !== '' && !knownSeries.has(seriesId)) return { valid: false, reason: 'series' };
+  if (seriesId !== 'todos' && seriesId !== '' && !seriesIds.has(seriesId)) return { valid: false, reason: 'series' };
 
   const page = Number(pageValue);
   if (!/^\d+$/.test(pageValue) || !Number.isSafeInteger(page) || page < 1) return { valid: false, reason: 'page' };
@@ -100,17 +99,13 @@ export function normalizeCreatorOwnerLinkSearch(value: string): string {
   return value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es');
 }
 
-function comparePlacement(left: CreatorLinkDTO, right: CreatorLinkDTO): number {
+function comparePlacement(left: CreatorOwnerPlacementViewDTO, right: CreatorOwnerPlacementViewDTO): number {
   return Number(right.featured) - Number(left.featured)
     || left.position - right.position
     || left.placementId.localeCompare(right.placementId);
 }
 
-export function creatorOwnerLinkGroup(links: readonly CreatorLinkDTO[], featured: boolean): CreatorLinkDTO[] {
-  return links.filter((link) => link.featured === featured).sort(comparePlacement);
-}
-
-function compareTitle(left: CreatorLinkDTO, right: CreatorLinkDTO, direction: 1 | -1): number {
+function compareTitle(left: CreatorOwnerPlacementViewDTO, right: CreatorOwnerPlacementViewDTO, direction: 1 | -1): number {
   const titleOrder = left.title.localeCompare(right.title, 'es', { sensitivity: 'base' });
   return titleOrder === 0
     ? left.placementId.localeCompare(right.placementId)
@@ -118,8 +113,8 @@ function compareTitle(left: CreatorLinkDTO, right: CreatorLinkDTO, direction: 1 
 }
 
 export function selectCreatorOwnerLinks(
-  links: readonly CreatorLinkDTO[],
-  series: readonly CreatorSeriesDTO[],
+  links: readonly CreatorOwnerPlacementViewDTO[],
+  series: readonly (CreatorOwnerSeriesRecordDTO & { id: string })[],
   query: CreatorOwnerLinksQuery,
 ): CreatorOwnerLinksSelection {
   const seriesNames = new Map(series.map(({ id, name }) => [id, normalizeCreatorOwnerLinkSearch(name)]));

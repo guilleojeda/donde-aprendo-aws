@@ -70,6 +70,7 @@ async function mutate(harness, pathname, method, body) {
   const response = await callApi(harness, pathname, {
     session: 'creator-a',
     csrf: sessionCsrf['creator-a'],
+    creatorContract: '2',
     method,
     body,
   });
@@ -80,34 +81,35 @@ async function mutate(harness, pathname, method, body) {
 test('the Astro creator route rejects unknown old-profile suffixes and preserves valid alias redirects', async () => {
   const harness = await createCreatorPagesHarness();
   const saved = await mutate(harness, '/api/creador/perfil', 'PUT', {
+    creatorVersion: null,
     displayName: 'Creador de prueba',
     slug: 'old-profile',
   });
-  const published = await mutate(harness, '/api/creador/perfil/publicar', 'POST', {});
-  await mutate(harness, '/api/creador/perfil', 'PUT', {
+  const published = await mutate(harness, '/api/creador/perfil/publicar', 'POST', { creatorVersion: saved.creatorVersion });
+  const renamed = await mutate(harness, '/api/creador/perfil', 'PUT', {
     slug: 'current-profile',
-    version: published.profile.version,
+    creatorVersion: published.creatorVersion,
   });
   const link = await mutate(harness, '/api/creador/enlaces', 'POST', {
+    creatorVersion: renamed.creatorVersion,
     title: 'Capítulo',
     url: 'https://example.com/chapter',
   });
-  const profile = (await mutate(harness, '/api/creador/perfil', 'GET')).profile;
   const created = await mutate(harness, '/api/creador/series', 'POST', {
     name: 'Serie pública',
     slug: 'old-series',
-    profileVersion: profile.version,
+    creatorVersion: link.creatorVersion,
   });
-  await mutate(harness, `/api/creador/series/${encodeURIComponent(created.series.id)}/capitulos/${encodeURIComponent(link.link.placementId)}`, 'PUT', {
-    profileVersion: created.profileVersion,
+  const attached = await mutate(harness, `/api/creador/series/${encodeURIComponent(created.seriesId)}/capitulos/${encodeURIComponent(link.placementId)}`, 'PUT', {
+    creatorVersion: created.creatorVersion,
   });
-  const patched = await mutate(harness, `/api/creador/series/${encodeURIComponent(created.series.id)}`, 'PATCH', {
-    version: created.series.version,
-    profileVersion: (await mutate(harness, '/api/creador/perfil', 'GET')).profile.version,
+  await mutate(harness, `/api/creador/series/${encodeURIComponent(created.seriesId)}`, 'PATCH', {
+    creatorVersion: attached.creatorVersion,
     slug: 'current-series',
   });
-  assert.ok(saved.profile, 'the test creates a real published profile before using the Astro route');
-  assert.equal(patched.series.slug, 'current-series');
+  const snapshot = await mutate(harness, '/api/creador/perfil', 'GET');
+  assert.equal(snapshot.profile.published, true);
+  assert.equal(snapshot.series[created.seriesId].slug, 'current-series');
 
   const unknown = await render('/c/old-profile/ruta-inexistente/?q=1', harness.service);
   assert.equal(unknown.status, 404);
@@ -125,6 +127,7 @@ test('the Astro creator route rejects unknown old-profile suffixes and preserves
 test('public profile fields reject malformed persisted values while omitted optionals and public links remain valid', async () => {
   const harness = await createCreatorPagesHarness();
   const saved = await mutate(harness, '/api/creador/perfil', 'PUT', {
+    creatorVersion: null,
     displayName: 'Creadora pública',
     slug: 'old-profile',
     city: 'Córdoba',
@@ -133,41 +136,37 @@ test('public profile fields reject malformed persisted values while omitted opti
     programs: ['Heroes'],
     socials: { website: 'https://example.com/newsletter' },
   });
-  await mutate(harness, '/api/creador/perfil/publicar', 'POST', {});
-  const pending = (await mutate(harness, '/api/creador/enlaces', 'POST', {
+  const published = await mutate(harness, '/api/creador/perfil/publicar', 'POST', { creatorVersion: saved.creatorVersion });
+  const pending = await mutate(harness, '/api/creador/enlaces', 'POST', {
+    creatorVersion: published.creatorVersion,
     title: 'Capítulo pendiente',
     url: 'https://example.com/pending',
-  })).link;
-  const deselected = (await mutate(harness, '/api/creador/enlaces', 'POST', {
+  });
+  const deselected = await mutate(harness, '/api/creador/enlaces', 'POST', {
+    creatorVersion: pending.creatorVersion,
     title: 'Capítulo desmarcado',
     url: 'https://example.com/deselected',
     selectedForDirectory: false,
-  })).link;
-  let profile = (await mutate(harness, '/api/creador/perfil', 'GET')).profile;
+  });
   const created = await mutate(harness, '/api/creador/series', 'POST', {
     name: 'Serie pública',
     slug: 'old-series',
-    profileVersion: profile.version,
+    creatorVersion: deselected.creatorVersion,
   });
+  let creatorVersion = created.creatorVersion;
   for (const link of [pending, deselected]) {
-    profile = (await mutate(harness, '/api/creador/perfil', 'GET')).profile;
-    await mutate(harness, `/api/creador/series/${encodeURIComponent(created.series.id)}/capitulos/${encodeURIComponent(link.placementId)}`, 'PUT', {
-      profileVersion: profile.version,
-    });
+    ({ creatorVersion } = await mutate(harness, `/api/creador/series/${encodeURIComponent(created.seriesId)}/capitulos/${encodeURIComponent(link.placementId)}`, 'PUT', {
+      creatorVersion,
+    }));
   }
-  profile = (await mutate(harness, '/api/creador/perfil', 'GET')).profile;
-  await mutate(harness, '/api/creador/perfil', 'PUT', { slug: 'current-profile', version: profile.version });
-  profile = (await mutate(harness, '/api/creador/perfil', 'GET')).profile;
-  await mutate(harness, `/api/creador/series/${encodeURIComponent(created.series.id)}`, 'PATCH', {
-    version: created.series.version,
-    profileVersion: profile.version,
+  const renamed = await mutate(harness, '/api/creador/perfil', 'PUT', { slug: 'current-profile', creatorVersion });
+  await mutate(harness, `/api/creador/series/${encodeURIComponent(created.seriesId)}`, 'PATCH', {
+    creatorVersion: renamed.creatorVersion,
     slug: 'current-series',
   });
-  assert.ok(saved.profile);
 
   const owner = await harness.store.get('account-profile:private-account-a');
   const profileKey = `profile:${owner.profileId}`;
-  const seriesKey = `series:${owner.profileId}:${created.series.id}`;
   const replaceProfile = async (mutateRecord) => {
     const current = await harness.store.get(profileKey);
     const next = mutateRecord(structuredClone(current));
@@ -178,7 +177,9 @@ test('public profile fields reject malformed persisted values while omitted opti
   };
   const validProfile = await harness.store.get(profileKey);
   await replaceProfile((record) => {
-    for (const field of ['city', 'country', 'bio', 'programs', 'socials', 'photo']) delete record[field];
+    for (const field of ['city', 'country', 'bio', 'photo']) delete record[field];
+    record.programs = [];
+    record.socials = {};
     return record;
   });
 
@@ -200,17 +201,15 @@ test('public profile fields reject malformed persisted values while omitted opti
     { title: 'Capítulo desmarcado', selectedForDirectory: false, directoryApproval: 'pending' },
   ]);
 
-  await replaceProfile(() => ({ ...validProfile, photo: { version: 7, privateMetadata: 'private' } }));
+  await replaceProfile(() => ({ ...validProfile, photo: { version: 7 } }));
   const legacyPhotoModel = await harness.service.readPublicProfile('current-profile');
   assert.equal(legacyPhotoModel.status, 200);
   assert.deepEqual(legacyPhotoModel.profile.photo, { version: 7 });
-  assert.equal(JSON.stringify(legacyPhotoModel).includes('privateMetadata'), false);
   await replaceProfile(() => ({
     ...validProfile,
     photo: {
       version: 'upload-1',
       url: `/media/fotos/${validProfile.id}/upload-1.webp`,
-      privateMetadata: 'private',
     },
   }));
   const currentPhotoModel = await harness.service.readPublicProfile('current-profile');
@@ -219,7 +218,6 @@ test('public profile fields reject malformed persisted values while omitted opti
     version: 'upload-1',
     url: `/media/fotos/${validProfile.id}/upload-1.webp`,
   });
-  assert.equal(JSON.stringify(currentPhotoModel).includes('privateMetadata'), false);
   const currentPhotoPage = await render('/c/current-profile/', harness.service);
   assert.equal(currentPhotoPage.status, 200);
   assert.ok((await currentPhotoPage.text()).includes(`/media/fotos/${validProfile.id}/upload-1.webp`));
@@ -254,6 +252,7 @@ test('public profile fields reject malformed persisted values while omitted opti
     { photo: 42 },
     { photo: { version: {} } },
     { photo: { version: 'bad id' } },
+    { photo: { version: 7, privateMetadata: 'private-photo-field' } },
     { photo: { version: 'upload-1', url: 'https://example.com/photo.webp' } },
     { photo: { version: 'upload-1', url: '/media/fotos/other-profile/upload-1.webp' } },
   ];
@@ -271,7 +270,7 @@ test('public profile fields reject malformed persisted values while omitted opti
     assert.equal(response.status, 503, pathname);
     assert.match(html, /No pudimos cargar esta página/, pathname);
     assert.doesNotMatch(html, /Creadora pública|Capítulo pendiente|Capítulo desmarcado|Serie pública/, pathname);
-    assert.doesNotMatch(html, /rel="canonical"/, pathname);
+    assert.doesNotMatch(html, /rel="canonical"|private-photo-field/, pathname);
   };
   for (const patch of [{ bio: 42 }, { city: { name: 'Córdoba' } }]) {
     await replaceProfile(() => ({ ...validProfile, ...patch }));
@@ -283,19 +282,15 @@ test('public profile fields reject malformed persisted values while omitted opti
   await assert503WithoutProfile('/c/old-profile/series/old-series/?q=1');
 
   await replaceProfile(() => validProfile);
-  const storedSeries = await harness.store.get(seriesKey);
-  assert.equal(await harness.store.transact({
-    checks: [{ key: seriesKey, version: storedSeries.version }],
-    puts: [{ key: seriesKey, value: { ...storedSeries, description: 42 } }],
-  }), true);
+  await replaceProfile((record) => {
+    record.series[created.seriesId].description = 42;
+    return record;
+  });
   assert.equal((await harness.service.readPublicProfile('current-profile')).status, 503);
   assert.equal((await harness.service.readPublicSeries('current-profile', 'current-series')).status, 503);
   await assert503WithoutProfile('/c/current-profile/');
   await assert503WithoutProfile('/c/current-profile/series/current-series/');
-  assert.equal(await harness.store.transact({
-    checks: [{ key: seriesKey, version: storedSeries.version }],
-    puts: [{ key: seriesKey, value: storedSeries }],
-  }), true);
+  await replaceProfile(() => validProfile);
 
   const resourceKey = `resource:${pending.resourceId}`;
   const storedResource = await harness.store.get(resourceKey);

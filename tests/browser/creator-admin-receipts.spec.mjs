@@ -7,6 +7,7 @@ import {
   resource,
   root,
   row,
+  submitCreatorClaim,
 } from '../fixtures/creator-admin.mjs';
 import { adminResourceCommandMatches } from '../fixtures/creator-pages.mjs';
 
@@ -28,27 +29,27 @@ async function createOwnerProfile(fixture, sub, email, { slug, displayName } = {
   const response = await fixture.request(cookie, '/api/creador/perfil', {
     method: 'PUT',
     body: {
+      creatorVersion: null,
       displayName: displayName ?? 'Dueña de recursos',
       slug: slug ?? `perfil-${sub}`,
       socials: {},
     },
   });
   assert.equal(response.status, 200, 'the real creator profile service creates the moderation target');
-  const profile = (await response.json()).profile;
+  const acknowledgement = await response.json();
+  assert.equal(acknowledgement.operation, 'save-profile');
+  const read = await fixture.request(cookie, '/api/creador/perfil/');
+  assert.equal(read.status, 200);
+  const { profile } = await read.json();
+  assert.equal(profile.id, acknowledgement.profileId);
   return { cookie, principal, profile };
 }
 
-async function createClaim(fixture, cookie, resourceIds, sourceId) {
-  const response = await fixture.request(cookie, '/api/creador/reclamaciones', {
-    method: 'POST',
-    body: {
-      resourceIds,
-      evidence: 'Solicitud de prueba para comprobar la revisión administrativa.',
-      ...(sourceId ? { sourceId } : {}),
-    },
+function createClaim(fixture, cookie, resourceIds, sourceId) {
+  return submitCreatorClaim(fixture, cookie, resourceIds, {
+    evidence: 'Solicitud de prueba para comprobar la revisión administrativa.',
+    sourceId,
   });
-  assert.equal(response.status, 202, 'the real creator claim service creates the pending admin request');
-  return (await response.json()).claim;
 }
 
 async function interceptAdminWrite(page, matches, deliver) {
@@ -339,8 +340,8 @@ test('a changed claim response missing only profile receipts pauses its submitte
       const actualProfileChanges = actual.body.versionChanges.filter(({ entity }) => entity === 'profile');
       assert.deepEqual(actualProfileChanges.map(({ before, after }) => [before, after]), [[1, 2], [2, 3]]);
       const deliveredChanges = actual.body.versionChanges.filter(({ entity }) => entity !== 'profile');
-      assert.ok(deliveredChanges.some(({ entity }) => entity === 'resource'));
-      assert.ok(deliveredChanges.some(({ entity }) => entity === 'placement'));
+      assert.deepEqual(deliveredChanges.map(({ entity, id }) => [entity, id]),
+        ids.slice(0, 2).map((id) => ['resource', id]));
       await fulfillActual(currentRoute, response, { ...actual.body, versionChanges: deliveredChanges });
     });
   try {
@@ -504,8 +505,8 @@ const legacyClaimReceiptDeliveries = [
     label: 'missing required profile observation',
     deliver(actual) {
       const nonProfileChanges = actual.body.versionChanges.filter(({ entity }) => entity !== 'profile');
-      assert.ok(nonProfileChanges.some(({ entity }) => entity === 'resource'));
-      assert.ok(nonProfileChanges.some(({ entity }) => entity === 'placement'));
+      assert.deepEqual(nonProfileChanges.map(({ entity, id }) => [entity, id]),
+        [['resource', actual.requestBody.resourceIds[0]]]);
       return { ...actual.body, versionChanges: nonProfileChanges };
     },
   },

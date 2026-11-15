@@ -58,10 +58,18 @@ async function api(fixture, cookie, route, options = {}) {
   return { response, body };
 }
 
+async function readOwnerSnapshot(fixture, cookie) {
+  const { response, body } = await api(fixture, cookie, '/api/creador/perfil');
+  assert.equal(response.status, 200, JSON.stringify(body));
+  assert.equal(body.schemaVersion, 2);
+  return body;
+}
+
 async function createProfile(fixture, cookie, overrides = {}) {
   const result = await api(fixture, cookie, '/api/creador/perfil', {
     method: 'PUT',
     body: {
+      creatorVersion: null,
       displayName: 'Ana Browser',
       slug: 'ana-browser',
       socials: {},
@@ -69,41 +77,45 @@ async function createProfile(fixture, cookie, overrides = {}) {
     },
   });
   assert.equal(result.response.status, 200, JSON.stringify(result.body));
-  assert.equal(result.body?.profile?.version, 1);
-  return result.body.profile;
+  const current = await readOwnerSnapshot(fixture, cookie);
+  assert.equal(current.profile.id, result.body.profileId);
+  assert.equal(current.creatorVersion, result.body.creatorVersion);
+  return current.profile;
 }
 
 async function createSeries(fixture, cookie, { name, slug, description } = {}) {
-  const current = await api(fixture, cookie, '/api/creador/perfil');
-  assert.equal(current.response.status, 200);
+  const current = await readOwnerSnapshot(fixture, cookie);
   const result = await api(fixture, cookie, '/api/creador/series', {
     method: 'POST',
     body: {
       name: name ?? 'Serie de prueba',
       slug: slug ?? 'serie-prueba',
-      profileVersion: current.body.profile.version,
+      creatorVersion: current.creatorVersion,
       ...(description === undefined ? {} : { description }),
     },
   });
   assert.equal(result.response.status, 201, JSON.stringify(result.body));
-  return result.body.series;
+  const saved = await readOwnerSnapshot(fixture, cookie);
+  const id = result.body.seriesId;
+  assert.ok(Object.hasOwn(saved.series, id), 'the new series exists in the owner read');
+  return { id, ...saved.series[id] };
 }
 
 async function addLink(fixture, cookie, { title, url } = {}) {
+  const current = await readOwnerSnapshot(fixture, cookie);
   const result = await api(fixture, cookie, '/api/creador/enlaces', {
     method: 'POST',
-    body: { title: title ?? 'Enlace de prueba', url: url ?? 'https://links.example/prueba' },
+    body: { creatorVersion: current.creatorVersion, title: title ?? 'Enlace de prueba', url: url ?? 'https://links.example/prueba' },
   });
   assert.equal(result.response.status, 201, JSON.stringify(result.body));
-  return result.body.link;
+  return result.body;
 }
 
 async function addChapter(fixture, cookie, seriesId, placementId) {
-  const current = await api(fixture, cookie, '/api/creador/perfil');
-  assert.equal(current.response.status, 200);
+  const current = await readOwnerSnapshot(fixture, cookie);
   const result = await api(fixture, cookie, `/api/creador/series/${encodeURIComponent(seriesId)}/capitulos/${encodeURIComponent(placementId)}`, {
     method: 'PUT',
-    body: { profileVersion: current.body.profile.version },
+    body: { creatorVersion: current.creatorVersion },
   });
   assert.equal(result.response.status, 200, JSON.stringify(result.body));
   return result.body;
@@ -234,4 +246,4 @@ async function loggedInOwner(fixture, page, { profile = true, profileFields = {}
   return cookie;
 }
 
-export { test, expect, addCookie, api, createProfile, createSeries, addLink, addChapter, captureCreatorApi, seriesForm, seriesRow, openSeriesView, createSeriesInBrowser, loggedInOwner };
+export { test, expect, addCookie, api, readOwnerSnapshot, createProfile, createSeries, addLink, addChapter, captureCreatorApi, seriesForm, seriesRow, openSeriesView, createSeriesInBrowser, loggedInOwner };

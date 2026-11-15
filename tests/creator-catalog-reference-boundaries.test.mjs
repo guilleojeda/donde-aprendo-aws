@@ -40,6 +40,7 @@ async function creatorApi(harness, pathname, { method = 'GET', body } = {}) {
   return callApi(harness, pathname, {
     session: 'creator-a',
     csrf: sessionCsrf['creator-a'],
+    creatorContract: '2',
     method,
     ...(body === undefined ? {} : { body }),
   });
@@ -47,10 +48,10 @@ async function creatorApi(harness, pathname, { method = 'GET', body } = {}) {
 
 async function createProfile(harness) {
   const response = await creatorApi(harness, '/api/creador/perfil', {
-    method: 'PUT', body: { displayName: 'Ana', slug: 'ana-reference-boundaries', programs: [], socials: {} },
+    method: 'PUT', body: { creatorVersion: null, displayName: 'Ana', slug: 'ana-reference-boundaries', programs: [], socials: {} },
   });
   assert.equal(response.status, 200);
-  return (await responseJson(response)).profile;
+  return responseJson(await creatorApi(harness, '/api/creador/perfil'));
 }
 
 async function compileSelectionRoute(outputPath) {
@@ -95,36 +96,36 @@ test('IDs válidos publicados por el índice siguen siendo referenciables sin im
   ].sort((left, right) => left.id.localeCompare(right.id)));
 
   const harness = await createCreatorPagesHarness();
-  let profile = await createProfile(harness);
+  let snapshot = await createProfile(harness);
   for (const selected of selection) {
     const resource = resources.find(({ id }) => id === selected.id);
     await seedResource(harness.store, resource);
     const response = await creatorApi(harness, '/api/creador/referencias', {
       method: 'POST',
-      body: { resourceId: selected.id, url: selected.url, profileVersion: profile.version },
+      body: { resourceId: selected.id, url: selected.url, creatorVersion: snapshot.creatorVersion },
     });
     assert.equal(response.status, 201, `${selected.id} from the public selection index is referenceable`);
     const result = await responseJson(response);
-    assert.equal(result.link.resourceId, selected.id);
-    assert.equal(result.link.url, selected.url);
-    assert.equal(await harness.store.get(`editor:${profile.id}:${selected.id}`), null,
+    assert.equal(result.resourceId, selected.id);
+    snapshot = await responseJson(await creatorApi(harness, '/api/creador/perfil'));
+    assert.equal(snapshot.placements[result.placementId].resourceId, selected.id);
+    assert.equal(snapshot.resources.find(({ id }) => id === selected.id).url, selected.url);
+    assert.equal(await harness.store.get(`editor:${snapshot.profile.id}:${selected.id}`), null,
       'reference does not grant edit authority for either ID shape');
-    profile = (await responseJson(await creatorApi(harness, '/api/creador/perfil'))).profile;
   }
-  assert.equal((await harness.store.list(`placement:${profile.id}:`)).length, 2);
+  assert.equal(Object.keys(snapshot.placements).length, 2);
 });
 
 test('la ruta de referencia rechaza version aunque el validador compartido lo permita en otras rutas', async () => {
   const harness = await createCreatorPagesHarness();
-  const profile = await createProfile(harness);
+  const snapshot = await createProfile(harness);
   const resource = publicResource('reference-extra-version', 'https://catalog.example/extra-version');
   await seedResource(harness.store, resource);
   const stateBefore = {
-    profile: await harness.store.get(`profile:${profile.id}`),
+    profile: await harness.store.get(`profile:${snapshot.profile.id}`),
     resource: await harness.store.get(`resource:${resource.id}`),
     reservation: await harness.store.get(currentUrlKey(resource.url)),
-    placements: await harness.store.list(`placement:${profile.id}:`),
-    editorReferences: await harness.store.list(`editor:${profile.id}:`),
+    editorReferences: await harness.store.list(`editor:${snapshot.profile.id}:`),
   };
 
   const response = await creatorApi(harness, '/api/creador/referencias', {
@@ -132,7 +133,7 @@ test('la ruta de referencia rechaza version aunque el validador compartido lo pe
     body: {
       resourceId: resource.id,
       url: resource.url,
-      profileVersion: profile.version,
+      creatorVersion: snapshot.creatorVersion,
       version: 999,
     },
   });
@@ -140,10 +141,9 @@ test('la ruta de referencia rechaza version aunque el validador compartido lo pe
   assert.deepEqual(await responseJson(response), { error: 'UNKNOWN_FIELD', message: 'unsupported field: version' });
   assert.match(response.headers.get('cache-control') ?? '', /private.*no-store/i);
   assert.deepEqual({
-    profile: await harness.store.get(`profile:${profile.id}`),
+    profile: await harness.store.get(`profile:${snapshot.profile.id}`),
     resource: await harness.store.get(`resource:${resource.id}`),
     reservation: await harness.store.get(currentUrlKey(resource.url)),
-    placements: await harness.store.list(`placement:${profile.id}:`),
-    editorReferences: await harness.store.list(`editor:${profile.id}:`),
+    editorReferences: await harness.store.list(`editor:${snapshot.profile.id}:`),
   }, stateBefore);
 });

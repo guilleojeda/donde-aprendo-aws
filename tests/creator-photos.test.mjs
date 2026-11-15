@@ -144,19 +144,17 @@ test('a signed upload is exact, short-lived, size-limited, and publishes only a 
   assert.deepEqual(finalPuts[0].bytes, photo.body);
 });
 
-test('photo finalization and recovered acknowledgement return the original committed profile versions', async () => {
+test('photo finalization and recovered acknowledgement return the original committed creator revision', async () => {
   const { jpeg } = await rasterPhotoFixtures();
   const harness = await createCreatorPhotoHarness();
   const upload = await startUpload(harness, 'creator-a', 1, jpeg);
 
   const committed = await harness.service.finalizeUpload({ profileId: 'creator-a', uploadId: upload.uploadId, expectedVersion: 1 });
-  assert.deepEqual(committed.versionChanges, [
-    { entity: 'profile', id: 'creator-a', before: 1, after: 2 },
-  ]);
+  assert.equal(committed.creatorVersion, 2);
   assert.equal((await profileRecord(harness)).version, 2);
 
   const recovered = await harness.service.finalizeUpload({ profileId: 'creator-a', uploadId: upload.uploadId, expectedVersion: 1 });
-  assert.deepEqual(recovered.versionChanges, committed.versionChanges, 'a replay reports the original commit receipt, not a fresh read');
+  assert.equal(recovered.creatorVersion, committed.creatorVersion, 'a replay reports the historical commit revision, not the current base');
   assert.equal((await profileRecord(harness)).version, 2, 'replay does not increment the profile again');
 });
 
@@ -239,8 +237,38 @@ test('retries are idempotent and a stale upload cannot replace a newer selection
   });
   const newestReference = (await profileRecord(harness)).photo;
   assert.notDeepEqual(newestReference, selectedReference);
-  await harness.service.finalizeUpload({ profileId: 'creator-a', uploadId: selected.uploadId, expectedVersion: 1 });
+  const historical = await harness.service.finalizeUpload({ profileId: 'creator-a', uploadId: selected.uploadId, expectedVersion: 1 });
+  assert.equal(historical.creatorVersion, 2, 'a completed receipt identifies its original commit revision');
+  assert.ok((await profileRecord(harness)).version > historical.creatorVersion,
+    'the historical revision is below the current aggregate revision');
   assert.deepEqual((await profileRecord(harness)).photo, newestReference, 'an old retry cannot roll back a later photo');
+});
+
+test('a pending photo from before creator revision conversion conflicts before reading its bytes', async () => {
+  const { jpeg, png } = await rasterPhotoFixtures();
+  const harness = await createCreatorPhotoHarness();
+  const first = await startUpload(harness, 'creator-a', 1, jpeg);
+  await harness.service.finalizeUpload({ profileId: 'creator-a', uploadId: first.uploadId, expectedVersion: 1 });
+  const current = await profileRecord(harness);
+  const pending = await startUpload(harness, 'creator-a', current.version, png);
+  const converted = { ...current, version: 17 };
+  assert.equal(await harness.store.transact({
+    checks: [{ key: profileStoreKey('creator-a'), version: current.version }],
+    puts: [{ key: profileStoreKey('creator-a'), value: converted }],
+  }), true);
+  harness.objects.seed(pending.post.fields.key, png);
+  const objectCalls = harness.objects.calls.length;
+  const transactions = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+
+  await assert.rejects(harness.service.finalizeUpload({
+    profileId: 'creator-a', uploadId: pending.uploadId, expectedVersion: current.version,
+  }), (error) => error?.code === 'PROFILE_VERSION_CONFLICT');
+
+  assert.equal(harness.objects.calls.length, objectCalls, 'the pending pre-conversion upload is rejected before object access');
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length, transactions,
+    'the historical upload receipt and aggregate are untouched');
+  assert.deepEqual((await profileRecord(harness)).photo, current.photo, 'the currently selected photo remains active');
+  assert.equal((await profileRecord(harness)).version, 17);
 });
 
 test('an S3 read failure leaves the previous photo selected and readable', async () => {

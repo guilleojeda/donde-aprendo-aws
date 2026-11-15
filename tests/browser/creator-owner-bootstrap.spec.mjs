@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { completeLogin, cookiePair } from '../fixtures/account-auth.mjs';
 import {
-  test, expect, addCookie, api, createProfile, createSeries, addLink, addChapter, loggedInOwner,
+  test, expect, addCookie, api, createProfile, createSeries, addLink, addChapter, loggedInOwner, readOwnerSnapshot,
 } from '../fixtures/creator-browser-test.mjs';
 import { seedResource } from '../fixtures/creator-pages.mjs';
 
@@ -244,16 +244,21 @@ test('el SSR sólo ofrece una serie pública con perfil publicado, visible y cap
     const seriesRow = ssr.locator(`[data-owner-series-row="${series.id}"]`);
     await ssr.goto(`${fixture.origin}/cuenta/?vista=series`);
     await expect(seriesRow.getByRole('link', { name: 'Abrir serie pública', exact: true })).toHaveCount(0);
-    const published = await api(fixture, cookie, '/api/creador/perfil/publicar', { method: 'POST', body: {} });
+    const beforePublish = await readOwnerSnapshot(fixture, cookie);
+    const published = await api(fixture, cookie, '/api/creador/perfil/publicar', {
+      method: 'POST', body: { creatorVersion: beforePublish.creatorVersion },
+    });
     assert.equal(published.response.status, 200, JSON.stringify(published.body));
     await ssr.reload();
     await expect(seriesRow.getByRole('link', { name: 'Abrir serie pública', exact: true }))
       .toHaveAttribute('href', '/c/ana-browser/series/serie-visible/');
     await expect(ssr.locator(`[data-owner-series-row="${empty.id}"]`).getByRole('link', { name: 'Abrir serie pública', exact: true })).toHaveCount(0);
     const { profile } = await fixture.rawOwner(cookie);
+    const key = `profile:${profile.id}`;
+    const state = await fixture.creatorStore.get(key);
     assert.equal(await fixture.creatorStore.transact({
-      checks: [{ key: `profile:${profile.id}`, version: profile.version }],
-      puts: [{ key: `profile:${profile.id}`, value: { ...profile, hidden: true, version: profile.version + 1 } }],
+      checks: [{ key, version: state.version }],
+      puts: [{ key, value: { ...state, hidden: true, version: state.version + 1 } }],
     }), true);
     await ssr.reload();
     await expect(seriesRow.getByRole('link', { name: 'Abrir serie pública', exact: true })).toHaveCount(0);
@@ -294,8 +299,12 @@ test('el DOM SSR sin JavaScript muestra el estado vacío de Enlaces y el alta gu
     await expect(ssr.locator('[data-link-empty]')).toBeVisible();
 
     const created = await addLink(fixture, cookie, { title, url });
-    assert.equal(created.title, title);
-    assert.equal(created.url, url);
+    const saved = await readOwnerSnapshot(fixture, cookie);
+    assert.equal(saved.placements[created.placementId].resourceId, created.resourceId);
+    const resource = saved.resources.find(({ id }) => id === created.resourceId);
+    assert.ok(resource);
+    assert.equal(resource.title, title);
+    assert.equal(resource.url, url);
 
     const reloaded = await ssr.reload();
     await assertPrivate(reloaded, ssr);

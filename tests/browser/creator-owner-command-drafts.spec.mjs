@@ -383,7 +383,7 @@ test('un finalize confirmado con lectura fallida conserva la foto y permite recu
   const images = await rasterPhotoFixtures();
   const provider = installPhotoProvider(page, fixture, images, { pauseSecondPng: true });
   await provider.install();
-  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const capture = await captureCreatorApi(page);
   let committedFinalize;
   let accountChanged = false;
   const failPostFinalizeRead = async (route) => {

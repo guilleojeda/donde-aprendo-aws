@@ -86,16 +86,14 @@ Resources:
                       - pk
                       - sk
                       - recordType
+                      - schemaVersion
                       - id
-                      - profileId
-                      - resourceId
+                      - displayName
+                      - slug
                       - published
                       - hidden
-                      - selectedForDirectory
-                      - selected
-                      - slug
-                      - displayName
-                      - name
+                      - placements
+                      - order
                       - series
                   StringEquals:
                     dynamodb:Select: SPECIFIC_ATTRIBUTES

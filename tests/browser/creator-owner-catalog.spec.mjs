@@ -161,11 +161,6 @@ function linkWrites(capture) {
   return capture.writes().filter(({ method, path }) => method === 'POST' && path === '/api/creador/referencias');
 }
 
-function placementOptionWrites(capture, placementId) {
-  return capture.writes().filter(({ method, path }) => method === 'PATCH'
-    && path === `/api/creador/enlaces/${placementId}/editar`);
-}
-
 async function holdReferencePost(page, { commit }) {
   const gate = deferred();
   let arrive;
@@ -429,9 +424,10 @@ test('referenciar contenido existente conserva la colocación; una referencia nu
     title: 'Contenido propio ya agregado',
     url: 'https://owner-content.example.invalid/guide',
   });
-  const existingOwner = await fixture.rawOwner(cookie);
+  const existingOwner = (await api(fixture, cookie, '/api/creador/perfil')).body;
   const existingPlacement = await fixture.rawPlacement(cookie, existing.placementId);
   const existingResource = await fixture.rawResource(existing.resourceId);
+  assert.ok(existingResource, 'the add acknowledgement identifies a resource in the canonical catalog');
   const shared = catalogEntry({
     id: 'phase5-catalog-shared-event',
     title: 'Evento compartido de la comunidad',
@@ -440,28 +436,30 @@ test('referenciar contenido existente conserva la colocación; una referencia nu
   });
   await seedCatalogRecord(fixture, shared);
   await serveSelectionIndex(page, [
-    catalogEntry({ id: existing.resourceId, title: existing.title, url: existing.url, tipo: 'source' }),
+    catalogEntry({ id: existing.resourceId, title: existingResource.title, url: existingResource.url, tipo: 'source' }),
     shared,
   ]);
   const capture = await captureCreatorApi(page);
 
   await openOwnerCatalog(page, fixture);
   const search = catalogSearch(page);
-  await search.fill(existing.url);
+  await search.fill(existingResource.url);
   await search.press('Enter');
-  await catalogRadio(page, existing.title).check();
+  await catalogRadio(page, existingResource.title).check();
   await expect(page.getByRole('dialog').getByRole('checkbox', { name: /proponer al directorio/i })).toBeChecked();
   await page.getByRole('button', { name: /Agregar a mi p\u00e1gina/i }).click();
   await expect(page.getByRole('status').filter({ hasText: /ya estaba en tu p\u00e1gina|conservamos su ficha/i }).first()).toBeVisible();
   assert.equal(linkWrites(capture).length, 1);
   await expect.poll(() => linkWrites(capture)[0]?.status).toBe(200);
   assert.equal(linkWrites(capture)[0].status, 200, 'the real service identifies an already linked resource');
+  assert.equal(linkWrites(capture)[0].responseBody.operation, 'reference-link');
+  assert.equal(linkWrites(capture)[0].responseBody.disposition, 'already-present');
   assert.deepEqual(await fixture.rawPlacement(cookie, existing.placementId), existingPlacement,
     'the existing placement, options, ordering, and version remain unchanged');
   assert.deepEqual(await fixture.rawResource(existing.resourceId), existingResource,
     'the existing content record is unchanged');
-  assert.equal((await fixture.rawOwner(cookie)).profile.version, existingOwner.profile.version,
-    'the duplicate reference is a no-op for the owner profile');
+  assert.deepEqual((await api(fixture, cookie, '/api/creador/perfil')).body, existingOwner,
+    'the duplicate reference leaves the canonical owner snapshot unchanged');
 
   // Open a fresh reference intent and use the server's catalog record, which is an event
   // whose actual registration URL is the URL carried through the published index.
@@ -475,7 +473,7 @@ test('referenciar contenido existente conserva la colocación; una referencia nu
   const directory = dialog.getByRole('checkbox', { name: /proponer al directorio/i });
   await expect(directory).toBeChecked();
   await directory.uncheck();
-  const beforeReference = await fixture.rawOwner(cookie);
+  const beforeReference = (await api(fixture, cookie, '/api/creador/perfil')).body;
   const sharedBefore = await fixture.rawResource(shared.id);
   await page.getByRole('button', { name: /Agregar a mi p\u00e1gina/i }).click();
 
@@ -488,108 +486,35 @@ test('referenciar contenido existente conserva la colocación; una referencia nu
   assert.deepEqual(newReference.body, {
     resourceId: shared.id,
     url: shared.url,
-    profileVersion: beforeReference.profile.version,
     selectedForDirectory: false,
+    creatorVersion: beforeReference.creatorVersion,
   });
-  const afterReference = await fixture.rawOwner(cookie);
-  assert.equal(afterReference.profile.version, beforeReference.profile.version + 1);
-  const added = afterReference.profile && await api(fixture, cookie, '/api/creador/perfil');
+  assert.equal(newReference.responseBody.operation, 'reference-link');
+  assert.equal(newReference.responseBody.disposition, 'attached');
+  assert.equal(newReference.responseBody.resourceId, shared.id);
+  assert.ok(newReference.responseBody.placementId);
+  const added = await api(fixture, cookie, '/api/creador/perfil');
   assert.equal(added.response.status, 200);
-  const sharedLink = added.body.links.find(({ resourceId }) => resourceId === shared.id);
-  assert.ok(sharedLink, 'the real owner read exposes the reference added by the server');
-  assert.equal(sharedLink.url, shared.url);
-  assert.equal(sharedLink.selectedForDirectory, false, 'the explicit directory choice is saved on this placement');
+  assert.ok(added.body.creatorVersion > beforeReference.creatorVersion);
+  assert.deepEqual(added.body.placements[newReference.responseBody.placementId], {
+    resourceId: shared.id,
+    selectedForDirectory: false,
+  }, 'the explicit directory choice is saved on this placement');
+  assert.equal(added.body.resources.find(({ id }) => id === shared.id).url, shared.url,
+    'the real owner read exposes the current shared registration URL');
   assert.deepEqual(await fixture.rawResource(shared.id), sharedBefore,
     'referencing shared event content does not alter its metadata or grant its editor record');
-  assert.equal(added.body.editableResources.some(({ id }) => id === shared.id), false);
+  assert.equal(added.body.resources.find(({ id }) => id === shared.id).metadataEditable, false);
   await expect(row.getByRole('button', { name: /Editar ficha/i })).toHaveCount(0);
   await expect(row.getByRole('button', { name: /Editar opciones/i })).toBeVisible();
 
-  const deniedMetadataEdit = await api(fixture, cookie, `/api/creador/recursos/${shared.id}`, {
+  const deniedMetadataEdit = await api(fixture, cookie, `/api/creador/recursos/?id=${encodeURIComponent(shared.id)}`, {
     method: 'PATCH',
-    body: { version: sharedBefore.version, title: 'Cambio no autorizado' },
+    body: { resourceVersion: sharedBefore.version, title: 'Cambio no autorizado' },
   });
   assert.equal(deniedMetadataEdit.response.status, 403, 'the real authorization boundary rejects metadata edits to referenced shared content');
   assert.deepEqual(await fixture.rawResource(shared.id), sharedBefore);
   assert.equal(linkWrites(capture).length, 2, 'reconciliation and the forbidden metadata attempt do not replay either reference');
-  await capture.stop();
-});
-
-test('un PROFILE_CONFLICT compara el perfil completo y permite reintentar manualmente la misma selección observada', async ({ fixture, page }) => {
-  const cookie = await loggedInOwner(fixture, page);
-  const item = catalogEntry({
-    id: 'phase5-catalog-profile-conflict',
-    title: 'Ficha para comparar versiones',
-    url: 'https://catalog.example.invalid/profile-conflict',
-    tipo: 'community',
-  });
-  await seedCatalogRecord(fixture, item);
-  await serveSelectionIndex(page, [item]);
-  const capture = await captureCreatorApi(page);
-  await openOwnerCatalog(page, fixture);
-  const search = catalogSearch(page);
-  await search.fill(item.title);
-  await search.press('Enter');
-  await catalogRadio(page, item.title).check();
-  const directory = page.getByRole('dialog').getByRole('checkbox', { name: /proponer al directorio/i });
-  await expect(directory).toBeChecked();
-  await directory.uncheck();
-
-  const before = await fixture.rawOwner(cookie);
-  const concurrent = await api(fixture, cookie, '/api/creador/perfil', {
-    method: 'PUT',
-    body: { version: before.profile.version, displayName: 'Nombre guardado en otra pestaña' },
-  });
-  assert.equal(concurrent.response.status, 200, JSON.stringify(concurrent.body));
-  assert.equal(concurrent.body.profile.version, before.profile.version + 1);
-
-  await page.getByRole('button', { name: /Agregar a mi p\u00e1gina/i }).click();
-  await expect.poll(() => linkWrites(capture).length).toBe(1);
-  await expect.poll(() => linkWrites(capture)[0]?.status).toBe(409);
-  const first = linkWrites(capture)[0];
-  assert.equal(first.status, 409);
-  assert.equal(first.responseBody.error, 'PROFILE_CONFLICT', 'the real service rejects the stale observed profile base');
-  assert.deepEqual(first.body, {
-    resourceId: item.id,
-    url: item.url,
-    profileVersion: before.profile.version,
-    selectedForDirectory: false,
-  });
-  assert.equal(await fixture.rawPlacement(cookie, `placement-${item.id}`), null,
-    'a profile-version conflict creates no placement');
-
-  const compare = page.getByRole('dialog').getByRole('button', { name: /Comparar.*guardado|Comparar.*p\u00e1gina/i });
-  await expect(compare).toBeVisible();
-  await compare.click();
-  await expect(page.getByRole('dialog')).toContainText('Nombre guardado en otra pestaña');
-  const adopt = page.getByRole('dialog').getByRole('button', { name: 'Usar la página guardada', exact: true });
-  await expect(adopt).toBeVisible();
-  await adopt.click();
-
-  await expect(page.getByRole('heading', { name: 'Nombre guardado en otra pestaña' })).toBeVisible();
-  await expect(catalogRadio(page, item.title)).toBeChecked();
-  await expect(page.getByRole('dialog')).toContainText(item.url);
-  await expect(directory).not.toBeChecked();
-  assert.equal(linkWrites(capture).length, 1, 'reading and adopting the complete owner snapshot does not write');
-
-  await page.getByRole('button', { name: /Agregar a mi p\u00e1gina/i }).click();
-  await expect.poll(() => linkWrites(capture).length).toBe(2);
-  await expect.poll(() => linkWrites(capture)[1]?.status).toBe(201);
-  const retry = linkWrites(capture)[1];
-  assert.equal(retry.status, 201);
-  assert.deepEqual(retry.body, {
-    resourceId: item.id,
-    url: item.url,
-    profileVersion: before.profile.version + 1,
-    selectedForDirectory: false,
-  }, 'the explicit continuation uses the adopted base and the same exact ID, URL, and directory choice');
-  const saved = await fixture.request(cookie, '/api/creador/perfil');
-  const savedDto = await saved.json();
-  assert.equal(savedDto.profile.displayName, 'Nombre guardado en otra pestaña');
-  assert.equal(savedDto.links.filter(({ resourceId }) => resourceId === item.id).length, 1);
-  assert.equal(savedDto.links.find(({ resourceId }) => resourceId === item.id).selectedForDirectory, false);
-  assert.equal(savedDto.editableResources.some(({ id }) => id === item.id), false);
-  assert.equal(linkWrites(capture).length, 2, 'the successful manual continuation is not automatically replayed');
   await capture.stop();
 });
 
@@ -610,7 +535,8 @@ test('un RESOURCE_CONFLICT exige actualizar el índice, revisar la URL actual y 
 
   await openOwnerCatalog(page, fixture);
   await catalogRadio(page, oldItem.title).check();
-  const initial = await fixture.rawOwner(cookie);
+  const initial = await api(fixture, cookie, '/api/creador/perfil');
+  assert.equal(initial.response.status, 200);
   await page.getByRole('button', { name: /Agregar a mi p\u00e1gina/i }).click();
   await expect.poll(() => linkWrites(capture).length).toBe(1);
   await expect.poll(() => linkWrites(capture)[0]?.status).toBe(409);
@@ -619,12 +545,15 @@ test('un RESOURCE_CONFLICT exige actualizar el índice, revisar la URL actual y 
   assert.deepEqual(staleAttempt.body, {
     resourceId: oldItem.id,
     url: oldItem.url,
-    profileVersion: initial.profile.version,
+    creatorVersion: initial.body.creatorVersion,
     selectedForDirectory: true,
   });
-  assert.equal(await fixture.rawPlacement(cookie, `placement-${oldItem.id}`), null);
-  assert.equal((await fixture.rawOwner(cookie)).profile.version, initial.profile.version);
-  await expect(page.getByRole('alert')).toBeVisible();
+  const rejectedOwner = await api(fixture, cookie, '/api/creador/perfil');
+  assert.deepEqual(rejectedOwner.body, initial.body,
+    'the stale catalog pair does not create a placement or change the owner revision');
+  assert.equal(Object.values(rejectedOwner.body.placements).some(({ resourceId }) => resourceId === oldItem.id), false);
+  await expect(page.locator('[data-owner-recovery][data-recovery-kind="conflict"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Volver al borrador', exact: true }).click();
   const refreshCatalog = page.getByRole('button', { name: 'Actualizar catálogo', exact: true });
   await expect(refreshCatalog).toBeVisible();
   assert.equal(linkWrites(capture).length, 1, 'the rejected pair was not silently converted or resent');
@@ -641,292 +570,91 @@ test('un RESOURCE_CONFLICT exige actualizar el índice, revisar la URL actual y 
   await expect.poll(() => linkWrites(capture).length).toBe(2);
   await expect.poll(() => linkWrites(capture)[1]?.status).toBe(201);
   assert.equal(linkWrites(capture)[1].status, 201);
+  assert.equal(linkWrites(capture)[1].responseBody.operation, 'reference-link');
+  assert.equal(linkWrites(capture)[1].responseBody.disposition, 'attached');
   assert.equal(linkWrites(capture)[1].body.url, currentItem.url,
     'the second explicit command uses the currently published event registration URL');
+  assert.equal(linkWrites(capture)[1].body.creatorVersion, initial.body.creatorVersion);
   const savedResource = await fixture.rawResource(currentItem.id);
-  const after = await fixture.rawOwner(cookie);
+  const after = await api(fixture, cookie, '/api/creador/perfil');
+  assert.ok(after.body.creatorVersion > initial.body.creatorVersion);
   assert.equal(savedResource.registrationUrl, currentItem.url);
-  assert.equal(after.profile.version, initial.profile.version + 1);
-  const read = await fixture.request(cookie, '/api/creador/perfil');
-  const dto = await read.json();
-  const savedLink = dto.links.find(({ resourceId }) => resourceId === currentItem.id);
-  assert.ok(savedLink);
-  assert.equal(savedLink.url, currentItem.url);
-  assert.equal(savedLink.selectedForDirectory, true);
-  assert.equal(dto.editableResources.some(({ id }) => id === currentItem.id), false);
+  const savedPlacement = Object.entries(after.body.placements).find(([, placement]) => placement.resourceId === currentItem.id);
+  assert.ok(savedPlacement);
+  assert.equal(after.body.resources.find(({ id }) => id === currentItem.id).url, currentItem.url);
+  assert.equal(savedPlacement[1].selectedForDirectory, true);
+  assert.equal(after.body.resources.find(({ id }) => id === currentItem.id).metadataEditable, false);
   assert.equal(linkWrites(capture).length, 2, 'the confirmed retry is one write and the stale pair was never replayed');
   await capture.stop();
 });
 
-test('el 409 tardío de A conserva B y su opción durante la actualización antes de guardar B manualmente', async ({ fixture, page }) => {
+test('una referencia confirmada con acuse perdido permanece incierta hasta una decisión explícita', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
-  const oldA = catalogEntry({
-    id: 'phase5-catalog-delayed-stale-a',
-    title: 'Ficha A con destino viejo',
-    url: 'https://catalog.example.invalid/a-old',
-    tipo: 'event',
-  });
-  const currentA = { ...oldA, url: 'https://catalog.example.invalid/a-current' };
-  const itemB = catalogEntry({
-    id: 'phase5-catalog-delayed-b',
-    title: 'Ficha B pendiente válida',
-    url: 'https://catalog.example.invalid/b-current',
+  const item = catalogEntry({
+    id: 'phase5-reference-ack-lost',
+    title: 'Referencia confirmada sin acuse',
+    url: 'https://catalog.example.invalid/reference-ack-lost',
     tipo: 'community',
   });
-  await seedCatalogRecord(fixture, currentA);
-  await seedCatalogRecord(fixture, itemB);
-  const refreshArrived = deferred();
-  const releaseRefresh = deferred();
-  let indexReads = 0;
-  await page.route('**/catalog-selection.json', async (route) => {
-    if (route.request().method() !== 'GET') return route.continue();
-    indexReads += 1;
-    if (indexReads === 2) {
-      refreshArrived.release();
-      await releaseRefresh.promise;
-    }
-    // The refreshed public index can still be behind the resource service.
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([oldA, itemB]) });
-  });
+  await seedCatalogRecord(fixture, item);
+  await serveSelectionIndex(page, [item]);
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
-  const transport = await holdReferenceResponse(page);
-  const resourceBeforeB = await fixture.rawResource(itemB.id);
-  let staleSubmit;
+  const initial = await api(fixture, cookie, '/api/creador/perfil');
+  assert.equal(initial.response.status, 200);
+  const beforeResource = await fixture.rawResource(item.id);
+  await openOwnerCatalog(page, fixture);
+  await catalogRadio(page, item.title).check();
+  const dialog = page.getByRole('dialog');
+  const form = dialog.locator('form[data-owner-form="referencia"]');
+  const directory = form.getByRole('checkbox', { name: 'Proponer al directorio', exact: true });
+  await expect(directory).toBeChecked();
 
+  const held = await holdReferencePost(page, { commit: true });
+  let submit;
   try {
-    await openOwnerCatalog(page, fixture);
-    const dialog = page.getByRole('dialog');
-    const form = page.locator('[data-owner-form="referencia"]');
-    const directory = form.getByRole('checkbox', { name: 'Proponer al directorio', exact: true });
-    const initial = await fixture.rawOwner(cookie);
-    await catalogRadio(page, oldA.title).check();
-
-    staleSubmit = page.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
-    const staleResponse = await transport.reached;
-    assert.equal(staleResponse.status, 409, 'A reaches the real reference handler and returns its stale-pair conflict');
-    assert.equal(staleResponse.body.error, 'RESOURCE_CONFLICT');
-    const ownerAfterRejectedAResponse = await fixture.request(cookie, '/api/creador/perfil');
-    assert.equal(ownerAfterRejectedAResponse.status, 200);
-    const ownerAfterRejectedA = await ownerAfterRejectedAResponse.json();
-    assert.equal(ownerAfterRejectedA.profile.version, initial.profile.version,
-      'the rejected A did not change the profile');
-    assert.equal(ownerAfterRejectedA.links.filter(({ resourceId }) => resourceId === oldA.id).length, 0,
-      'the rejected A did not create a placement');
-
-    await catalogRadio(page, itemB.title).check();
-    await directory.uncheck();
-    transport.release();
-    await staleSubmit;
-    await expect(dialog.getByRole('button', { name: 'Actualizar catálogo', exact: true })).toBeVisible();
-    assert.equal(linkWrites(capture).length, 1, 'the stale A request is not replayed');
-
-    await dialog.getByRole('button', { name: 'Actualizar catálogo', exact: true }).click();
-    await refreshArrived.promise;
-    const comparison = dialog.locator('[data-owner-comparison]');
-    const compare = dialog.locator('[data-owner-compare]');
-    const adopt = dialog.locator('[data-owner-adopt]');
-    await compare.click();
-    await expect(comparison).toBeVisible();
-    await expect(comparison).toContainText('No encontramos la referencia enviada');
-    await adopt.click();
-    await expect(comparison).toHaveCount(0);
-    assert.equal(linkWrites(capture).length, 1, 'adopting the missing A result does not repeat the stale request or submit B');
-
-    releaseRefresh.release();
-    await expect(dialog.locator('[data-catalog-index-status]')).toHaveText('2 resultados');
-    await expect(catalogRadio(page, oldA.title)).not.toBeChecked();
-    await expect(catalogRadio(page, itemB.title)).toBeChecked();
-    await expect(directory).not.toBeChecked();
-    await expect(dialog.getByRole('button', { name: 'Agregar a mi página', exact: true })).toBeEnabled();
-    assert.equal(indexReads, 2, 'the explicit refresh reads the index after the comparison is adopted');
-    assert.equal(linkWrites(capture).length, 1, 'refresh keeps B as intent without sending it');
-
-    // An old exact pair can remain in a lagging index. Clicking its label must
-    // leave the later valid B selection and its directory option intact.
-    await expect(catalogRadio(page, oldA.title)).toBeDisabled();
-    const staleLabel = dialog.getByText(oldA.title, { exact: true });
-    await expect(staleLabel).toBeVisible();
-    await staleLabel.click({ force: true });
-    await expect(catalogRadio(page, oldA.title)).not.toBeChecked();
-    await expect(catalogRadio(page, itemB.title)).toBeChecked();
-    await expect(directory).not.toBeChecked();
-    assert.equal(linkWrites(capture).length, 1, 'the stale choice does not send another request');
-
-    await dialog.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
-    await expect.poll(() => linkWrites(capture).length).toBe(2);
-    await expect.poll(() => linkWrites(capture)[1]?.status).toBe(201);
-    assert.equal(linkWrites(capture)[1].body.resourceId, itemB.id);
-    assert.equal(linkWrites(capture)[1].body.url, itemB.url);
-    assert.equal(linkWrites(capture)[1].body.profileVersion, initial.profile.version);
-    assert.equal(linkWrites(capture)[1].body.selectedForDirectory, false);
-
-    const saved = await fixture.request(cookie, '/api/creador/perfil');
-    assert.equal(saved.status, 200);
-    const dto = await saved.json();
-    assert.equal(dto.profile.version, initial.profile.version + 1);
-    assert.equal(dto.links.filter(({ resourceId }) => resourceId === oldA.id).length, 0);
-    assert.deepEqual(dto.links.filter(({ resourceId }) => resourceId === itemB.id).map(({ url, selectedForDirectory }) => ({ url, selectedForDirectory })), [
-      { url: itemB.url, selectedForDirectory: false },
-    ], 'the next explicit save persists exactly the retained B pair and directory choice');
-    assert.deepEqual(await fixture.rawResource(itemB.id), resourceBeforeB,
-      'using B as a reference does not mutate shared catalog metadata');
-  } finally {
-    releaseRefresh.release();
-    transport.release();
-    await staleSubmit?.catch(() => {});
-    await transport.close();
-    await capture.stop({ skipErrorBodies: true }).catch(() => {});
-  }
-});
-
-for (const outcome of [
-  { name: 'commit cuya respuesta se perdió', commit: true },
-  { name: 'fallo antes del commit', commit: false },
-]) {
-  test(`referencia: ${outcome.name} comprueba el estado y conserva la corrección del directorio para continuar`, async ({ fixture, page }) => {
-    const cookie = await loggedInOwner(fixture, page);
-    const item = catalogEntry({
-      id: `phase5-reference-uncertain-${outcome.commit ? 'committed' : 'uncommitted'}`,
-      title: 'Contenido con confirmación perdida',
-      url: `https://catalog.example.invalid/reference-${outcome.commit ? 'committed' : 'uncommitted'}`,
-      tipo: 'community',
-    });
-    await seedCatalogRecord(fixture, item);
-    await serveSelectionIndex(page, [item]);
-    const capture = await captureCreatorApi(page, { skipErrorBodies: true });
-    await openOwnerCatalog(page, fixture);
-    await catalogRadio(page, item.title).check();
-    const directory = page.getByRole('dialog').getByRole('checkbox', { name: /proponer al directorio/i });
-    await expect(directory).toBeChecked();
-    const before = await fixture.rawOwner(cookie);
-    const beforeResource = await fixture.rawResource(item.id);
-    const readsBefore = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length;
-
-    const held = await holdReferencePost(page, outcome);
-    let submit;
-    try {
-      submit = page.getByRole('button', { name: /Agregar a mi p\u00e1gina/i }).click();
-      await expect.poll(() => linkWrites(capture).length).toBe(1);
-      await held.reached;
-      await directory.uncheck();
-      held.release();
-      await submit;
-    } finally {
-      held.release();
-      await held.remove();
-      await submit?.catch(() => {});
-    }
-    await expect.poll(() => linkWrites(capture)[0]?.status).toBe(503);
-    const lostPost = linkWrites(capture)[0];
-    assert.deepEqual(lostPost.body, {
+    submit = page.getByRole('button', { name: /Agregar a mi página/i }).click();
+    await held.reached;
+    const attempted = linkWrites(capture)[0];
+    assert.ok(attempted, 'the real reference POST reached the service before its reply was held');
+    assert.deepEqual(attempted.body, {
       resourceId: item.id,
       url: item.url,
-      profileVersion: before.profile.version,
       selectedForDirectory: true,
-    }, 'the submitted request captures the original checkbox value and exact catalog pair');
-    if (outcome.commit) {
-      assert.equal(held.observed.status, 201, 'the real reference service committed before its acknowledgement was replaced');
-      assert.equal((await fixture.rawOwner(cookie)).profile.version, before.profile.version + 1);
-    } else {
-      assert.equal(held.observed, undefined, 'the precommit transport failure never called the reference handler');
-      assert.deepEqual(await fixture.rawOwner(cookie), before);
-    }
+      creatorVersion: initial.body.creatorVersion,
+    });
+    await expect(directory).toBeDisabled();
+    assert.equal(held.observed.status, 201);
+    assert.equal(held.observed.body.operation, 'reference-link');
+    assert.equal(held.observed.body.disposition, 'attached');
+    held.release();
+    await submit;
+  } finally {
+    held.release();
+    await held.remove();
+    await submit?.catch(() => {});
+  }
 
-    const check = page.getByRole('dialog').getByRole('button', { name: /Comprobar/i });
-    await expect(check).toBeVisible();
-    assert.equal(linkWrites(capture).length, 1, 'the first uncertain result does not replay the reference POST');
-    await check.click();
-    await expect.poll(() => capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length)
-      .toBe(readsBefore + 1);
-    await expect.poll(() => capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').at(-1)?.status)
-      .toBe(200);
-    assert.equal(linkWrites(capture).length, 1, 'Comprobar is a read and does not repeat the POST');
+  await expect(page.locator('[data-owner-recovery][data-recovery-kind="unknown"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Comprobar estado guardado', exact: true }).click();
+  await capture.settle({ skipErrorBodies: true });
+  const checked = await api(fixture, cookie, '/api/creador/perfil');
+  assert.equal(checked.response.status, 200);
+  const placement = Object.entries(checked.body.placements).find(([, value]) => value.resourceId === item.id);
+  assert.ok(placement, 'the full owner read sees the committed reference');
+  assert.equal(checked.body.resources.find(({ id }) => id === item.id).metadataEditable, false,
+    'a reference does not grant metadata authority');
+  await expect(page.locator('[data-owner-recovery][data-recovery-kind="unknown"]')).toBeVisible();
+  assert.equal(linkWrites(capture).length, 1, 'the read does not replay the reference POST');
 
-    const afterCheck = await fixture.request(cookie, '/api/creador/perfil').then((response) => response.json());
-    const existing = afterCheck.links.find(({ resourceId }) => resourceId === item.id);
-    assert.equal(Boolean(existing), outcome.commit, 'the raw owner read distinguishes a committed reference from a precommit failure');
-    if (outcome.commit) assert.equal(existing.selectedForDirectory, true);
-    else assert.equal(afterCheck.profile.version, before.profile.version);
-
-    const adopt = page.getByRole('dialog').getByRole('button', { name: 'Usar la página guardada', exact: true });
-    await expect(adopt).toBeVisible();
-    await expect(page.getByRole('dialog')).toContainText(item.url);
-    await adopt.click();
-    await expect(directory).not.toBeChecked();
-    assert.equal(linkWrites(capture).length, 1, 'adopting the complete owner snapshot performs no write');
-
-    if (outcome.commit) {
-      const linkDialog = page.getByRole('dialog');
-      const optionsForm = linkDialog.locator('form[data-owner-form="enlace"]');
-      await expect(optionsForm).toBeVisible();
-      assert.equal(existing.resourceId, item.id);
-      assert.equal(existing.url, item.url);
-      const recoveredRow = page.locator(`[data-link-row="${existing.placementId}"]`);
-      await expect(recoveredRow).toBeVisible();
-      await expect(recoveredRow.locator('[data-link-title]')).toHaveText(item.title);
-      const recoveredTitle = optionsForm.getByLabel('Título', { exact: true });
-      const recoveredUrl = optionsForm.getByLabel('URL', { exact: true });
-      await expect(recoveredTitle).toHaveValue(item.title);
-      await expect(recoveredTitle).toBeDisabled();
-      await expect(recoveredUrl).toHaveValue(item.url);
-      await expect(recoveredUrl).toBeDisabled();
-      const directoryOption = optionsForm.getByRole('checkbox', { name: 'Proponer al directorio', exact: true });
-      await expect(directoryOption).not.toBeChecked();
-      assert.equal(placementOptionWrites(capture, existing.placementId).length, 0,
-        'adopting the recovered shared link does not automatically persist the late directory change');
-      assert.deepEqual(await fixture.rawResource(item.id), beforeResource,
-        'the recovered options editor keeps the shared resource unchanged before manual Save');
-
-      await optionsForm.getByRole('button', { name: /Guardar cambios/i }).click();
-      await expect.poll(() => placementOptionWrites(capture, existing.placementId).length).toBe(1);
-      await expect.poll(() => placementOptionWrites(capture, existing.placementId)[0]?.status).toBe(200);
-      const optionPatch = placementOptionWrites(capture, existing.placementId)[0];
-      assert.deepEqual(optionPatch.body, {
-        profileVersion: afterCheck.profile.version,
-        placementVersion: existing.placementVersion,
-        resourceVersion: existing.resourceVersion,
-        featured: existing.featured,
-        selectedForDirectory: false,
-      }, 'the explicit options PATCH consumes the recovered placement/resource/profile versions and corrected option');
-      for (const field of ['title', 'url', 'description']) {
-        assert.equal(Object.hasOwn(optionPatch.body, field), false,
-          `the options-only write cannot change shared ${field}`);
-      }
-      assert.equal(linkWrites(capture).length, 1, 'continuing the postcommit correction updates options without another reference POST');
-      const final = await fixture.request(cookie, '/api/creador/perfil').then((response) => response.json());
-      const saved = final.links.find(({ resourceId }) => resourceId === item.id);
-      assert.equal(saved.placementId, existing.placementId);
-      assert.equal(saved.url, item.url);
-      assert.equal(saved.selectedForDirectory, false);
-      assert.equal(final.links.filter(({ resourceId }) => resourceId === item.id).length, 1);
-      assert.equal(final.editableResources.some(({ id }) => id === item.id), false);
-      const savedPlacement = await fixture.rawPlacement(cookie, existing.placementId);
-      assert.equal(savedPlacement.resourceId, item.id);
-      assert.equal(savedPlacement.version, existing.placementVersion + 1);
-      assert.equal(savedPlacement.selectedForDirectory, false);
-      assert.deepEqual(await fixture.rawResource(item.id), beforeResource,
-        'neither reference recovery nor the options PATCH edits shared catalog metadata');
-      assert.equal(final.profile.version, afterCheck.profile.version + 1);
-    } else {
-      await expect(catalogRadio(page, item.title)).toBeChecked();
-      await expect(page.getByRole('dialog')).toContainText(item.url);
-      await page.getByRole('button', { name: /Agregar a mi p\u00e1gina/i }).click();
-      await expect.poll(() => linkWrites(capture).length).toBe(2);
-      await expect.poll(() => linkWrites(capture)[1]?.status).toBe(201);
-      assert.deepEqual(linkWrites(capture)[1].body, {
-        resourceId: item.id,
-        url: item.url,
-        profileVersion: afterCheck.profile.version,
-        selectedForDirectory: false,
-      }, 'the explicit retry uses the compared base and preserves the corrected option');
-      const final = await fixture.request(cookie, '/api/creador/perfil').then((response) => response.json());
-      const saved = final.links.find(({ resourceId }) => resourceId === item.id);
-      assert.ok(saved);
-      assert.equal(saved.selectedForDirectory, false);
-      assert.equal(final.links.filter(({ resourceId }) => resourceId === item.id).length, 1);
-      assert.equal(final.editableResources.some(({ id }) => id === item.id), false);
-      assert.deepEqual(await fixture.rawResource(item.id), beforeResource);
-    }
-    await capture.stop();
+  await page.getByRole('button', { name: 'Usar lo guardado', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  const saved = await api(fixture, cookie, '/api/creador/perfil');
+  assert.deepEqual(saved.body.placements[placement[0]], {
+    resourceId: item.id,
+    selectedForDirectory: true,
   });
-}
+  assert.deepEqual(await fixture.rawResource(item.id), beforeResource,
+    'the acknowledged reference and recovery read leave shared metadata unchanged');
+  assert.equal(linkWrites(capture).length, 1, 'the explicit saved-state choice sends no second write');
+  await capture.stop({ skipErrorBodies: true });
+});

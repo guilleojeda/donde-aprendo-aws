@@ -116,6 +116,16 @@ test('the separate photo authorization boundary rejects an obsolete document bef
     method: 'POST', csrf: principal.csrfToken, body: { version: 1 },
   }));
   await assertObsolete(response);
+  const wrongVersion = await harness.handle(apiRequest('/api/creador/foto/autorizar', {
+    method: 'POST', csrf: principal.csrfToken, extraHeaders: { 'x-creator-contract': '1' },
+    body: { creatorVersion: 1 },
+  }));
+  await assertObsolete(wrongVersion);
+  const retiredBody = await harness.handle(apiRequest('/api/creador/foto/autorizar', {
+    method: 'POST', csrf: principal.csrfToken, extraHeaders: { 'x-creator-contract': '2' },
+    body: { version: 1 },
+  }));
+  assert.equal(retiredBody.status, 422, 'a current discriminator does not adapt the retired body version field');
   assert.equal(harness.signs(), 0);
   assert.equal(writes(harness.store), before);
 });
@@ -143,6 +153,16 @@ test('the separate photo finalize boundary rejects obsolete input without select
     method: 'POST', csrf: principal.csrfToken, body: { version: 1, uploadId },
   }));
   await assertObsolete(response);
+  const wrongVersion = await harness.handle(apiRequest('/api/creador/foto/finalizar', {
+    method: 'POST', csrf: principal.csrfToken, extraHeaders: { 'x-creator-contract': '1' },
+    body: { creatorVersion: 1, uploadId },
+  }));
+  await assertObsolete(wrongVersion);
+  const retiredBody = await harness.handle(apiRequest('/api/creador/foto/finalizar', {
+    method: 'POST', csrf: principal.csrfToken, extraHeaders: { 'x-creator-contract': '2' },
+    body: { version: 1, uploadId },
+  }));
+  assert.equal(retiredBody.status, 422, 'a current discriminator does not adapt the retired body version field');
   assert.equal(writes(harness.store), before);
   assert.deepEqual(await harness.store.get(`profile:${profileId}`), profile);
   assert.deepEqual(await harness.store.get(`photo-upload:${uploadId}`), pending);

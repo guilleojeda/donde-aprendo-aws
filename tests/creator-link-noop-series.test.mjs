@@ -6,6 +6,7 @@ async function api(harness, path, body, { method = 'POST' } = {}) {
   return callApi(harness, path, {
     session: 'creator-a',
     csrf: sessionCsrf['creator-a'],
+    creatorContract: '2',
     method,
     ...(body === undefined ? {} : { body }),
   });
@@ -14,75 +15,100 @@ async function api(harness, path, body, { method = 'POST' } = {}) {
 async function owner(harness) {
   const response = await api(harness, '/api/creador/perfil', undefined, { method: 'GET' });
   assert.equal(response.status, 200);
-  return responseJson(response);
+  const snapshot = await responseJson(response);
+  assert.equal(snapshot.schemaVersion, 2);
+  return snapshot;
 }
 
-test('duplicate URL and exact-ID re-add return saved series and options without changing records', async () => {
-  const harness = await createCreatorPagesHarness();
-  assert.equal((await api(harness, '/api/creador/perfil', {
-    displayName: 'Creadora', slug: 'canonical-noop-series',
-  }, { method: 'PUT' })).status, 200);
+async function recordSnapshot(store) {
+  return (await store.list('')).sort((left, right) => left.key.localeCompare(right.key));
+}
 
-  const added = await api(harness, '/api/creador/enlaces', {
-    title: 'Recurso con capítulos', url: 'https://no-op.example/resource',
-  });
-  assert.equal(added.status, 201);
-  const initialLink = (await responseJson(added)).link;
+test('duplicate URL Add and exact-ID reinclude preserve saved options and chapter sequence without writes', async () => {
+  const harness = await createCreatorPagesHarness();
+  const createdProfile = await api(harness, '/api/creador/perfil', {
+    creatorVersion: null,
+    displayName: 'Creadora',
+    slug: 'canonical-noop-series',
+  }, { method: 'PUT' });
+  assert.equal(createdProfile.status, 200);
+  assert.equal((await responseJson(createdProfile)).operation, 'save-profile');
 
   let current = await owner(harness);
-  const configured = await api(harness, `/api/creador/enlaces/${initialLink.placementId}/editar`, {
-    profileVersion: current.profile.version,
-    placementVersion: initialLink.placementVersion,
-    resourceVersion: initialLink.resourceVersion,
+  const added = await api(harness, '/api/creador/enlaces', {
+    creatorVersion: current.creatorVersion,
+    title: 'Recurso con capítulos',
+    url: 'https://no-op.example/resource',
+  });
+  assert.equal(added.status, 201);
+  const addAck = await responseJson(added);
+  assert.equal(addAck.disposition, 'resource-created');
+  const placementId = addAck.placementId;
+  const resourceId = addAck.resourceId;
+
+  current = await owner(harness);
+  const configured = await api(harness, `/api/creador/enlaces/${placementId}`, {
+    creatorVersion: current.creatorVersion,
     featured: true,
     selectedForDirectory: false,
   }, { method: 'PATCH' });
   assert.equal(configured.status, 200);
+  assert.equal((await responseJson(configured)).operation, 'set-link-options');
 
   current = await owner(harness);
   const seriesResponse = await api(harness, '/api/creador/series', {
-    name: 'Serie persistida', slug: 'serie-persistida', profileVersion: current.profile.version,
+    creatorVersion: current.creatorVersion,
+    name: 'Serie persistida',
+    slug: 'serie-persistida',
   });
   assert.equal(seriesResponse.status, 201);
-  const series = (await responseJson(seriesResponse)).series;
+  const seriesAck = await responseJson(seriesResponse);
   current = await owner(harness);
-  const savedLink = current.links.find(({ resourceId }) => resourceId === initialLink.resourceId);
-  const chapter = await api(harness, `/api/creador/series/${series.id}/capitulos/${savedLink.placementId}`, {
-    profileVersion: current.profile.version,
+  const chapter = await api(harness, `/api/creador/series/${seriesAck.seriesId}/capitulos/${placementId}`, {
+    creatorVersion: current.creatorVersion,
   }, { method: 'PUT' });
   assert.equal(chapter.status, 200);
 
   const before = await owner(harness);
-  const expectedLink = before.links.find(({ resourceId }) => resourceId === initialLink.resourceId);
-  assert.deepEqual(expectedLink.series, [{ seriesId: series.id, position: 0 }]);
-  assert.equal(expectedLink.featured, true);
-  assert.equal(expectedLink.selectedForDirectory, false);
-  const recordsBefore = await harness.store.list('');
+  assert.deepEqual(before.placements[placementId], { resourceId, selectedForDirectory: false });
+  assert.deepEqual(before.order, { featured: [placementId], ordinary: [] });
+  assert.deepEqual(before.series[seriesAck.seriesId].chapters, [placementId]);
+  const recordsBefore = await recordSnapshot(harness.store);
   const transactionStart = harness.store.calls.length;
 
   const byUrl = await api(harness, '/api/creador/enlaces', {
-    title: 'Título ignorado por una referencia existente', url: expectedLink.url,
+    creatorVersion: before.creatorVersion,
+    title: 'Título ignorado por una referencia existente',
+    url: 'https://no-op.example/resource',
+    selectedForDirectory: true,
   });
   assert.equal(byUrl.status, 200);
-  const byUrlResult = await responseJson(byUrl);
-  assert.equal(byUrlResult.created, false);
-  assert.deepEqual(byUrlResult.versionChanges, []);
-  assert.deepEqual(byUrlResult.link, expectedLink);
+  const byUrlAck = await responseJson(byUrl);
+  assert.equal(byUrlAck.operation, 'add-link');
+  assert.equal(byUrlAck.disposition, 'already-present');
+  assert.equal(byUrlAck.creatorVersion, before.creatorVersion);
+  assert.equal(byUrlAck.placementId, placementId);
+  assert.equal(byUrlAck.resourceId, resourceId);
 
   const byId = await api(harness, '/api/creador/enlaces', {
-    resourceId: expectedLink.resourceId, resourceVersion: expectedLink.resourceVersion,
+    creatorVersion: before.creatorVersion,
+    resourceId,
+    resourceVersion: before.resources.find(({ id }) => id === resourceId).version,
   });
   assert.equal(byId.status, 200);
-  const byIdResult = await responseJson(byId);
-  assert.equal(byIdResult.created, false);
-  assert.deepEqual(byIdResult.versionChanges, []);
-  assert.deepEqual(byIdResult.link, expectedLink);
+  const byIdAck = await responseJson(byId);
+  assert.equal(byIdAck.operation, 'reinclude-link');
+  assert.equal(byIdAck.disposition, 'already-present');
+  assert.equal(byIdAck.creatorVersion, before.creatorVersion);
+  assert.equal(byIdAck.placementId, placementId);
+  assert.equal(byIdAck.resourceId, resourceId);
 
-  assert.deepEqual(await owner(harness), before, 'both confirmations preserve saved options, chapters and authority');
-  assert.deepEqual(await harness.store.list(''), recordsBefore, 'condition-only confirmations do not write records');
+  assert.deepEqual(await owner(harness), before,
+    'both confirmations retain saved options, complete sequence, chapter membership, and resource authority');
+  assert.deepEqual(await recordSnapshot(harness.store), recordsBefore, 'already-present confirmations write no records');
   const confirmations = harness.store.calls.slice(transactionStart)
     .filter(({ operation }) => operation === 'transact');
   assert.equal(confirmations.length, 2);
   assert.ok(confirmations.every(({ input }) => input.puts.length === 0 && input.deletes.length === 0),
-    'each no-op checks its observations without writing entities');
+    'each no-op checks its observations without writing aggregate or resource entities');
 });

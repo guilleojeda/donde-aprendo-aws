@@ -155,7 +155,8 @@ function seedScenario({ published = true } = {}) {
   seed(TABLES.profiles, {
     pk: `PROFILE#${PROFILE_ID}`,
     sk: 'META',
-    recordType: 'profile',
+    recordType: 'creatorState',
+    schemaVersion: 2,
     id: PROFILE_ID,
     displayName: 'Ana de Lambda',
     slug: 'ana-de-lambda',
@@ -169,19 +170,9 @@ function seedScenario({ published = true } = {}) {
     version: 3,
     createdAt: Date.now() - 5_000,
     updatedAt: Date.now() - 1_000,
-    internalAudit: OWNER_PHYSICAL_SENTINEL,
-  });
-  seed(TABLES.profiles, {
-    pk: `PROFILE#${PROFILE_ID}`,
-    sk: 'PLACEMENT#placement-owner-resource',
-    recordType: 'placement',
-    id: 'placement-owner-resource',
-    profileId: PROFILE_ID,
-    resourceId: RESOURCE_ID,
-    position: 10,
-    featured: false,
-    selectedForDirectory: false,
-    version: 2,
+    placements: { 'placement-owner-resource': { resourceId: RESOURCE_ID, selectedForDirectory: false } },
+    order: { featured: [], ordinary: ['placement-owner-resource'] },
+    series: {},
   });
   seed(TABLES.profiles, {
     pk: 'ADMIN#CLAIMS',
@@ -390,7 +381,8 @@ test('actual owner GET API uses the same private owner query and one fresh authe
   assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
   assert.equal(payload.profile.id, PROFILE_ID);
   assert.equal(payload.profile.displayName, 'Ana de Lambda');
-  assert.deepEqual(payload.links.map(({ resourceId }) => resourceId), [RESOURCE_ID]);
+  assert.deepEqual(payload.resources.map(({ id }) => id), [RESOURCE_ID]);
+  assert.deepEqual(payload.placements, { 'placement-owner-resource': { resourceId: RESOURCE_ID, selectedForDirectory: false } });
   assert.equal(JSON.stringify(payload).includes(OWNER_PHYSICAL_SENTINEL), false);
   assert.equal(JSON.stringify(payload).includes(owner.accountId), false);
   assertOneAuthenticationResolution();

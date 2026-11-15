@@ -1,11 +1,11 @@
 import {
-  creatorOwnerChapterOrder,
   creatorOwnerSeriesHref,
   selectCreatorOwnerChapters,
   selectCreatorOwnerSeries,
   type CreatorOwnerSeriesMembership,
   type CreatorOwnerSeriesQuery,
 } from '../../lib/creator-owner-series';
+import { joinCreatorOwnerPlacements } from '../../lib/creator-owner-data';
 import type { CreatorOwnerState } from '../../lib/creator-owner-state';
 
 interface Props {
@@ -20,31 +20,39 @@ interface Props {
   onAddChapter(placementId: string): void;
   onRemoveChapter(placementId: string): void;
   onMoveChapter(placementId: string): void;
+  onRetryRead(): void;
 }
 
 function pageHref(query: CreatorOwnerSeriesQuery, page: number): string {
   return creatorOwnerSeriesHref({ ...query, paginaSeries: page });
 }
 
-export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearch, onChapterSearch, onChapterMembership, onCreate, onEditSeries, onDeleteSeries, onAddChapter, onRemoveChapter, onMoveChapter }: Props) {
-  const { observed: data, location } = state;
+export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearch, onChapterSearch, onChapterMembership, onCreate, onEditSeries, onDeleteSeries, onAddChapter, onRemoveChapter, onMoveChapter, onRetryRead }: Props) {
+  const { observed: snapshot, location } = state;
+  const links = joinCreatorOwnerPlacements(snapshot);
   const query = location.query;
-  const seriesSelection = selectCreatorOwnerSeries(data.series, query);
-  const selectedSeries = data.series.find(({ id }) => id === query.serie);
-  const chapterSelection = selectedSeries ? selectCreatorOwnerChapters(data, query) : undefined;
+  const seriesSelection = selectCreatorOwnerSeries(snapshot, query);
+  const selectedRecord = query.serie ? snapshot.series[query.serie] : undefined;
+  const selectedSeries = selectedRecord ? { id: query.serie, ...selectedRecord } : undefined;
+  const chapterSelection = selectedSeries ? selectCreatorOwnerChapters(snapshot, query) : undefined;
   const selectedChapterIds = new Set(chapterSelection?.completeOrder.map(({ placementId }) => placementId) ?? []);
   const positions = new Map(chapterSelection?.completeOrder.map((link, index) => [link.placementId, index + 1]) ?? []);
-  const canPublish = Boolean(data.profile?.published && !data.profile.hidden);
-  const visibleChapters = selectedSeries ? creatorOwnerChapterOrder(data.links, selectedSeries.id).filter((link) => !link.hidden) : [];
-  const publicSeriesPath = selectedSeries && data.profile && canPublish && visibleChapters.length
-    ? `/c/${encodeURIComponent(data.profile.slug)}/series/${encodeURIComponent(selectedSeries.slug)}/`
+  const canPublish = Boolean(snapshot.profile?.published && !snapshot.profile.hidden);
+  const visibleChapters = chapterSelection?.completeOrder.filter((link) => !link.hidden) ?? [];
+  const publicSeriesPath = selectedSeries && snapshot.profile && canPublish && visibleChapters.length
+    ? `/c/${encodeURIComponent(snapshot.profile.slug)}/series/${encodeURIComponent(selectedSeries.slug)}/`
     : undefined;
   const seriesCount = `${seriesSelection.totalMatches} ${seriesSelection.totalMatches === 1 ? 'serie' : 'series'}`;
-  const chapterCount = `${chapterSelection?.totalMatches ?? 0} ${(chapterSelection?.totalMatches ?? 0) === 1 ? 'coincidencia' : 'coincidencias'} de ${data.links.length} ${data.links.length === 1 ? 'enlace' : 'enlaces'}`;
+  const chapterCount = `${chapterSelection?.totalMatches ?? 0} ${(chapterSelection?.totalMatches ?? 0) === 1 ? 'coincidencia' : 'coincidencias'} de ${links.length} ${links.length === 1 ? 'enlace' : 'enlaces'}`;
   const seriesPage = seriesSelection.query.paginaSeries;
   const chapterPage = chapterSelection?.query.paginaCapitulos ?? 1;
   const chapterFilterPage = location.pendingChapterSearch !== query.buscarCapitulos || location.pendingMembership !== query.pertenencia
     ? 1 : chapterPage;
+  const chapterReadFailure = state.operation.status === 'refresh-failed' && state.operation.fact === 'acknowledged'
+    && (state.operation.intent?.action === 'add-chapter' || state.operation.intent?.action === 'remove-chapter') ? state.operation : undefined;
+  const chapterReadPending = state.operation.status === 'reading' && state.operation.fact === 'acknowledged'
+    && (state.operation.intent?.action === 'add-chapter' || state.operation.intent?.action === 'remove-chapter') ? state.operation : undefined;
+  const showSeriesMessage = Boolean(state.message) && !chapterReadFailure && !chapterReadPending;
 
   return <section class="creator-owner__series" data-owner-series aria-labelledby="owner-series-title">
     <header class="creator-owner__section-heading">
@@ -69,6 +77,12 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
         {selectedSeries && <button class="button button--outline" type="button" data-series-edit data-series-id={selectedSeries.id} disabled={disabled} onClick={() => onEditSeries(selectedSeries.id)}>Editar serie</button>}
       </header>
       <p><a data-series-public href={publicSeriesPath} hidden={!publicSeriesPath} target="_blank" rel="noopener noreferrer">Abrir serie pública</a></p>
+
+      {chapterReadPending && <p class="creator-owner__status" data-owner-operation-message role="status" aria-live="polite">{chapterReadPending.message}</p>}
+      {chapterReadFailure && <section class="creator-owner__status creator-owner__status--error" data-owner-stale role="alert" aria-live="polite">
+        <p>{chapterReadFailure.message}</p>
+        <button class="button button--outline" type="button" data-owner-refresh-retry onClick={onRetryRead}>Reintentar actualización</button>
+      </section>}
 
       <form class="creator-owner__series-filters creator-owner__series-filters--chapters" method="get" action="/cuenta/" data-series-chapter-filters>
         <input type="hidden" name="vista" value="series" />
@@ -121,7 +135,7 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
         {chapterSelection && chapterPage > 1 && <a class="button button--outline" data-series-chapter-page href={creatorOwnerSeriesHref({ ...query, paginaCapitulos: chapterPage - 1 })}>Anterior</a>}
         {chapterSelection && chapterPage < chapterSelection.pageCount && <a class="button button--outline" data-series-chapter-page href={creatorOwnerSeriesHref({ ...query, paginaCapitulos: chapterPage + 1 })}>Siguiente</a>}
       </nav>
-      {state.message && <p class="creator-owner__status" data-series-write-status role="status" aria-live="polite">{state.message.text}</p>}
+      {showSeriesMessage && state.message && <p class="creator-owner__status" data-series-write-status role="status" aria-live="polite">{state.message.text}</p>}
     </section>
 
     <section class="creator-owner__series-list-view" data-owner-series-list-view hidden={Boolean(state.seriesQueryError) || Boolean(query.serie)}>
@@ -138,9 +152,9 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
       <p class="creator-owner__series-count" data-series-count>{seriesCount}</p>
       <ul class="creator-owner__series-list" data-owner-series-list>
         {seriesSelection.rows.map((series) => {
-          const visibleCount = data.links.filter((link) => !link.hidden && link.series.some(({ seriesId }) => seriesId === series.id)).length;
-          const publicPath = canPublish && visibleCount > 0 && data.profile
-            ? `/c/${encodeURIComponent(data.profile.slug)}/series/${encodeURIComponent(series.slug)}/` : undefined;
+          const visibleCount = links.filter((link) => !link.hidden && link.series.some(({ seriesId }) => seriesId === series.id)).length;
+          const publicPath = canPublish && visibleCount > 0 && snapshot.profile
+            ? `/c/${encodeURIComponent(snapshot.profile.slug)}/series/${encodeURIComponent(series.slug)}/` : undefined;
           return <li class="creator-owner__series-row" id={series.id} data-owner-series-row={series.id} data-series-id={series.id} key={series.id}>
             <div class="creator-owner__series-copy">
               <h3>{series.name}</h3>
@@ -165,7 +179,7 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
         {seriesPage > 1 && <a class="button button--outline" data-series-page href={pageHref(seriesSelection.query, seriesPage - 1)}>Anterior</a>}
         {seriesPage < seriesSelection.pageCount && <a class="button button--outline" data-series-page href={pageHref(seriesSelection.query, seriesPage + 1)}>Siguiente</a>}
       </nav>
-      {state.message && <p class="creator-owner__status" data-series-write-status role="status" aria-live="polite">{state.message.text}</p>}
+      {showSeriesMessage && state.message && <p class="creator-owner__status" data-series-write-status role="status" aria-live="polite">{state.message.text}</p>}
     </section>
   </section>;
 }

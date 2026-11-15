@@ -72,9 +72,7 @@ function assertHistoricalResult(result, uploadId) {
     version: uploadId,
     url: `/media/fotos/creator-a/${uploadId}.webp`,
   });
-  assert.deepEqual(result.versionChanges, [
-    { entity: 'profile', id: 'creator-a', before: 1, after: 2 },
-  ]);
+  assert.equal(result.creatorVersion, 2);
 }
 
 async function assertStoredWinner(harness, upload) {
@@ -119,11 +117,11 @@ function photoHttpHandler(harness) {
   });
 }
 
-function finalizeRequest(upload) {
+function finalizeRequest(upload, creatorVersion = 1) {
   return new Request(`${ORIGIN}/api/creador/foto/finalizar`, {
     method: 'POST',
-    headers: { origin: ORIGIN, 'x-csrf-token': 'csrf', 'content-type': 'application/json' },
-    body: JSON.stringify({ uploadId: upload.uploadId, version: 1 }),
+    headers: { origin: ORIGIN, 'x-csrf-token': 'csrf', 'x-creator-contract': '2', 'content-type': 'application/json' },
+    body: JSON.stringify({ uploadId: upload.uploadId, creatorVersion }),
   });
 }
 
@@ -634,6 +632,7 @@ const malformedRecordCases = [
   ['stored profile identity', (record) => ({ ...record, profileId: 'creator-b' }), 'UPLOAD_NOT_FOUND'],
   ['historical base version', (record) => ({ ...record, expectedVersion: 0 }), 'PROFILE_VERSION_CONFLICT'],
   ['completed state', (record) => ({ ...record, state: 'finished' }), 'UPLOAD_NOT_PENDING'],
+  ['completed upload revision', (record) => ({ ...record, version: 3 }), 'UPLOAD_NOT_PENDING'],
   ['negative record version', (record) => ({ ...record, version: -1 }), 'UPLOAD_NOT_PENDING'],
   ['fractional record version', (record) => ({ ...record, version: 1.5 }), 'UPLOAD_NOT_PENDING'],
   ['unsafe record version', (record) => ({ ...record, version: Number.MAX_SAFE_INTEGER + 1 }), 'UPLOAD_NOT_PENDING'],
@@ -737,9 +736,7 @@ test('historical receipts accept version zero and the largest safe after-version
       harness.objects.seed(upload.post.fields.key, jpeg);
       const input = finalizeInput(upload, 'creator-a', base);
       const result = await harness.service.finalizeUpload(input);
-      assert.deepEqual(result.versionChanges, [
-        { entity: 'profile', id: 'creator-a', before: base, after: base + 1 },
-      ]);
+      assert.equal(result.creatorVersion, base + 1);
       assert.equal((await harness.store.get(profileStoreKey('creator-a'))).version, base + 1);
       const replay = await harness.service.finalizeUpload(input);
       assert.deepEqual(replay, result, 'the stored safe historical receipt remains reusable');
@@ -978,16 +975,53 @@ test('the actual HTTP handler returns a real finalization receipt and retains tr
     const response = await photoHttpHandler(harness)(finalizeRequest(upload));
     assert.equal(response.status, 200);
     const body = await response.json();
-    assert.deepEqual(body.versionChanges, [
-      { entity: 'profile', id: 'creator-a', before: 1, after: 2 },
-    ]);
-    assert.deepEqual(body.photo, {
-      version: upload.uploadId,
-      url: `/media/fotos/creator-a/${upload.uploadId}.webp`,
+    assert.deepEqual(body, {
+      schemaVersion: 2,
+      operation: 'finalize-photo',
+      profileId: 'creator-a',
+      uploadId: upload.uploadId,
+      creatorVersion: 2,
+      photo: {
+        version: upload.uploadId,
+        url: `/media/fotos/creator-a/${upload.uploadId}.webp`,
+      },
+      disposition: 'finalized',
     });
     assert.equal((await harness.store.get(profileStoreKey('creator-a'))).version, 2);
     const photo = await harness.service.readPhoto({ profileId: 'creator-a', version: upload.uploadId });
     assert.ok(photo?.body.length > 0);
+  });
+
+  await t.test('completed exact upload acknowledgement stays historical after a different photo is current', async () => {
+    const harness = await createCreatorPhotoHarness();
+    await seedHttpOwner(harness);
+    const { jpeg, png } = await rasterPhotoFixtures();
+    const original = await startUpload(harness, jpeg);
+    const initial = await photoHttpHandler(harness)(finalizeRequest(original));
+    assert.equal(initial.status, 200);
+
+    const second = await harness.service.beginUpload({ profileId: 'creator-a', expectedVersion: 2 });
+    harness.objects.seed(second.post.fields.key, png);
+    const current = await harness.service.finalizeUpload({ profileId: 'creator-a', uploadId: second.uploadId, expectedVersion: 2 });
+    assert.equal(current.creatorVersion, 3);
+
+    const replay = await photoHttpHandler(harness)(finalizeRequest(original));
+    assert.equal(replay.status, 200);
+    assert.deepEqual(await replay.json(), {
+      schemaVersion: 2,
+      operation: 'finalize-photo',
+      profileId: 'creator-a',
+      uploadId: original.uploadId,
+      creatorVersion: 2,
+      photo: {
+        version: original.uploadId,
+        url: `/media/fotos/creator-a/${original.uploadId}.webp`,
+      },
+      disposition: 'finalized',
+    });
+    const saved = await harness.store.get(profileStoreKey('creator-a'));
+    assert.equal(saved.version, 3);
+    assert.equal(saved.photo.version, second.uploadId, 'historical confirmation does not restore the earlier photo');
   });
 
   for (const failure of ['access denied', 'stream error', 'bounded overflow']) {
@@ -1023,4 +1057,30 @@ test('the actual HTTP handler returns a real finalization receipt and retains tr
       assert.equal(transactionsCompleting(harness, upload.uploadId).length, 0);
     });
   }
+});
+
+test('photo authorization fails closed for malformed aggregate state without signing or creating an upload', async () => {
+  const harness = await createCreatorPhotoHarness();
+  await seedHttpOwner(harness);
+  const current = await harness.store.get(profileStoreKey('creator-a'));
+  assert.equal(await harness.store.transact({
+    checks: [{ key: profileStoreKey('creator-a'), version: current.version }],
+    puts: [{ key: profileStoreKey('creator-a'), value: { ...current, order: null } }],
+  }), true);
+  const handler = photoHttpHandler(harness);
+  const response = await handler(new Request(`${ORIGIN}/api/creador/foto/autorizar`, {
+    method: 'POST',
+    headers: {
+      origin: ORIGIN,
+      'x-csrf-token': 'csrf',
+      'x-creator-contract': '2',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ creatorVersion: 1 }),
+  }));
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: 'INVALID_CREATOR_STATE' });
+  assert.equal(harness.policies.length, 0, 'invalid persisted state cannot produce an upload signature');
+  assert.deepEqual(await harness.store.list('photo-upload:'), []);
 });

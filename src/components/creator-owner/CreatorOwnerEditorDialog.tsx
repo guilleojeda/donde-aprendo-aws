@@ -1,21 +1,36 @@
 import { useLayoutEffect, useRef } from 'preact/hooks';
-import type { CreatorCatalogSelectionDTO, CreatorEditorDTO, CreatorProfileDTO } from '../../types/creators';
-import { normalizeCreatorText } from '../../lib/creator-values.mjs';
-import { creatorOwnerCanSubmitEditor, creatorOwnerLinkOptionsAreDirty, creatorOwnerReferenceSubmissionStatus } from '../../lib/creator-owner-state';
-import type { CreatorOwnerAttempt, CreatorOwnerComparison, CreatorOwnerEditor, CreatorOwnerLinkDraft, CreatorOwnerLinkEditor, CreatorOwnerReferenceCandidate, CreatorOwnerState, CreatorOwnerWriteIntent } from '../../lib/creator-owner-state';
+import type { CreatorCatalogSelectionDTO, CreatorOwnerSnapshotDTO, CreatorProgram, CreatorSocial } from '../../types/creators';
+import {
+  CREATOR_FIELD_LIMITS,
+  CREATOR_PHOTO_FORMATS,
+  CREATOR_PHOTO_MAX_PIXELS,
+  CREATOR_PHOTO_MAX_UPLOAD_BYTES,
+  CREATOR_PHOTO_MIME_TYPES,
+  CREATOR_PROGRAMS,
+  CREATOR_SLUG_MIN_LENGTH,
+  CREATOR_SLUG_PATTERN,
+  CREATOR_SOCIALS,
+} from '../../lib/creator-values.mjs';
+import {
+  creatorOwnerCanSubmitEditor,
+  creatorOwnerReferenceSubmissionStatus,
+  type CreatorOwnerEditorDraft,
+  type CreatorOwnerLinkDraft,
+  type CreatorOwnerRecoveryChoice,
+  type CreatorOwnerReferenceCandidate,
+  type CreatorOwnerState,
+} from '../../lib/creator-owner-state';
+import { creatorOwnerNavigationLists } from '../../lib/creator-owner-presentation';
 import { pageCreatorOwnerCatalog } from '../../lib/creator-owner-catalog';
 
 interface Props {
   state: CreatorOwnerState;
-  onUpdateProfile(value: { displayName?: string; slug?: string; city?: string; country?: string; bio?: string; programs?: CreatorProfileDTO['programs'] }): void;
-  onUpdateSocial(key: 'instagram' | 'x' | 'linkedin' | 'awsBuilder' | 'website', value: string): void;
+  onUpdateProfile(value: { displayName?: string; slug?: string; city?: string; country?: string; bio?: string; programs?: CreatorProgram[] }): void;
+  onUpdateSocial(key: CreatorSocial, value: string): void;
   onUpdateSeries(value: { name?: string; slug?: string; description?: string }, manuallyEditedSlug?: boolean): void;
   onUpdateMove(value: string): void;
-  onSetMoveSuggestion(value?: number): void;
   onUpdateLink(value: Partial<CreatorOwnerLinkDraft>): void;
   onUpdateAddLink(value: Partial<CreatorOwnerLinkDraft>): void;
-  onResumeSharedAdd(): void;
-  onAdoptAddPlacement(comparisonId: string, placementId: string): void;
   onUpdateMoveLink(value: string): void;
   onUpdateReference(value: { selected?: CreatorOwnerReferenceCandidate; selectedForDirectory?: boolean }): void;
   onUpdateClaim(value: { selected?: Array<{ resourceId: string; url: string; title: string }>; knownUrls?: string; evidence?: string }): void;
@@ -25,190 +40,30 @@ interface Props {
   onSetPhoto(file?: File): void;
   onSubmit(): void;
   onRequestClose(): void;
-  onCheck(): void;
-  onAdopt(comparisonId: string): void;
+  onRetryRead(): void;
+  onResolveRecovery(choice: CreatorOwnerRecoveryChoice): void;
+  onSaveRecoveryDraft(): void;
   onExit(action: 'save' | 'discard' | 'continue'): void;
   onCheckSession(): void;
-  onCheckClaim(): void;
 }
 
-const PROGRAMS: CreatorProfileDTO['programs'] = ['User Group Leaders', 'Community Builders', 'Heroes'];
-const SOCIALS = [
-  ['instagram', 'Instagram'],
-  ['x', 'X'],
-  ['linkedin', 'LinkedIn'],
-  ['awsBuilder', 'AWS Builder Center'],
-  ['website', 'Sitio web o newsletter'],
-] as const;
+const PROGRAMS: readonly CreatorProgram[] = CREATOR_PROGRAMS;
+const SOCIAL_LABELS: Record<CreatorSocial, string> = {
+  instagram: 'Instagram',
+  x: 'X',
+  linkedin: 'LinkedIn',
+  awsBuilder: 'AWS Builder Center',
+  website: 'Sitio web o newsletter',
+};
+const SOCIALS = CREATOR_SOCIALS.map((key) => [key, SOCIAL_LABELS[key]] as const);
 
-function attemptForEditor(attempt: CreatorOwnerAttempt, editor: CreatorOwnerEditor | CreatorOwnerLinkEditor): boolean {
-  return 'intent' in attempt && attempt.intent.editorKey === editor.key;
-}
-
-function comparisonRows(
-  editor: CreatorOwnerEditor | CreatorOwnerLinkEditor,
-  data: CreatorEditorDTO,
-  comparison?: CreatorOwnerComparison,
-  intent?: CreatorOwnerWriteIntent,
-): Array<[string, string, string]> {
-  if (editor.kind === 'profile' && data.profile?.id === editor.base.id) {
-    if (editor.section === 'datos') {
-      const saved = data.profile;
-      return [
-        ['Nombre visible', saved.displayName, editor.draft.displayName],
-        ['Dirección', saved.slug, editor.draft.slug],
-        ['Ciudad', saved.city ?? '', editor.draft.city],
-        ['País', saved.country ?? '', editor.draft.country],
-        ['Presentación', saved.bio ?? '', editor.draft.bio],
-        ['Programas', saved.programs.join(', '), editor.draft.programs.join(', ')],
-      ];
-    }
-    return SOCIALS.map(([key, label]) => [label, data.profile?.socials[key] ?? '', editor.draft[key]]);
-  }
-  if (editor.kind === 'series' && data.profile?.id === editor.baseProfile.id) {
-    const saved = editor.baseSeries ? data.series.find(({ id }) => id === editor.baseSeries?.id) : undefined;
-    const recovered = saved ?? (editor.baseSeries === null && comparison?.seriesId ? data.series.find(({ id }) => id === comparison.seriesId) : undefined);
-    return [
-      ['Nombre', recovered?.name ?? 'No se encontró la serie', editor.draft.name],
-      ['Dirección', recovered?.slug ?? '—', editor.draft.slug],
-      ['Descripción', recovered?.description ?? '', editor.draft.description],
-    ];
-  }
-  if (editor.kind === 'move-chapter') {
-    const order = data.links.filter((link) => link.series.some(({ seriesId }) => seriesId === editor.seriesId))
-      .sort((left, right) => (left.series.find(({ seriesId }) => seriesId === editor.seriesId)?.position ?? 0)
-        - (right.series.find(({ seriesId }) => seriesId === editor.seriesId)?.position ?? 0));
-    const savedPosition = order.findIndex(({ placementId }) => placementId === editor.placementId) + 1;
-    const name = data.series.find(({ id }) => id === editor.seriesId)?.name ?? 'esta serie';
-    return [['Posición guardada', savedPosition > 0 ? `${savedPosition} de ${order.length}` : 'El capítulo ya no está en la serie', `${editor.targetPosition} en ${name}`]];
-  }
-  if (editor.kind === 'link-placement') {
-    const recovery = comparison?.missingTarget;
-    const submittedLink = intent?.capture.kind === 'link-placement' ? intent.capture.baseLink : editor.baseLink;
-    if (recovery?.kind === 'retained-resource') {
-      const saved = data.editableResources.find(({ id }) => id === submittedLink.resourceId);
-      return [
-        ['Título', saved?.title ?? 'Ficha propia ya no disponible', editor.draft.title],
-        ['URL', saved?.url ?? '—', editor.draft.url],
-        ['Descripción', saved?.description ?? '', editor.draft.description],
-        ['Enlace en tu página', 'Ya no está en tu página', 'No se vuelve a agregar al guardar la ficha'],
-      ];
-    }
-    if (recovery?.kind === 'reference' || recovery?.kind === 'options-only') {
-      return [
-        ['Referencia exacta', `${submittedLink.title} · ${submittedLink.url}`, `${editor.draft.title} · ${editor.draft.url}`],
-        ['Descripción', submittedLink.description ?? '', editor.draft.description],
-        ['Propuesta al directorio', submittedLink.selectedForDirectory ? 'Sí' : 'No', editor.draft.selectedForDirectory ? 'Sí' : 'No'],
-        ['Enlace en tu página', 'Ya no está en tu página', 'La siguiente referencia requiere una elección manual'],
-      ];
-    }
-    if (recovery?.kind === 'replacement') {
-      const saved = data.links.find(({ placementId }) => placementId === recovery.targetPlacementId);
-      if (saved) return [
-        ['Enlace actual', `${saved.title} · ${saved.url}`, `${editor.draft.title} · ${editor.draft.url}`],
-        ['Descripción', saved.description ?? '', editor.draft.description],
-        ['Destacado', saved.featured ? 'Sí' : 'No', editor.draft.featured ? 'Sí' : 'No'],
-        ['Propuesta al directorio', saved.selectedForDirectory ? 'Sí' : 'No', editor.draft.selectedForDirectory ? 'Sí' : 'No'],
-      ];
-    }
-    if (recovery?.kind === 'ambiguous-replacement') {
-      const matches = data.links.filter(({ resourceId }) => resourceId === submittedLink.resourceId);
-      return [
-        ['Enlaces actuales', matches.map(({ title, url }) => `${title} · ${url}`).join(' | '), 'No se eligió un enlace automáticamente'],
-        ['Corrección local', `${editor.draft.title} · ${editor.draft.url}`, editor.draft.description],
-      ];
-    }
-    if (recovery?.kind === 'pending-add') {
-      const pending = intent?.capture.kind === 'link-placement' ? intent.capture.pendingAddDraft : editor.pendingAddDraft;
-      return [['Enlace en tu página', 'Ya no está en tu página', 'No se volverá a agregar'],
-        ['Borrador del alta', pending?.url ?? 'Sin borrador', pending?.url ?? 'Sin borrador']];
-    }
-    const saved = data.links.find(({ placementId }) => placementId === editor.baseLink.placementId);
-    if (!saved) return [['Enlace', 'Ya no está en tu página', editor.draft.title]];
-    return [
-      ['Título', saved.title, editor.editable ? editor.draft.title : 'Ficha compartida'],
-      ['URL', saved.url, editor.editable ? editor.draft.url : 'Ficha compartida'],
-      ['Descripción', saved.description ?? '', editor.editable ? editor.draft.description : 'Ficha compartida'],
-      ['Destacado', saved.featured ? 'Sí' : 'No', editor.draft.featured ? 'Sí' : 'No'],
-      ['Propuesta al directorio', saved.selectedForDirectory ? 'Sí' : 'No', editor.draft.selectedForDirectory ? 'Sí' : 'No'],
-    ];
-  }
-  if (editor.kind === 'link-resource') {
-    const saved = data.editableResources.find(({ id }) => id === editor.baseResource.id);
-    return [['Título', saved?.title ?? 'Ficha ya no disponible', editor.draft.title], ['URL', saved?.url ?? '—', editor.draft.url], ['Descripción', saved?.description ?? '', editor.draft.description]];
-  }
-  if (editor.kind === 'move-link') {
-    const saved = data.links.find(({ placementId }) => placementId === editor.baseLink.placementId);
-    const group = saved ? data.links.filter(({ featured }) => featured === saved.featured).sort((left, right) => left.position - right.position || left.placementId.localeCompare(right.placementId)) : [];
-    const position = group.findIndex(({ placementId }) => placementId === editor.baseLink.placementId) + 1;
-    return [['Posición guardada', position > 0 ? `${position} de ${group.length}` : 'El enlace ya no está en la página', editor.targetPosition]];
-  }
-  if (editor.kind === 'add-link') {
-    const originalUrl = intent?.kind === 'add-link' && intent.capture.kind === 'add-link'
-      ? normalizeCreatorText(intent.capture.draft.url) : normalizeCreatorText(editor.draft.url);
-    return [['URL del intento', originalUrl, editor.draft.url]];
-  }
-  if (editor.kind === 'reference') {
-    const profileRows: Array<[string, string, string]> = data.profile?.id === editor.baseProfile.id
-      ? [['Nombre visible', data.profile.displayName, editor.baseProfile.displayName], ['Dirección', data.profile.slug, editor.baseProfile.slug]]
-      : [];
-    const submitted = intent?.kind === 'reference' && intent.capture.kind === 'reference' ? intent.capture.selected : undefined;
-    const recovered = comparison?.recoveredLinkId
-      ? data.links.find(({ placementId }) => placementId === comparison.recoveredLinkId) : undefined;
-    const original = submitted && recovered?.resourceId === submitted.id && recovered.url === submitted.url ? recovered : undefined;
-    const originalResult = original ? `Encontrada: ${original.title} · ${original.url}`
-      : submitted ? `No encontrada: ${submitted.title} · ${submitted.url}` : 'No se encontró la referencia original.';
-    const currentSelection = editor.selected ? `${editor.selected.title} · ${editor.selected.url}` : 'Sin selección';
-    const currentPlacement = editor.selected ? data.links.find(({ resourceId, url }) => resourceId === editor.selected?.id && url === editor.selected?.url) : undefined;
-    const currentIsSubmittedPair = Boolean(submitted && editor.selected
-      && submitted.id === editor.selected.id && submitted.url === editor.selected.url);
-    const currentPlacementState = currentPlacement
-      ? currentIsSubmittedPair ? 'La página guarda el par enviado con A.' : 'Ya estaba en tu página.'
-      : 'No aparece en la página guardada.';
-    const savedDirectoryOption = currentPlacement
-      ? currentPlacement.selectedForDirectory ? 'Sí' : 'No'
-      : 'Sin colocación guardada para esta selección.';
-    return [
-      ...profileRows,
-      ['Referencia enviada', originalResult, 'El resultado corresponde a la selección original.'],
-      ['Selección actual', currentPlacementState, currentSelection],
-      ['Propuesta al directorio', savedDirectoryOption, editor.selectedForDirectory ? 'Sí' : 'No'],
-    ];
-  }
-  return [];
-}
-
-function checkLabel(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor): string {
-  if (editor.kind === 'photo') return 'Comprobar qué foto quedó activa';
-  if (editor.kind === 'claim') return 'Comprobar solicitudes';
-  if (editor.kind === 'add-link') return 'Comprobar si se agregó la URL original';
-  return 'Comprobar';
-}
-
-function recoveryActionLabel(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor, status: CreatorOwnerAttempt['status']): string {
-  if (editor.kind === 'claim') return 'Comprobar solicitudes';
-  return status === 'conflict' && editor.kind !== 'photo' ? 'Comparar con lo guardado' : checkLabel(editor);
-}
-
-function adoptLabel(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor): string {
-  if (editor.kind === 'profile') return editor.section === 'redes' ? 'Usar las redes guardadas' : 'Usar los datos guardados';
-  if (editor.kind === 'series') return editor.baseSeries ? 'Conservar mi corrección' : 'Continuar con el contenido guardado';
-  if (editor.kind === 'move-chapter') return 'Conservar este destino';
-  if (editor.kind === 'link-placement' || editor.kind === 'link-resource') return 'Usar los datos guardados';
-  if (editor.kind === 'move-link') return 'Conservar este destino';
-  if (editor.kind === 'add-link') return 'Usar la página guardada y conservar el alta';
-  if (editor.kind === 'reference') return 'Usar la página guardada';
-  return 'Usar los datos guardados';
-}
-
-function savedValue(value: string): string { return value || '—'; }
-
-function ComparisonRows({ rows }: { rows: Array<[string, string, string]> }) {
-  return <dl>{rows.map(([label, saved, local]) => <div key={label}><dt>{label}</dt><dd>{comparisonSavedLabel(label)}: {savedValue(saved)} | Tu corrección: {savedValue(local)}</dd></div>)}</dl>;
+function inputLabel(value: string): string {
+  return value || '—';
 }
 
 function comparisonSavedLabel(label: string): string {
   switch (label) {
+    case 'Posición guardada': return label;
     case 'Nombre visible': return 'Nombre visible guardado';
     case 'Nombre': return 'Nombre guardado';
     case 'Dirección': return 'Dirección guardada';
@@ -217,90 +72,177 @@ function comparisonSavedLabel(label: string): string {
     case 'Presentación': return 'Presentación guardada';
     case 'Programas': return 'Programas guardados';
     case 'Descripción': return 'Descripción guardada';
-    case 'Posición guardada': return 'Posición guardada';
-    case 'URL del intento': return 'URL enviada';
-    case 'Referencia enviada': return 'Resultado de A';
-    case 'Referencia exacta': return 'Referencia retirada';
-    case 'Enlace actual': return 'Enlace actual del recurso';
-    case 'Enlaces actuales': return 'Enlaces actuales del recurso';
-    case 'Enlace en tu página': return 'Estado del enlace';
-    case 'Corrección local': return 'Corrección conservada';
-    case 'Borrador del alta': return 'Borrador del alta';
-    case 'Selección actual': return 'Estado en la página guardada';
-    case 'Propuesta al directorio': return 'Opción guardada de la selección actual';
-    default: return `Valor guardado (${label})`;
+    case 'URL enviada': return 'URL enviada';
+    default: return `${label} guardado`;
   }
 }
 
-export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpdateSocial, onUpdateSeries, onUpdateMove, onSetMoveSuggestion, onUpdateLink, onUpdateAddLink, onResumeSharedAdd, onAdoptAddPlacement, onUpdateMoveLink, onUpdateReference, onUpdateClaim, onCatalogSearch, onCatalogPage, onCatalogRetry, onSetPhoto, onSubmit, onRequestClose, onCheck, onAdopt, onExit, onCheckSession, onCheckClaim }: Props) {
+function comparisonRows(editor: CreatorOwnerEditorDraft, snapshot: CreatorOwnerSnapshotDTO): Array<[string, string, string]> {
+  if (editor.kind === 'profile' && editor.section === 'datos') {
+    const saved = snapshot.profile;
+    return [
+      ['Nombre visible', saved?.displayName ?? 'No hay página guardada', editor.draft.displayName],
+      ['Dirección', saved?.slug ?? '—', editor.draft.slug],
+      ['Ciudad', saved?.city ?? '', editor.draft.city],
+      ['País', saved?.country ?? '', editor.draft.country],
+      ['Presentación', saved?.bio ?? '', editor.draft.bio],
+      ['Programas', saved?.programs.join(', ') ?? '', editor.draft.programs.join(', ')],
+    ];
+  }
+  if (editor.kind === 'profile' && editor.section === 'redes') {
+    return SOCIALS.map(([key, label]) => [label, snapshot.profile?.socials[key] ?? '', editor.draft[key]]);
+  }
+  if (editor.kind === 'series') {
+    const saved = editor.seriesId ? snapshot.series[editor.seriesId] : undefined;
+    return [
+      ['Nombre', saved?.name ?? 'No se encontró la serie', editor.draft.name],
+      ['Dirección', saved?.slug ?? '—', editor.draft.slug],
+      ['Descripción', saved?.description ?? '', editor.draft.description],
+    ];
+  }
+  if (editor.kind === 'move-chapter') {
+    const order = snapshot.series[editor.seriesId]?.chapters ?? [];
+    const savedPosition = order.indexOf(editor.placementId) + 1;
+    const seriesName = snapshot.series[editor.seriesId]?.name ?? 'esta serie';
+    return [['Posición guardada', savedPosition > 0 ? `${savedPosition} de ${order.length}` : 'El capítulo ya no está en la serie', `${editor.targetPosition} en ${seriesName}`]];
+  }
+  if (editor.kind === 'link-placement') {
+    const placement = snapshot.placements[editor.placementId];
+    const resource = placement ? snapshot.resources.find(({ id }) => id === placement.resourceId) : undefined;
+    if (!placement || !resource) {
+      return [
+        ['Enlace', 'Ya no está en tu página', editor.draft.title],
+        ['URL', '—', editor.draft.url],
+        ['Descripción', '—', editor.draft.description],
+      ];
+    }
+    return [
+      ['Título', resource.title, editor.editable ? editor.draft.title : 'Ficha compartida'],
+      ['URL', resource.url, editor.editable ? editor.draft.url : 'Ficha compartida'],
+      ['Descripción', resource.description ?? '', editor.editable ? editor.draft.description : 'Ficha compartida'],
+      ['Destacado', snapshot.order.featured.includes(editor.placementId) ? 'Sí' : 'No', editor.draft.featured ? 'Sí' : 'No'],
+      ['Propuesta al directorio', placement.selectedForDirectory ? 'Sí' : 'No', editor.draft.selectedForDirectory ? 'Sí' : 'No'],
+    ];
+  }
+  if (editor.kind === 'link-resource') {
+    const saved = snapshot.resources.find(({ id }) => id === editor.resourceId);
+    return [
+      ['Título', saved?.title ?? 'Ficha ya no disponible', editor.draft.title],
+      ['URL', saved?.url ?? '—', editor.draft.url],
+      ['Descripción', saved?.description ?? '', editor.draft.description],
+    ];
+  }
+  if (editor.kind === 'move-link') {
+    const display = creatorOwnerNavigationLists(snapshot);
+    const groupIds = snapshot.order.featured.includes(editor.placementId) ? snapshot.order.featured : snapshot.order.ordinary;
+    const savedPosition = groupIds.indexOf(editor.placementId) + 1;
+    const saved = display.links.find(({ placementId }) => placementId === editor.placementId);
+    return [['Posición guardada', savedPosition > 0 ? `${savedPosition} de ${groupIds.length}` : 'El enlace ya no está en la página', editor.targetPosition],
+      ...(saved ? [['Enlace', saved.title, saved.title] as [string, string, string]] : [])];
+  }
+  if (editor.kind === 'add-link') return [['URL enviada', editor.draft.url, editor.draft.url]];
+  if (editor.kind === 'reference') {
+    const selected = editor.selected;
+    return [['Referencia seleccionada', selected ? `${selected.title} · ${selected.url}` : 'Sin selección',
+      selected ? `${selected.title} · ${selected.url}` : 'Sin selección']];
+  }
+  if (editor.kind === 'claim') {
+    return [['Contenido seleccionado', editor.selected.map(({ title, url }) => `${title} · ${url}`).join(' | ') || 'Sin selección',
+      editor.selected.map(({ title, url }) => `${title} · ${url}`).join(' | ') || 'Sin selección'],
+    ['URLs conocidas', 'No se pueden usar para identificar esta solicitud', editor.knownUrls],
+    ['Contexto privado', 'No se puede confirmar por similitud', editor.evidence]];
+  }
+  if (editor.kind === 'photo') {
+    const photo = snapshot.profile?.photo;
+    return [['Foto guardada', photo ? `Versión ${photo.version}` : 'Sin foto guardada', editor.file?.name ?? 'Sin archivo seleccionado']];
+  }
+  return [];
+}
+
+function ComparisonRows({ rows }: { rows: Array<[string, string, string]> }) {
+  return <dl>{rows.map(([label, saved, local]) => <div key={label}>
+    <dt>{label}</dt><dd>{comparisonSavedLabel(label)}: {inputLabel(saved)} | Tu borrador: {inputLabel(local)}</dd>
+  </div>)}</dl>;
+}
+
+function operationMatchesEditor(state: CreatorOwnerState, editor: CreatorOwnerEditorDraft): boolean {
+  const operation = state.operation;
+  return operation.status !== 'idle' && 'intent' in operation && operation.intent?.editorKey === editor.key;
+}
+
+export default function CreatorOwnerEditorDialog({
+  state, onUpdateProfile, onUpdateSocial, onUpdateSeries, onUpdateMove, onUpdateLink, onUpdateAddLink,
+  onUpdateMoveLink, onUpdateReference, onUpdateClaim, onCatalogSearch, onCatalogPage, onCatalogRetry,
+  onSetPhoto, onSubmit, onRequestClose, onRetryRead, onResolveRecovery, onSaveRecoveryDraft, onExit, onCheckSession,
+}: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const editor = state.editor;
-  const editorIsDialog = editor && editor.kind !== 'create-profile';
+  const editorIsDialog = Boolean(editor && editor.kind !== 'create-profile');
   const prompt = state.location.prompt === 'exit';
-  const shouldOpenDialog = Boolean(editorIsDialog || prompt);
-  const attemptMatches = editor ? attemptForEditor(state.attempt, editor) : false;
-  const checking = attemptMatches && state.attempt.status === 'checking';
-  const canResubmitClaimWhileChecking = editor?.kind === 'claim' && state.attempt.status === 'checking'
-    && state.attempt.intent.kind === 'claim' && state.attempt.intent.editorKey === editor.key;
-  const canWrite = state.runtimeReady && state.session.state === 'ready'
-    && (state.attempt.status === 'idle' || state.attempt.status === 'confirmed' || canResubmitClaimWhileChecking);
-  const canSubmit = canWrite && creatorOwnerCanSubmitEditor(state);
-  const dialogTitle = !editor ? 'Tu página' : editor.kind === 'create-profile' ? 'Prepara tu página' : editor.kind === 'profile' ? editor.section === 'datos' ? 'Editar datos' : 'Editar redes'
-    : editor.kind === 'photo' ? 'Editar foto'
-      : editor.kind === 'series' ? editor.baseSeries ? 'Editar serie' : 'Crear serie'
-        : editor.kind === 'move-chapter' ? 'Mover capítulo'
-          : editor.kind === 'link-placement' ? editor.editable ? 'Editar ficha' : 'Editar opciones'
-            : editor.kind === 'link-resource' ? 'Editar contenido retirado'
-              : editor.kind === 'add-link' ? 'Agregar enlace'
-                : editor.kind === 'move-link' ? 'Mover enlace'
-                  : editor.kind === 'reference' ? 'Buscar en el catálogo' : 'Solicitar edición';
+  const shouldOpenDialog = editorIsDialog || prompt;
+  const operation = state.operation;
+  const locked = operation.status !== 'idle';
+  const matches = Boolean(editor && operationMatchesEditor(state, editor));
+  const canSubmit = creatorOwnerCanSubmitEditor(state);
+  const canSubmitAfterConflict = editor && operation.status === 'conflict' && !operation.intent.targetMissing
+    && !(state.catalog.needsRefresh && operation.intent.action === 'create-claim')
+    ? creatorOwnerCanSubmitEditor({ ...state, operation: { status: 'idle' } })
+    : false;
+  const rows = editor && matches ? comparisonRows(editor, state.observed) : [];
+  const title = !editor ? 'Tu página'
+    : editor.kind === 'create-profile' ? 'Prepara tu página'
+      : editor.kind === 'profile' ? editor.section === 'datos' ? 'Editar datos' : 'Editar redes'
+        : editor.kind === 'photo' ? 'Editar foto'
+          : editor.kind === 'series' ? editor.seriesId ? 'Editar serie' : 'Crear serie'
+            : editor.kind === 'move-chapter' ? 'Mover capítulo'
+              : editor.kind === 'link-placement' ? editor.editable ? 'Editar ficha' : 'Editar opciones'
+                : editor.kind === 'link-resource' ? 'Editar contenido retirado'
+                  : editor.kind === 'add-link' ? 'Agregar enlace'
+                    : editor.kind === 'move-link' ? 'Mover enlace'
+                      : editor.kind === 'reference' ? 'Buscar en el catálogo' : 'Solicitar edición';
+  const comparisonReady = operation.status === 'unknown' || operation.status === 'conflict'
+    ? operation.readCompleted === true : false;
+  const comparison = editor && rows.length > 0 && comparisonReady
+    ? rows : undefined;
 
   useLayoutEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (shouldOpenDialog) {
       if (!dialog.open) dialog.showModal();
-      if (prompt) dialog.querySelector<HTMLElement>('[data-owner-exit-save]:enabled, [data-owner-exit-continue]')?.focus({ preventScroll: true });
+      if (prompt) {
+        const selector = !editor && operation.status === 'idle' ? '[data-owner-exit-discard]'
+          : '[data-owner-exit-save]:enabled, [data-owner-exit-continue]';
+        dialog.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+      }
       else if (editorIsDialog) {
         const selector = editor?.kind === 'photo' ? 'input[type="file"]'
-          : editor?.kind === 'link-placement' && !editor.editable ? '#owner-link-directory-option' : 'input:not([type="hidden"]), textarea';
+          : editor?.kind === 'link-placement' && !editor.editable ? '#owner-link-directory-option'
+            : 'input:not([type="hidden"]), textarea';
         dialog.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
       }
     } else if (dialog.open) dialog.close();
-  }, [shouldOpenDialog, editorIsDialog ? editor?.key : undefined, prompt]);
+  }, [shouldOpenDialog, editorIsDialog ? editor?.key : undefined, prompt, prompt && !editor && operation.status === 'idle']);
 
-  const activeComparison = attemptMatches && state.attempt.status === 'uncertain' ? state.attempt.comparison : undefined;
-  const rows = editor && activeComparison && 'intent' in state.attempt
-    ? comparisonRows(editor, activeComparison.snapshot, activeComparison, state.attempt.intent) : [];
-  const canAdopt = Boolean(activeComparison?.canAdopt && editor?.kind !== 'photo');
-  const attemptMessage = attemptMatches && 'message' in state.attempt ? state.attempt.message : undefined;
-  const statusText = activeComparison?.missingTarget ? '' : attemptMessage ?? state.message?.text ?? '';
-  const promptListAttempt = !editor && 'intent' in state.attempt && state.attempt.intent.capture.kind === 'list-command';
-  const promptRecoveryMatches = promptListAttempt || Boolean(editor && attemptMatches);
-  const promptRecovery = promptRecoveryMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || state.attempt.status === 'checking');
-  const addDraftTextDiffers = editor?.kind === 'link-placement' && editor.pendingAddDraft
-    && (editor.pendingAddDraft.title !== editor.baseLink.title || editor.pendingAddDraft.url !== editor.baseLink.url
-      || editor.pendingAddDraft.description !== (editor.baseLink.description ?? ''));
-  const returningFromSavedCardDiscardsOptions = editor?.kind === 'link-placement' && editor.pendingAddDraft
-    && creatorOwnerLinkOptionsAreDirty(editor);
-  const returningFromSavedCardDiscardsMetadata = editor?.kind === 'link-placement' && editor.pendingAddDraft && editor.editable
-    && (editor.draft.title !== editor.baseLink.title || editor.draft.url !== editor.baseLink.url
-      || editor.draft.description !== (editor.baseLink.description ?? ''));
-  const returnToAddLabel = returningFromSavedCardDiscardsOptions && returningFromSavedCardDiscardsMetadata
-    ? 'Volver al borrador sin guardar los cambios'
-    : returningFromSavedCardDiscardsOptions ? 'Volver al borrador sin guardar las opciones'
-      : returningFromSavedCardDiscardsMetadata ? 'Volver al borrador sin guardar la ficha'
-        : 'Volver al borrador del alta';
-  const referenceSubmissionStatus = editor?.kind === 'reference'
-    ? creatorOwnerReferenceSubmissionStatus(state, editor.selected) : 'ready';
-  const moveContext = editor?.kind === 'move-chapter'
-    ? `En «${editor.baseSeries.name}», «${state.observed.links.find(({ placementId }) => placementId === editor.placementId)?.title ?? 'Capítulo'}» ocupa la posición actual ${editor.baseOrder.indexOf(editor.placementId) + 1} de ${editor.baseOrder.length}.` : '';
+  const editorSubmit = (event: SubmitEvent) => { event.preventDefault(); if (event.currentTarget instanceof HTMLFormElement && event.currentTarget.reportValidity()) onSubmit(); };
+  const feedback = operation.status !== 'idle' && matches
+    ? 'message' in operation ? operation.message : 'Guardando la acción iniciada. Espera a que termine antes de salir.'
+    : state.message?.text ?? '';
+  const referenceStatus = editor?.kind === 'reference' ? creatorOwnerReferenceSubmissionStatus(state, editor.selected) : 'ready';
+  const moveChapterSequence = editor?.kind === 'move-chapter' ? state.observed.series[editor.seriesId]?.chapters ?? [] : [];
+  const moveChapterContext = editor?.kind === 'move-chapter'
+    ? (() => {
+      const placement = state.observed.placements[editor.placementId];
+      const resource = placement && state.observed.resources.find(({ id }) => id === placement.resourceId);
+      return `En «${state.observed.series[editor.seriesId]?.name ?? 'esta serie'}», «${resource?.title ?? 'Capítulo'}» ocupa la posición actual ${moveChapterSequence.indexOf(editor.placementId) + 1} de ${moveChapterSequence.length}.`;
+    })()
+    : '';
 
-  return <dialog class="creator-owner__dialog" data-owner-dialog ref={dialogRef} aria-labelledby="creator-owner-dialog-title"
-    onCancel={(event) => { event.preventDefault(); onRequestClose(); }}>
+  return <dialog class="creator-owner__dialog" data-owner-dialog data-owner-operation={operation.status} ref={dialogRef}
+    aria-labelledby="creator-owner-dialog-title" onCancel={(event) => { event.preventDefault(); onRequestClose(); }}>
     <div class="creator-owner__dialog-panel">
       <header class="creator-owner__dialog-heading">
-        <div><p class="creator-owner__eyebrow">Tu página</p><h2 id="creator-owner-dialog-title" data-owner-dialog-title>{dialogTitle}</h2></div>
+        <div><p class="creator-owner__eyebrow">Tu página</p><h2 id="creator-owner-dialog-title" data-owner-dialog-title>{title}</h2></div>
         <button class="creator-owner__close" type="button" data-owner-close aria-label="Cerrar edición" onClick={onRequestClose}>×</button>
       </header>
 
@@ -312,268 +254,231 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         </>}
       </section>}
 
-      {editorIsDialog && editor.kind === 'profile' && editor.section === 'datos' && <form class="creator-owner__form" hidden={prompt} data-owner-form="datos" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
-        <div class="creator-owner__field"><label htmlFor="owner-display-name">Nombre visible</label><input id="owner-display-name" name="displayName" value={editor.draft.displayName} autoComplete="name" maxLength={120} required
+      {editorIsDialog && editor?.kind === 'profile' && editor.section === 'datos' && <form class="creator-owner__form" hidden={prompt} data-owner-form="datos" onSubmit={editorSubmit}>
+        <div class="creator-owner__field"><label htmlFor="owner-display-name">Nombre visible</label><input id="owner-display-name" name="displayName" value={editor.draft.displayName} autoComplete="name" maxLength={CREATOR_FIELD_LIMITS.displayName} required readOnly={locked}
           onInput={(event) => onUpdateProfile({ displayName: (event.currentTarget as HTMLInputElement).value })} /></div>
         <div class="creator-owner__field"><label htmlFor="owner-slug">Dirección de tu página</label>
-          <div class="creator-owner__slug-field"><span aria-hidden="true">/c/</span><input id="owner-slug" name="slug" value={editor.draft.slug} required minLength={3} maxLength={40}
-            pattern="[a-z0-9]+(-[a-z0-9]+)*" autoComplete="off" autoCapitalize="none" spellcheck={false}
+          <div class="creator-owner__slug-field"><span aria-hidden="true">/c/</span><input id="owner-slug" name="slug" value={editor.draft.slug} required minLength={CREATOR_SLUG_MIN_LENGTH} maxLength={CREATOR_FIELD_LIMITS.slug}
+            pattern={CREATOR_SLUG_PATTERN} autoComplete="off" autoCapitalize="none" spellcheck={false} readOnly={locked}
             onInput={(event) => onUpdateProfile({ slug: (event.currentTarget as HTMLInputElement).value })} /></div>
           <small>3–40 caracteres: minúsculas, números y guiones sencillos. Cambiarla conserva la dirección anterior como alias.</small>
         </div>
-        <div class="creator-owner__field"><label htmlFor="owner-city">Ciudad <span>(opcional)</span></label><input id="owner-city" name="city" value={editor.draft.city} autoComplete="address-level2" maxLength={100} onInput={(event) => onUpdateProfile({ city: (event.currentTarget as HTMLInputElement).value })} /></div>
-        <div class="creator-owner__field"><label htmlFor="owner-country">País <span>(opcional)</span></label><input id="owner-country" name="country" value={editor.draft.country} autoComplete="country-name" maxLength={100} onInput={(event) => onUpdateProfile({ country: (event.currentTarget as HTMLInputElement).value })} /></div>
-        <fieldset class="creator-owner__field creator-owner__programs"><legend>Programas de AWS <span>(opcional)</span></legend>
+        <div class="creator-owner__field"><label htmlFor="owner-city">Ciudad <span>(opcional)</span></label><input id="owner-city" name="city" value={editor.draft.city} autoComplete="address-level2" maxLength={CREATOR_FIELD_LIMITS.city} readOnly={locked} onInput={(event) => onUpdateProfile({ city: (event.currentTarget as HTMLInputElement).value })} /></div>
+        <div class="creator-owner__field"><label htmlFor="owner-country">País <span>(opcional)</span></label><input id="owner-country" name="country" value={editor.draft.country} autoComplete="country-name" maxLength={CREATOR_FIELD_LIMITS.country} readOnly={locked} onInput={(event) => onUpdateProfile({ country: (event.currentTarget as HTMLInputElement).value })} /></div>
+        <fieldset class="creator-owner__field creator-owner__programs" disabled={locked}><legend>Programas de AWS <span>(opcional)</span></legend>
           {PROGRAMS.map((program) => <label htmlFor={`owner-program-${program.toLowerCase().replaceAll(' ', '-')}`} key={program}>
             <input id={`owner-program-${program.toLowerCase().replaceAll(' ', '-')}`} type="checkbox" name="programs" value={program} checked={editor.draft.programs.includes(program)}
               onChange={(event) => onUpdateProfile({ programs: event.currentTarget.checked ? [...editor.draft.programs, program] : editor.draft.programs.filter((item) => item !== program) })} /><span>{program}</span>
           </label>)}
         </fieldset>
-        <div class="creator-owner__field"><label htmlFor="owner-bio">Sobre ti <span>(opcional)</span></label><textarea id="owner-bio" name="bio" rows={5} maxLength={2000} value={editor.draft.bio}
-          onInput={(event) => onUpdateProfile({ bio: (event.currentTarget as HTMLTextAreaElement).value })} /><small>Hasta 2000 caracteres.</small></div>
-        <input name="version" type="hidden" value={editor.base.version} />
-        <p class="creator-owner__status" data-owner-form-status="datos" role="status" aria-live="polite">{statusText}</p>
+        <div class="creator-owner__field"><label htmlFor="owner-bio">Sobre ti <span>(opcional)</span></label><textarea id="owner-bio" name="bio" rows={5} maxLength={CREATOR_FIELD_LIMITS.bio} value={editor.draft.bio} readOnly={locked}
+          onInput={(event) => onUpdateProfile({ bio: (event.currentTarget as HTMLTextAreaElement).value })} /><small>Hasta {CREATOR_FIELD_LIMITS.bio} caracteres.</small></div>
+        <p class="creator-owner__status" data-owner-form-status="datos" role="status" aria-live="polite">{feedback}</p>
+        {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar datos</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
-        {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
       </form>}
 
-      {editorIsDialog && editor.kind === 'profile' && editor.section === 'redes' && <form class="creator-owner__form" hidden={prompt} data-owner-form="redes" onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
+      {editorIsDialog && editor?.kind === 'profile' && editor.section === 'redes' && <form class="creator-owner__form" hidden={prompt} data-owner-form="redes" onSubmit={editorSubmit}>
         <p>Las direcciones deben ser URL HTTP o HTTPS completas. Deja un campo vacío para quitar esa red.</p>
         {SOCIALS.map(([key, label]) => <div class="creator-owner__field" key={key}>
           <label htmlFor={`owner-social-${key}`}>{label}</label>
-          <input id={`owner-social-${key}`} name={`social-${key}`} type="url" inputMode="url" autoComplete="url" placeholder="https://" maxLength={500} value={editor.draft[key]}
+          <input id={`owner-social-${key}`} name={`social-${key}`} type="url" inputMode="url" autoComplete="url" placeholder="https://" maxLength={CREATOR_FIELD_LIMITS.social} value={editor.draft[key]} readOnly={locked}
             onInput={(event) => { const input = event.currentTarget as HTMLInputElement; input.setCustomValidity(''); onUpdateSocial(key, input.value); }}
             onInvalid={(event) => (event.currentTarget as HTMLInputElement).setCustomValidity('Ingresa una URL HTTP o HTTPS sin usuario ni contraseña.')} />
         </div>)}
-        <input name="version" type="hidden" value={editor.base.version} />
-        <p class="creator-owner__status" data-owner-form-status="redes" role="status" aria-live="polite">{statusText}</p>
+        <p class="creator-owner__status" data-owner-form-status="redes" role="status" aria-live="polite">{feedback}</p>
+        {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar redes</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
-        {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
       </form>}
 
-      {editorIsDialog && editor.kind === 'photo' && <form class="creator-owner__form" hidden={prompt} data-owner-form="foto" onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
-        <p>JPEG, PNG o WebP; hasta 15 MiB y 40 megapíxeles. La foto se guarda sólo cuando termina la carga.</p>
-        {editor.base.photo && <img class="creator-owner__photo creator-owner__photo--preview" src={`/media/fotos/${encodeURIComponent(editor.base.id)}/${encodeURIComponent(String(editor.base.photo.version))}.webp`} alt="Foto actual del perfil" width={112} height={112} data-owner-photo-preview />}
-        <div class="creator-owner__field"><label htmlFor="owner-photo-file">Elegir una foto</label><input id="owner-photo-file" name="photo" type="file" accept="image/jpeg,image/png,image/webp" required data-busy-control
+      {editorIsDialog && editor?.kind === 'photo' && <form class="creator-owner__form" hidden={prompt} data-owner-form="foto" onSubmit={editorSubmit}>
+        <p>{CREATOR_PHOTO_FORMATS.map((format) => format.toUpperCase()).join(', ')}; hasta {CREATOR_PHOTO_MAX_UPLOAD_BYTES / (1024 * 1024)} MiB y {CREATOR_PHOTO_MAX_PIXELS / 1_000_000} megapíxeles. La foto se guarda sólo cuando termina la carga.</p>
+        {state.observed.profile?.photo && <img class="creator-owner__photo creator-owner__photo--preview" src={`/media/fotos/${encodeURIComponent(state.observed.profile.id)}/${encodeURIComponent(String(state.observed.profile.photo.version))}.webp`} alt="Foto actual del perfil" width={112} height={112} data-owner-photo-preview />}
+        <div class="creator-owner__field"><label htmlFor="owner-photo-file">Elegir una foto</label><input id="owner-photo-file" name="photo" type="file" accept={CREATOR_PHOTO_MIME_TYPES.join(',')} required disabled={locked} data-busy-control
           onChange={(event) => onSetPhoto((event.currentTarget as HTMLInputElement).files?.[0])} /></div>
-        <p class="creator-owner__status" data-owner-form-status="foto" role="status" aria-live="polite">{statusText}</p>
+        <p class="creator-owner__status" data-owner-form-status="foto" role="status" aria-live="polite">{feedback}</p>
+        {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={false} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Subir y guardar foto</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
-        {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <button class="button button--outline" type="button" data-owner-check-photo disabled={checking} onClick={onCheck}>{checkLabel(editor)}</button>}
       </form>}
 
-      {editorIsDialog && editor.kind === 'series' && <form class="creator-owner__form" hidden={prompt} data-owner-form="serie" data-series-form onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
-        <p class="creator-owner__form-context" data-series-form-context>{editor.baseSeries ? `Editas «${editor.baseSeries.name}».` : 'Esta serie se crea como borrador; puedes agregar capítulos después.'}</p>
-        <div class="creator-owner__field"><label htmlFor="owner-series-name">Nombre de la serie</label><input id="owner-series-name" name="name" value={editor.draft.name} maxLength={120} required data-series-name-suggestion
+      {editorIsDialog && editor?.kind === 'series' && <form class="creator-owner__form" hidden={prompt} data-owner-form="serie" data-series-form onSubmit={editorSubmit}>
+        <p class="creator-owner__form-context">{editor.seriesId ? `Editas «${state.observed.series[editor.seriesId]?.name ?? 'esta serie'}».` : 'Esta serie se crea como borrador; puedes agregar capítulos después.'}</p>
+        <div class="creator-owner__field"><label htmlFor="owner-series-name">Nombre de la serie</label><input id="owner-series-name" name="name" value={editor.draft.name} maxLength={CREATOR_FIELD_LIMITS.name} required data-series-name-suggestion readOnly={locked}
           onInput={(event) => onUpdateSeries({ name: (event.currentTarget as HTMLInputElement).value })} /></div>
         <div class="creator-owner__field"><label htmlFor="owner-series-slug">Dirección de la serie</label>
-          <div class="creator-owner__slug-field"><span aria-hidden="true">/series/</span><input id="owner-series-slug" name="slug" value={editor.draft.slug} required minLength={3} maxLength={40}
-            pattern="[a-z0-9]+(-[a-z0-9]+)*" autoComplete="off" autoCapitalize="none" spellcheck={false} data-series-slug-suggestion
+          <div class="creator-owner__slug-field"><span aria-hidden="true">/series/</span><input id="owner-series-slug" name="slug" value={editor.draft.slug} required minLength={CREATOR_SLUG_MIN_LENGTH} maxLength={CREATOR_FIELD_LIMITS.slug}
+            pattern={CREATOR_SLUG_PATTERN} autoComplete="off" autoCapitalize="none" spellcheck={false} data-series-slug-suggestion readOnly={locked}
             onInput={(event) => onUpdateSeries({ slug: (event.currentTarget as HTMLInputElement).value }, true)} /></div>
           <small>3–40 caracteres: minúsculas, números y guiones sencillos.</small>
         </div>
-        <div class="creator-owner__field"><label htmlFor="owner-series-description">Descripción <span>(opcional)</span></label><textarea id="owner-series-description" name="description" rows={4} maxLength={2000} value={editor.draft.description}
+        <div class="creator-owner__field"><label htmlFor="owner-series-description">Descripción <span>(opcional)</span></label><textarea id="owner-series-description" name="description" rows={4} maxLength={CREATOR_FIELD_LIMITS.description} value={editor.draft.description} readOnly={locked}
           onInput={(event) => onUpdateSeries({ description: (event.currentTarget as HTMLTextAreaElement).value })} /></div>
-        <p class="creator-owner__status" data-owner-form-status="serie" role="status" aria-live="polite">{statusText}</p>
-        {editor.baseSeries && <input name="version" type="hidden" value={editor.baseSeries.version} />}
-        {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
+        <p class="creator-owner__status" data-owner-form-status="serie" role="status" aria-live="polite">{feedback}</p>
+        {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar serie</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
-      {editorIsDialog && editor.kind === 'move-chapter' && <form class="creator-owner__form" hidden={prompt} data-owner-form="mover-capitulo" data-chapter-move-form aria-label="Mover capítulo en la serie" onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
-        <p id="owner-chapter-move-context" class="creator-owner__move-context" data-chapter-move-context aria-live="polite">{moveContext}</p>
-        <div class="creator-owner__field"><label htmlFor="owner-chapter-target-position">Posición en esta serie</label><input id="owner-chapter-target-position" name="targetPosition" type="number" min={1} max={editor.baseOrder.length} step={1} required inputMode="numeric" aria-describedby="owner-chapter-move-context" value={editor.targetPosition}
+      {editorIsDialog && editor?.kind === 'move-chapter' && <form class="creator-owner__form" hidden={prompt} data-owner-form="mover-capitulo" data-chapter-move-form aria-label="Mover capítulo en la serie" onSubmit={editorSubmit}>
+        <p id="owner-chapter-move-context" class="creator-owner__move-context" data-chapter-move-context aria-live="polite">{moveChapterContext}</p>
+        <div class="creator-owner__field"><label htmlFor="owner-chapter-target-position">Posición en esta serie</label><input id="owner-chapter-target-position" name="targetPosition" type="number" min={1} max={Math.max(1, moveChapterSequence.length)} step={1} required inputMode="numeric" aria-describedby="owner-chapter-move-context" value={editor.targetPosition} readOnly={locked}
           onInput={(event) => onUpdateMove((event.currentTarget as HTMLInputElement).value)} /></div>
-        <p class="creator-owner__status" data-owner-form-status="mover-capitulo" role="status" aria-live="polite">{statusText}</p>
-        {editor.suggestionPosition && <div data-chapter-move-suggestion-shell><button class="button button--outline" type="button" data-chapter-move-suggestion data-viable-position={editor.suggestionPosition} onClick={() => { onUpdateMove(String(editor.suggestionPosition)); onSetMoveSuggestion(undefined); }}>Usar posición intermedia {editor.suggestionPosition}</button></div>}
-        {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
+        <p class="creator-owner__status" data-owner-form-status="mover-capitulo" role="status" aria-live="polite">{feedback}</p>
+        {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar posición</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
-      {editorIsDialog && editor.kind === 'link-placement' && <form class="creator-owner__form" hidden={prompt} data-owner-form="enlace" data-link-edit-form onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
+      {editorIsDialog && editor?.kind === 'link-placement' && <form class="creator-owner__form" hidden={prompt} data-owner-form="enlace" data-link-edit-form onSubmit={editorSubmit}>
         <p class="creator-owner__form-context">{editor.optionsOnly ? 'Estás editando las opciones de este enlace en tu página.'
           : editor.editable ? 'Esta ficha es tuya: los cambios del contenido y las opciones de la página se guardan juntos.'
             : 'Esta ficha es compartida. Puedes editar sus opciones; su título, URL y descripción siguen a cargo de quien la administra.'}</p>
-        {editor.pendingAddDraft && <p class="creator-owner__status" data-link-add-shared-correction role="status">
-          {editor.editable && addDraftTextDiffers
-            ? 'Conservamos aparte el borrador del alta. Aquí puedes guardar cambios de la ficha que elegiste.'
-            : editor.editable
-              ? 'Conservamos aparte el borrador del alta mientras revisas los cambios de esta ficha.'
-              : 'Conservamos aparte el borrador del alta. Aquí puedes guardar sólo las opciones de esta ficha compartida.'}
-        </p>}
-        <fieldset class="creator-owner__field creator-owner__link-fields" data-link-metadata-fields disabled={!editor.editable}>
+        <fieldset class="creator-owner__field creator-owner__link-fields" data-link-metadata-fields>
           <legend>Ficha del contenido</legend>
           {editor.editable && <details class="creator-owner__link-help"><summary>Sobre esta ficha</summary><p>El título, la URL y la descripción también se muestran a quienes referencian esta ficha.</p></details>}
-          <div class="creator-owner__field"><label htmlFor="owner-link-title">Título</label><input id="owner-link-title" name="title" value={editor.draft.title} maxLength={200} required disabled={!editor.editable} onInput={(event) => onUpdateLink({ title: (event.currentTarget as HTMLInputElement).value })} /></div>
-          <div class="creator-owner__field"><label htmlFor="owner-link-url">URL</label><input id="owner-link-url" name="url" type="url" inputMode="url" value={editor.draft.url} maxLength={2048} required disabled={!editor.editable} onInput={(event) => onUpdateLink({ url: (event.currentTarget as HTMLInputElement).value })} /></div>
-          <div class="creator-owner__field"><label htmlFor="owner-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-link-description" name="description" rows={4} value={editor.draft.description} maxLength={2000} disabled={!editor.editable} onInput={(event) => onUpdateLink({ description: (event.currentTarget as HTMLTextAreaElement).value })} /></div>
+          <div class="creator-owner__field"><label htmlFor="owner-link-title">Título</label><input id="owner-link-title" name="title" value={editor.draft.title} maxLength={CREATOR_FIELD_LIMITS.title} required readOnly={locked || !editor.editable}
+            onInput={(event) => onUpdateLink({ title: (event.currentTarget as HTMLInputElement).value })} /></div>
+          <div class="creator-owner__field"><label htmlFor="owner-link-url">URL</label><input id="owner-link-url" name="url" type="url" inputMode="url" value={editor.draft.url} maxLength={CREATOR_FIELD_LIMITS.url} required readOnly={locked || !editor.editable}
+            onInput={(event) => onUpdateLink({ url: (event.currentTarget as HTMLInputElement).value })} /></div>
+          <div class="creator-owner__field"><label htmlFor="owner-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-link-description" name="description" rows={4} value={editor.draft.description} maxLength={CREATOR_FIELD_LIMITS.description} readOnly={locked || !editor.editable}
+            onInput={(event) => onUpdateLink({ description: (event.currentTarget as HTMLTextAreaElement).value })} /></div>
         </fieldset>
-        <fieldset class="creator-owner__field creator-owner__link-fields" data-link-options>
+        <fieldset class="creator-owner__field creator-owner__link-fields" data-link-options disabled={locked}>
           <legend>Opciones de tu página</legend>
           <label class="creator-owner__link-checkbox"><input type="checkbox" name="featured" checked={editor.draft.featured} onChange={(event) => onUpdateLink({ featured: event.currentTarget.checked })} /><span>Destacar en tu página</span></label>
           <label class="creator-owner__link-checkbox"><input id="owner-link-directory-option" type="checkbox" name="selectedForDirectory" checked={editor.draft.selectedForDirectory} onChange={(event) => onUpdateLink({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>
           <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Quitarla no quita el enlace de tu página; la actualización del directorio puede demorar.</p></details>
         </fieldset>
-        <p class="creator-owner__status" data-owner-form-status="enlace" role="status" aria-live="polite">{statusText}</p>
-        {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
-        <div class="creator-owner__dialog-actions">
-          <button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar cambios</button>
-          {editor.pendingAddDraft && <button class="button button--outline" type="button"
-            disabled={state.attempt.status !== 'confirmed' && state.attempt.status !== 'idle'} onClick={onResumeSharedAdd}>
-            {returnToAddLabel}
-          </button>}
-          <button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button>
-        </div>
+        <p class="creator-owner__status" data-owner-form-status="enlace" role="status" aria-live="polite">{feedback}</p>
+        {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
+        <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar cambios</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
-      {editorIsDialog && editor.kind === 'link-resource' && <form class="creator-owner__form" hidden={prompt} data-owner-form="enlace" data-link-edit-form onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
+      {editorIsDialog && editor?.kind === 'link-resource' && <form class="creator-owner__form" hidden={prompt} data-owner-form="enlace" data-link-edit-form onSubmit={editorSubmit}>
         <p>Editas una ficha propia que ya no está colocada en tu página. Guardar aquí no la reincorpora.</p>
         <fieldset class="creator-owner__field creator-owner__link-fields" data-link-metadata-fields>
           <legend>Ficha del contenido</legend>
-          <div class="creator-owner__field"><label htmlFor="owner-link-title">Título</label><input id="owner-link-title" name="title" value={editor.draft.title} maxLength={200} required onInput={(event) => onUpdateLink({ title: (event.currentTarget as HTMLInputElement).value })} /></div>
-          <div class="creator-owner__field"><label htmlFor="owner-link-url">URL</label><input id="owner-link-url" name="url" type="url" inputMode="url" value={editor.draft.url} maxLength={2048} required onInput={(event) => onUpdateLink({ url: (event.currentTarget as HTMLInputElement).value })} /></div>
-          <div class="creator-owner__field"><label htmlFor="owner-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-link-description" name="description" rows={4} value={editor.draft.description} maxLength={2000} onInput={(event) => onUpdateLink({ description: (event.currentTarget as HTMLTextAreaElement).value })} /></div>
+          <div class="creator-owner__field"><label htmlFor="owner-link-title">Título</label><input id="owner-link-title" name="title" value={editor.draft.title} maxLength={CREATOR_FIELD_LIMITS.title} required readOnly={locked} onInput={(event) => onUpdateLink({ title: (event.currentTarget as HTMLInputElement).value })} /></div>
+          <div class="creator-owner__field"><label htmlFor="owner-link-url">URL</label><input id="owner-link-url" name="url" type="url" inputMode="url" value={editor.draft.url} maxLength={CREATOR_FIELD_LIMITS.url} required readOnly={locked} onInput={(event) => onUpdateLink({ url: (event.currentTarget as HTMLInputElement).value })} /></div>
+          <div class="creator-owner__field"><label htmlFor="owner-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-link-description" name="description" rows={4} value={editor.draft.description} maxLength={CREATOR_FIELD_LIMITS.description} readOnly={locked} onInput={(event) => onUpdateLink({ description: (event.currentTarget as HTMLTextAreaElement).value })} /></div>
         </fieldset>
-        <p class="creator-owner__status" data-owner-form-status="enlace" role="status" aria-live="polite">{statusText}</p>
-        {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
+        <p class="creator-owner__status" data-owner-form-status="enlace" role="status" aria-live="polite">{feedback}</p>
+        {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar ficha</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
-      {editorIsDialog && editor.kind === 'add-link' && <form class="creator-owner__form" hidden={prompt} data-owner-form="alta-enlace" data-link-add-form onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
+      {editorIsDialog && editor?.kind === 'add-link' && <form class="creator-owner__form" hidden={prompt} data-owner-form="alta-enlace" data-link-add-form onSubmit={editorSubmit}>
         <p>Agrega una URL a tu página. La propuesta al directorio queda seleccionada inicialmente; puedes cambiarla antes de guardar.</p>
-        <div class="creator-owner__field"><label htmlFor="owner-add-link-title">Título</label><input id="owner-add-link-title" name="title" value={editor.draft.title} maxLength={200} required onInput={(event) => onUpdateAddLink({ title: (event.currentTarget as HTMLInputElement).value })} /></div>
-        <div class="creator-owner__field"><label htmlFor="owner-add-link-url">URL</label><input id="owner-add-link-url" name="url" type="url" inputMode="url" value={editor.draft.url} maxLength={2048} required onInput={(event) => onUpdateAddLink({ url: (event.currentTarget as HTMLInputElement).value })} /></div>
-        <div class="creator-owner__field"><label htmlFor="owner-add-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-add-link-description" name="description" rows={4} value={editor.draft.description} maxLength={2000} onInput={(event) => onUpdateAddLink({ description: (event.currentTarget as HTMLTextAreaElement).value })} /></div>
-        <label class="creator-owner__link-checkbox"><input type="checkbox" name="selectedForDirectory" checked={editor.draft.selectedForDirectory} onChange={(event) => onUpdateAddLink({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>
+        <div class="creator-owner__field"><label htmlFor="owner-add-link-title">Título</label><input id="owner-add-link-title" name="title" value={editor.draft.title} maxLength={CREATOR_FIELD_LIMITS.title} required readOnly={locked} onInput={(event) => onUpdateAddLink({ title: (event.currentTarget as HTMLInputElement).value })} /></div>
+        <div class="creator-owner__field"><label htmlFor="owner-add-link-url">URL</label><input id="owner-add-link-url" name="url" type="url" inputMode="url" value={editor.draft.url} maxLength={CREATOR_FIELD_LIMITS.url} required readOnly={locked} onInput={(event) => onUpdateAddLink({ url: (event.currentTarget as HTMLInputElement).value })} /></div>
+        <div class="creator-owner__field"><label htmlFor="owner-add-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-add-link-description" name="description" rows={4} value={editor.draft.description} maxLength={CREATOR_FIELD_LIMITS.description} readOnly={locked} onInput={(event) => onUpdateAddLink({ description: (event.currentTarget as HTMLTextAreaElement).value })} /></div>
+        <label class="creator-owner__link-checkbox"><input type="checkbox" name="selectedForDirectory" checked={editor.draft.selectedForDirectory} disabled={locked} onChange={(event) => onUpdateAddLink({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>
         <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Quitarla no quita el enlace de tu página; la actualización del directorio puede demorar.</p></details>
-        <p class="creator-owner__status" data-link-add-status role="status" aria-live="polite">{statusText}</p>
-        {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} onAdoptAddPlacement={onAdoptAddPlacement} />}
+        <p class="creator-owner__status" data-link-add-status role="status" aria-live="polite">{feedback}</p>
+        {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Agregar enlace</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
-      {editorIsDialog && editor.kind === 'move-link' && <form class="creator-owner__form" hidden={prompt} data-owner-form="mover-enlace" data-link-move-form aria-label="Mover enlace a una posición" onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
-        <p class="creator-owner__move-context" id="owner-link-move-context" data-link-move-context aria-live="polite">Grupo {editor.baseLink.featured ? 'destacado' : 'sin destacar'}: {editor.baseOrder.length} enlaces. Este enlace está en la posición {editor.baseOrder.indexOf(editor.baseLink.placementId) + 1}.</p>
-        <div class="creator-owner__field"><label htmlFor="owner-link-target-position">Posición dentro del grupo</label><input id="owner-link-target-position" name="targetPosition" type="number" min={1} max={editor.baseOrder.length} step={1} required inputMode="numeric" aria-describedby="owner-link-move-context" value={editor.targetPosition} onInput={(event) => onUpdateMoveLink((event.currentTarget as HTMLInputElement).value)} /></div>
-        <p class="creator-owner__status" data-owner-form-status="mover-enlace" role="status" aria-live="polite">{statusText}</p>
-        {editor.suggestionPosition && <div data-link-move-suggestion-shell><button class="button button--outline" type="button" data-link-move-suggestion data-viable-position={editor.suggestionPosition} onClick={() => { onUpdateMoveLink(String(editor.suggestionPosition)); onSetMoveSuggestion(undefined); }}>Usar posición intermedia {editor.suggestionPosition}</button></div>}
-        {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
+      {editorIsDialog && editor?.kind === 'move-link' && <form class="creator-owner__form" hidden={prompt} data-owner-form="mover-enlace" data-link-move-form aria-label="Mover enlace a una posición" onSubmit={editorSubmit}>
+        {(() => {
+          const link = creatorOwnerNavigationLists(state.observed).links.find(({ placementId }) => placementId === editor.placementId);
+          const group = link?.featured ? state.observed.order.featured : state.observed.order.ordinary;
+          const position = group.indexOf(editor.placementId) + 1;
+          return <p class="creator-owner__move-context" id="owner-link-move-context" data-link-move-context aria-live="polite">Grupo {link?.featured ? 'destacado' : 'sin destacar'}: {group.length} enlaces. {link ? `«${link.title}» está en la posición ${position}.` : 'El enlace ya no está en tu página.'}</p>;
+        })()}
+        <div class="creator-owner__field"><label htmlFor="owner-link-target-position">Posición dentro del grupo</label><input id="owner-link-target-position" name="targetPosition" type="number" min={1}
+          max={Math.max(1, state.observed.order.featured.includes(editor.placementId) ? state.observed.order.featured.length : state.observed.order.ordinary.length)} step={1} required inputMode="numeric" aria-describedby="owner-link-move-context" value={editor.targetPosition} readOnly={locked}
+          onInput={(event) => onUpdateMoveLink((event.currentTarget as HTMLInputElement).value)} /></div>
+        <p class="creator-owner__status" data-owner-form-status="mover-enlace" role="status" aria-live="polite">{feedback}</p>
+        {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar posición</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
-      {editorIsDialog && editor.kind === 'reference' && <form class="creator-owner__form" hidden={prompt} data-owner-form="referencia" data-catalog-reference-form onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
+      {editorIsDialog && editor?.kind === 'reference' && <form class="creator-owner__form" hidden={prompt} data-owner-form="referencia" data-catalog-reference-form onSubmit={editorSubmit}>
         <p>Busca por título o URL y agrega una ficha existente. Esto crea una referencia; no concede permiso para editarla.</p>
-        {editor.selected && editor.recoveredCandidate && <section class="creator-owner__catalog-selected" data-recovered-candidate aria-label="Referencia retirada conservada">
-          <p>{editor.selected.title} · {editor.selected.url}</p>
-          {referenceSubmissionStatus !== 'ready' && <p role="status" data-recovered-candidate-status>
-            {referenceSubmissionStatus === 'rejected' ? 'Esta referencia exacta fue rechazada; elige un par vigente para continuar.'
-              : referenceSubmissionStatus === 'catalog-unavailable' ? 'Actualiza el catálogo para comprobar esta referencia exacta.'
-                : 'Esta referencia exacta no está disponible en el catálogo actual. Elige otra ficha o quítala.'}
-          </p>}
-          <button class="button button--outline" type="button" data-recovered-candidate-remove
-            onClick={() => onUpdateReference({ selected: undefined })}>Quitar referencia guardada</button>
-        </section>}
         <CatalogPicker state={state} mode="reference" selected={[]} selectedReference={editor.selected} onSearch={onCatalogSearch} onPage={onCatalogPage} onRetry={onCatalogRetry}
-          onSelect={(item, checked) => onUpdateReference({ selected: checked ? item : undefined })} />
-        {editor.selected && <label class="creator-owner__link-checkbox creator-owner__catalog-directory"><input id="owner-link-directory-option" type="checkbox" name="selectedForDirectory" checked={editor.selectedForDirectory} onChange={(event) => onUpdateReference({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>}
+          onSelect={(item, checked) => onUpdateReference({ selected: checked ? item : undefined })} disabled={locked} />
+        {editor.selected && <label class="creator-owner__link-checkbox creator-owner__catalog-directory"><input id="owner-link-directory-option" type="checkbox" name="selectedForDirectory" checked={editor.selectedForDirectory} disabled={locked}
+          onChange={(event) => onUpdateReference({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>}
         {editor.selected && <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Agregar una referencia no concede permiso para editar la ficha compartida.</p></details>}
-        <p class="creator-owner__status" data-catalog-status role="status" aria-live="polite">{statusText || state.catalog.message}</p>
-        {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
+        <p class="creator-owner__status" data-catalog-status role="status" aria-live="polite">{feedback || state.catalog.message || (referenceStatus === 'ready' ? '' : 'Actualiza el catálogo y elige una referencia vigente.')}</p>
+        {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" data-catalog-reference disabled={!canSubmit}>Agregar a mi página</button><button class="button button--outline" type="button" data-owner-cancel data-catalog-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
-      {editorIsDialog && editor.kind === 'claim' && <form class="creator-owner__form" hidden={prompt} data-owner-form="reclamacion" data-claim-form onSubmit={(event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) onSubmit(); }}>
+      {editorIsDialog && editor?.kind === 'claim' && <form class="creator-owner__form" hidden={prompt} data-owner-form="reclamacion" data-claim-form onSubmit={editorSubmit}>
         <p>Selecciona contenido del catálogo o agrega URLs conocidas. Enviar una solicitud no agrega contenido a tu página ni concede permiso para editar.</p>
         <CatalogPicker state={state} mode="claim" selected={editor.selected.map(({ resourceId }) => resourceId)} onSearch={onCatalogSearch} onPage={onCatalogPage} onRetry={onCatalogRetry}
           onSelect={(item, checked) => onUpdateClaim({ selected: checked
             ? [...editor.selected.filter(({ resourceId }) => resourceId !== item.id), { resourceId: item.id, url: item.url, title: item.title }]
-            : editor.selected.filter(({ resourceId }) => resourceId !== item.id) })} />
+            : editor.selected.filter(({ resourceId }) => resourceId !== item.id) })} disabled={locked} />
         <ul class="creator-owner__claim-selection" data-claim-selection aria-label="Selección para solicitar edición" hidden={!editor.selected.length}>
-          {editor.selected.map((item) => <li key={item.resourceId}><span>{item.title} — {item.url}</span><button class="button button--outline" type="button" data-claim-deselect={item.resourceId} aria-label={`Quitar ${item.title} de la selección`} onClick={() => onUpdateClaim({ selected: editor.selected.filter(({ resourceId }) => resourceId !== item.resourceId) })}>Quitar</button></li>)}
+          {editor.selected.map((item) => <li key={item.resourceId}><span>{item.title} — {item.url}</span><button class="button button--outline" type="button" data-claim-deselect={item.resourceId} aria-label={`Quitar ${item.title} de la selección`} disabled={locked}
+            onClick={() => onUpdateClaim({ selected: editor.selected.filter(({ resourceId }) => resourceId !== item.resourceId) })}>Quitar</button></li>)}
         </ul>
         <p class="creator-owner__catalog-selected" data-catalog-selected-count aria-live="polite">{editor.selected.length ? `${editor.selected.length} ${editor.selected.length === 1 ? 'recurso seleccionado.' : 'recursos seleccionados.'}` : 'Ningún recurso seleccionado.'}</p>
-        <div class="creator-owner__field"><label htmlFor="owner-claim-urls">URLs conocidas <span>(opcional, una por línea)</span></label><textarea id="owner-claim-urls" name="knownUrls" rows={4} data-claim-urls autoComplete="url" value={editor.knownUrls} onInput={(event) => onUpdateClaim({ knownUrls: (event.currentTarget as HTMLTextAreaElement).value })} /></div>
-        <div class="creator-owner__field"><label htmlFor="owner-claim-evidence">Contexto privado <span>(opcional)</span></label><textarea id="owner-claim-evidence" name="evidence" rows={3} maxLength={2000} data-claim-evidence value={editor.evidence} onInput={(event) => onUpdateClaim({ evidence: (event.currentTarget as HTMLTextAreaElement).value })} /><small>Hasta 2000 caracteres. Sólo lo ven quienes gestionan esta solicitud.</small></div>
-        <p class="creator-owner__status" data-claim-status role="status" aria-live="polite">{statusText}</p>
-        {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <section class="creator-owner__conflict" data-claim-recovery aria-live="polite"><p>{state.attempt.status === 'checking' ? 'Comprobando solicitudes…' : attemptMessage}</p><button class="button button--outline" type="button" data-claim-check disabled={checking} onClick={onCheckClaim}>Comprobar solicitudes</button></section>}
+        <div class="creator-owner__field"><label htmlFor="owner-claim-urls">URLs conocidas <span>(opcional, una por línea)</span></label><textarea id="owner-claim-urls" name="knownUrls" rows={4} data-claim-urls autoComplete="url" value={editor.knownUrls} readOnly={locked} onInput={(event) => onUpdateClaim({ knownUrls: (event.currentTarget as HTMLTextAreaElement).value })} /></div>
+        <div class="creator-owner__field"><label htmlFor="owner-claim-evidence">Contexto privado <span>(opcional)</span></label><textarea id="owner-claim-evidence" name="evidence" rows={3} maxLength={CREATOR_FIELD_LIMITS.evidence} data-claim-evidence value={editor.evidence} readOnly={locked} onInput={(event) => onUpdateClaim({ evidence: (event.currentTarget as HTMLTextAreaElement).value })} /><small>Hasta {CREATOR_FIELD_LIMITS.evidence} caracteres. Sólo lo ven quienes gestionan esta solicitud.</small></div>
+        <p class="creator-owner__status" data-claim-status role="status" aria-live="polite">{feedback}</p>
+        {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={false} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" data-claim-submit disabled={!canSubmit}>Enviar solicitud</button><button class="button button--outline" type="button" data-owner-cancel data-claim-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
       {prompt && <div class="creator-owner__exit" data-owner-exit-prompt role="alertdialog" aria-labelledby="owner-exit-title" aria-describedby="owner-exit-copy">
-        <h3 id="owner-exit-title">{editor ? 'Tienes cambios sin guardar' : promptRecovery ? 'Hay una acción por comprobar' : 'La acción está confirmada'}</h3>
-        <p id="owner-exit-copy">{editor ? 'Puedes guardar esta corrección, descartarla o seguir editando.'
-          : promptRecovery ? 'Comprueba el estado guardado y decide si sigues a la página solicitada o te quedas aquí.'
-            : 'La acción quedó confirmada. Puedes seguir a la página solicitada o quedarte aquí.'}</p>
-        {editor?.kind === 'reference' && canWrite && referenceSubmissionStatus !== 'ready' && <p class="creator-owner__status" role="status" data-owner-exit-save-blocked>
-          {referenceSubmissionStatus === 'needs-selection' ? 'Vuelve a la selección y elige una ficha vigente antes de guardar.'
-            : 'Vuelve a la selección, actualiza el catálogo si hace falta y elige un par vigente antes de guardar.'}
-        </p>}
-        {promptRecovery && <section class="creator-owner__conflict" data-exit-recovery>
-          <p>{'message' in state.attempt ? state.attempt.message : 'Comprobando el estado guardado…'}</p>
-          {editor && activeComparison && (rows.length > 0 || activeComparison.missingTarget?.notice) && <div class="creator-owner__comparison" data-owner-comparison>
-            {rows.length > 0 && <ComparisonRows rows={rows} />}
-            {activeComparison.missingTarget?.notice && <p data-owner-missing-target-notice>{activeComparison.missingTarget.notice}</p>}
-          </div>}
-          {!promptListAttempt && state.attempt.status === 'uncertain' && state.attempt.comparison?.canAdopt && <button id="owner-adopt" class="button button--outline" type="button" data-owner-adopt
-            onClick={() => onAdopt(state.attempt.status === 'uncertain' ? state.attempt.comparison?.id ?? '' : '')}>
-            {state.attempt.comparison?.missingTarget?.actionLabel ?? (editor ? adoptLabel(editor) : 'Usar los datos guardados')}
-          </button>}
-          {(state.attempt.status === 'uncertain' || state.attempt.status === 'conflict') && <button id="owner-exit-compare" class="button button--outline" type="button" data-owner-compare onClick={onCheck}>{editor ? activeComparison ? 'Comparar otra vez' : recoveryActionLabel(editor, state.attempt.status) : 'Comprobar'}</button>}
-          {state.attempt.status === 'checking' && <p role="status" aria-live="polite">Comprobando…</p>}
-        </section>}
+        <h3 id="owner-exit-title">{editor ? 'Tienes cambios sin guardar' : 'La acción todavía necesita atención'}</h3>
+        <p id="owner-exit-copy">{operation.status === 'sending' ? 'La solicitud está en curso. Espera a que termine antes de salir.'
+          : editor ? 'Puedes guardar esta corrección, descartarla o seguir editando.'
+            : 'Comprueba el estado guardado o decide si sigues a la página solicitada.'}</p>
+        {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions">
-          {editor && <button class="button button--dark" type="button" data-owner-exit-save disabled={!canSubmit} onClick={() => onExit('save')}>
-            {editor.kind === 'link-placement' && editor.pendingAddDraft ? 'Guardar opciones y volver al borrador' : 'Guardar y salir'}
-          </button>}
-          <button id="owner-exit-discard" class="button button--outline" type="button" data-owner-exit-discard disabled={state.attempt.status === 'sending'} onClick={() => onExit('discard')}>
-            {editor ? 'Descartar cambios' : promptRecovery ? 'Descartar y seguir' : 'Seguir a la página solicitada'}
+          {editor && <button class="button button--dark" type="button" data-owner-exit-save disabled={!canSubmit} onClick={() => onExit('save')}>Guardar y salir</button>}
+          <button id="owner-exit-discard" class="button button--outline" type="button" data-owner-exit-discard disabled={operation.status === 'sending'} onClick={() => onExit('discard')}>
+            {editor ? 'Descartar cambios' : operation.status === 'idle' ? 'Seguir a la página solicitada' : 'Descartar y seguir'}
           </button>
-          <button id="owner-exit-continue" class="button button--outline" type="button" data-owner-exit-continue onClick={() => onExit('continue')}>
-            {editor ? 'Seguir editando' : 'Quedarme aquí'}
-          </button>
+          <button id="owner-exit-continue" class="button button--outline" type="button" data-owner-exit-continue onClick={() => onExit('continue')}>{editor ? 'Seguir editando' : 'Quedarme aquí'}</button>
         </div>
       </div>}
     </div>
   </dialog>;
 }
 
-function Recovery({ state, editor, rows, canAdopt, onCheck, onAdopt, onAdoptAddPlacement }: {
+function OperationFeedback({ state, rows, canSaveDraft, onRetryRead, onResolve, onSaveDraft }: {
   state: CreatorOwnerState;
-  editor: CreatorOwnerEditor | CreatorOwnerLinkEditor;
-  rows: Array<[string, string, string]>;
-  canAdopt: boolean;
-  onCheck(): void;
-  onAdopt(id: string): void;
-  onAdoptAddPlacement?(comparisonId: string, placementId: string): void;
+  rows: Array<[string, string, string]> | undefined;
+  canSaveDraft: boolean;
+  onRetryRead(): void;
+  onResolve(choice: CreatorOwnerRecoveryChoice): void;
+  onSaveDraft(): void;
 }) {
-  const attempt = state.attempt;
-  if (attempt.status !== 'uncertain' && attempt.status !== 'conflict' && attempt.status !== 'checking') return null;
-  const intent = 'intent' in attempt ? attempt.intent : undefined;
-  if (!intent || intent.editorKey !== editor.key) return null;
-  const comparison = attempt.status === 'uncertain' ? attempt.comparison : undefined;
-  const savedAddPlacement = canAdopt && comparison?.savedAddPlacementId
-    ? comparison.snapshot.links.find(({ placementId }) => placementId === comparison.savedAddPlacementId) : undefined;
-  const comparisonActionLabel = comparison?.missingTarget?.actionLabel
-    ?? (editor.kind === 'series' && !editor.baseSeries && comparison && !comparison.seriesId
-      ? 'Usar la versión actual del perfil' : adoptLabel(editor));
-  return <section class="creator-owner__conflict" data-owner-conflict={true} data-series-conflict={editor.kind === 'series' ? true : undefined} aria-live="polite">
-    <h3>{editor.kind === 'move-chapter' || editor.kind === 'move-link' ? 'El orden cambió' : editor.kind === 'series' ? 'La serie cambió' : editor.kind === 'add-link' ? 'Comprueba la URL original' : 'Compara con lo guardado'}</h3>
-    {!comparison?.missingTarget && <p data-owner-conflict-copy>{attempt.status === 'checking' ? 'Consultando el estado guardado…' : attempt.message}</p>}
-    {comparison && <>
-      <div class="creator-owner__comparison" data-owner-comparison>
-        <p>{comparison.message}</p>
-        {comparison.missingTarget?.notice && state.location.prompt !== 'exit'
-          && <p data-owner-missing-target-notice>{comparison.missingTarget.notice}</p>}
-        {rows.length > 0 && <ComparisonRows rows={rows} />}
-      </div>
-      {canAdopt && <button class="button button--outline" type="button" data-owner-adopt onClick={() => onAdopt(comparison.id)}>{comparisonActionLabel}</button>}
-      {onAdoptAddPlacement && savedAddPlacement && <button class="button button--outline" type="button" data-owner-adopt-link={savedAddPlacement.placementId}
-        onClick={() => onAdoptAddPlacement(comparison.id, savedAddPlacement.placementId)}>Abrir ficha guardada: {savedAddPlacement.title}</button>}
-      <button class="button button--outline" type="button" data-owner-compare onClick={onCheck}>Comparar con lo guardado</button>
-    </>}
-    {!comparison && <button id="owner-compare" class="button button--outline" type="button" data-owner-compare disabled={attempt.status === 'checking'} onClick={onCheck}>{attempt.status === 'checking' ? 'Comprobando…' : recoveryActionLabel(editor, attempt.status)}</button>}
+  const operation = state.operation;
+  if (operation.status === 'idle' || operation.status === 'sending') return null;
+  const fact = operation.status === 'reading' || operation.status === 'refresh-failed' ? operation.fact : undefined;
+  const claimIntent = (operation.status === 'unknown' || operation.status === 'conflict') && operation.intent.action === 'create-claim';
+  const canReselect = operation.status === 'conflict' && state.catalog.needsRefresh
+    && (operation.intent.action === 'reference-link' || operation.intent.action === 'create-claim');
+  const title = fact === 'acknowledged' ? 'La acción está confirmada'
+    : fact === 'claims' || claimIntent ? 'No sabemos si se envió la solicitud'
+      : operation.status === 'conflict' ? 'El contenido cambió'
+        : 'No pudimos confirmar el resultado';
+  return <section class="creator-owner__conflict" data-owner-conflict data-owner-recovery data-recovery-kind={operation.status} data-owner-stale={operation.status === 'refresh-failed' ? true : undefined} aria-live="polite">
+    <h3>{title}</h3>
+    <p data-owner-conflict-copy>{operation.message}</p>
+    {claimIntent && operation.status === 'unknown' && <p>El historial puede mostrar solicitudes parecidas, pero no permite confirmar si este envío fue el original. Volver al borrador y enviarlo otra vez puede crear un duplicado.</p>}
+    {rows && <div class="creator-owner__comparison" data-owner-comparison><ComparisonRows rows={rows} /></div>}
+    {operation.status === 'refresh-failed' && <button class="button button--outline" type="button" data-owner-refresh-retry onClick={onRetryRead}>Reintentar actualización</button>}
+    {operation.status === 'unknown' && !operation.readCompleted && <button class="button button--outline" type="button" data-owner-check onClick={onRetryRead}>Comprobar estado guardado</button>}
+    {operation.status === 'unknown' && operation.readCompleted && <div class="creator-owner__dialog-actions">
+      <button class="button button--outline" type="button" data-owner-use-saved onClick={() => onResolve('saved')}>Usar lo guardado</button>
+      <button class="button button--outline" type="button" data-owner-return-to-draft onClick={() => onResolve('draft')}>Volver al borrador</button>
+    </div>}
+    {operation.status === 'conflict' && operation.readCompleted && <div class="creator-owner__dialog-actions">
+      {canSaveDraft && <button class="button button--dark" type="button" data-owner-conflict-save onClick={onSaveDraft}>Guardar mi borrador</button>}
+      {canReselect && <button class="button button--outline" type="button" data-owner-return-to-draft onClick={() => onResolve('draft')}>Volver al borrador</button>}
+      <button class="button button--outline" type="button" data-owner-use-saved onClick={() => onResolve('saved')}>Usar lo guardado</button>
+    </div>}
+    {operation.status === 'conflict' && operation.readCompleted && !canSaveDraft && !canReselect && <p>No se puede guardar este cambio con el destino actual. Conservamos el borrador para que puedas copiarlo o usar lo guardado.</p>}
   </section>;
 }
 
-function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onPage, onRetry, onSelect }: {
+function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onPage, onRetry, onSelect, disabled = false }: {
   state: CreatorOwnerState;
   mode: 'reference' | 'claim';
   selected: string[];
@@ -582,6 +487,7 @@ function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onP
   onPage(value: number): void;
   onRetry(): void;
   onSelect(item: CreatorCatalogSelectionDTO, checked: boolean): void;
+  disabled?: boolean;
 }) {
   const resultsRef = useRef<HTMLUListElement>(null);
   const previousPageRef = useRef<HTMLButtonElement>(null);
@@ -602,18 +508,11 @@ function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onP
   useLayoutEffect(() => {
     const request = pageFocusRequestRef.current;
     if (!request || selection.page !== request.page) return;
-
-    // Consume before focusing so later input or selection renders cannot replay it.
     pageFocusRequestRef.current = null;
     const activated = request.direction === 'previous' ? previousPageRef.current : nextPageRef.current;
     const opposite = request.direction === 'previous' ? nextPageRef.current : previousPageRef.current;
-    const destination = activated && !activated.disabled
-      ? activated
-      : opposite && !opposite.disabled
-        ? opposite
-        : resultsRef.current;
+    const destination = activated && !activated.disabled ? activated : opposite && !opposite.disabled ? opposite : resultsRef.current;
     if (!destination) return;
-
     destination.focus();
     destination.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [selection.page]);
@@ -622,50 +521,45 @@ function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onP
     pageFocusRequestRef.current = { direction, page };
     onPage(page);
   };
-
-  const updateSearch = (value: string) => {
-    pageFocusRequestRef.current = null;
-    onSearch(value);
-  };
+  const updateSearch = (value: string) => { pageFocusRequestRef.current = null; onSearch(value); };
 
   return <section class="creator-owner__catalog" data-owner-catalog aria-label="Buscar contenido publicado" aria-busy={catalog.status === 'loading'}>
     <div class="creator-owner__catalog-search" role="search">
       <div class="creator-owner__field"><label htmlFor="owner-catalog-search">Buscar por título o URL</label>
-        <input id="owner-catalog-search" type="search" name="buscarCatalogo" data-catalog-search autoComplete="off" value={catalog.search}
+        <input id="owner-catalog-search" type="search" name="buscarCatalogo" data-catalog-search autoComplete="off" value={catalog.search} disabled={disabled}
           onInput={(event) => updateSearch((event.currentTarget as HTMLInputElement).value)}
           onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); pageFocusRequestRef.current = null; resultsRef.current?.focus(); } }} />
       </div>
-      <button class="button button--outline" type="button" data-catalog-search-submit disabled={catalog.status !== 'ready' || catalog.needsRefresh}
+      <button class="button button--outline" type="button" data-catalog-search-submit disabled={disabled || catalog.status !== 'ready' || catalog.needsRefresh}
         onClick={() => { updateSearch(catalog.search); resultsRef.current?.focus(); }}>Buscar</button>
     </div>
     <p class="creator-owner__status" data-catalog-index-status role={catalog.status === 'error' ? 'alert' : 'status'} aria-live="polite">{loadLabel}</p>
-    {canRefresh && <button class="button button--outline" type="button" data-catalog-retry onClick={onRetry}>{catalog.status === 'error' ? 'Reintentar carga del catálogo' : 'Actualizar catálogo'}</button>}
+    {canRefresh && <button class="button button--outline" type="button" data-catalog-retry disabled={disabled} onClick={onRetry}>{catalog.status === 'error' ? 'Reintentar carga del catálogo' : 'Actualizar catálogo'}</button>}
     {catalog.status === 'ready' && !catalog.needsRefresh && <>
       <p data-catalog-count aria-live="polite">{selection.matches.length} {selection.matches.length === 1 ? 'resultado' : 'resultados'}</p>
       <ul class="creator-owner__catalog-results" data-catalog-results aria-label="Resultados del catálogo" tabIndex={-1} ref={resultsRef}>
         {rows.map((item) => {
           const rejected = mode === 'reference' && catalog.rejectedReferenceSelections.some(({ id, url }) => id === item.id && url === item.url);
           return <li class="creator-owner__catalog-row" data-catalog-row={item.id} key={item.id}>
-          <label><input type={mode === 'reference' ? 'radio' : 'checkbox'} name={mode === 'reference' ? 'catalogReference' : undefined}
-            data-catalog-select data-resource-id={item.id} checked={mode === 'reference'
-              ? selectedReference?.id === item.id && selectedReference.url === item.url
-              : selected.includes(item.id)}
-            disabled={rejected}
-            aria-label={`${mode === 'claim' ? 'Solicitar edición de' : 'Seleccionar'} ${item.title}`}
-            onChange={(event) => onSelect(item, event.currentTarget.checked)} />
-            <span class="creator-owner__catalog-item"><strong>{item.title}</strong><span>{item.url}</span>
-              {rejected && <span data-catalog-rejected>URL desactualizada.</span>}
-            </span>
-          </label>
-        </li>; })}
+            <label><input type={mode === 'reference' ? 'radio' : 'checkbox'} name={mode === 'reference' ? 'catalogReference' : undefined}
+              data-catalog-select data-resource-id={item.id} checked={mode === 'reference'
+                ? selectedReference?.id === item.id && selectedReference.url === item.url
+                : selected.includes(item.id)}
+              disabled={disabled || rejected}
+              aria-label={`${mode === 'claim' ? 'Solicitar edición de' : 'Seleccionar'} ${item.title}`}
+              onChange={(event) => onSelect(item, event.currentTarget.checked)} />
+              <span class="creator-owner__catalog-item"><strong>{item.title}</strong><span>{item.url}</span>{rejected && <span data-catalog-rejected>URL desactualizada.</span>}</span>
+            </label>
+          </li>;
+        })}
       </ul>
       <p class="creator-owner__empty" data-catalog-empty hidden={selection.matches.length > 0}>
         {entries.length ? 'No hay recursos que coincidan con la búsqueda.' : 'El catálogo no tiene recursos disponibles en este momento.'}
       </p>
       <nav class="creator-owner__catalog-pagination" aria-label="Páginas del catálogo">
-        <button ref={previousPageRef} class="button button--outline" type="button" data-catalog-page="previous" disabled={selection.page <= 1} onClick={() => changePage('previous', selection.page - 1)}>Anterior</button>
+        <button ref={previousPageRef} class="button button--outline" type="button" data-catalog-page="previous" disabled={disabled || selection.page <= 1} onClick={() => changePage('previous', selection.page - 1)}>Anterior</button>
         <span data-catalog-page-label aria-live="polite">Página {selection.page} de {selection.pageCount}</span>
-        <button ref={nextPageRef} class="button button--outline" type="button" data-catalog-page="next" disabled={selection.page >= selection.pageCount} onClick={() => changePage('next', selection.page + 1)}>Siguiente</button>
+        <button ref={nextPageRef} class="button button--outline" type="button" data-catalog-page="next" disabled={disabled || selection.page >= selection.pageCount} onClick={() => changePage('next', selection.page + 1)}>Siguiente</button>
       </nav>
     </>}
   </section>;

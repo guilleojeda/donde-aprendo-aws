@@ -1,4 +1,5 @@
 import { creatorOwnerLinksCountLabel, creatorOwnerLinksHref, selectCreatorOwnerLinks, type CreatorOwnerLinksQuery } from '../../lib/creator-owner-links';
+import { creatorOwnerNavigationLists } from '../../lib/creator-owner-presentation';
 import type { CreatorOwnerState } from '../../lib/creator-owner-state';
 
 interface Props {
@@ -20,11 +21,12 @@ interface Props {
 const DIRECTORY_LABELS: Record<string, string> = { pending: 'Pendiente', approved: 'Aprobado', revoked: 'Revocado' };
 
 export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQueryChange, onQuerySubmit, onAdd, onCatalog, onEditLink, onClaim, onMoveLink, onRemoveLink, onEditRetained, onReinclude }: Props) {
-  const { observed: data, location } = state;
+  const { observed: snapshot, location } = state;
+  const data = creatorOwnerNavigationLists(snapshot);
   const selection = selectCreatorOwnerLinks(data.links, data.series, location.linksQuery);
   const pending = location.pendingLinksQuery;
-  const activeResourceIds = new Set(data.links.map(({ resourceId }) => resourceId));
-  const retained = data.editableResources.filter(({ id }) => !activeResourceIds.has(id));
+  const activeResourceIds = new Set(Object.values(snapshot.placements).map(({ resourceId }) => resourceId));
+  const retained = snapshot.resources.filter((resource) => !activeResourceIds.has(resource.id) && resource.reincludeAllowed);
   const selectedCount = selection.totalMatches;
   const showFilterNote = selection.query.serie !== 'todos' || selection.query.directorio !== 'todos'
     || selection.query.destacado !== 'todos' || selection.query.orden !== 'pagina';
@@ -59,7 +61,7 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
   return <section class="creator-owner__links" data-owner-links aria-labelledby="owner-links-title" data-links-count={data.links.length}>
     <header class="creator-owner__section-heading creator-owner__links-heading">
       <div><p class="creator-owner__eyebrow">Contenido de tu página</p><h2 id="owner-links-title" tabIndex={-1}>Enlaces</h2><p data-link-count>{creatorOwnerLinksCountLabel(selectedCount, selection.totalLinks)}</p></div>
-      {data.profile && <div class="creator-owner__link-actions">
+      {snapshot.profile && <div class="creator-owner__link-actions">
         <button class="button button--outline" type="button" data-catalog-open disabled={disabled} onClick={onCatalog}>Buscar en el catálogo</button>
         <button class="button button--dark" type="button" data-link-add-open disabled={disabled} onClick={onAdd}>Agregar enlace</button>
       </div>}
@@ -99,12 +101,12 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
         <table class="creator-owner__link-table">
           <thead><tr><th scope="col">Contenido</th><th scope="col">Series</th><th scope="col">Directorio</th><th scope="col">Destacado</th><th scope="col">Acciones</th></tr></thead>
           <tbody data-link-rows>{selection.rows.map((link) => {
-            const editable = data.editableResources.some(({ id }) => id === link.resourceId);
+            const editable = link.metadataEditable;
             const seriesNames = link.series.map(({ seriesId }) => data.series.find(({ id }) => id === seriesId)?.name).filter((name): name is string => Boolean(name));
             let domain = link.url;
             try { domain = new URL(link.url).host; } catch { /* DTO validation owns link URL shape. */ }
-            const visibility = data.profile?.hidden ? 'Página oculta por administración'
-              : !data.profile?.published ? 'Página no pública hasta publicar'
+            const visibility = snapshot.profile?.hidden ? 'Página oculta por administración'
+              : !snapshot.profile?.published ? 'Página no pública hasta publicar'
                 : link.hidden ? 'Ficha oculta en la página pública' : 'Visible en la página pública';
             return <tr data-link-row={link.placementId} data-placement-id={link.placementId} key={link.placementId}>
               <th scope="row"><span class="creator-owner__link-title" data-link-title>{link.title}</span><span class="creator-owner__link-url">{domain}</span></th>
@@ -132,7 +134,7 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
       </nav>
     </>}
 
-    {data.profile && <section class="creator-owner__retained" data-owner-retained-links aria-labelledby="owner-retained-title" hidden={!retained.length}>
+    {snapshot.profile && <section class="creator-owner__retained" data-owner-retained-links aria-labelledby="owner-retained-title" hidden={!retained.length}>
       <h3 id="owner-retained-title">Contenido que puedes volver a agregar</h3>
       <ul data-retained-resources>{retained.map((resource) => {
         let domain = resource.url;
@@ -140,7 +142,7 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
         return <li data-retained-resource={resource.id} key={resource.id}>
           <span><strong>{resource.title}</strong><span class="creator-owner__link-url">{domain}</span></span>
           <span class="creator-owner__link-actions">
-            <button class="button button--outline" type="button" data-retained-edit data-resource-id={resource.id} disabled={disabled} onClick={() => onEditRetained(resource.id)}>Editar ficha</button>
+            {resource.metadataEditable && <button class="button button--outline" type="button" data-retained-edit data-resource-id={resource.id} disabled={disabled} onClick={() => onEditRetained(resource.id)}>Editar ficha</button>}
             <button class="button button--outline" type="button" data-resource-reinclude data-resource-id={resource.id} disabled={disabled} onClick={() => onReinclude(resource.id)}>Volver a agregar</button>
           </span>
         </li>;

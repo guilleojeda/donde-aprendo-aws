@@ -1,8 +1,15 @@
 import { createHash } from 'node:crypto';
 import sharp from 'sharp';
+import { assertCreatorStateFits, readCreatorState } from './creator-state.mjs';
+import {
+  CREATOR_PHOTO_FORMATS,
+  CREATOR_PHOTO_MAX_PIXELS,
+  CREATOR_PHOTO_MAX_UPLOAD_BYTES,
+  CREATOR_PHOTO_MIME_TYPES,
+} from './creator-values.mjs';
 
-export const CREATOR_PHOTO_MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
-export const CREATOR_PHOTO_MAX_PIXELS = 40_000_000;
+export { CREATOR_PHOTO_MAX_PIXELS, CREATOR_PHOTO_MAX_UPLOAD_BYTES };
+
 export const CREATOR_PHOTO_MAX_EDGE = 512;
 export const CREATOR_PHOTO_POST_TTL_MS = 5 * 60 * 1000;
 
@@ -12,6 +19,9 @@ const TEMPORARY_PREFIX = (profileId) => `photos/tmp/${profileId}/`;
 const FINAL_PREFIX = (profileId) => `photos/final/${profileId}/`;
 const MAX_ID_LENGTH = 128;
 const CACHE_CONTROL = 'public, max-age=31536000, immutable';
+const PHOTO_MIME_TYPE_BY_FORMAT = Object.freeze(Object.fromEntries(
+  CREATOR_PHOTO_FORMATS.map((format, index) => [format, CREATOR_PHOTO_MIME_TYPES[index]]),
+));
 
 function fail(code, message) {
   const error = new Error(message);
@@ -51,7 +61,9 @@ export async function prepareCreatorPhoto(bytes) {
   }
 
   const signatureFormat = isAllowedRaster(bytes);
-  if (!signatureFormat) throw fail('UNSUPPORTED_PHOTO_FORMAT', 'photo must be a JPEG, PNG, or WebP raster');
+  if (!signatureFormat || !Object.hasOwn(PHOTO_MIME_TYPE_BY_FORMAT, signatureFormat)) {
+    throw fail('UNSUPPORTED_PHOTO_FORMAT', 'photo must be a JPEG, PNG, or WebP raster');
+  }
 
   let metadata;
   try {
@@ -63,7 +75,8 @@ export async function prepareCreatorPhoto(bytes) {
     throw fail('INVALID_PHOTO', 'photo could not be decoded');
   }
 
-  if (metadata.format !== signatureFormat || !Number.isSafeInteger(metadata.width) || !Number.isSafeInteger(metadata.height)
+  if (!Object.hasOwn(PHOTO_MIME_TYPE_BY_FORMAT, metadata.format) || metadata.format !== signatureFormat
+    || !Number.isSafeInteger(metadata.width) || !Number.isSafeInteger(metadata.height)
     || metadata.width < 1 || metadata.height < 1) {
     throw fail('INVALID_PHOTO', 'photo format or dimensions are invalid');
   }
@@ -124,7 +137,7 @@ function recognizeCompletedUpload(upload, { profileId, uploadId, expectedVersion
       || !Number.isSafeInteger(upload.expectedVersion) || upload.expectedVersion < 0
       || upload.expectedVersion !== expectedVersion
       || upload.state !== 'complete'
-      || !Number.isSafeInteger(upload.version) || upload.version < 0
+      || upload.version !== 2
       || !Number.isSafeInteger(expectedVersion + 1)) return null;
 
     const photo = upload.photo;
@@ -137,7 +150,7 @@ function recognizeCompletedUpload(upload, { profileId, uploadId, expectedVersion
       finalKey: upload.finalKey,
       result: {
         photo,
-        versionChanges: [{ entity: 'profile', id: profileId, before: expectedVersion, after: expectedVersion + 1 }],
+        creatorVersion: expectedVersion + 1,
       },
     };
   } catch {
@@ -148,7 +161,7 @@ function recognizeCompletedUpload(upload, { profileId, uploadId, expectedVersion
 function photoResult(bytes) {
   return {
     body: bytes,
-    contentType: 'image/webp',
+    contentType: PHOTO_MIME_TYPE_BY_FORMAT.webp,
     headers: {
       'Cache-Control': CACHE_CONTROL,
       'X-Content-Type-Options': 'nosniff',
@@ -166,21 +179,18 @@ export function createCreatorPhotoService(dependencies) {
   requireDependencies(dependencies);
   const { store, objects, signPost, now, createId } = dependencies;
 
-  async function getProfile(profileId) {
-    const profile = await store.get(PROFILE_KEY(profileId));
-    if (!profile) throw fail('PROFILE_NOT_FOUND', 'profile does not exist');
-    if (!Number.isSafeInteger(profile.version) || profile.version < 0) {
-      throw fail('INVALID_PROFILE', 'profile version is invalid');
-    }
-    return profile;
+  async function getCreatorState(profileId) {
+    const state = await store.get(PROFILE_KEY(profileId));
+    if (!state) throw fail('PROFILE_NOT_FOUND', 'profile does not exist');
+    return readCreatorState(state, profileId);
   }
 
   return {
     async beginUpload({ profileId: rawProfileId, expectedVersion: rawVersion } = {}) {
       const profileId = requireId(rawProfileId, 'profileId');
       const expectedVersion = requireVersion(rawVersion);
-      const profile = await getProfile(profileId);
-      if (profile.version !== expectedVersion) throw fail('PROFILE_VERSION_CONFLICT', 'profile changed before upload began');
+      const state = await getCreatorState(profileId);
+      if (state.version !== expectedVersion) throw fail('PROFILE_VERSION_CONFLICT', 'profile changed before upload began');
 
       const uploadId = requireId(createId(), 'uploadId');
       const timestamp = now();
@@ -240,9 +250,9 @@ export function createCreatorPhotoService(dependencies) {
           throw fail('UPLOAD_EXPIRED', 'upload authorization has expired');
         }
 
-        const profile = await getProfile(profileId);
-        if (profile.version !== expectedVersion) throw fail('PROFILE_VERSION_CONFLICT', 'profile changed before upload was finalized');
-        if (!Number.isSafeInteger(profile.version + 1)) {
+        const state = await getCreatorState(profileId);
+        if (state.version !== expectedVersion) throw fail('PROFILE_VERSION_CONFLICT', 'profile changed before upload was finalized');
+        if (!Number.isSafeInteger(state.version + 1)) {
           throw fail('PROFILE_VERSION_CONFLICT', 'profile version cannot be incremented safely');
         }
 
@@ -251,10 +261,14 @@ export function createCreatorPhotoService(dependencies) {
         const output = await prepareCreatorPhoto(input);
         finalKey = finalObjectKey(profileId, uploadId, output);
         const photo = photoReference(profileId, uploadId);
+        const nextState = assertCreatorStateFits({
+          ...state,
+          version: state.version + 1,
+          updatedAt: timestamp,
+          photo,
+        });
         await objects.put(finalKey, output);
 
-        // Keep fields owned by the profile editor while atomically changing its photo reference.
-        const nextProfile = { ...profile, version: profile.version + 1, photo };
         const nextUpload = {
           ...upload,
           state: 'complete',
@@ -269,7 +283,7 @@ export function createCreatorPhotoService(dependencies) {
             { key: uploadKey, version: upload.version },
           ],
           puts: [
-            { key: PROFILE_KEY(profileId), value: nextProfile },
+            { key: PROFILE_KEY(profileId), value: nextState },
             { key: uploadKey, value: nextUpload },
           ],
         });
@@ -286,7 +300,7 @@ export function createCreatorPhotoService(dependencies) {
         }
         return {
           photo,
-          versionChanges: [{ entity: 'profile', id: profileId, before: expectedVersion, after: nextProfile.version }],
+          creatorVersion: nextState.version,
         };
       } catch (error) {
         let currentUpload = null;

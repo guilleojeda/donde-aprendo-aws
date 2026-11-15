@@ -61,9 +61,11 @@ test('Series: publicar y cambiar el slug actualiza las dos URLs públicas, conse
   assert.equal(publishedWrite.status, 200);
   const afterPublish = await fixture.rawOwner(cookie);
   assert.equal(afterPublish.profile.published, true);
-  assert.deepEqual(publishedWrite.responseBody.versionChanges, [
-    { entity: 'profile', id: beforePublish.profile.id, before: beforePublish.profile.version, after: afterPublish.profile.version },
-  ]);
+  assert.deepEqual(publishedWrite.body, { creatorVersion: beforePublish.profile.version });
+  assert.equal(publishedWrite.responseBody.operation, 'publish-profile');
+  assert.equal(publishedWrite.responseBody.profileId, beforePublish.profile.id);
+  assert.equal(publishedWrite.responseBody.creatorVersion, afterPublish.profile.version);
+  assert.ok(afterPublish.profile.version > beforePublish.profile.version);
 
   const originalProfileHref = `/c/${initial.profile.slug}/`;
   const originalSeriesHref = `${originalProfileHref}series/${series.slug}/`;
@@ -87,9 +89,11 @@ test('Series: publicar y cambiar el slug actualiza las dos URLs públicas, conse
   const afterSlug = await fixture.rawOwner(cookie);
   assert.equal(afterSlug.profile.slug, 'ana-ruta-actualizada');
   assert.equal(afterSlug.profile.published, true, 'editing the address keeps the page published');
-  assert.deepEqual(slugWrite.responseBody.versionChanges, [
-    { entity: 'profile', id: afterSlug.profile.id, before: afterPublish.profile.version, after: afterSlug.profile.version },
-  ]);
+  assert.equal(slugWrite.body.creatorVersion, afterPublish.profile.version);
+  assert.equal(slugWrite.responseBody.operation, 'save-profile');
+  assert.equal(slugWrite.responseBody.profileId, afterSlug.profile.id);
+  assert.equal(slugWrite.responseBody.creatorVersion, afterSlug.profile.version);
+  assert.ok(afterSlug.profile.version > afterPublish.profile.version);
   const oldAlias = await fixture.creatorStore.get(`alias:${initial.profile.slug}`);
   assert.deepEqual(oldAlias, {
     recordType: 'profileAlias', slug: initial.profile.slug, profileId: initial.profile.id, version: 1,
@@ -154,20 +158,20 @@ test('Series: publicar y cambiar el slug actualiza las dos URLs públicas, conse
   assert.ok(networksWrite);
   assert.equal(networksWrite.status, 200);
   assert.deepEqual(networksWrite.body, {
-    socials: { website: 'https://new.example.invalid/ana' },
-    version: afterSlug.profile.version,
-  }, 'the saved network update includes the valid URL and explicitly omits the cleared URL');
+    creatorVersion: afterSlug.profile.version,
+    socials: { instagram: '', website: 'https://new.example.invalid/ana' },
+  }, 'the browser sends the explicitly cleared URL as raw empty input and omits untouched networks');
 
   const rawFinal = await fixture.rawOwner(cookie);
   const readFinal = await api(fixture, cookie, '/api/creador/perfil');
   assert.equal(readFinal.response.status, 200);
-  assert.equal(rawFinal.profile.version, afterSlug.profile.version + 1);
+  assert.ok(rawFinal.profile.version > afterSlug.profile.version);
   assert.deepEqual(rawFinal.profile.socials, { website: 'https://new.example.invalid/ana' });
   assert.deepEqual(readFinal.body.profile.socials, rawFinal.profile.socials,
     'a fresh owner read matches the raw profile after the real network write');
-  assert.deepEqual(networksWrite.responseBody.versionChanges, [
-    { entity: 'profile', id: rawFinal.profile.id, before: afterSlug.profile.version, after: rawFinal.profile.version },
-  ]);
+  assert.equal(networksWrite.responseBody.operation, 'save-profile');
+  assert.equal(networksWrite.responseBody.profileId, rawFinal.profile.id);
+  assert.equal(networksWrite.responseBody.creatorVersion, rawFinal.profile.version);
   await expectResolvedHref(profileLink, fixture.origin, currentProfileHref);
   await expectResolvedHref(seriesLink, fixture.origin, currentSeriesHref);
   await expect(page.locator('[data-owner-social="instagram"]')).toBeHidden();

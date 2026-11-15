@@ -62,3 +62,20 @@ export async function loginAsSeparateOwner(fixture, sub, email) {
     else fixture.accountHarness.state.oidc.claims = oldClaims;
   }
 }
+
+export async function submitCreatorClaim(fixture, cookie, resourceIds, { evidence, sourceId } = {}) {
+  const resources = await Promise.all(resourceIds.map(async (resourceId) => {
+    const resource = await fixture.rawResource(resourceId);
+    assert.equal(resource?.id, resourceId);
+    return { resourceId, url: resource.url };
+  }));
+  const response = await fixture.request(cookie, '/api/creador/reclamaciones/', {
+    method: 'POST',
+    body: { resources, ...(evidence ? { evidence } : {}), ...(sourceId ? { sourceId } : {}) },
+  });
+  assert.equal(response.status, 202, 'the real creator claim service creates the pending admin request');
+  const acknowledgement = await response.json();
+  assert.equal(acknowledgement.operation, 'create-claim');
+  assert.ok(acknowledgement.claimId);
+  return { id: acknowledgement.claimId };
+}

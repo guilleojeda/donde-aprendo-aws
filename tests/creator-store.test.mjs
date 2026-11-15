@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import { createCreatorStore } from '../src/lib/creator-store.mjs';
 import { currentUrlKey, currentUrlReservationId } from '../src/lib/catalog-url.mjs';
+import { dynamoDbItemSize } from '../src/lib/creator-dynamodb-size.mjs';
 
 const TABLES = {
   accountsTableName: 'accounts-test',
@@ -64,7 +65,6 @@ test('logical point reads map to the approved tables and always use strongly con
   const keys = [
     ['profile:creator-7', 'profiles-test', { pk: 'PROFILE#creator-7', sk: 'META' }],
     ['alias:ana-cordoba', 'profiles-test', { pk: 'SLUG#ana-cordoba', sk: 'META' }],
-    ['placement:creator-7:placement-abc', 'profiles-test', { pk: 'PROFILE#creator-7', sk: 'PLACEMENT#placement-abc' }],
     ['editor:creator-7:resource:legacy-abc', 'profiles-test', { pk: 'PROFILE#creator-7', sk: 'EDITOR#resource:legacy-abc' }],
     ['claim-ref:creator-7:claim-abc', 'profiles-test', { pk: 'PROFILE#creator-7', sk: 'CLAIM#claim-abc' }],
     ['claim:claim-abc', 'profiles-test', { pk: 'ADMIN#CLAIMS', sk: 'CLAIM#claim-abc' }],
@@ -92,13 +92,6 @@ test('scoped owner queries and global admin scans paginate strongly and project 
     const pageKey = `${commandName(command)}:${input.TableName}:${JSON.stringify(input.ExpressionAttributeValues ?? {})}:${input.ExclusiveStartKey ? 'second' : 'first'}`;
     if (pages.has(pageKey)) throw new Error(`unexpected repeated request ${pageKey}`);
     pages.set(pageKey, true);
-    if (commandName(command) === 'QueryCommand' && input.ExpressionAttributeValues[':sk'] === 'PLACEMENT#') {
-      if (!input.ExclusiveStartKey) return {
-        Items: [{ recordType: 'placement', id: 'p1', profileId: 'creator-a', resourceId: 'r1', version: 1, pk: 'PROFILE#creator-a', sk: 'PLACEMENT#p1' }],
-        LastEvaluatedKey: { pk: 'PROFILE#creator-a', sk: 'PLACEMENT#p1' },
-      };
-      return { Items: [{ recordType: 'placement', id: 'p2', profileId: 'creator-a', resourceId: 'r2', version: 2, pk: 'PROFILE#creator-a', sk: 'PLACEMENT#p2' }] };
-    }
     if (commandName(command) === 'QueryCommand' && input.ExpressionAttributeValues[':sk'] === 'EDITOR#') {
       return { Items: [{ recordType: 'editorReference', profileId: 'creator-a', resourceId: 'r1', version: 1, pk: 'PROFILE#creator-a', sk: 'EDITOR#r1' }] };
     }
@@ -107,7 +100,10 @@ test('scoped owner queries and global admin scans paginate strongly and project 
       return { Items: [{ id: 'claim-1', version: 1, pk: 'PROFILE#creator-a', sk: 'CLAIM#claim-1' }] };
     }
     if (commandName(command) === 'ScanCommand' && input.TableName === 'profiles-test') {
-      return { Items: [{ recordType: 'profile', id: 'creator-a', slug: 'ana', displayName: 'Ana', published: true, hidden: false, version: 1, pk: 'PROFILE#creator-a', sk: 'META' }] };
+      return { Items: [
+        { recordType: 'profile', id: 'legacy-profile', slug: 'old', displayName: 'Legacy', published: true, hidden: false, version: 9, pk: 'PROFILE#legacy-profile', sk: 'META' },
+        { recordType: 'creatorState', schemaVersion: 2, id: 'creator-a', slug: 'ana', displayName: 'Ana', published: true, hidden: false, version: 1, pk: 'PROFILE#creator-a', sk: 'META' },
+      ] };
     }
     if (commandName(command) === 'ScanCommand' && input.TableName === 'catalog-test') {
       return { Items: [
@@ -121,15 +117,6 @@ test('scoped owner queries and global admin scans paginate strongly and project 
     throw new Error(`unexpected command ${pageKey}`);
   });
   const store = createCreatorStore({ ...TABLES, client });
-
-  const placements = await store.list('placement:creator-a:');
-  assert.deepEqual(placements.map(({ key }) => key), ['placement:creator-a:p1', 'placement:creator-a:p2']);
-  assert.equal(calls.filter((call) => commandName(call) === 'QueryCommand').length, 2);
-  assert.equal(calls[0].input.ConsistentRead, true);
-  assert.match(calls[0].input.KeyConditionExpression, /begins_with/);
-  assert.ok(calls[0].input.ExclusiveStartKey === undefined);
-  assert.deepEqual(calls[1].input.ExclusiveStartKey, { pk: 'PROFILE#creator-a', sk: 'PLACEMENT#p1' });
-  assert.ok(calls[0].input.ProjectionExpression.includes('#p'));
 
   const editors = await store.list('editor:creator-a:');
   assert.deepEqual(editors.map(({ key }) => key), ['editor:creator-a:r1']);
@@ -145,6 +132,8 @@ test('scoped owner queries and global admin scans paginate strongly and project 
   assert.equal(profiles[0].key, 'profile:creator-a');
   const profileScan = calls.at(-1).input;
   assert.equal(profileScan.ConsistentRead, true);
+  assert.ok(Object.values(profileScan.ExpressionAttributeNames).includes('schemaVersion'));
+  assert.ok(Object.values(profileScan.ExpressionAttributeNames).includes('displayName'));
   assert.doesNotMatch(Object.values(profileScan.ExpressionAttributeNames).join(','), /accountId|email|evidence/);
 
   const resources = await store.list('resource:');
@@ -178,6 +167,34 @@ test('list pagination treats only absent, null, or empty cursors as terminal and
     const store = createCreatorStore({ ...TABLES, client });
     await assert.rejects(store.list('resource:'), /invalid LastEvaluatedKey/);
   }
+});
+
+test('creatorState point reads preserve a missing aggregate revision for the state validator', async () => {
+  const { client } = fakeClient(async () => ({ Item: {
+    pk: 'PROFILE#creator-a', sk: 'META', recordType: 'creatorState', schemaVersion: 2, id: 'creator-a',
+  } }));
+  const store = createCreatorStore({ ...TABLES, client });
+  const state = await store.get('profile:creator-a');
+  assert.equal(Object.hasOwn(state, 'version'), false,
+    'the storage adapter does not default a malformed aggregate revision to zero');
+});
+
+test('measurePut computes physical size from the exact logical META key and nested aggregate fields', () => {
+  const { client } = fakeClient();
+  const store = createCreatorStore({ ...TABLES, client });
+  const candidate = {
+    recordType: 'creatorState', schemaVersion: 2, id: 'creator-a', version: 3,
+    displayName: 'Ana', slug: 'ana', programs: [], socials: {}, published: false, hidden: false,
+    createdAt: 1, updatedAt: 2,
+    placements: { placement: { resourceId: 'resource:one', selectedForDirectory: true } },
+    order: { featured: [], ordinary: ['placement'] },
+    series: { course: { name: 'Curso', slug: 'curso', chapters: ['placement'] } },
+  };
+  const measured = store.measurePut('profile:creator-a', candidate);
+  assert.equal(measured.itemBytes, dynamoDbItemSize({
+    ...candidate, pk: 'PROFILE#creator-a', sk: 'META',
+  }));
+  assert.ok(measured.itemBytes > dynamoDbItemSize(candidate), 'physical keys count toward the item size');
 });
 
 test('getResources batch gets all IDs in strongly consistent projected chunks of at most 100', async () => {
@@ -281,13 +298,13 @@ test('transactions merge CAS checks with writes and preserve absent, legacy-zero
     checks: [
       { key: 'profile:creator-a', version: 0 },
       { key: url, version: null },
-      { key: 'placement:creator-a:p1', version: 4 },
+      { key: 'editor:creator-a:resource-a', version: 4 },
     ],
     puts: [
       { key: 'profile:creator-a', value: { recordType: 'profile', id: 'creator-a', version: 1 } },
       { key: url, value: { recordType: 'urlReservation', id: 'url-id', version: 1 } },
     ],
-    deletes: ['placement:creator-a:p1'],
+    deletes: ['editor:creator-a:resource-a'],
   });
   assert.equal(committed, true);
   const request = calls[0];
@@ -302,11 +319,11 @@ test('transactions merge CAS checks with writes and preserve absent, legacy-zero
   assert.equal(profilePut.Put.ExpressionAttributeValues[':zero'], 0);
   const urlPut = items.find((item) => item.Put?.TableName === 'catalog-test');
   assert.match(urlPut.Put.ConditionExpression, /attribute_not_exists\(#id\)/);
-  const placementDelete = items.find((item) => item.Delete);
-  assert.equal(placementDelete.Delete.TableName, 'profiles-test');
-  assert.match(placementDelete.Delete.ConditionExpression, /#version = :version/);
-  assert.equal(placementDelete.Delete.ExpressionAttributeValues[':version'], 4);
-  assert.deepEqual(placementDelete.Delete.Key, { pk: 'PROFILE#creator-a', sk: 'PLACEMENT#p1' });
+  const editorDelete = items.find((item) => item.Delete);
+  assert.equal(editorDelete.Delete.TableName, 'profiles-test');
+  assert.match(editorDelete.Delete.ConditionExpression, /#version = :version/);
+  assert.equal(editorDelete.Delete.ExpressionAttributeValues[':version'], 4);
+  assert.deepEqual(editorDelete.Delete.Key, { pk: 'PROFILE#creator-a', sk: 'EDITOR#resource-a' });
   for (const item of items) assertExpressionBindings(item.Put ?? item.Delete ?? item.ConditionCheck);
 });
 
@@ -441,4 +458,8 @@ test('store configuration rejects missing table names and unsupported list prefi
   assert.throws(() => createCreatorStore({ ...TABLES, profilesTableName: '', client }), /profilesTableName is required/);
   const store = createCreatorStore({ ...TABLES, client });
   await assert.rejects(store.list('account-profile:'), /unsupported logical list prefix/);
+  await assert.rejects(store.get('placement:creator-a:placement-a'), /unsupported logical key/);
+  await assert.rejects(store.get('series:creator-a:series-a'), /unsupported logical key/);
+  await assert.rejects(store.list('placement:creator-a:'), /unsupported logical list prefix/);
+  await assert.rejects(store.list('series:creator-a:'), /unsupported logical list prefix/);
 });

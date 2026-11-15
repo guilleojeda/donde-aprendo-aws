@@ -11,20 +11,27 @@ import {
 } from './fixtures/creator-pages.mjs';
 
 async function api(harness, path, session, options = {}) {
-  return callApi(harness, path, { session, csrf: sessionCsrf[session], ...options });
+  return callApi(harness, path, { session, csrf: sessionCsrf[session], creatorContract: '2', ...options });
 }
 
 async function adminVersion(harness, type, id) {
   return (await readAdminRecord(harness, type, id)).version;
 }
 
+async function owner(harness, session = 'creator-a') {
+  const response = await api(harness, '/api/creador/perfil', session);
+  assert.equal(response.status, 200, await response.clone().text());
+  return responseJson(response);
+}
+
 async function createProfile(harness, session, slug) {
+  const observed = await responseJson(await api(harness, '/api/creador/perfil', session));
   const response = await api(harness, '/api/creador/perfil', session, {
     method: 'PUT',
-    body: { displayName: `${session} creator`, slug, programs: [], socials: {} },
+    body: { creatorVersion: observed.creatorVersion, displayName: `${session} creator`, slug, programs: [], socials: {} },
   });
   assert.equal(response.status, 200);
-  return (await responseJson(response)).profile;
+  return (await responseJson(await api(harness, '/api/creador/perfil', session))).profile;
 }
 
 async function seedLegacyResource(store, id, url, extra = {}) {
@@ -48,13 +55,14 @@ async function seedLegacyResource(store, id, url, extra = {}) {
 
 test('a draft may clear its slug without writing an empty alias reservation', async () => {
   const harness = await createCreatorPagesHarness();
-  const profile = await createProfile(harness, 'creator-a', 'borrador-con-ruta');
+  await createProfile(harness, 'creator-a', 'borrador-con-ruta');
+  const observed = await owner(harness);
   const saved = await api(harness, '/api/creador/perfil', 'creator-a', {
     method: 'PUT',
-    body: { displayName: 'Nombre visible', slug: '', version: profile.version, programs: [], socials: {} },
+    body: { creatorVersion: observed.creatorVersion, displayName: 'Nombre visible', slug: '', programs: [], socials: {} },
   });
   assert.equal(saved.status, 200);
-  assert.equal((await responseJson(saved)).profile.slug, '');
+  assert.equal((await owner(harness)).profile.slug, '');
   assert.equal((await harness.service.readPublicProfile('borrador-con-ruta')).status, 404);
   assert.equal(harness.store.calls.some(({ operation, input }) => operation === 'get' && input.key === 'alias:'), false);
   assert.equal(harness.store.calls.some(({ operation, input }) => operation === 'transact'
@@ -68,7 +76,10 @@ test('a partial admin claim stays partial until every requested resource is link
   await seedLegacyResource(harness.store, 'claim-b', 'https://example.com/claim-b');
 
   const request = await api(harness, '/api/creador/reclamaciones', 'creator-a', {
-    method: 'POST', body: { resourceIds: ['claim-a', 'claim-b'], sourceId: 'ana-channel' },
+    method: 'POST', body: { resources: [
+      { resourceId: 'claim-a', url: 'https://example.com/claim-a' },
+      { resourceId: 'claim-b', url: 'https://example.com/claim-b' },
+    ], sourceId: 'ana-channel' },
   });
   assert.equal(request.status, 202);
 
@@ -82,21 +93,18 @@ test('a partial admin claim stays partial until every requested resource is link
   assert.equal((await harness.store.get('resource:claim-a')).editorProfileId, profileId);
   assert.equal((await harness.store.get('resource:claim-b')).directoryControl, 'editorial');
   let profile = await harness.store.get(`profile:${profileId}`);
-  let placements = await harness.store.list(`placement:${profileId}:`);
-  assert.equal(placements.length, 1);
-  assert.equal(placements[0].value.version, profile.version,
-    'admin linking initializes its placement at the same monotonic version as the profile transaction');
+  assert.deepEqual(profile.order, { featured: [], ordinary: [Object.keys(profile.placements)[0]] },
+    'admin linking adds one placement to the creator aggregate');
+  assert.equal(Object.values(profile.placements)[0].resourceId, 'claim-a');
 
   const second = await api(harness, '/api/admin/reclamaciones/vincular', 'admin', {
     method: 'POST', body: { accountId: 'private-account-a', sourceId: 'ana-channel', resourceIds: ['claim-b'] },
   });
   assert.equal(second.status, 200);
   profile = await harness.store.get(`profile:${profileId}`);
-  placements = await harness.store.list(`placement:${profileId}:`);
-  assert.equal(placements.length, 2);
-  assert.ok(placements.every(({ value }) => value.version <= profile.version),
-    'existing and newly linked placements never advance beyond their profile version');
-  assert.equal(placements.find(({ value }) => value.resourceId === 'claim-b').value.version, profile.version);
+  assert.equal(Object.keys(profile.placements).length, 2);
+  assert.deepEqual(new Set(Object.values(profile.placements).map(({ resourceId }) => resourceId)), new Set(['claim-a', 'claim-b']));
+  assert.equal(profile.order.ordinary.length, 2);
   const resolved = await api(harness, '/api/admin/reclamaciones', 'admin');
   assert.equal((await responseJson(resolved)).claims[0].status, 'resolved');
 
@@ -114,6 +122,7 @@ test('admin prevalidates all exact claim resources before changing any ownership
   const harness = await createCreatorPagesHarness();
   const target = await createProfile(harness, 'creator-a', 'ana');
   const other = await createProfile(harness, 'creator-b', 'bea');
+  const targetVersion = (await harness.store.get(`profile:${target.id}`)).version;
   await seedLegacyResource(harness.store, 'claim-free', 'https://example.com/free');
   await seedLegacyResource(harness.store, 'claim-owned', 'https://example.com/owned', {
     directoryControl: 'creator', editorProfileId: other.id, autoSync: false,
@@ -126,7 +135,7 @@ test('admin prevalidates all exact claim resources before changing any ownership
   const free = await harness.store.get('resource:claim-free');
   assert.equal(free.directoryControl, 'editorial');
   assert.equal(free.editorProfileId, undefined);
-  assert.equal((await harness.store.get(`profile:${target.id}`)).version, target.version);
+  assert.equal((await harness.store.get(`profile:${target.id}`)).version, targetVersion);
 });
 
 test('valid events can be approved again without resource taxonomy and creator URL edits reserve registrationUrl', async () => {
@@ -164,14 +173,19 @@ test('valid events can be approved again without resource taxonomy and creator U
   assert.equal((await harness.store.get('resource:event-verified')).registrationUrl, oldUrl);
 
   await createProfile(harness, 'creator-a', 'ana-eventos');
-  const publish = await api(harness, '/api/creador/perfil/publicar', 'creator-a', { method: 'POST', body: {} });
+  let snapshot = await owner(harness);
+  const publish = await api(harness, '/api/creador/perfil/publicar', 'creator-a', {
+    method: 'POST', body: { creatorVersion: snapshot.creatorVersion },
+  });
   assert.equal(publish.status, 200);
+  snapshot = await owner(harness);
   const existing = await api(harness, '/api/creador/enlaces', 'creator-a', {
-    method: 'POST', body: { title: 'Encuentro AWS', url: oldUrl },
+    method: 'POST', body: { creatorVersion: snapshot.creatorVersion, title: 'Encuentro AWS', url: oldUrl },
   });
   assert.equal(existing.status, 201);
+  const added = await responseJson(existing);
   const claim = await api(harness, '/api/creador/reclamaciones', 'creator-a', {
-    method: 'POST', body: { resourceIds: ['event-verified'], sourceId: 'community' },
+    method: 'POST', body: { resources: [{ resourceId: 'event-verified', url: oldUrl }], sourceId: 'community' },
   });
   assert.equal(claim.status, 202);
   const link = await api(harness, '/api/admin/reclamaciones/vincular', 'admin', {
@@ -179,13 +193,13 @@ test('valid events can be approved again without resource taxonomy and creator U
   });
   assert.equal(link.status, 200);
 
-  const editor = await api(harness, '/api/creador/perfil', 'creator-a');
-  const linkVersion = (await responseJson(editor)).links[0].resourceVersion;
-  const changed = await api(harness, '/api/creador/recursos/event-verified', 'creator-a', {
-    method: 'PATCH', body: { url: currentUrl, version: linkVersion },
+  snapshot = await owner(harness);
+  const resourceVersion = snapshot.resources.find(({ id }) => id === 'event-verified').version;
+  const changed = await api(harness, `/api/creador/enlaces/${added.placementId}/editar`, 'creator-a', {
+    method: 'PATCH', body: { creatorVersion: snapshot.creatorVersion, resourceVersion, url: currentUrl },
   });
   assert.equal(changed.status, 200);
-  assert.equal((await responseJson(changed)).resource.url, currentUrl);
+  assert.equal((await responseJson(changed)).operation, 'edit-link');
 
   const event = await harness.store.get('resource:event-verified');
   assert.equal(event.registrationUrl, currentUrl);
@@ -230,6 +244,7 @@ test('creator text limits reject oversized fields before storage and accept each
   const profileResponse = await api(harness, '/api/creador/perfil', 'creator-a', {
     method: 'PUT',
     body: {
+      creatorVersion: null,
       displayName: 'N'.repeat(120),
       slug: 'ana',
       city: 'C'.repeat(100),
@@ -239,10 +254,14 @@ test('creator text limits reject oversized fields before storage and accept each
     },
   });
   assert.equal(profileResponse.status, 200, 'profile fields at their maximum length remain valid');
+  const maximumProfile = await owner(harness);
 
   const linkResponse = await api(harness, '/api/creador/enlaces', 'creator-a', {
     method: 'POST',
-    body: { title: 'T'.repeat(200), url: `https://example.com/${'x'.repeat(2028)}`, description: 'D'.repeat(2000) },
+    body: {
+      creatorVersion: maximumProfile.creatorVersion,
+      title: 'T'.repeat(200), url: `https://example.com/${'x'.repeat(2028)}`, description: 'D'.repeat(2000),
+    },
   });
   assert.equal(linkResponse.status, 201, 'creator link fields at their maximum length remain valid');
 });
@@ -261,16 +280,20 @@ test('oversized JSON bodies are rejected before storage access', async () => {
 test('public profile reads all linked resources through one complete batch and keeps link order', async () => {
   const harness = await createCreatorPagesHarness();
   await createProfile(harness, 'creator-a', 'ana');
-  const published = await api(harness, '/api/creador/perfil/publicar', 'creator-a', { method: 'POST', body: {} });
+  let snapshot = await owner(harness);
+  const published = await api(harness, '/api/creador/perfil/publicar', 'creator-a', {
+    method: 'POST', body: { creatorVersion: snapshot.creatorVersion },
+  });
   assert.equal(published.status, 200);
 
   const resourceIds = [];
   for (const [title, slug] of [['Uno', 'uno'], ['Dos', 'dos'], ['Tres', 'tres']]) {
+    snapshot = await owner(harness);
     const response = await api(harness, '/api/creador/enlaces', 'creator-a', {
-      method: 'POST', body: { title, url: `https://example.com/${slug}` },
+      method: 'POST', body: { creatorVersion: snapshot.creatorVersion, title, url: `https://example.com/${slug}` },
     });
     assert.equal(response.status, 201);
-    resourceIds.push((await responseJson(response)).link.resourceId);
+    resourceIds.push((await responseJson(response)).resourceId);
   }
 
   const get = harness.store.get.bind(harness.store);
@@ -294,10 +317,14 @@ test('public profile reads all linked resources through one complete batch and k
 test('profile reads fail with 503 when a resource batch omits an expected linked resource', async () => {
   const harness = await createCreatorPagesHarness();
   await createProfile(harness, 'creator-a', 'ana');
-  const published = await api(harness, '/api/creador/perfil/publicar', 'creator-a', { method: 'POST', body: {} });
+  let snapshot = await owner(harness);
+  const published = await api(harness, '/api/creador/perfil/publicar', 'creator-a', {
+    method: 'POST', body: { creatorVersion: snapshot.creatorVersion },
+  });
   assert.equal(published.status, 200);
+  snapshot = await owner(harness);
   const added = await api(harness, '/api/creador/enlaces', 'creator-a', {
-    method: 'POST', body: { title: 'Recurso', url: 'https://example.com/resource' },
+    method: 'POST', body: { creatorVersion: snapshot.creatorVersion, title: 'Recurso', url: 'https://example.com/resource' },
   });
   assert.equal(added.status, 201);
 
@@ -312,22 +339,30 @@ test('profile reads fail with 503 when a resource batch omits an expected linked
 test('canonical trailing-slash API routes support creator writes and admin moderation', async () => {
   const harness = await createCreatorPagesHarness();
   const saved = await api(harness, '/api/creador/perfil/', 'creator-a', {
-    method: 'PUT', body: { displayName: 'Ana', slug: 'ana-canonica' },
+    method: 'PUT', body: { creatorVersion: null, displayName: 'Ana', slug: 'ana-canonica' },
   });
   assert.equal(saved.status, 200);
   assert.equal((await api(harness, '/api/creador/perfil/', 'creator-a')).status, 200);
-  assert.equal((await api(harness, '/api/creador/perfil/publicar/', 'creator-a', { method: 'POST', body: {} })).status, 200);
+  let snapshot = await owner(harness);
+  assert.equal((await api(harness, '/api/creador/perfil/publicar/', 'creator-a', {
+    method: 'POST', body: { creatorVersion: snapshot.creatorVersion },
+  })).status, 200);
+  snapshot = await owner(harness);
   const added = await api(harness, '/api/creador/enlaces/', 'creator-a', {
-    method: 'POST', body: { title: 'Guía', url: 'https://example.com/canonical' },
+    method: 'POST', body: { creatorVersion: snapshot.creatorVersion, title: 'Guía', url: 'https://example.com/canonical' },
   });
   assert.equal(added.status, 201);
-  const { link } = await responseJson(added);
+  const link = await responseJson(added);
+  snapshot = await owner(harness);
   assert.equal((await api(harness, `/api/creador/enlaces/${link.placementId}/`, 'creator-a', {
-    method: 'PATCH', body: { selectedForDirectory: false },
+    method: 'PATCH', body: { creatorVersion: snapshot.creatorVersion, selectedForDirectory: false },
   })).status, 200);
   assert.equal((await api(harness, '/api/admin/recursos/', 'admin')).status, 200);
   assert.equal((await api(harness, `/api/admin/recursos/${link.resourceId}/ocultar/`, 'admin', {
     method: 'POST', body: { version: await adminVersion(harness, 'resource', link.resourceId) },
   })).status, 200);
-  assert.equal((await api(harness, `/api/creador/enlaces/${link.placementId}/`, 'creator-a', { method: 'DELETE' })).status, 204);
+  snapshot = await owner(harness);
+  assert.equal((await api(harness, `/api/creador/enlaces/${link.placementId}/`, 'creator-a', {
+    method: 'DELETE', body: { creatorVersion: snapshot.creatorVersion },
+  })).status, 200);
 });

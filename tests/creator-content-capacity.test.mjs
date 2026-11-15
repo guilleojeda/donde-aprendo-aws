@@ -292,18 +292,23 @@ test('many retained EDITOR references stay outside the quota while bounded conte
       } },
     );
   }
-  const seeded = await harness.store.transact({
-    checks: puts.map(({ key }) => ({ key, version: null })),
-    puts,
-  });
-  assert.equal(seeded, true, 'the generic fixture store seeds retained resources and references as prerequisites');
+  for (let offset = 0; offset < puts.length; offset += 100) {
+    const batch = puts.slice(offset, offset + 100);
+    assert.equal(await harness.store.transact({
+      checks: batch.map(({ key }) => ({ key, version: null })),
+      puts: batch,
+    }), true, 'the generic fixture store seeds retained resources and references as prerequisites');
+  }
 
   const accepted = await addNewLink(harness, state.version, 'https://capacity.example.invalid/with-retained-resources');
   assert.equal(accepted.response.status, 201, JSON.stringify(accepted.body));
   const committed = await harness.store.get(CREATOR_KEY);
   assert.ok(creatorContentBytes(committed) <= CONTENT_LIMIT,
     'the owner-content candidate fits even with 1,000 authorized retained references');
-  assert.equal((await harness.store.list(`editor:${CREATOR_PROFILE_ID}:`)).length, retainedCount);
+  const references = await harness.store.list(`editor:${CREATOR_PROFILE_ID}:`);
+  const originalIds = puts.filter(({ value }) => value.recordType === 'editorReference').map(({ value }) => value.resourceId);
+  assert.deepEqual(references.map(({ value }) => value.resourceId).sort(),
+    [...originalIds, accepted.body.resourceId].sort(), 'the owned Add keeps all retained references and adds its own');
 
   const read = await creatorRequest(harness, '/api/creador/perfil/');
   assert.equal(read.status, 200, await read.clone().text());
@@ -473,6 +478,19 @@ test('an admin grant commits only the fitting prefix and manual continuations pr
   committed = await harness.store.get(CREATOR_KEY);
   assert.equal(creatorContentBytes(committed), CONTENT_LIMIT,
     'confirming an already-linked resource consumes no additional aggregate capacity');
+
+  for (const fields of [
+    { title: 'Intento de duplicado', url: urlA },
+    { resourceId: resourceA, resourceVersion: ownedA.version },
+  ]) {
+    const duplicate = await creatorRequest(harness, '/api/creador/enlaces/', {
+      method: 'POST', body: { creatorVersion: committed.version, ...fields },
+    });
+    assert.equal(duplicate.status, 200, await duplicate.clone().text());
+    assert.equal((await duplicate.json()).disposition, 'already-present');
+    assert.deepEqual(await harness.store.get(CREATOR_KEY), committed,
+      'repeat Add and reinclude remain no-ops at the exact quota');
+  }
 
   const removed = await creatorRequest(harness, `/api/creador/series/${SERIES_TO_REMOVE}`, {
     method: 'DELETE',

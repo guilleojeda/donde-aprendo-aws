@@ -4,6 +4,7 @@ import { loadCatalog, projectPublishedCatalog } from '../src/lib/catalog.mjs';
 import { fingerprintPublicCatalog } from '../src/lib/publication.mjs';
 import { buildSearchIndex, searchIndex } from '../src/lib/unified-search.mjs';
 import {
+  creatorAggregates,
   event,
   placement,
   profile,
@@ -13,6 +14,12 @@ import {
 } from './fixtures/creator-series-directory.mjs';
 
 const associations = (records) => records[0]?.series ?? [];
+const physicalState = (creator) => ({
+  ...creator,
+  pk: `PROFILE#${creator.id}`,
+  sk: 'META',
+  recordType: 'creatorState',
+});
 
 test('a shared resource publishes only each selected profile’s own eligible series', () => {
   const selectedByA = projectPublishedCatalog([resource()], sharedResourceState());
@@ -29,31 +36,19 @@ test('a shared resource publishes only each selected profile’s own eligible se
   }]);
 });
 
-test('associations require an approved visible resource and an eligible current profile placement', () => {
+test('associations require a published visible profile and selected chapter placement', () => {
+  const hiddenPlacement = placement('creator-hidden', 'resource-shared');
+  const draftPlacement = placement('creator-draft', 'resource-shared');
   const state = sharedResourceState({
     selectA: false,
     selectB: true,
-    extraProfiles: [
-      profile('creator-hidden', { hidden: true }),
-      profile('creator-draft', { published: false }),
-    ],
+    extraProfiles: [profile('creator-hidden', { hidden: true }), profile('creator-draft', { published: false })],
     extraSeries: [
-      series('series-hidden', 'creator-hidden', { name: 'No publicar', slug: 'no-publicar' }),
-      series('series-draft', 'creator-draft', { name: 'Perfil en borrador', slug: 'perfil-en-borrador' }),
+      series('series-hidden', 'creator-hidden', { name: 'No publicar', slug: 'no-publicar', chapters: [hiddenPlacement.id] }),
+      series('series-draft', 'creator-draft', { name: 'Perfil en borrador', slug: 'perfil-en-borrador', chapters: [draftPlacement.id] }),
     ],
-    extraPlacements: [
-      placement('creator-hidden', 'resource-shared', {
-        selected: true,
-        series: { 'series-hidden': { position: 0 } },
-      }),
-      placement('creator-draft', 'resource-shared', {
-        selected: true,
-        series: { 'series-draft': { position: 0 } },
-      }),
-    ],
+    extraPlacements: [hiddenPlacement, draftPlacement],
   });
-  const selectedB = state.placements.find(({ profileId }) => profileId === 'creator-b');
-  selectedB.series['series-deleted'] = { position: 0 };
 
   const visible = projectPublishedCatalog([resource()], state);
   assert.deepEqual(associations(visible).map(({ seriesId }) => seriesId), ['series-b']);
@@ -72,18 +67,22 @@ test('editorial legacy inclusion has no series by itself, while a selected place
   assert.deepEqual(associations(withSelection).map(({ seriesId }) => seriesId), ['series-a']);
 });
 
-test('a placement cannot borrow another profile’s series identity', () => {
+test('a Series sequence cannot reference another creator’s placement', () => {
   const state = sharedResourceState({ selectA: true, selectB: false });
-  const placementA = state.placements.find(({ profileId }) => profileId === 'creator-a');
-  placementA.series['series-b'] = { position: 1 };
+  const creatorA = state.creators.find(({ id }) => id === 'creator-a');
+  creatorA.series['series-a'].chapters = ['creator-b-resource-shared'];
 
-  const records = projectPublishedCatalog([resource()], state);
-  assert.deepEqual(associations(records).map(({ seriesId }) => seriesId), ['series-a']);
+  assert.throws(() => projectPublishedCatalog([resource()], state), /creator state Series.*chapters|chapter/i);
 });
 
 test('same-named series from different profiles remain separate associations', () => {
   const state = sharedResourceState();
-  state.series = state.series.map((entry) => ({ ...entry, name: 'Serie compartida', slug: 'serie-compartida' }));
+  for (const creator of state.creators) {
+    for (const entry of Object.values(creator.series)) {
+      entry.name = 'Serie compartida';
+      entry.slug = 'serie-compartida';
+    }
+  }
 
   const records = projectPublishedCatalog([resource()], state);
   const index = buildSearchIndex([], records);
@@ -101,80 +100,64 @@ test('same-named series from different profiles remain separate associations', (
 
 test('series projection exposes only deterministic public association fields', () => {
   const state = sharedResourceState({ selectA: true, selectB: true });
-  state.profiles[0] = {
-    ...state.profiles[0],
-    accountId: 'private-account-should-not-leak',
-    email: 'private-email@example.invalid',
-    photo: 'private-photo-key',
-  };
-  state.series[0] = { ...state.series[0], privateNote: 'private-series-note' };
-  state.placements.reverse();
-  state.profiles.reverse();
-  state.series.reverse();
+  state.creators[0].bio = 'private-profile-bio';
+  state.creators[0].socials = { website: 'https://private.example.invalid' };
+  state.creators[0].photo = { version: 'private-photo-key' };
+  state.creators[0].series['series-a'].description = 'private-series-note';
+  state.creators.reverse();
+  for (const creator of state.creators) {
+    creator.series = Object.fromEntries(Object.entries(creator.series).reverse());
+  }
 
   const records = projectPublishedCatalog([resource({ submitterEmail: 'private-submit@example.invalid' })], state);
   assert.equal(records.length, 1);
   assert.deepEqual(associations(records).map(({ seriesId }) => seriesId), ['series-a', 'series-b']);
   assert.deepEqual(Object.keys(associations(records)[0]).sort(), ['creatorName', 'href', 'name', 'seriesId']);
-  assert.doesNotMatch(JSON.stringify(records), /private-account-should-not-leak|private-email|private-photo|private-series-note|private-submit|selectedForDirectory|profileId/);
+  assert.doesNotMatch(JSON.stringify(records), /private-profile-bio|private.example|private-photo|private-series-note|private-submit|selectedForDirectory|profileId/);
 });
 
-test('public directory fingerprint follows association identity but ignores unexposed series and private data', () => {
+test('public directory fingerprint follows association identity and ignores unexposed order and profile data', () => {
   const publicState = sharedResourceState({ selectA: false, selectB: true });
   const project = (creatorState) => projectPublishedCatalog([resource()], creatorState);
   const baselineRecords = project(publicState);
   const baseline = fingerprintPublicCatalog(baselineRecords);
-  const reorderedState = {
-    profiles: [...publicState.profiles].reverse(),
-    placements: [...publicState.placements].reverse(),
-    series: [...publicState.series].reverse(),
-  };
-
+  const reorderedState = structuredClone(publicState);
+  reorderedState.creators.reverse();
   assert.equal(fingerprintPublicCatalog(project(reorderedState)), baseline);
   assert.notEqual(fingerprintPublicCatalog(project(sharedResourceState())), baseline);
-  assert.notEqual(fingerprintPublicCatalog(project({
-    ...publicState,
-    profiles: publicState.profiles.map((entry) => entry.id === 'creator-b' ? { ...entry, displayName: 'Beto Cloud' } : entry),
-  })), baseline);
-  assert.notEqual(fingerprintPublicCatalog(project({
-    ...publicState,
-    profiles: publicState.profiles.map((entry) => entry.id === 'creator-b' ? { ...entry, slug: 'beto-cloud' } : entry),
-  })), baseline);
-  assert.notEqual(fingerprintPublicCatalog(project({
-    ...publicState,
-    series: publicState.series.map((entry) => entry.id === 'series-b' ? { ...entry, name: 'Serverless avanzado' } : entry),
-  })), baseline);
-  assert.notEqual(fingerprintPublicCatalog(project({
-    ...publicState,
-    series: publicState.series.map((entry) => entry.id === 'series-b' ? { ...entry, slug: 'serverless-avanzado' } : entry),
-  })), baseline);
 
-  const unexposedChanges = {
-    ...publicState,
-    profiles: publicState.profiles.map((entry) => ({ ...entry, photo: 'changed-private-photo', socials: { x: 'changed-private-social' } })),
-    series: publicState.series.map((entry) => ({ ...entry, description: 'Changed unpublished text', version: 91 })),
-    placements: publicState.placements.map((entry) => ({
-      ...entry,
-      accountId: 'private-account',
-      analyticsCache: { report: 'private-ga-report' },
-      series: Object.fromEntries(Object.entries(entry.series).map(([id, membership]) => [id, { ...membership, position: 99 }])),
-    })),
-  };
+  const changedName = structuredClone(publicState);
+  changedName.creators.find(({ id }) => id === 'creator-b').displayName = 'Beto Cloud';
+  assert.notEqual(fingerprintPublicCatalog(project(changedName)), baseline);
+  const changedProfileSlug = structuredClone(publicState);
+  changedProfileSlug.creators.find(({ id }) => id === 'creator-b').slug = 'beto-cloud';
+  assert.notEqual(fingerprintPublicCatalog(project(changedProfileSlug)), baseline);
+  const changedSeriesName = structuredClone(publicState);
+  changedSeriesName.creators.find(({ id }) => id === 'creator-b').series['series-b'].name = 'Serverless avanzado';
+  assert.notEqual(fingerprintPublicCatalog(project(changedSeriesName)), baseline);
+  const changedSeriesSlug = structuredClone(publicState);
+  changedSeriesSlug.creators.find(({ id }) => id === 'creator-b').series['series-b'].slug = 'serverless-avanzado';
+  assert.notEqual(fingerprintPublicCatalog(project(changedSeriesSlug)), baseline);
+
+  const unexposedChanges = structuredClone(publicState);
+  const creatorB = unexposedChanges.creators.find(({ id }) => id === 'creator-b');
+  creatorB.version = 91;
+  creatorB.photo = { version: 'changed-private-photo' };
+  creatorB.socials = { x: 'changed-private-social' };
+  creatorB.series['series-b'].description = 'Changed public Series page description';
+  creatorB.order.featured.push(...creatorB.order.ordinary.splice(0));
   assert.equal(fingerprintPublicCatalog(project(unexposedChanges)), baseline);
 });
 
-test('catalog scan reads series projection fields while excluding aliases, accounts, sessions and analytics cache', async () => {
+test('catalog scan reads aggregate order and Series fields while excluding auxiliary profile rows', async () => {
   const scanCalls = [];
+  const creator = profile('creator-a');
+  const placementRow = placement('creator-a', 'resource-shared');
   const creatorRows = [
-    { pk: 'PROFILE#creator-a', sk: 'META', recordType: 'profile', id: 'creator-a', displayName: 'Ana AWS', slug: 'ana-aws', published: true },
-    {
-      pk: 'PROFILE#creator-a', sk: 'PLACEMENT#placement-a', recordType: 'placement', id: 'placement-a',
-      profileId: 'creator-a', resourceId: 'resource-shared', selectedForDirectory: true,
-      series: { 'series-a': { position: 0 } },
-    },
-    { pk: 'PROFILE#creator-a', sk: 'SERIES#series-a', recordType: 'series', id: 'series-a', profileId: 'creator-a', name: 'Lambda desde cero', slug: 'lambda-desde-cero', description: 'Privada en el índice', version: 1 },
-    { pk: 'PROFILE#creator-a', sk: 'SERIES_SLUG#antigua', recordType: 'seriesSlug', id: 'series-a', slug: 'antigua', aliasPrivateSentinel: 'alias-private' },
-    { pk: 'PROFILE_SLUG#ana-antigua', sk: 'PROFILE#creator-a', recordType: 'profileSlug', id: 'creator-a', aliasPrivateSentinel: 'alias-private' },
+    { pk: 'PROFILE#creator-a', sk: 'SERIES_SLUG#antigua', recordType: 'seriesAlias', aliasPrivateSentinel: 'alias-private' },
+    physicalState(creatorAggregates(
+      [creator], [placementRow], [series('series-a', 'creator-a', { chapters: [placementRow.id] })],
+    ).creators[0]),
     { pk: 'ANALYTICS#creator-a', sk: 'GA4#1#1', recordType: 'analyticsCache', report: 'private-ga-report' },
     { pk: 'ACCOUNT#private-account', sk: 'SESSION#private-session', recordType: 'session', email: 'private@example.invalid', csrfToken: 'private-csrf' },
   ];
@@ -185,9 +168,9 @@ test('catalog scan reads series projection fields while excluding aliases, accou
     scanPage: async () => ({ Items: [resource()] }),
     scanCreatorPage: async (params) => {
       scanCalls.push(params);
-      const start = params.ExclusiveStartKey ? 4 : 0;
-      const Items = creatorRows.slice(start, start + 4);
-      return { Items, ...(start === 0 ? { LastEvaluatedKey: { pk: 'PROFILE#creator-a', sk: 'SERIES_SLUG#antigua' } } : {}) };
+      const start = params.ExclusiveStartKey ? 2 : 0;
+      const Items = creatorRows.slice(start, start + 2);
+      return { Items, ...(start === 0 ? { LastEvaluatedKey: { pk: 'PROFILE#creator-a', sk: 'META' } } : {}) };
     },
   });
 
@@ -198,15 +181,15 @@ test('catalog scan reads series projection fields while excluding aliases, accou
     href: '/c/ana-aws/series/lambda-desde-cero/',
   }]);
   assert.equal(scanCalls.length, 2);
-  assert.deepEqual(scanCalls[1].ExclusiveStartKey, { pk: 'PROFILE#creator-a', sk: 'SERIES_SLUG#antigua' });
+  assert.deepEqual(scanCalls[1].ExclusiveStartKey, { pk: 'PROFILE#creator-a', sk: 'META' });
   for (const params of scanCalls) {
     assert.equal(params.ConsistentRead, true);
     assert.equal(params.Select, 'SPECIFIC_ATTRIBUTES');
     const fields = Object.values(params.ExpressionAttributeNames ?? {});
-    for (const field of ['displayName', 'name', 'slug', 'profileId', 'resourceId', 'selectedForDirectory', 'series']) {
+    for (const field of ['schemaVersion', 'id', 'displayName', 'slug', 'published', 'hidden', 'placements', 'order', 'series']) {
       assert.ok(fields.includes(field), `scan includes ${field}`);
     }
-    for (const field of ['accountId', 'email', 'csrfToken', 'report', 'identity', 'session', 'aliasPrivateSentinel']) {
+    for (const field of ['version', 'profileId', 'resourceId', 'selectedForDirectory', 'name', 'accountId', 'email', 'csrfToken', 'report', 'identity', 'session', 'aliasPrivateSentinel']) {
       assert.equal(fields.includes(field), false, `scan excludes ${field}`);
       assert.equal(new RegExp(`\\b${field}\\b`, 'u').test(params.ProjectionExpression), false, `projection excludes ${field}`);
     }
@@ -233,23 +216,28 @@ test('global search finds a selected series and creator while keeping one resour
 });
 
 test('global event search unions upcoming occurrence associations and excludes ended members', () => {
-  const profiles = [profile('creator-a'), profile('creator-b'), profile('creator-c')];
-  const seriesRows = [
-    series('series-a', 'creator-a', { name: 'Lambda eventos vigentes', slug: 'lambda-vigente' }),
-    series('series-b', 'creator-b', { name: 'Comunidad serverless', slug: 'comunidad-serverless' }),
-    series('series-ended', 'creator-c', { name: 'Serie de evento terminado', slug: 'evento-terminado' }),
+  const profiles = [
+    profile('creator-a', { slug: 'ana-aws' }),
+    profile('creator-b', { displayName: 'Beto AWS', slug: 'beto-aws' }),
+    profile('creator-c', { displayName: 'Carla AWS', slug: 'carla-aws' }),
   ];
+  const placements = [
+    placement('creator-c', 'event-a'),
+    placement('creator-a', 'event-b'),
+    placement('creator-b', 'event-c'),
+  ];
+  const seriesRows = [
+    series('series-a', 'creator-a', { name: 'Lambda eventos vigentes', slug: 'lambda-vigente', chapters: [placements[1].id] }),
+    series('series-b', 'creator-b', { name: 'Comunidad serverless', slug: 'comunidad-serverless', chapters: [placements[2].id] }),
+    series('series-ended', 'creator-c', { name: 'Serie de evento terminado', slug: 'evento-terminado', chapters: [placements[0].id] }),
+  ];
+  const state = creatorAggregates(profiles, placements, seriesRows);
   const eventRows = [
     event('event-a', { endsAt: '2020-01-01T11:00:00Z' }),
     event('event-b'),
     event('event-c'),
   ];
-  const placements = [
-    placement('creator-c', 'event-a', { series: { 'series-ended': { position: 0 } } }),
-    placement('creator-a', 'event-b', { series: { 'series-a': { position: 0 } } }),
-    placement('creator-b', 'event-c', { series: { 'series-b': { position: 0 } } }),
-  ];
-  const catalog = projectPublishedCatalog(eventRows, { profiles, placements, series: seriesRows });
+  const catalog = projectPublishedCatalog(eventRows, state);
   const index = buildSearchIndex([], catalog);
   const result = searchIndex(index, 'Lambda eventos vigentes comunidad serverless', 'event');
 

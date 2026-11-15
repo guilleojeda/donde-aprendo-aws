@@ -26,22 +26,6 @@ export interface CreatorProfileDTO {
   version: number;
 }
 
-export interface CreatorLinkDTO {
-  placementId: string;
-  resourceId: string;
-  title: string;
-  url: string;
-  description?: string;
-  featured: boolean;
-  position: number;
-  selectedForDirectory: boolean;
-  hidden: boolean;
-  directoryApproval: string;
-  resourceVersion: number;
-  placementVersion?: number;
-  series: CreatorSeriesMembershipDTO[];
-}
-
 export interface CreatorSeriesMembershipDTO {
   seriesId: string;
   position: number;
@@ -76,14 +60,6 @@ export interface CreatorPublicLinkDTO {
   series: CreatorPublicSeriesTagDTO[];
 }
 
-export interface CreatorEditableResourceDTO {
-  id: string;
-  title: string;
-  url: string;
-  description?: string;
-  version: number;
-}
-
 export type CreatorCatalogResourceType = 'content' | 'source' | 'community' | 'event';
 
 export interface CreatorCatalogSelectionDTO {
@@ -110,10 +86,63 @@ export interface CreatorClaimDTO {
   evidence?: string;
 }
 
-export interface CreatorEditorDTO {
-  profile: CreatorProfileDTO | null;
-  links: CreatorLinkDTO[];
-  editableResources: CreatorEditableResourceDTO[];
+/** The private v2 owner read. Aggregate revisions live at the snapshot root. */
+export interface CreatorOwnerProfileDTO extends Omit<CreatorProfileDTO, 'version'> {}
+
+export interface CreatorOwnerResourceDTO {
+  id: string;
+  version: number;
+  title: string;
+  url: string;
+  description?: string;
+  hidden: boolean;
+  directoryApproval: string;
+  metadataEditable: boolean;
+  reincludeAllowed: boolean;
+}
+
+export interface CreatorOwnerPlacementDTO {
+  resourceId: string;
+  selectedForDirectory: boolean;
+}
+
+export interface CreatorOwnerOrderDTO {
+  featured: string[];
+  ordinary: string[];
+}
+
+export interface CreatorOwnerSeriesRecordDTO {
+  name: string;
+  slug: string;
+  description?: string;
+  chapters: string[];
+}
+
+export interface CreatorOwnerSnapshotDTO {
+  schemaVersion: 2;
+  creatorVersion: number | null;
+  profile: CreatorOwnerProfileDTO | null;
+  resources: CreatorOwnerResourceDTO[];
+  placements: Record<string, CreatorOwnerPlacementDTO>;
+  order: CreatorOwnerOrderDTO;
+  series: Record<string, CreatorOwnerSeriesRecordDTO>;
   claims: CreatorClaimDTO[];
-  series: CreatorSeriesDTO[];
+}
+
+/** Display-only join of the canonical resource, placement and sequence facts. */
+export interface CreatorOwnerPlacementViewDTO {
+  placementId: string;
+  resourceId: string;
+  title: string;
+  url: string;
+  description?: string;
+  featured: boolean;
+  position: number;
+  selectedForDirectory: boolean;
+  hidden: boolean;
+  directoryApproval: string;
+  resourceVersion: number;
+  metadataEditable: boolean;
+  reincludeAllowed: boolean;
+  series: CreatorSeriesMembershipDTO[];
 }

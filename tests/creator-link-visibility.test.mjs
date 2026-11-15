@@ -122,6 +122,7 @@ async function api(harness, path, session = 'creator-a', options = {}) {
   return callApi(harness, path, {
     session,
     csrf: sessionCsrf[session],
+    creatorContract: '2',
     ...options,
   });
 }
@@ -132,18 +133,20 @@ async function adminVersion(harness, type, id) {
 
 async function createProfileAndLink(harness, { published = true, slug = 'ana', session = 'creator-a' } = {}) {
   const saved = await api(harness, '/api/creador/perfil', session, {
-    method: 'PUT', body: { displayName: 'Ana', slug },
+    method: 'PUT', body: { creatorVersion: null, displayName: 'Ana', slug },
   });
   assert.equal(saved.status, 200);
+  let { creatorVersion } = await responseJson(saved);
   if (published) {
-    const publish = await api(harness, '/api/creador/perfil/publicar', session, { method: 'POST', body: {} });
+    const publish = await api(harness, '/api/creador/perfil/publicar', session, { method: 'POST', body: { creatorVersion } });
     assert.equal(publish.status, 200);
+    ({ creatorVersion } = await responseJson(publish));
   }
   const added = await api(harness, '/api/creador/enlaces', session, {
-    method: 'POST', body: { title: 'Guía', url: `https://example.com/${slug}` },
+    method: 'POST', body: { creatorVersion, title: 'Guía', url: `https://example.com/${slug}` },
   });
   assert.equal(added.status, 201);
-  return (await responseJson(added)).link;
+  return responseJson(added);
 }
 
 test('the creator editor reports moderation hiding independently from directory approval and selection', async () => {
@@ -161,26 +164,26 @@ test('the creator editor reports moderation hiding independently from directory 
   assert.equal(approved.status, 200);
 
   const visible = await responseJson(await api(harness, '/api/creador/perfil'));
-  assert.equal(visible.links[0].hidden, false);
-  assert.equal(visible.links[0].selectedForDirectory, true);
-  assert.equal(visible.links[0].directoryApproval, 'approved');
+  assert.equal(visible.resources[0].hidden, false);
+  assert.equal(visible.placements[link.placementId].selectedForDirectory, true);
+  assert.equal(visible.resources[0].directoryApproval, 'approved');
 
   await api(harness, `/api/admin/recursos/${link.resourceId}/ocultar`, 'admin', {
     method: 'POST', body: { version: await adminVersion(harness, 'resource', link.resourceId) },
   });
   const hidden = await responseJson(await api(harness, '/api/creador/perfil'));
-  assert.equal(hidden.links[0].hidden, true);
-  assert.equal(hidden.links[0].selectedForDirectory, true);
-  assert.equal(hidden.links[0].directoryApproval, 'approved');
+  assert.equal(hidden.resources[0].hidden, true);
+  assert.equal(hidden.placements[link.placementId].selectedForDirectory, true);
+  assert.equal(hidden.resources[0].directoryApproval, 'approved');
   assert.equal((await harness.service.readPublicProfile('guia')).links.length, 0);
 
   await api(harness, `/api/admin/recursos/${link.resourceId}/restaurar`, 'admin', {
     method: 'POST', body: { version: await adminVersion(harness, 'resource', link.resourceId) },
   });
   const restored = await responseJson(await api(harness, '/api/creador/perfil'));
-  assert.equal(restored.links[0].hidden, false);
-  assert.equal(restored.links[0].selectedForDirectory, true);
-  assert.equal(restored.links[0].directoryApproval, 'approved');
+  assert.equal(restored.resources[0].hidden, false);
+  assert.equal(restored.placements[link.placementId].selectedForDirectory, true);
+  assert.equal(restored.resources[0].directoryApproval, 'approved');
   assert.equal((await harness.service.readPublicProfile('guia')).links.length, 1);
   assert.equal(Object.hasOwn((await harness.service.readPublicProfile('guia')).links[0], 'hidden'), false,
     'moderation state remains private to the editor DTO');
@@ -193,17 +196,17 @@ test('adding an already hidden shared resource returns its moderation state priv
     method: 'POST', body: { version: await adminVersion(harness, 'resource', original.resourceId) },
   });
   assert.equal(hide.status, 200);
-  await createProfileAndLink(harness, { slug: 'bea', session: 'creator-b' });
+  const ownLink = await createProfileAndLink(harness, { slug: 'bea', session: 'creator-b' });
 
   const shared = await api(harness, '/api/creador/enlaces', 'creator-b', {
-    method: 'POST', body: { title: 'Guía compartida', url: 'https://example.com/ana' },
+    method: 'POST', body: { creatorVersion: ownLink.creatorVersion, title: 'Guía compartida', url: 'https://example.com/ana' },
   });
   assert.equal(shared.status, 201);
-  const sharedLink = (await responseJson(shared)).link;
+  const sharedLink = await responseJson(shared);
   assert.equal(sharedLink.resourceId, original.resourceId);
-  assert.equal(sharedLink.hidden, true);
+  assert.equal(sharedLink.disposition, 'resource-reused');
   const editor = await responseJson(await api(harness, '/api/creador/perfil', 'creator-b'));
-  assert.equal(editor.links.find(({ resourceId }) => resourceId === original.resourceId).hidden, true);
+  assert.equal(editor.resources.find(({ id }) => id === original.resourceId).hidden, true);
   const publicPage = await harness.service.readPublicProfile('bea');
   assert.equal(publicPage.links.some(({ resourceId }) => resourceId === original.resourceId), false);
 });

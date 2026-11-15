@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { test } from 'node:test';
-import { resolve } from 'node:path';
 
 import {
   loadCatalog,
@@ -20,6 +22,16 @@ function record(overrides = {}) {
     order: 10,
     featured: false,
     published: true,
+    ...overrides,
+  };
+}
+
+function creatorState(overrides = {}) {
+  return {
+    pk: 'PROFILE#owner', sk: 'META', recordType: 'creatorState', schemaVersion: 2,
+    id: 'owner', version: 1, displayName: 'Owner', slug: 'owner-profile',
+    published: true, hidden: false,
+    placements: {}, order: { featured: [], ordinary: [] }, series: {},
     ...overrides,
   };
 }
@@ -121,13 +133,17 @@ test('catalog resource IDs use a 256-byte UTF-8 boundary', () => {
   assert.equal(Buffer.byteLength(eventBeyondLimit.id, 'utf8'), 257);
   assert.throws(() => projectPublishedCatalog([eventBeyondLimit]), /256 UTF-8 bytes/);
 
-  assert.throws(() => normalizeCreatorRows([{
-    pk: 'PROFILE#owner', sk: 'PLACEMENT#placement-1', recordType: 'placement', id: 'placement-1',
-    profileId: 'owner', resourceId: 'x'.repeat(257), selectedForDirectory: true,
-  }]));
+  const oversizedReference = creatorState({
+    placements: { placement1: { resourceId: 'x'.repeat(257), selectedForDirectory: true } },
+    order: { featured: [], ordinary: ['placement1'] },
+  });
+  assert.throws(() => normalizeCreatorRows([oversizedReference]));
   assert.throws(() => projectPublishedCatalog([record({ directoryControl: 'creator' })], {
-    profiles: [{ id: 'owner', published: true }],
-    placements: [{ profileId: 'owner', resourceId: 'x'.repeat(257), selected: true }],
+    creators: [{
+      id: 'owner', schemaVersion: 2, displayName: 'Owner', slug: 'owner-profile', published: true, hidden: false,
+      placements: { placement1: { resourceId: 'x'.repeat(257), selectedForDirectory: true } },
+      order: { featured: [], ordinary: ['placement1'] }, series: {},
+    }],
   }));
 });
 
@@ -341,4 +357,15 @@ test('uses an explicitly selected fixture and rejects conflicting source config'
     );
     assert.equal(resolveCatalogConfig({ tableName: 'catalog' }, {}).region, 'us-east-1');
   });
+});
+
+test('catalog fixture rejects the retired profile/placement row contract', async () => {
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'catalog-v2-fixture-'));
+  const fixturePath = join(temporaryDirectory, 'catalog.json');
+  try {
+    await writeFile(fixturePath, JSON.stringify({ items: [], profiles: [], placements: [] }));
+    await assert.rejects(loadCatalog({ fixturePath }), /optional v2 creators/);
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
 });

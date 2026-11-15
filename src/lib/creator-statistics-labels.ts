@@ -1,4 +1,4 @@
-import type { CreatorEditorDTO, CreatorSocial } from '../types/creators';
+import type { CreatorOwnerSnapshotDTO, CreatorSocial } from '../types/creators';
 
 const SOCIAL_LINKS: Record<string, { label: string; key: CreatorSocial }> = {
   'social:instagram': { label: 'Instagram', key: 'instagram' },
@@ -8,12 +8,13 @@ const SOCIAL_LINKS: Record<string, { label: string; key: CreatorSocial }> = {
   'social:website': { label: 'Sitio web o newsletter', key: 'website' },
 };
 
-export function getStatisticsLinkLabel(linkId: string, editor?: CreatorEditorDTO): string {
+export function getStatisticsLinkLabel(linkId: string, editor?: CreatorOwnerSnapshotDTO): string {
   if (linkId === '(other)') return 'Otros enlaces agrupados por Google Analytics';
   if (linkId === '(not set)' || linkId.trim() === '') return 'Enlace no identificado';
 
-  const currentLink = editor?.links.find(({ placementId }) => placementId === linkId);
-  if (currentLink) return currentLink.title;
+  const placement = editor?.placements[linkId];
+  const currentResource = placement && editor?.resources.find(({ id }) => id === placement.resourceId);
+  if (currentResource) return currentResource.title;
 
   const socialEntry = Object.hasOwn(SOCIAL_LINKS, linkId) ? SOCIAL_LINKS[linkId] : undefined;
   if (socialEntry) {

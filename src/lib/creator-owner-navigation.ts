@@ -1,13 +1,11 @@
-import type { CreatorEditorDTO } from '../types/creators';
-import {
-  creatorOwnerLinksHref, parseCreatorOwnerLinksQuery, selectCreatorOwnerLinks, type CreatorOwnerLinksQuery,
-} from './creator-owner-links';
+import type { CreatorOwnerSnapshotDTO } from '../types/creators';
+import { creatorOwnerLinksHref, parseCreatorOwnerLinksQuery, selectCreatorOwnerLinks, type CreatorOwnerLinksQuery } from './creator-owner-links';
 import {
   creatorOwnerSeriesHref, parseCreatorOwnerSeriesQuery, selectCreatorOwnerChapters, selectCreatorOwnerSeries,
   type CreatorOwnerSeriesQuery,
 } from './creator-owner-series';
+import { creatorOwnerNavigationLists } from './creator-owner-presentation';
 
-type OwnerLists = Pick<CreatorEditorDTO, 'links' | 'series'>;
 type ListView = 'enlaces' | 'series';
 
 export type OwnerDestination =
@@ -15,53 +13,55 @@ export type OwnerDestination =
   | { href: string; view: 'series'; query: CreatorOwnerSeriesQuery }
   | { href: string; view: ListView; error: 'links' | 'series' };
 
-export function normalizeOwnerSeriesQuery(data: OwnerLists, query: CreatorOwnerSeriesQuery): CreatorOwnerSeriesQuery {
-  const seriesQuery = selectCreatorOwnerSeries(data.series, query).query;
+export function normalizeOwnerSeriesQuery(snapshot: CreatorOwnerSnapshotDTO, query: CreatorOwnerSeriesQuery): CreatorOwnerSeriesQuery {
+  const seriesQuery = selectCreatorOwnerSeries(snapshot, query).query;
   if (!seriesQuery.serie) return seriesQuery;
-  return data.series.some(({ id }) => id === seriesQuery.serie)
-    ? selectCreatorOwnerChapters(data, seriesQuery).query
+  return Object.hasOwn(snapshot.series, seriesQuery.serie)
+    ? selectCreatorOwnerChapters(snapshot, seriesQuery).query
     : { ...seriesQuery, serie: '', buscarCapitulos: '', pertenencia: 'todos', paginaCapitulos: 1 };
 }
 
-export function normalizeOwnerLinksQuery(data: OwnerLists, query: CreatorOwnerLinksQuery): CreatorOwnerLinksQuery {
-  const seriesExists = query.serie === 'todos' || data.series.some(({ id }) => id === query.serie);
-  return selectCreatorOwnerLinks(data.links, data.series, seriesExists ? query : { ...query, serie: 'todos' }).query;
+export function normalizeOwnerLinksQuery(snapshot: CreatorOwnerSnapshotDTO, query: CreatorOwnerLinksQuery): CreatorOwnerLinksQuery {
+  const lists = creatorOwnerNavigationLists(snapshot);
+  const seriesExists = query.serie === 'todos' || Object.hasOwn(snapshot.series, query.serie);
+  return selectCreatorOwnerLinks(lists.links, lists.series, seriesExists ? query : { ...query, serie: 'todos' }).query;
 }
 
-export function resolveOwnerDestination(url: URL, view: ListView, data: OwnerLists, wasValid: boolean): OwnerDestination {
+export function resolveOwnerDestination(url: URL, view: ListView, snapshot: CreatorOwnerSnapshotDTO, wasValid: boolean): OwnerDestination {
   const params = url.searchParams;
   function normalizedHref(href: string): string {
     return new URL(href + url.hash, url).href;
   }
   if (view === 'enlaces') {
-    const parsed = parseCreatorOwnerLinksQuery(params, data.series);
+    const seriesIds = new Set(Object.keys(snapshot.series));
+    const parsed = parseCreatorOwnerLinksQuery(params, seriesIds);
     if (parsed.valid) {
-      const query = normalizeOwnerLinksQuery(data, parsed.query);
+      const query = normalizeOwnerLinksQuery(snapshot, parsed.query);
       return { view, query, href: query.paginaEnlaces === parsed.query.paginaEnlaces ? url.href : normalizedHref(creatorOwnerLinksHref(query)) };
     }
     if (wasValid && parsed.reason === 'series') {
       const remaining = new URLSearchParams(params);
       remaining.delete('serie');
-      const repaired = parseCreatorOwnerLinksQuery(remaining, data.series);
+      const repaired = parseCreatorOwnerLinksQuery(remaining, seriesIds);
       if (repaired.valid) {
-        const query = normalizeOwnerLinksQuery(data, repaired.query);
+        const query = normalizeOwnerLinksQuery(snapshot, repaired.query);
         return { view, query, href: normalizedHref(creatorOwnerLinksHref(query)) };
       }
     }
     return { view, href: url.href, error: 'links' };
   }
-  const parsed = parseCreatorOwnerSeriesQuery(params, data.series);
+  const parsed = parseCreatorOwnerSeriesQuery(params, snapshot);
   if (parsed.valid) {
-    const query = normalizeOwnerSeriesQuery(data, parsed.query);
+    const query = normalizeOwnerSeriesQuery(snapshot, parsed.query);
     const clamped = query.paginaSeries !== parsed.query.paginaSeries || query.paginaCapitulos !== parsed.query.paginaCapitulos;
     return { view, query, href: clamped ? normalizedHref(creatorOwnerSeriesHref(query)) : url.href };
   }
   if (wasValid && parsed.reason === 'series') {
     const remaining = new URLSearchParams(params);
     for (const key of ['serie', 'buscarCapitulos', 'pertenencia', 'paginaCapitulos']) remaining.delete(key);
-    const repaired = parseCreatorOwnerSeriesQuery(remaining, data.series);
+    const repaired = parseCreatorOwnerSeriesQuery(remaining, snapshot);
     if (repaired.valid) {
-      const query = normalizeOwnerSeriesQuery(data, repaired.query);
+      const query = normalizeOwnerSeriesQuery(snapshot, repaired.query);
       return { view, query, href: normalizedHref(creatorOwnerSeriesHref(query)) };
     }
   }

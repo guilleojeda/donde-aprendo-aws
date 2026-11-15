@@ -3,7 +3,7 @@ import { currentUrlCollision, currentUrlKey } from '../../src/lib/catalog-url.mj
 import { completeLogin, cookiePair, makeAccount, makeIdentity } from '../fixtures/account-auth.mjs';
 import { seedResource } from '../fixtures/creator-pages.mjs';
 import {
-  test, expect, api, addLink, captureCreatorApi, loggedInOwner,
+  test, expect, api, captureCreatorApi, loggedInOwner,
 } from '../fixtures/creator-browser-test.mjs';
 
 function catalogEntry({ id, title, url, tipo = 'source' }) {
@@ -86,9 +86,8 @@ function claimWrites(capture) {
   return capture.writes().filter(({ method, path }) => method === 'POST' && path === '/api/creador/reclamaciones');
 }
 
-function linkEditWrites(capture, placementId) {
-  return capture.writes().filter(({ method, path }) => method === 'PATCH'
-    && path === `/api/creador/enlaces/${placementId}/editar`);
+function ownerReads(capture) {
+  return capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil');
 }
 
 async function adminCookie(fixture) {
@@ -107,75 +106,6 @@ async function adminCookie(fixture) {
     if (oldClaims === undefined) delete fixture.accountHarness.state.oidc.claims;
     else fixture.accountHarness.state.oidc.claims = oldClaims;
   }
-}
-
-function deferred() {
-  let release;
-  const promise = new Promise((resolve) => { release = resolve; });
-  return { promise, release };
-}
-
-async function holdClaimPost(page, { commit }) {
-  const gate = deferred();
-  let arrive;
-  const reached = new Promise((resolve) => { arrive = resolve; });
-  let observed;
-  const handler = async (route) => {
-    if (route.request().method() !== 'POST'
-      || new URL(route.request().url()).pathname.replace(/\/$/u, '') !== '/api/creador/reclamaciones') {
-      await route.continue();
-      return;
-    }
-    let actual;
-    if (commit) {
-      actual = await route.fetch();
-      observed = { status: actual.status(), body: await actual.json() };
-    }
-    arrive();
-    await gate.promise;
-    if (actual) await route.fulfill({ response: actual, status: 503 });
-    else await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'SERVICE_UNAVAILABLE' }) });
-  };
-  await page.route('**/api/creador/**', handler);
-  return {
-    reached,
-    get observed() { return observed; },
-    release: () => gate.release(),
-    async remove() {
-      gate.release();
-      await page.unroute('**/api/creador/**', handler).catch(() => {});
-    },
-  };
-}
-
-async function holdOwnerRead(page) {
-  const gate = deferred();
-  let arrive;
-  const reached = new Promise((resolve) => { arrive = resolve; });
-  let observed;
-  const handler = async (route) => {
-    const request = route.request();
-    if (request.method() !== 'GET' || new URL(request.url()).pathname.replace(/\/$/u, '') !== '/api/creador/perfil') {
-      await route.continue();
-      return;
-    }
-    const actual = await route.fetch();
-    const body = await actual.body();
-    observed = { status: actual.status(), dto: JSON.parse(body.toString('utf8')) };
-    arrive();
-    await gate.promise;
-    await route.fulfill({ status: actual.status(), headers: actual.headers(), body });
-  };
-  await page.route('**/api/creador/**', handler);
-  return {
-    reached,
-    get observed() { return observed; },
-    release: () => gate.release(),
-    async remove() {
-      gate.release();
-      await page.unroute('**/api/creador/**', handler).catch(() => {});
-    },
-  };
 }
 
 test('una solicitud selecciona contenido y URLs, valida antes de escribir, deduplica recursos y refleja una resolución parcial', async ({ fixture, page }) => {
@@ -223,11 +153,14 @@ test('una solicitud selecciona contenido y URLs, valida antes de escribir, dedup
   assert.equal((await fixture.request(cookie, '/api/creador/perfil').then((response) => response.json())).claims.length, 0);
 
   await urls.fill(`${first.url}\n${fromKnownUrl.url}`);
-  const before = await fixture.rawOwner(cookie);
+  const before = await api(fixture, cookie, '/api/creador/perfil').then((response) => response.body);
   const firstResourceBefore = await fixture.rawResource(first.id);
+  const ownerReadsBeforeSubmit = ownerReads(capture).length;
   await page.getByRole('button', { name: /Enviar solicitud/i }).click();
   await expect.poll(() => claimWrites(capture).length).toBe(1);
   await expect.poll(() => claimWrites(capture)[0]?.status).toBe(202);
+  await expect.poll(() => ownerReads(capture).length).toBe(ownerReadsBeforeSubmit + 1);
+  await expect.poll(() => ownerReads(capture).at(-1)?.status).toBe(200);
   const post = claimWrites(capture)[0];
   assert.equal(post.status, 202);
   assert.deepEqual(Object.keys(post.body).sort(), ['evidence', 'resources']);
@@ -242,19 +175,31 @@ test('una solicitud selecciona contenido y URLs, valida antes de escribir, dedup
   assert.equal(Object.hasOwn(post.body, 'sourceId'), false);
   assert.ok(post.body.resources.every((resource) => !Object.hasOwn(resource, 'sourceId')));
 
-  const createdClaim = post.responseBody.claim;
-  assert.ok(createdClaim.id);
-  const storedClaim = await fixture.creatorStore.get(`claim:${createdClaim.id}`);
+  const claimId = post.responseBody.claimId;
+  assert.equal(post.responseBody.schemaVersion, 2);
+  assert.equal(post.responseBody.operation, 'create-claim');
+  assert.equal(post.responseBody.disposition, 'submitted');
+  assert.ok(claimId);
+  assert.ok(Number.isSafeInteger(post.responseBody.claimVersion));
+  assert.equal(Object.hasOwn(post.responseBody, 'claim'), false);
+  const storedClaim = await fixture.creatorStore.get(`claim:${claimId}`);
   assert.deepEqual(storedClaim.resourceIds, [first.id, second.id, fromKnownUrl.id],
     'the real service resolves the known URL and stores each distinct candidate once');
   assert.equal(new Set(storedClaim.resourceIds).size, 3);
-  assert.equal((await fixture.rawOwner(cookie)).profile.version, before.profile.version,
-    'claim creation does not change the creator profile version');
+  const afterSubmission = await api(fixture, cookie, '/api/creador/perfil');
+  assert.equal(afterSubmission.body.creatorVersion, before.creatorVersion,
+    'claim creation does not change the creator content revision');
+  const claimsRegion = page.getByRole('region', { name: 'Solicitudes' });
+  await expect(claimsRegion).toContainText(/Pendiente/i,
+    'the same owner document installs the claim history after the real 202 response');
+  await expect(claimsRegion).toContainText(first.title);
+  await expect(claimsRegion).toContainText(second.title);
+  await expect(claimsRegion).toContainText(fromKnownUrl.url);
   assert.deepEqual(await fixture.rawResource(first.id), firstResourceBefore,
     'requesting edit access does not alter catalog metadata');
 
-  const forbiddenEdit = await api(fixture, cookie, `/api/creador/recursos/${first.id}`, {
-    method: 'PATCH', body: { version: firstResourceBefore.version, title: 'Cambio sin permiso' },
+  const forbiddenEdit = await api(fixture, cookie, `/api/creador/recursos/?id=${encodeURIComponent(first.id)}`, {
+    method: 'PATCH', body: { resourceVersion: firstResourceBefore.version, title: 'Cambio sin permiso' },
   });
   assert.equal(forbiddenEdit.response.status, 403, 'only administrative resolution can grant edit authority');
   assert.deepEqual(await fixture.rawResource(first.id), firstResourceBefore);
@@ -268,8 +213,10 @@ test('una solicitud selecciona contenido y URLs, valida antes de escribir, dedup
   assert.equal(resolvedOne.response.status, 200, JSON.stringify(resolvedOne.body));
   assert.deepEqual(resolvedOne.body.linkedResourceIds, [first.id]);
 
-  await page.reload();
-  const claimsRegion = page.getByRole('region', { name: 'Solicitudes' });
+  const readsBeforeRefresh = ownerReads(capture).length;
+  await page.locator('[data-claim-history-refresh]').click();
+  await expect.poll(() => ownerReads(capture).length).toBe(readsBeforeRefresh + 1);
+  await expect.poll(() => ownerReads(capture).at(-1)?.status).toBe(200);
   await expect(claimsRegion).toContainText(/Parcialmente resuelta/i);
   await expect(claimsRegion).toContainText(first.title);
   await expect(claimsRegion).toContainText(second.title);
@@ -277,18 +224,19 @@ test('una solicitud selecciona contenido y URLs, valida antes de escribir, dedup
   const partialRecords = claimsRegion.getByRole('listitem').filter({ hasText: /Parcialmente resuelta/i });
   await expect(partialRecords).toHaveCount(1, 'the local 202 result plus the server history produce one claim record');
   const visible = await page.locator('body').innerText();
-  for (const privateId of [first.id, second.id, fromKnownUrl.id, createdClaim.id]) {
+  for (const privateId of [first.id, second.id, fromKnownUrl.id, claimId]) {
     assert.equal(visible.includes(privateId), false, `owner-visible history does not expose internal ID ${privateId}`);
   }
   const saved = await fixture.request(cookie, '/api/creador/perfil').then((response) => response.json());
   assert.equal(saved.claims.length, 1, 'refreshing owner history does not create duplicate claims');
   assert.equal(saved.claims[0].status, 'partial');
+  assert.equal(claimWrites(capture).length, 1, 'complete owner reads never replay claim creation');
   await capture.stop();
 });
 
 test('Solicitudes acepta URLs conocidas aunque falle el índice público', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
-  const ownerBefore = await fixture.rawOwner(cookie);
+  const ownerBefore = (await api(fixture, cookie, '/api/creador/perfil')).body;
   const known = catalogEntry({
     id: 'phase5-claim-known-url-index-failure',
     title: 'Contenido identificado por la URL conocida',
@@ -308,105 +256,27 @@ test('Solicitudes acepta URLs conocidas aunque falle el índice público', async
 
   const urls = page.getByLabel(/URLs conocidas/i);
   await urls.fill(known.url);
+  const ownerReadsBeforeSubmit = ownerReads(capture).length;
   await page.getByRole('button', { name: /Enviar solicitud/i }).click();
   await expect.poll(() => claimWrites(capture).length).toBe(1);
   await expect.poll(() => claimWrites(capture)[0]?.status).toBe(202);
+  await expect.poll(() => ownerReads(capture).length).toBe(ownerReadsBeforeSubmit + 1);
+  await expect.poll(() => ownerReads(capture).at(-1)?.status).toBe(200);
   const post = claimWrites(capture)[0];
-  assert.deepEqual(post.body, { resources: [{ url: known.url }] },
-    'the form sends the manually supplied URL without inventing an ID while the index is unavailable');
-  const stored = await fixture.creatorStore.get(`claim:${post.responseBody.claim.id}`);
+  assert.deepEqual(post.body, { resources: [{ url: known.url }], evidence: '' },
+    'the form sends the manually supplied URL and raw empty evidence without inventing an ID while the index is unavailable');
+  assert.equal(post.responseBody.operation, 'create-claim');
+  const stored = await fixture.creatorStore.get(`claim:${post.responseBody.claimId}`);
   assert.deepEqual(stored.resourceIds, [known.id], 'the real service resolves the known URL reservation');
-  assert.equal((await fixture.rawOwner(cookie)).profile.version, ownerBefore.profile.version,
+  assert.equal((await api(fixture, cookie, '/api/creador/perfil')).body.creatorVersion, ownerBefore.creatorVersion,
     'a URL based request does not alter the owner profile');
-  assert.equal(claimWrites(capture).length, 1);
-  await capture.stop();
-});
-
-test('Solicitudes conserva un 202 manual que llega mientras Comprobar espera una lectura anterior', async ({ fixture, page }) => {
-  const cookie = await loggedInOwner(fixture, page);
-  const item = catalogEntry({
-    id: 'phase5-claim-history-race',
-    title: 'Ficha confirmada durante la lectura',
-    url: 'https://catalog.example.invalid/history-race',
-    tipo: 'community',
-  });
-  await seedCatalogRecord(fixture, item);
-  await serveSelectionIndex(page, [item]);
-  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
-  await openOwnerClaims(page, fixture);
-  await openClaimComposer(page);
-  await claimCandidate(page, item.title).check();
-  await page.getByLabel(/Contexto privado/i).fill('Reintento explícito de una solicitud incierta.');
-
-  const heldPost = await holdClaimPost(page, { commit: false });
-  let firstSend;
-  try {
-    firstSend = page.getByRole('button', { name: /Enviar solicitud/i }).click();
-    await expect.poll(() => claimWrites(capture).length).toBe(1);
-    await heldPost.reached;
-    heldPost.release();
-    await firstSend;
-  } finally {
-    heldPost.release();
-    await heldPost.remove();
-    await firstSend?.catch(() => {});
-  }
-  const checkControl = page.getByRole('dialog').getByRole('button', { name: 'Comprobar solicitudes', exact: true });
-  await expect(checkControl).toBeVisible();
-  assert.equal(claimWrites(capture)[0].status, 503);
-  assert.equal(heldPost.observed, undefined, 'the first failure occurred before the claim service handler');
-
-  const readsBefore = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length;
-  const heldRead = await holdOwnerRead(page);
-  let check;
-  try {
-    check = checkControl.click();
-    await expect.poll(() => capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length)
-      .toBe(readsBefore + 1);
-    await heldRead.reached;
-    assert.equal(heldRead.observed.dto.claims.length, 0,
-      'the delayed owner response is a real snapshot from before the manual retry');
-
-    await page.getByRole('button', { name: /Enviar solicitud/i }).click();
-    await expect.poll(() => claimWrites(capture).length).toBe(2);
-    await expect.poll(() => claimWrites(capture)[1]?.status).toBe(202);
-    assert.deepEqual(claimWrites(capture)[1].body, {
-      resources: [{ resourceId: item.id, url: item.url }],
-      evidence: 'Reintento explícito de una solicitud incierta.',
-    });
-    const ownerAfterManualRetry = await fixture.request(cookie, '/api/creador/perfil').then((response) => response.json());
-    assert.equal(ownerAfterManualRetry.claims.length, 1);
-    assert.deepEqual(ownerAfterManualRetry.claims[0].resourceIds, [item.id]);
-    const claimsRegion = page.getByRole('region', { name: 'Solicitudes' });
-    await expect(claimsRegion).toContainText(item.title);
-    await expect(claimsRegion.getByRole('listitem').filter({ hasText: 'Reintento explícito de una solicitud incierta.' })).toHaveCount(1,
-      'the successful 202 is visible locally before the older GET is released');
-    heldRead.release();
-    await check;
-  } finally {
-    heldRead.release();
-    await heldRead.remove();
-    await check?.catch(() => {});
-  }
-
-  assert.equal(capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length,
-    readsBefore + 1, 'Check uses the single held owner read');
-  assert.equal(claimWrites(capture).length, 2, 'Check never replays either request; only the explicit retry reaches 202');
-  const claimsRegion = page.getByRole('region', { name: 'Solicitudes' });
-  await expect(claimsRegion).toContainText(item.title);
-  await expect(claimsRegion.getByRole('listitem').filter({ hasText: 'Reintento explícito de una solicitud incierta.' })).toHaveCount(1,
-    'the delayed empty snapshot does not remove the claim confirmed while it was pending');
-  const checkedStatus = page.getByRole('status').filter({ hasText: /historial comprobado|solicitudes comprobadas|solicitudes actualizadas/i });
-  await expect(checkedStatus).toBeVisible();
-  await expect(checkedStatus).not.toContainText(/esta solicitud.*confirmada|confirmamos que.*enviaste/i);
-  const visible = await page.locator('body').innerText();
-  assert.equal(visible.includes(item.id), false, 'history uses a readable label, not the internal resource ID');
+  assert.equal(claimWrites(capture).length, 1, 'the acknowledgement and full read do not replay claim creation');
   await capture.stop();
 });
 
 test('Solicitudes conserva dos IDs con una URL compartida al paginar, filtrar y enviar', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
-  const ownerBefore = await fixture.rawOwner(cookie);
+  const ownerBefore = (await api(fixture, cookie, '/api/creador/perfil')).body;
   const sharedUrl = 'https://events.example.invalid/aws-community-day';
   const entries = Array.from({ length: 50 }, (_, index) => catalogEntry({
     id: `phase5-claim-page-${index}`,
@@ -464,17 +334,21 @@ test('Solicitudes conserva dos IDs con una URL compartida al paginar, filtrar y 
   await expect(claimCandidate(page, first.title)).toBeChecked();
   await expect(claimCandidate(page, second.title)).toBeChecked();
   await expect(page.getByRole('dialog')).toContainText(/2 recursos seleccionados/i);
+  const ownerReadsBeforeSubmit = ownerReads(capture).length;
   await page.getByRole('button', { name: /Enviar solicitud/i }).click();
   await expect.poll(() => claimWrites(capture).length).toBe(1);
   await expect.poll(() => claimWrites(capture)[0]?.status).toBe(202);
+  await expect.poll(() => ownerReads(capture).length).toBe(ownerReadsBeforeSubmit + 1);
+  await expect.poll(() => ownerReads(capture).at(-1)?.status).toBe(200);
   const post = claimWrites(capture)[0];
   assert.deepEqual(post.body, {
     resources: [
       { resourceId: first.id, url: sharedUrl },
       { resourceId: second.id, url: sharedUrl },
     ],
+    evidence: '',
   }, 'page and filter changes retain both exact resource ID plus URL pairs');
-  const stored = await fixture.creatorStore.get(`claim:${post.responseBody.claim.id}`);
+  const stored = await fixture.creatorStore.get(`claim:${post.responseBody.claimId}`);
   assert.deepEqual(stored.resourceIds, [first.id, second.id]);
   assert.equal(new Set(stored.resourceIds).size, 2, 'the service preserves distinct cohost IDs despite the shared URL');
   assert.deepEqual(stored.resources, [
@@ -484,242 +358,7 @@ test('Solicitudes conserva dos IDs con una URL compartida al paginar, filtrar y 
   const visible = await page.locator('body').innerText();
   assert.equal(visible.includes(first.id), false);
   assert.equal(visible.includes(second.id), false);
-  assert.equal((await fixture.rawOwner(cookie)).profile.version, ownerBefore.profile.version);
-  assert.equal(claimWrites(capture).length, 1);
+  assert.equal((await api(fixture, cookie, '/api/creador/perfil')).body.creatorVersion, ownerBefore.creatorVersion);
+  assert.equal(claimWrites(capture).length, 1, 'the full snapshot read does not replay the exact-ID request');
   await capture.stop();
 });
-
-const uncertainOutcomes = [
-  { name: 'commit con respuesta perdida', commit: true },
-  { name: 'fallo antes del commit', commit: false },
-];
-
-for (const outcome of uncertainOutcomes) {
-  test(`Solicitudes: ${outcome.name} comprueba sólo el historial y conserva las bases para la siguiente edición`, async ({ fixture, page }) => {
-    const cookie = await loggedInOwner(fixture, page);
-    const ownLink = await addLink(fixture, cookie, {
-      title: 'Ficha propia antes de comprobar solicitudes',
-      url: 'https://owner-content.example.invalid/history-refresh',
-    });
-    const candidate = catalogEntry({
-      id: `phase5-claim-uncertain-${outcome.commit ? 'committed' : 'uncommitted'}`,
-      title: 'Ficha compartida solicitada',
-      url: `https://catalog.example.invalid/shared-${outcome.commit ? 'committed' : 'uncommitted'}`,
-      tipo: 'community',
-    });
-    const secondCandidate = catalogEntry({
-      id: `phase5-claim-continuation-${outcome.commit ? 'committed' : 'uncommitted'}`,
-      title: 'Contenido de la continuación manual',
-      url: `https://catalog.example.invalid/continuation-${outcome.commit ? 'committed' : 'uncommitted'}`,
-      tipo: 'source',
-    });
-    await Promise.all([candidate, secondCandidate].map((item) => seedCatalogRecord(fixture, item)));
-    const beforeReference = await fixture.rawOwner(cookie);
-    const reference = await api(fixture, cookie, '/api/creador/referencias', {
-      method: 'POST',
-      body: {
-        resourceId: candidate.id,
-        url: candidate.url,
-        profileVersion: beforeReference.profile.version,
-        selectedForDirectory: true,
-      },
-    });
-    assert.equal(reference.response.status, 201, JSON.stringify(reference.body));
-    const initialOwner = await fixture.rawOwner(cookie);
-    const initialResource = await fixture.rawResource(ownLink.resourceId);
-    const initialPlacement = await fixture.rawPlacement(cookie, ownLink.placementId);
-    assert.equal(initialOwner.profile.version, beforeReference.profile.version + 1);
-
-    await serveSelectionIndex(page, [secondCandidate]);
-    const capture = await captureCreatorApi(page, { skipErrorBodies: true });
-    await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
-    await page.waitForLoadState('networkidle');
-    await expect(page.getByRole('heading', { name: 'Enlaces', exact: true })).toBeVisible();
-    const sharedRow = page.getByRole('row').filter({ hasText: candidate.title });
-    await expect(sharedRow.getByRole('button', { name: /Solicitar edici[oó]n/i })).toBeVisible();
-    await sharedRow.getByRole('button', { name: /Solicitar edici[oó]n/i }).click();
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible();
-    const urls = dialog.getByLabel(/URLs conocidas/i);
-    const evidence = dialog.getByLabel(/Contexto privado/i);
-    const selected = dialog.getByRole('list', { name: 'Selección para solicitar edición', exact: true });
-    await expect(selected.getByRole('button', { name: `Quitar ${candidate.title} de la selección`, exact: true })).toBeVisible();
-    await expect(selected).toContainText(candidate.url);
-    await expect(dialog.getByRole('checkbox', { name: new RegExp(candidate.title) })).toHaveCount(0);
-    await evidence.fill('Contenido exacto al enviar.');
-
-    const heldPost = await holdClaimPost(page, outcome);
-    let submit;
-    try {
-      submit = dialog.getByRole('button', { name: /Enviar solicitud/i }).click();
-      await expect.poll(() => claimWrites(capture).length).toBe(1);
-      await heldPost.reached;
-      await evidence.fill('Corrección mientras se envía');
-      await urls.fill(secondCandidate.url);
-      heldPost.release();
-      await submit;
-    } finally {
-      heldPost.release();
-      await heldPost.remove();
-      await submit?.catch(() => {});
-    }
-    const checkControl = dialog.getByRole('button', { name: 'Comprobar solicitudes', exact: true });
-    await expect(checkControl).toBeVisible();
-    await expect(evidence).toHaveValue('Corrección mientras se envía');
-    await expect(urls).toHaveValue(secondCandidate.url);
-    assert.equal(claimWrites(capture).length, 1, 'the first ambiguous POST is sent exactly once');
-    const firstPost = claimWrites(capture)[0];
-    assert.equal(firstPost.status, 503);
-    assert.deepEqual(firstPost.body, {
-      resources: [{ resourceId: candidate.id, url: candidate.url }],
-      evidence: 'Contenido exacto al enviar.',
-    });
-    if (outcome.commit) {
-      assert.equal(heldPost.observed.status, 202, 'the real claim service committed before the transport replaced its acknowledgement');
-      assert.ok(heldPost.observed.body.claim.id);
-    } else {
-      assert.equal(heldPost.observed, undefined, 'the precommit transport failure did not call the claim handler');
-    }
-
-    // The history read deliberately observes a newer profile and resource than the
-    // form's immutable base. It must update claims alone, not lend those versions to
-    // the old values shown in the editor.
-    const profileUpdate = await api(fixture, cookie, '/api/creador/perfil', {
-      method: 'PUT',
-      body: { version: initialOwner.profile.version, displayName: 'Nombre cambiado durante la comprobación' },
-    });
-    assert.equal(profileUpdate.response.status, 200, JSON.stringify(profileUpdate.body));
-    const metadataUpdate = await api(fixture, cookie, `/api/creador/recursos/${ownLink.resourceId}`, {
-      method: 'PATCH',
-      body: { version: initialResource.version, title: 'Título cambiado durante la comprobación' },
-    });
-    assert.equal(metadataUpdate.response.status, 200, JSON.stringify(metadataUpdate.body));
-    const externalOwner = await fixture.rawOwner(cookie);
-    const externalResource = await fixture.rawResource(ownLink.resourceId);
-    assert.equal(externalOwner.profile.version, initialOwner.profile.version + 1);
-    assert.equal(externalResource.version, initialResource.version + 1);
-
-    const historyGetsBefore = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length;
-    const heldRead = await holdOwnerRead(page);
-    let check;
-    let missingExitGuard;
-    try {
-      check = checkControl.click();
-      await expect.poll(() => capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length)
-        .toBe(historyGetsBefore + 1);
-      await heldRead.reached;
-      assert.equal(heldRead.observed.status, 200, 'the held result came from the real private owner read');
-      assert.equal(heldRead.observed.dto.profile.version, externalOwner.profile.version);
-      assert.equal(heldRead.observed.dto.editableResources.find(({ id }) => id === ownLink.resourceId).version, externalResource.version);
-      assert.equal(heldRead.observed.dto.claims.length, outcome.commit ? 1 : 0);
-
-      await evidence.fill('Corrección mientras se comprueba el historial');
-      await urls.fill(secondCandidate.url);
-      await dialog.getByRole('button', { name: /Cancelar/i }).click();
-      const exit = page.getByRole('alertdialog');
-      try {
-        await expect(exit).toBeVisible();
-      } catch (error) {
-        missingExitGuard = error;
-      }
-      if (!missingExitGuard) {
-        await exit.getByRole('button', { name: /Seguir editando/i }).click();
-        await expect(page).toHaveURL(/vista=enlaces/);
-        await expect(evidence).toHaveValue('Corrección mientras se comprueba el historial');
-        await expect(urls).toHaveValue(secondCandidate.url);
-      }
-      heldRead.release();
-      await check;
-    } finally {
-      heldRead.release();
-      await heldRead.remove();
-      await check?.catch(() => {});
-    }
-    if (missingExitGuard) {
-      await capture.stop({ skipErrorBodies: true });
-      throw missingExitGuard;
-    }
-    const historyGetsAfter = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length;
-    assert.equal(historyGetsAfter, historyGetsBefore + 1, 'Comprobar performs one read and no mutation');
-    assert.equal(claimWrites(capture).length, 1, 'history checking never replays the non-idempotent POST');
-    const checkedStatus = dialog.getByRole('status').filter({ hasText: /historial comprobado|solicitudes comprobadas|solicitudes actualizadas/i }).first();
-    await expect(checkedStatus).toBeVisible();
-    await expect(checkedStatus).not.toContainText(/esta solicitud.*confirmada|confirmamos que.*enviaste/i);
-    await expect(evidence).toHaveValue('Corrección mientras se comprueba el historial');
-    await expect(urls).toHaveValue(secondCandidate.url);
-    await expect(page.getByText('Ana Browser', { exact: true })).toBeVisible();
-    await expect(page.getByRole('row').filter({ hasText: ownLink.title })).toBeVisible();
-    await expect(page.getByRole('row').filter({ hasText: 'Título cambiado durante la comprobación' })).toHaveCount(0);
-    const visible = await page.locator('body').innerText();
-    assert.equal(visible.includes(candidate.id), false);
-    assert.equal(visible.includes(secondCandidate.id), false);
-
-    // This second click is the user's explicit continuation. It intentionally uses
-    // the corrected draft even when the first claim with the same candidate exists.
-    await dialog.getByRole('button', { name: /Enviar solicitud/i }).click();
-    await expect.poll(() => claimWrites(capture).length).toBe(2);
-    await expect.poll(() => claimWrites(capture)[1]?.status).toBe(202);
-    const continuation = claimWrites(capture)[1];
-    assert.equal(continuation.status, 202);
-    assert.deepEqual(continuation.body, {
-      resources: [
-        { resourceId: candidate.id, url: candidate.url },
-        { url: secondCandidate.url },
-      ],
-      evidence: 'Corrección mientras se comprueba el historial',
-    });
-    const ownerAfterContinuation = await fixture.request(cookie, '/api/creador/perfil').then((response) => response.json());
-    assert.equal(ownerAfterContinuation.claims.length, outcome.commit ? 2 : 1,
-      'server state reflects one manual continuation, plus only the first POST when it really committed');
-    assert.equal(claimWrites(capture).length, 2, 'the manual continuation is not automatically duplicated');
-
-    // The current GET is still the original Enlaces document. A real edit from this
-    // consumer must keep its old fields paired with their old CAS versions.
-    await expect(dialog).not.toBeVisible();
-    const staleRow = page.getByRole('row').filter({ hasText: ownLink.title });
-    await expect(staleRow).toBeVisible();
-    await staleRow.getByRole('button', { name: /Editar ficha/i }).click();
-    const linkDialog = page.getByRole('dialog');
-    const title = linkDialog.getByRole('textbox', { name: 'Título', exact: true });
-    await expect(title).toHaveValue(ownLink.title);
-    await expect(linkDialog.getByRole('textbox', { name: 'URL', exact: true })).toHaveValue(initialResource.url);
-    await title.fill('Corrección contra la base anterior');
-    await linkDialog.getByRole('button', { name: /Guardar cambios/i }).click();
-    await expect.poll(() => linkEditWrites(capture, ownLink.placementId).length).toBe(1);
-    await expect.poll(() => linkEditWrites(capture, ownLink.placementId)[0]?.status).toBe(409);
-    const staleEdit = linkEditWrites(capture, ownLink.placementId)[0];
-    assert.equal(staleEdit.status, 409);
-    await expect(linkDialog).toContainText(/(?:página|enlace|ficha|estado guardado).*cambi[oó]/i);
-    assert.equal(staleEdit.body.profileVersion, initialOwner.profile.version);
-    assert.equal(staleEdit.body.resourceVersion, initialResource.version);
-    assert.equal(staleEdit.body.placementVersion, initialPlacement.version);
-    assert.equal(staleEdit.body.title, 'Corrección contra la base anterior');
-    if (Object.hasOwn(staleEdit.body, 'url')) assert.equal(staleEdit.body.url, initialResource.url);
-    assert.equal((await fixture.rawOwner(cookie)).profile.displayName, 'Nombre cambiado durante la comprobación');
-    assert.equal((await fixture.rawResource(ownLink.resourceId)).title, 'Título cambiado durante la comprobación');
-    assert.equal((await fixture.rawResource(ownLink.resourceId)).url, initialResource.url);
-
-    const compare = linkDialog.getByRole('button', { name: /Comparar con lo guardado/i });
-    await expect(compare).toBeVisible();
-    await compare.click();
-    await expect(linkDialog).toContainText('Título cambiado durante la comprobación');
-    const adopt = linkDialog.getByRole('button', { name: /^(?:Usar los datos guardados|Usar la versión guardada)$/u });
-    await expect(adopt).toBeVisible();
-    await adopt.click();
-    await expect(title).toHaveValue('Título cambiado durante la comprobación');
-    await title.fill('Continuación manual con la base actual');
-    await linkDialog.getByRole('button', { name: /Guardar cambios/i }).click();
-    await expect.poll(() => linkEditWrites(capture, ownLink.placementId).length).toBe(2);
-    await expect.poll(() => linkEditWrites(capture, ownLink.placementId)[1]?.status).toBe(200);
-    const finalEdit = linkEditWrites(capture, ownLink.placementId)[1];
-    assert.equal(finalEdit.status, 200);
-    assert.equal(finalEdit.body.profileVersion, externalOwner.profile.version);
-    assert.equal(finalEdit.body.resourceVersion, externalResource.version);
-    assert.equal(finalEdit.body.placementVersion, initialPlacement.version);
-    const finalResource = await fixture.rawResource(ownLink.resourceId);
-    assert.equal(finalResource.title, 'Continuación manual con la base actual');
-    assert.equal(finalResource.version, externalResource.version + 1);
-    assert.equal(claimWrites(capture).length, 2, 'neither later editor recovery nor the claim check resends a claim');
-    await capture.stop();
-  });
-}

@@ -109,12 +109,12 @@ if (requestedViews.includes('estadisticas') && ownerIsReady) ownerView = 'estadi
 if (requestedViews.includes('series') && ownerIsReady) ownerView = 'series';
 if (requestedViews.includes('solicitudes') && ownerIsReady) ownerView = 'solicitudes';
 if (ownerView === 'enlaces' && owner?.data) {
-  const parsedLinksQuery = parseCreatorOwnerLinksQuery(Astro.url.searchParams, owner.data.series);
+  const parsedLinksQuery = parseCreatorOwnerLinksQuery(Astro.url.searchParams, new Set(Object.keys(owner.data.series)));
   if (parsedLinksQuery.valid) ownerLinksQuery = parsedLinksQuery.query;
   else ownerLinksQueryError = parsedLinksQuery.reason;
 }
 if (ownerView === 'series' && owner?.data) {
-  const parsedSeriesQuery = parseCreatorOwnerSeriesQuery(Astro.url.searchParams, owner.data.series);
+  const parsedSeriesQuery = parseCreatorOwnerSeriesQuery(Astro.url.searchParams, owner.data);
   if (parsedSeriesQuery.valid) ownerSeriesQuery = parsedSeriesQuery.query;
   else ownerSeriesQueryError = parsedSeriesQuery.reason;
 }

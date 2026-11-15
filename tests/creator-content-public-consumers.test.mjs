@@ -29,7 +29,7 @@ function contentResource(id, overrides = {}) {
     featured: false,
     kind: 'content',
     format: 'Artículo',
-    topics: ['Lambda'],
+    topics: ['Cómputo'],
     published: true,
     hidden: false,
     directoryControl: 'creator',
@@ -115,7 +115,11 @@ function createPublicReaderHarness({ state = creatorState() } = {}) {
   const rows = new Map();
   const calls = [];
   putItem(rows, TABLES.profiles, state);
-  for (const [slug, id] of [[PROFILE_SLUG, CREATOR_PROFILE_ID], [PROFILE_ALIAS, CREATOR_PROFILE_ID]]) {
+  for (const [slug, id] of [
+    [PROFILE_SLUG, CREATOR_PROFILE_ID],
+    [PROFILE_ALIAS, CREATOR_PROFILE_ID],
+    ['beto-aws', 'creator-shared-b'],
+  ]) {
     putItem(rows, TABLES.profiles, {
       pk: `SLUG#${slug}`, sk: 'META', recordType: 'profileAlias', slug, profileId: id, version: 1,
     });
@@ -143,6 +147,7 @@ function createPublicReaderHarness({ state = creatorState() } = {}) {
   const additionalCreatorStates = [
     creatorState({
       id: 'creator-shared-b', pk: 'PROFILE#creator-shared-b', displayName: 'Beto AWS', slug: 'beto-aws',
+      photo: { version: 'shared-b-v1', url: '/media/fotos/creator-shared-b/shared-b-v1.webp' },
       placements: { 'placement-shared-b': { resourceId: RESOURCE_SHARED, selectedForDirectory: true } },
       order: { featured: [], ordinary: ['placement-shared-b'] }, series: {},
     }),
@@ -328,6 +333,7 @@ test('catalog loading applies directory and creator visibility gates and follows
   const firstProfile = await harness.service.readPublicProfile(PROFILE_SLUG);
   const firstSharedProfile = await harness.service.readPublicProfile('beto-aws');
   const firstCatalog = await catalogScan();
+  assert.equal(firstSharedProfile.status, 200, JSON.stringify(firstSharedProfile));
   assert.deepEqual(firstCatalog.map(({ id }) => id).sort(), [RESOURCE_SHARED, 'resource-a', 'resource-b'].sort());
   assert.deepEqual(firstCatalog.find(({ id }) => id === RESOURCE_SHARED).series, [{
     seriesId: SERIES_ID,

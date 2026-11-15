@@ -20,7 +20,7 @@ function fixtureSessionKey(fixture) {
 }
 
 function isAbandonedNavigationError(error) {
-  return /net::ERR_ABORTED|Target page, context or browser has been closed/iu.test(String(error));
+  return /net::ERR_ABORTED|navigation cancelled by beforeunload dialog|Target page, context or browser has been closed/iu.test(String(error));
 }
 
 function ownerWrites(capture, method = 'PUT') {
@@ -253,6 +253,86 @@ async function failNextOwnerRead(page) {
   };
 }
 
+test('una lectura fallida cancela la salida aunque después se confirme el guardado', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  const destination = page.url();
+  await page.locator('#owner-link-order').selectOption('titulo-desc');
+  await expect(page).toHaveURL(/orden=titulo-desc/u);
+  const startingUrl = page.url();
+  await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
+  const form = page.locator('[data-owner-dialog] form[data-owner-form="datos"]');
+  await form.getByLabel(/Ciudad/u).fill('Córdoba');
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const read = await failNextOwnerRead(page);
+  try {
+    const back = page.goBack();
+    const prompt = page.locator('[data-owner-exit-prompt]');
+    await expect(prompt).toBeVisible();
+    await prompt.getByRole('button', { name: 'Guardar y salir', exact: true }).click();
+    await read.entered;
+    await expect.poll(() => ownerWrites(capture)[0]?.status).toBe(200);
+    await expect(form.getByLabel(/Ciudad/u)).toHaveValue('Córdoba');
+    const retry = page.getByRole('button', { name: 'Reintentar actualización', exact: true });
+    await expect(retry).toBeVisible();
+    await back;
+    await expect(page).toHaveURL(startingUrl);
+    assert.equal(read.actual.status, 200, 'only the delivered read failed, after the real save and GET');
+    await read.remove();
+    await retry.click();
+    await expect(form).toHaveCount(0);
+    await expect(page).toHaveURL(startingUrl);
+    const saved = await api(fixture, cookie, '/api/creador/perfil/');
+    assert.equal(saved.body.profile.city, 'Córdoba');
+    assert.equal(ownerWrites(capture).length, 1, 'retrying the read does not save again');
+    await page.goBack();
+    await expect(page).toHaveURL(destination);
+  } finally {
+    await read.remove();
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('perder la autoridad sobre una ficha retirada bloquea guardar y conserva el borrador', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const added = await addLink(fixture, cookie);
+  const removed = await api(fixture, cookie, `/api/creador/enlaces/${added.placementId}`, {
+    method: 'DELETE', body: { creatorVersion: added.creatorVersion },
+  });
+  assert.equal(removed.response.status, 200);
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  await page.locator(`[data-retained-resource="${added.resourceId}"]`).getByRole('button', { name: 'Editar ficha', exact: true }).click();
+  const form = page.locator('[data-owner-dialog][open] form[data-owner-form="enlace"]');
+  const title = form.getByLabel('Título', { exact: true });
+  await title.fill('  Borrador sin autoridad vigente  ');
+  const resource = await fixture.rawResource(added.resourceId);
+  const reassigned = { ...resource, editorProfileId: 'other-creator-fixture', version: resource.version + 1 };
+  const key = `resource:${added.resourceId}`;
+  assert.equal(await fixture.creatorStore.transact({
+    checks: [{ key, version: resource.version }],
+    puts: [{ key, value: reassigned }],
+  }), true);
+  const capture = await captureCreatorApi(page);
+  try {
+    await form.getByRole('button', { name: 'Guardar ficha', exact: true }).click();
+    await expect.poll(() => capture.writes()[0]?.status).toBe(403);
+    assert.equal(capture.writes()[0].responseBody.error, 'RESOURCE_EDIT_FORBIDDEN');
+    await expect.poll(() => ownerReads(capture)[0]?.status).toBe(200);
+    await expect(page.getByText(/No se puede guardar este cambio con el destino actual/u)).toBeVisible();
+    await expect(title).toHaveValue('  Borrador sin autoridad vigente  ');
+    await expect(title).toHaveAttribute('readonly', '');
+    await expect(title).toBeEnabled();
+    await expect(form.getByRole('button', { name: 'Guardar mi borrador', exact: true })).toHaveCount(0);
+    assert.deepEqual(await fixture.rawResource(added.resourceId), reassigned);
+    assert.equal(capture.writes().length, 1);
+    await form.getByRole('button', { name: 'Usar lo guardado', exact: true }).click();
+    await expect(form).toHaveCount(0);
+    await expect(page.locator(`[data-retained-resource="${added.resourceId}"]`)).toHaveCount(0);
+  } finally {
+    await capture.stop();
+  }
+});
+
 async function openSeriesView(page, fixture, params = '') {
   await page.goto(`${fixture.origin}/cuenta/?vista=series${params}`);
   await expect(page.locator('[data-owner-root]')).toBeVisible();
@@ -283,7 +363,7 @@ async function reconcileChapterChangeWithFailedRead({ fixture, page, operation }
   const change = row.getByRole('button', {
     name: operation === 'add' ? 'Agregar capítulo' : 'Quitar capítulo', exact: true,
   }).click();
-  await expect.poll(() => failedRead.reads).toBe(1);
+  await failedRead.entered;
   await change;
   const commandPath = `/api/creador/series/${target.id}/capitulos/${chapter.placementId}`;
   const commandWrites = () => capture.writes().filter(({ method, path }) => method === originalMethod && path === commandPath);
@@ -358,7 +438,6 @@ test('el guardado de perfil congela el borrador y Solicitudes espera el acuse y 
   const write = await holdProfileWriteAfterCommit(page);
   const save = form.getByRole('button', { name: 'Guardar datos', exact: true }).click();
   let read;
-  let pendingDeparture;
   try {
     await write.entered;
     assert.equal(write.actual.status, 200, 'the real profile service committed while acknowledgement delivery is held');
@@ -372,8 +451,13 @@ test('el guardado de perfil congela el borrador y Solicitudes espera el acuse y 
     await form.getByRole('button', { name: 'Cancelar', exact: true }).click();
     await expect(form).toBeVisible();
     await expect(form.getByRole('status')).toContainText(/espera a que termine|guardando la acción iniciada/iu);
-    pendingDeparture = page.goBack();
-    pendingDeparture.catch(() => {});
+    const leaveConfirmation = page.waitForEvent('dialog');
+    await page.evaluate(() => {
+      setTimeout(() => window.history.back(), 0);
+    });
+    const leaveDialog = await leaveConfirmation;
+    assert.equal(leaveDialog.type(), 'beforeunload', 'cross-document Back runs the native unsaved-change guard');
+    await leaveDialog.dismiss();
     await expect(page).toHaveURL(heldViewUrl);
     await expect(page.locator('[data-owner-exit-prompt]')).toHaveCount(0,
       'sending-time cancellation/departure is refused without queuing a destination');
@@ -397,7 +481,6 @@ test('el guardado de perfil congela el borrador y Solicitudes espera el acuse y 
     await expect(page.getByRole('heading', { name: 'Ana Browser', exact: true })).toBeVisible();
     read.release();
     await read.finished;
-    await pendingDeparture;
     await expect(page.getByRole('heading', { name: 'Nombre confirmado', exact: true })).toBeVisible();
     await expect(page.locator('[data-claim-history-refresh]')).toBeEnabled();
     await expect(page).toHaveURL(heldViewUrl, 'the rejected sending-time departure is not resumed after the full read');
@@ -406,7 +489,6 @@ test('el guardado de perfil congela el borrador y Solicitudes espera el acuse y 
     write.release();
     read?.release();
     await save.catch(() => {});
-    await pendingDeparture?.catch(() => {});
     await write.remove();
     await read?.remove();
   }
@@ -518,7 +600,7 @@ test('una ficha retirada conserva su borrador hasta descartarlo y editarla despu
     const rejectedEdit = placementEdits()[0];
     assert.ok([404, 409].includes(rejectedEdit.status),
       `the real stale/missing placement save should return 404 or 409, received ${rejectedEdit.status}`);
-    assert.equal(new URL(rejectedEdit.url).pathname, `/api/creador/enlaces/${placementId}/editar`);
+    assert.equal(new URL(rejectedEdit.url).pathname.replace(/\/$/u, ''), `/api/creador/enlaces/${placementId}/editar`);
     assert.equal(rejectedEdit.body.title, title, 'the failed command retains the raw title and exact placement target');
     assert.equal(rejectedEdit.body.url, url);
     assert.equal(rejectedEdit.body.description, description);
@@ -620,7 +702,7 @@ test('un acuse 200 con contexto incompatible queda incierto aunque la lectura re
   assert.equal(before.body.schemaVersion, 2);
   const profileId = before.body.profile.id;
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
-  const form = await openEditor(page);
+  const form = await openEditor(page, fixture);
   const draftName = 'Nombre cuyo acuse perdió contexto';
   await form.getByLabel('Nombre visible').fill(draftName);
   const writes = trackProfileWrites(page);
@@ -702,7 +784,7 @@ test('un acuse válido conserva la confirmación aunque la lectura completa incl
   assert.equal(before.body.schemaVersion, 2);
   const profileId = before.body.profile.id;
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
-  const form = await openEditor(page);
+  const form = await openEditor(page, fixture);
   const confirmedName = 'Nombre confirmado por el acuse';
   await form.getByLabel('Nombre visible').fill(confirmedName);
   const writes = trackProfileWrites(page);
@@ -717,10 +799,10 @@ test('un acuse válido conserva la confirmación aunque la lectura completa incl
       commandAck = capture.writes().find(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil');
       return commandAck?.status;
     }).toBe(200);
-    assert.equal(commandAck.body.schemaVersion, 2);
-    assert.equal(commandAck.body.operation, 'save-profile');
-    assert.equal(commandAck.body.profileId, profileId);
-    assert.ok(Number.isSafeInteger(commandAck.body.creatorVersion));
+    assert.equal(commandAck.responseBody.schemaVersion, 2);
+    assert.equal(commandAck.responseBody.operation, 'save-profile');
+    assert.equal(commandAck.responseBody.profileId, profileId);
+    assert.ok(Number.isSafeInteger(commandAck.responseBody.creatorVersion));
     const sent = writes.requests[0].postDataJSON();
     assert.equal(sent.creatorVersion, before.body.creatorVersion);
     assert.equal(sent.displayName, confirmedName);
@@ -729,20 +811,20 @@ test('un acuse válido conserva la confirmación aunque la lectura completa incl
     const intervening = await api(fixture, cookie, '/api/creador/perfil', {
       method: 'PUT',
       headers: { 'X-Creator-Contract': '2' },
-      body: { creatorVersion: commandAck.body.creatorVersion, city: 'Córdoba' },
+      body: { creatorVersion: commandAck.responseBody.creatorVersion, city: 'Córdoba' },
     });
     assert.equal(intervening.response.status, 200, JSON.stringify(intervening.body));
     assert.equal(intervening.body.schemaVersion, 2);
     assert.equal(intervening.body.operation, 'save-profile');
     assert.equal(intervening.body.profileId, profileId);
-    assert.ok(intervening.body.creatorVersion > commandAck.body.creatorVersion,
+    assert.ok(intervening.body.creatorVersion > commandAck.responseBody.creatorVersion,
       'another legitimate profile write advances the current aggregate revision');
 
     read.release();
     await read.finished;
     assert.equal(read.actual.status, 200);
     assert.equal(read.actual.body.schemaVersion, 2);
-    assert.ok(read.actual.body.creatorVersion > commandAck.body.creatorVersion);
+    assert.ok(read.actual.body.creatorVersion > commandAck.responseBody.creatorVersion);
     assert.equal(read.actual.body.profile.displayName, confirmedName,
       'the full read preserves the profile fact confirmed by the original acknowledgement');
     assert.equal(read.actual.body.profile.city, 'Córdoba',
@@ -750,7 +832,7 @@ test('un acuse válido conserva la confirmación aunque la lectura completa incl
 
     await expect(page.getByRole('heading', { name: confirmedName, exact: true })).toBeVisible();
     await expect(page.locator('[data-session-recovery-shell]')).toHaveCount(0);
-    const next = await openEditor(page);
+    const next = await openEditor(page, fixture);
     await expect(next.getByLabel('Nombre visible')).toHaveValue(confirmedName);
     await expect(next.getByLabel(/Ciudad/)).toHaveValue('Córdoba');
     await next.getByLabel(/Ciudad/).fill('Salta');
@@ -838,7 +920,7 @@ for (const decision of ['saved', 'draft']) {
 test('un conflicto compara el borrador crudo con la lectura actual y ofrece guardar o descartar de forma explícita', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const otherPage = await page.context().newPage();
-  const capture = await captureCreatorApi(page);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
   const otherCapture = await captureCreatorApi(otherPage);
   try {
     const firstForm = await openEditor(page, fixture);
@@ -855,11 +937,13 @@ test('un conflicto compara el borrador crudo con la lectura actual y ofrece guar
     await expect(firstForm.getByLabel('Nombre visible')).toHaveValue(draft);
     await expect(firstForm).toContainText('Nombre guardado en otra pestaña');
     assert.equal(ownerWrites(capture).length, 1, 'the conflict itself cannot commit the retained draft');
+    await expect.poll(() => ownerWrites(capture)[0].status).toBe(409);
     assert.equal(ownerWrites(capture)[0].status, 409, 'the first request received the real server conflict');
 
     await firstForm.getByRole('button', { name: 'Guardar mi borrador', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Borrador de Lucía', exact: true })).toBeVisible();
     assert.equal(ownerWrites(capture).length, 2, 'Guardar mi borrador is a distinct manual command against the displayed base');
+    await expect.poll(() => ownerWrites(capture)[1].status).toBe(200);
     assert.equal(ownerWrites(capture)[1].status, 200, 'the server accepts the explicit save against its current version');
     assert.ok(JSON.stringify(ownerWrites(capture)[1].body).includes(draft), 'the request retains the raw draft for server normalization');
     assert.equal((await api(fixture, cookie, '/api/creador/perfil')).body.profile.displayName, 'Borrador de Lucía');

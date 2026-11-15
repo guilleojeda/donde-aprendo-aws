@@ -1,42 +1,46 @@
 import { useEffect, useLayoutEffect, useReducer, useRef } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import type { CreatorEditorDTO } from '../../types/creators';
-import { readCreatorEditorData, isAdoptableOwnerData, isCreatorOwnerSnapshot } from '../../lib/creator-owner-data';
+import type { CreatorOwnerSnapshotDTO } from '../../types/creators';
+import { readCreatorOwnerSnapshot } from '../../lib/creator-owner-data';
 import {
-  createCreatorOwnerComparison,
-  classifyCreatorOwnerWriteSessionFailure,
-  creatorOwnerWriteIntent,
-  interpretCreatorOwnerPhotoFinalize,
-  interpretCreatorOwnerResponse,
-  prepareCreatorOwnerRequest,
+  createCreatorOwnerRequest,
+  readCreatorOwnerAcknowledgement,
+  readCreatorOwnerPhotoAuthorizationAcknowledgement,
+  readCreatorOwnerPhotoFinalizeAcknowledgement,
+  type CreatorOwnerOperation as CreatorOwnerWireOperation,
+  type CreatorOwnerWireCommand,
 } from '../../lib/creator-owner-commands';
 import {
   creatorSessionRecoveryReason,
   classifyCreatorSessionCheck,
   readCreatorSessionResponse,
   isCreatorSessionBinding,
+  type CreatorSessionResponse,
 } from '../../lib/creator-session-response';
 import { parseCreatorStatisticsReady } from '../../lib/creator-statistics-response';
-import { normalizeCreatorText } from '../../lib/creator-values.mjs';
+import { CREATOR_CONTRACT_HEADER, CREATOR_CONTRACT_VERSION, CREATOR_FIELD_LIMITS, CREATOR_PHOTO_MAX_UPLOAD_BYTES, CREATOR_PHOTO_MIME_TYPES } from '../../lib/creator-values.mjs';
+import { creatorOwnerNavigationLists } from '../../lib/creator-owner-presentation';
+import { isSafeCatalogUrl } from '../../lib/catalog-url-safety.mjs';
 import type { CreatorOwnerSeriesMembership } from '../../lib/creator-owner-series';
-import { normalizeOwnerSeriesQuery, resolveOwnerDestination, type OwnerDestination } from '../../lib/creator-owner-navigation';
-import { creatorOwnerLinksHref, creatorOwnerLinkGroup, type CreatorOwnerLinksQuery } from '../../lib/creator-owner-links';
-import { parseCreatorOwnerCatalog } from '../../lib/creator-owner-catalog';
+import { resolveOwnerDestination, type OwnerDestination } from '../../lib/creator-owner-navigation';
+import { creatorOwnerLinksHref, type CreatorOwnerLinksQuery } from '../../lib/creator-owner-links';
+import { parseCreatorOwnerCatalog, parseCreatorOwnerClaimUrls } from '../../lib/creator-owner-catalog';
 import {
   createCreatorOwnerState,
   creatorOwnerClaimSelectionIsCurrent,
   creatorOwnerReferenceSubmissionStatus,
   creatorOwnerDraftIsDirty,
-  creatorOwnerEditorChangedSince,
   creatorOwnerReducer,
   reduceCreatorOwnerSessionPolicy,
   type CreatorOwnerSessionPolicyAction,
   type CreatorOwnerSessionPolicyState,
-  type CreatorOwnerEditor,
-  type CreatorOwnerListContext,
+  type CreatorOwnerEditorDraft,
+  type CreatorOwnerIntent,
+  type CreatorOwnerOperation,
   type CreatorOwnerLocation,
   type CreatorOwnerState,
   type CreatorOwnerView,
+  type CreatorOwnerReadFact,
 } from '../../lib/creator-owner-state';
 import CreatorOwnerEditorDialog from './CreatorOwnerEditorDialog';
 import CreatorOwnerIdentityPanel from './CreatorOwnerIdentityPanel';
@@ -45,7 +49,7 @@ import CreatorOwnerLinksPanel from './CreatorOwnerLinksPanel';
 import CreatorOwnerClaimsPanel from './CreatorOwnerClaimsPanel';
 
 interface Props {
-  data: CreatorEditorDTO;
+  data: CreatorOwnerSnapshotDTO;
   accountEmail: string;
   csrfToken: string;
   sessionBinding: string;
@@ -62,8 +66,16 @@ interface Props {
   logout?: ComponentChildren;
 }
 
-const PHOTO_LIMIT_BYTES = 15 * 1024 * 1024;
-const PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+interface PendingOwnerCommand extends CreatorOwnerIntent {
+  fields: Record<string, unknown>;
+  capture?: CreatorOwnerEditorDraft;
+}
+
+function ownerIntent(command: PendingOwnerCommand): CreatorOwnerIntent {
+  const { fields: _fields, capture: _capture, ...intent } = command;
+  return intent;
+}
+
 const STALE_CREATOR_READ_MESSAGE = 'La lectura empezó antes de la última comprobación de sesión. Vuelve a comprobar lo guardado; conservamos tus cambios.';
 
 function createInitialState(props: Props): CreatorOwnerState {
@@ -96,8 +108,6 @@ function createInitialState(props: Props): CreatorOwnerState {
       orden: order.value as CreatorOwnerLinksQuery['orden'],
     };
   }
-  const initialSeriesQuery = props.view === 'series' && !props.seriesQueryError
-    ? normalizeOwnerSeriesQuery(props.data, props.seriesQuery) : props.seriesQuery;
   return createCreatorOwnerState({
     data: props.data,
     accountEmail: props.accountEmail,
@@ -105,7 +115,7 @@ function createInitialState(props: Props): CreatorOwnerState {
     sessionBinding: props.sessionBinding,
     isAdmin: props.isAdmin,
     publicOrigin: props.publicOrigin,
-    seriesQuery: initialSeriesQuery,
+    seriesQuery: props.seriesQuery,
     view: props.view,
     linksQuery: props.linksQuery,
     ...(props.seriesQueryError ? { seriesQueryError: props.seriesQueryError } : {}),
@@ -125,36 +135,75 @@ function nextId(prefix: string): string {
   return `${prefix}:${random}`;
 }
 
+function ownerLinks(snapshot: CreatorOwnerSnapshotDTO) {
+  return creatorOwnerNavigationLists(snapshot).links;
+}
+
+function ownerResource(snapshot: CreatorOwnerSnapshotDTO, resourceId: string) {
+  return snapshot.resources.find((resource) => resource.id === resourceId);
+}
+
+type ListRecoveryOperation = Extract<CreatorOwnerOperation,
+  { status: 'reading' | 'refresh-failed' | 'unknown' | 'conflict' }> & { intent: CreatorOwnerIntent };
+
+function isListRecoveryOperation(operation: CreatorOwnerOperation): operation is ListRecoveryOperation {
+  if (operation.status === 'idle' || operation.status === 'sending' || !operation.intent) return false;
+  const chapterReadFailure = (operation.status === 'reading' || operation.status === 'refresh-failed')
+    && operation.fact === 'acknowledged'
+    && (operation.intent.action === 'add-chapter' || operation.intent.action === 'remove-chapter');
+  if (chapterReadFailure) return false;
+  return ['publish-profile', 'delete-series', 'add-chapter', 'remove-chapter', 'remove-link', 'reinclude-link']
+    .includes(operation.intent.action);
+}
+
 function isWriteActive(state: CreatorOwnerState): boolean {
-  return state.attempt.status === 'sending';
+  return state.operation.status === 'sending';
 }
 
 function hasUnresolvedAttempt(state: CreatorOwnerState): boolean {
-  return state.attempt.status === 'checking' || state.attempt.status === 'uncertain' || state.attempt.status === 'conflict';
+  return state.operation.status === 'reading' || state.operation.status === 'refresh-failed'
+    || state.operation.status === 'unknown' || state.operation.status === 'conflict';
 }
 
 function shouldGuardExit(state: CreatorOwnerState): boolean {
-  return creatorOwnerDraftIsDirty(state.editor) || hasUnresolvedAttempt(state);
-}
-
-async function detailText(response: Response): Promise<Record<string, unknown> | null> {
-  try {
-    const value: unknown = await response.clone().json();
-    return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
-  } catch {
-    return null;
-  }
-}
-
-function seriesDraftSlug(value: string): string {
-  return normalizeCreatorText(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/g, '');
+  return creatorOwnerDraftIsDirty(state.editor, state.observed) || hasUnresolvedAttempt(state);
 }
 
 function loginRecoveryMessage(reason: 'expired' | 'csrf'): string {
   return reason === 'expired'
     ? 'La sesión terminó. Ingresa con la misma cuenta en otra pestaña y comprueba la sesión antes de volver a guardar.'
     : 'La sesión cambió. Comprueba la sesión antes de volver a intentar; conservamos tus cambios.';
+}
+
+function rejectedOwnerWriteMessage(error: unknown, status: number): string {
+  switch (error) {
+    case 'INVALID_URL': return 'Revisa los datos. Ingresa una URL HTTP o HTTPS válida sin usuario ni contraseña.';
+    case 'CREATOR_CONTENT_TOO_LARGE': return 'El contenido supera el espacio disponible. Conservamos el borrador para que puedas ajustarlo.';
+    case 'SLUG_TAKEN':
+    case 'SERIES_SLUG_TAKEN': return 'Esa dirección ya está reservada. Elige otra.';
+    case 'URL_TAKEN': return 'Esa URL ya pertenece a otra ficha. Revisa la dirección.';
+    case 'URL_COLLISION': return 'Hay varias fichas con esa URL. Elige una ficha concreta del catálogo o corrige la dirección.';
+    default: return status === 400 || status === 422 ? 'Revisa los datos del formulario. Conservamos el borrador.'
+      : 'La acción no se guardó. Conservamos el borrador para que puedas corregirlo.';
+  }
+}
+
+function acknowledgedActionLabel(intent?: CreatorOwnerIntent): string {
+  if (!intent) return 'La acción fue confirmada';
+  if (intent.action === 'add-chapter') return intent.acknowledgement?.disposition === 'added' ? 'Capítulo agregado' : 'El capítulo ya estaba agregado';
+  if (intent.action === 'remove-chapter') return intent.acknowledgement?.disposition === 'removed' ? 'Capítulo quitado' : 'El capítulo ya estaba quitado';
+  if (intent.action === 'photo-finalize') return 'La foto quedó guardada';
+  if (intent.action === 'create-claim') return 'La solicitud fue enviada';
+  if (intent.action === 'add-link' && intent.acknowledgement?.disposition === 'resource-reused') return 'La ficha existente se agregó';
+  if (intent.action === 'add-link' && intent.acknowledgement?.disposition === 'already-present') return 'El enlace ya estaba en tu página';
+  return 'La acción fue confirmada';
+}
+
+function acknowledgedReadFailureLabel(intent?: CreatorOwnerIntent): string {
+  if (intent?.action === 'add-chapter' || intent?.action === 'remove-chapter') return 'No pudimos actualizar la lista';
+  if (intent?.action === 'create-claim') return 'No pudimos actualizar Solicitudes';
+  if (intent?.action === 'photo-finalize') return 'No pudimos actualizar la foto';
+  return 'No pudimos actualizar la vista';
 }
 
 function responseLink(event: MouseEvent): HTMLAnchorElement | undefined {
@@ -203,12 +252,11 @@ export default function CreatorOwnerApp(props: Props) {
   const nativeSkipActivationHrefRef = useRef<string | undefined>(undefined);
   const restoringHistoryIndexRef = useRef<number | undefined>(undefined);
   const allowedHistoryIndexRef = useRef<number | undefined>(undefined);
-  const revealFocusAfterListAdoptionRef = useRef<string | undefined>(undefined);
   const activityRequestSequenceRef = useRef(0);
   const activityStartedRef = useRef<{ key: string; sequence: number } | undefined>(undefined);
   const linksSearchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const catalogLoadRef = useRef<Promise<void> | undefined>(undefined);
-  const claimHistorySequenceRef = useRef(0);
+  const operationGenerationRef = useRef(0);
   const sessionPolicyRef = useRef<CreatorOwnerSessionPolicyState>({ session: state.session, sessionEvidence: state.sessionEvidence });
   const sessionOperationIdRef = useRef(0);
   // requestSubmit dispatches submit synchronously, and only after native validation.
@@ -225,13 +273,8 @@ export default function CreatorOwnerApp(props: Props) {
     return next.accepted;
   }
 
-  function recordSessionEvidence(action: Extract<CreatorOwnerSessionPolicyAction, { type: 'session-evidence' }>,
-    historyThroughSequence?: number): boolean {
-    const accepted = queueSessionPolicyAction(action);
-    if (accepted && action.source !== 'history' && historyThroughSequence !== undefined) {
-      clearSessionDerivedClaimHistory(historyThroughSequence);
-    }
-    return accepted;
+  function recordSessionEvidence(action: Extract<CreatorOwnerSessionPolicyAction, { type: 'session-evidence' }>): boolean {
+    return queueSessionPolicyAction(action);
   }
 
   function nextSessionOperationId(): number {
@@ -263,10 +306,12 @@ export default function CreatorOwnerApp(props: Props) {
 
   function isListDisplayQueryTransition(destination?: OwnerDestination): boolean {
     const latest = stateRef.current;
-    const attempt = latest.attempt;
+    const operation = latest.operation;
+    const intent = 'intent' in operation ? operation.intent : undefined;
+    const isListWrite = Boolean(intent && ['publish-profile', 'delete-series', 'add-chapter', 'remove-chapter', 'remove-link', 'reinclude-link'].includes(intent.action));
     return Boolean(destination && 'query' in destination && !latest.editor && latest.location.prompt === 'none'
       && !latest.location.exitRequest && hasUnresolvedAttempt(latest)
-      && 'intent' in attempt && attempt.intent.capture.kind === 'list-command'
+      && isListWrite
       && (destination.view === 'enlaces' || destination.query.serie === latest.location.query.serie));
   }
 
@@ -354,8 +399,7 @@ export default function CreatorOwnerApp(props: Props) {
 
   const currentProfile = state.observed.profile;
   const writeDisabled = !state.runtimeReady || state.session.state !== 'ready'
-    || state.attempt.status === 'sending' || state.attempt.status === 'checking'
-    || state.attempt.status === 'uncertain' || state.attempt.status === 'conflict';
+    || state.operation.status !== 'idle';
 
   useLayoutEffect(() => {
     historyIndexRef.current = ownerIndex(window.history.state);
@@ -490,7 +534,7 @@ export default function CreatorOwnerApp(props: Props) {
       return;
     }
     window.location.assign(transition.href);
-  }, [state.location.transition, state.location.prompt, state.editor, state.attempt.status]);
+  }, [state.location.transition, state.location.prompt, state.editor, state.operation.status]);
 
   useLayoutEffect(() => {
     reconcileCurrentLocation();
@@ -504,7 +548,6 @@ export default function CreatorOwnerApp(props: Props) {
     const target = root?.querySelector<HTMLElement>(selector);
     if (!root || !target) {
       if (stateRef.current.location.focusAfterRender !== selector) return;
-      revealFocusAfterListAdoptionRef.current = undefined;
       dispatch({ type: 'clear-focus', selector });
       return;
     }
@@ -514,12 +557,7 @@ export default function CreatorOwnerApp(props: Props) {
       const insideOwnerDialog = Boolean(latestTarget.closest('[data-owner-dialog]'));
       const retainActiveSearchFocus = (selector === '#owner-link-search' || selector === '#owner-series-search'
         || selector === '#owner-chapter-search') && document.activeElement === latestTarget;
-      const listRecoveryFocusPending = revealFocusAfterListAdoptionRef.current !== undefined
-        && revealFocusAfterListAdoptionRef.current === (stateRef.current.attempt.status === 'confirmed' ? stateRef.current.attempt.intentId : undefined)
-        && ['enlaces', 'series'].includes(stateRef.current.location.view);
-      const revealListRecoveryFocus = listRecoveryFocusPending && !insideOwnerDialog;
-      if (revealListRecoveryFocus && hasNativeSkipFocus()) {
-        revealFocusAfterListAdoptionRef.current = undefined;
+      if (hasNativeSkipFocus() && ['enlaces', 'series'].includes(stateRef.current.location.view)) {
         dispatch({ type: 'clear-focus', selector });
         return;
       }
@@ -527,12 +565,11 @@ export default function CreatorOwnerApp(props: Props) {
       const revealPagerFocus = selector === '#owner-link-pagination'
         || selector === '[data-series-page]:last-of-type'
         || selector === '[data-series-chapter-page]:last-of-type';
-      if (revealListRecoveryFocus || insideOwnerDialog || revealPagerFocus) {
+      if (insideOwnerDialog || revealPagerFocus) {
         latestTarget.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
       } else if (retainActiveSearchFocus) {
         latestTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
       }
-      if (revealListRecoveryFocus) revealFocusAfterListAdoptionRef.current = undefined;
       dispatch({ type: 'clear-focus', selector });
     };
     const openDialog = root.querySelector<HTMLDialogElement>('[data-owner-dialog][open]');
@@ -545,7 +582,7 @@ export default function CreatorOwnerApp(props: Props) {
       return () => openDialog.removeEventListener('close', onClose);
     }
     focusTarget();
-  }, [state.location.focusAfterRender, state.attempt, state.location.prompt]);
+  }, [state.location.focusAfterRender, state.operation, state.location.prompt]);
 
   useEffect(() => {
     const editorKey = state.editor?.key;
@@ -687,36 +724,7 @@ export default function CreatorOwnerApp(props: Props) {
         try { raw = await response.json(); } catch { throw new Error('catalog-malformed'); }
         const entries = parseCreatorOwnerCatalog(raw);
         if (!entries) throw new Error('catalog-malformed');
-        const currentEditor = stateRef.current.editor;
-        let message: string | undefined;
-        if (currentEditor?.kind === 'reference' && currentEditor.selected && !currentEditor.recoveredCandidate) {
-          const refreshed = entries.find(({ id }) => id === currentEditor.selected?.id);
-          if (!refreshed || refreshed.url !== currentEditor.selected.url) {
-            dispatch({ type: 'update-reference-draft', selected: undefined });
-            message = refreshed
-              ? 'La URL de esa ficha cambió. Vuelve a seleccionarla para confirmar la dirección actual.'
-              : 'La ficha elegida ya no aparece en el catálogo. Selecciona otra antes de continuar.';
-          } else if (refreshed.title !== currentEditor.selected.title) dispatch({ type: 'update-reference-draft', selected: refreshed });
-        }
-        if (currentEditor?.kind === 'claim' && currentEditor.selected.length) {
-          const kept = currentEditor.selected.filter((selected) => {
-            const refreshed = entries.find(({ id }) => id === selected.resourceId);
-            if (!refreshed) {
-              const shared = stateRef.current.observed.links.find(({ resourceId, url }) => resourceId === selected.resourceId && url === selected.url);
-              return Boolean(shared && !stateRef.current.observed.editableResources.some(({ id }) => id === selected.resourceId));
-            }
-            return refreshed.url === selected.url;
-          }).map((selected) => {
-            const refreshed = entries.find(({ id }) => id === selected.resourceId);
-            return refreshed ? { resourceId: refreshed.id, url: refreshed.url, title: refreshed.title } : selected;
-          });
-          if (kept.length !== currentEditor.selected.length) {
-            dispatch({ type: 'update-claim-draft', value: { selected: kept } });
-            message = 'Quitamos de la selección las fichas cuya URL cambió. Actualiza y vuelve a elegir cada ficha vigente.';
-          }
-        }
-        dispatch({ type: 'catalog-load-ready', entries, ...(message ? { message } : {}) });
-        if (message) setMessage(message, 'info');
+        dispatch({ type: 'catalog-load-ready', entries });
       } catch (error) {
         dispatch({ type: 'catalog-load-failed', message: error instanceof Error && error.message === 'catalog-malformed'
           ? 'No pudimos leer el catálogo porque su formato no es válido. Puedes volver a intentarlo.'
@@ -732,107 +740,6 @@ export default function CreatorOwnerApp(props: Props) {
     if (props.view === 'solicitudes') void loadCatalog();
   }, [props.view]);
 
-  useEffect(() => {
-    if (state.attempt.status === 'confirmed' && state.editor?.kind === 'reference' && state.editor.recoveredCandidate) {
-      void loadCatalog(true);
-    }
-  }, [state.attempt.status === 'confirmed' ? state.attempt.intentId : undefined, state.editor?.key]);
-
-  async function refreshClaimHistory(options?: { intentId: string; checkId: string; profileId: string }) {
-    const latest = stateRef.current;
-    const expectedProfileId = options?.profileId ?? latest.observed.profile?.id;
-    const binding = latest.sessionBinding;
-    const operationId = nextSessionOperationId();
-    const evidenceSource = options ? 'bound' : 'history';
-    const sequence = ++claimHistorySequenceRef.current;
-    dispatch({ type: 'claim-history-started', sequence });
-    const historyReadIsCurrent = () => {
-      const current = stateRef.current;
-      return current.claimHistory.status === 'loading' && current.claimHistory.sequence === sequence
-        && current.observed.profile?.id === expectedProfileId && current.sessionBinding === binding
-        && claimHistorySequenceRef.current === sequence;
-    };
-    const checkIsCurrent = () => {
-      if (!options) return false;
-      const current = stateRef.current;
-      return historyReadIsCurrent() && current.attempt.status === 'checking'
-        && current.attempt.intent.id === options.intentId && current.attempt.checkId === options.checkId
-        && current.attempt.intent.kind === 'claim' && current.editor?.kind === 'claim'
-        && current.editor.key === current.attempt.intent.editorKey;
-    };
-    const failWithSessionEvidence = (
-      outcome: 'recoverable' | 'terminal',
-      reason: 'expired' | 'csrf' | 'different-principal' | 'disabled' | 'invalid-context',
-      message: string,
-    ) => {
-      const accepted = recordSessionEvidence({ type: 'session-evidence', operationId, source: evidenceSource, outcome, reason, message }, sequence - 1);
-      const feedback = accepted ? message : STALE_CREATOR_READ_MESSAGE;
-      if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message: feedback, sessionDerived: accepted });
-      dispatch({ type: 'claim-history-failed', sequence, message: feedback, ...(accepted ? { sessionDerived: true } : {}) });
-      return false;
-    };
-    try {
-      const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store',
-        headers: { 'x-creator-page-binding': binding, accept: 'application/json' } });
-      if (!historyReadIsCurrent()) return false;
-      const session = response.ok ? null : await readCreatorSessionResponse(response);
-      if (!historyReadIsCurrent()) return false;
-      if (!response.ok && options && !checkIsCurrent()) {
-        dispatch({ type: 'claim-history-failed', sequence, message: 'No pudimos actualizar Solicitudes con esta lectura. Puedes volver a intentarlo.' });
-        return false;
-      }
-      const recoveryReason = creatorSessionRecoveryReason(response.status, session);
-      if (recoveryReason) {
-        const message = loginRecoveryMessage(recoveryReason);
-        return failWithSessionEvidence('recoverable', recoveryReason, message);
-      }
-      if (!response.ok) {
-        const sessionState = classifyCreatorSessionCheck(response.status, session);
-        if (sessionState.state === 'context-changed') {
-          const message = 'La cuenta o el rol activo no coinciden con esta página. Vuelve a la cuenta original para comprobar; conservamos tus cambios.';
-          return failWithSessionEvidence('recoverable', 'different-principal', message);
-        }
-        if (sessionState.state === 'disabled' || sessionState.state === 'invalid-context') {
-          const message = sessionState.state === 'disabled' ? 'Esta cuenta está desactivada. Conservamos tus cambios.'
-            : 'El contexto de esta página no es válido. Abre una página nueva con la cuenta original.';
-          return failWithSessionEvidence(sessionState.state === 'disabled' && !options ? 'recoverable' : 'terminal', sessionState.state, message);
-        }
-        throw new Error(response.status === 403 ? 'claim-forbidden' : 'claim-unavailable');
-      }
-      const raw: unknown = await response.json();
-      if (!historyReadIsCurrent()) return false;
-      if (!isAdoptableOwnerData(raw)) throw new Error('claim-malformed');
-      const snapshot = readCreatorEditorData(raw);
-      if (!expectedProfileId || snapshot.profile?.id !== expectedProfileId) throw new Error('claim-context');
-      const ownsCheck = checkIsCurrent();
-      if (!options || ownsCheck) recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'read-confirmed',
-        message: 'La lectura confirmó esta página. Comprueba la sesión para habilitar cambios.' }, sequence - 1);
-      dispatch({ type: 'claim-history-ready', sequence, claims: snapshot.claims, message: options
-        ? 'Solicitudes comprobadas. Este historial no permite identificar con certeza si el envío anterior fue registrado.'
-        : 'Solicitudes actualizadas. La lista no muestra datos de edición ajenos ni concede permisos.' });
-      if (options && ownsCheck) dispatch({ type: 'claim-attempt-checked', intentId: options.intentId, checkId: options.checkId,
-        message: 'Historial comprobado. No permite identificar con certeza si este envío fue el que se registró. Conservamos el formulario; decide manualmente si volver a enviarlo.' });
-      return true;
-    } catch (error) {
-      if (!historyReadIsCurrent()) return false;
-      const message = error instanceof Error && error.message === 'claim-context'
-        ? 'La respuesta de Solicitudes no corresponde a esta página. Conservamos el formulario.'
-        : error instanceof Error && error.message === 'claim-malformed'
-          ? 'La lectura no contiene un historial completo y válido. Conservamos el formulario.'
-          : error instanceof Error && error.message === 'claim-forbidden'
-            ? 'Esta cuenta no puede leer Solicitudes. Conservamos el formulario.'
-            : 'No pudimos comprobar Solicitudes. Conservamos el formulario para intentarlo más tarde.';
-      if (options && checkIsCurrent()) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
-      dispatch({ type: 'claim-history-failed', sequence, message });
-      return false;
-    }
-  }
-
-  async function checkClaimHistory() {
-    if (stateRef.current.claimHistory.status === 'loading') return;
-    await refreshClaimHistory();
-  }
-
   function retryCatalog() { void loadCatalog(true); }
 
   function openProfileEditor(section: 'datos' | 'redes' | 'foto') {
@@ -840,142 +747,129 @@ export default function CreatorOwnerApp(props: Props) {
     if (!profile || stateRef.current.session.state !== 'ready') return;
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     if (section === 'foto') {
-      dispatch({ type: 'open-editor', editor: { kind: 'photo', key: `photo:${profile.id}`, base: { ...profile } } });
-      return;
-    }
-    if (section === 'datos') {
-      dispatch({ type: 'open-editor', editor: { kind: 'profile', section, key: `profile:datos:${profile.id}`, base: { ...profile }, draft: {
+      dispatch({ type: 'open-editor', editor: { kind: 'photo', key: `photo:${profile.id}` } });
+    } else if (section === 'datos') {
+      dispatch({ type: 'open-editor', editor: { kind: 'profile', section, key: `profile:datos:${profile.id}`, touchedFields: [], draft: {
         displayName: profile.displayName, slug: profile.slug, city: profile.city ?? '', country: profile.country ?? '', programs: [...profile.programs], bio: profile.bio ?? '',
       } } });
-      return;
+    } else {
+      dispatch({ type: 'open-editor', editor: { kind: 'profile', section, key: `profile:redes:${profile.id}`, touchedFields: [], draft: {
+        instagram: profile.socials.instagram ?? '', x: profile.socials.x ?? '', linkedin: profile.socials.linkedin ?? '',
+        awsBuilder: profile.socials.awsBuilder ?? '', website: profile.socials.website ?? '',
+      } } });
     }
-    dispatch({ type: 'open-editor', editor: { kind: 'profile', section, key: `profile:redes:${profile.id}`, base: { ...profile }, draft: {
-      instagram: profile.socials.instagram ?? '', x: profile.socials.x ?? '', linkedin: profile.socials.linkedin ?? '',
-      awsBuilder: profile.socials.awsBuilder ?? '', website: profile.socials.website ?? '',
-    } } });
   }
 
   function openSeriesEditor(seriesId?: string) {
     const latest = stateRef.current;
-    const profile = latest.observed.profile;
-    if (!profile || latest.session.state !== 'ready') return;
-    const series = seriesId ? latest.observed.series.find(({ id }) => id === seriesId) : undefined;
+    if (!latest.observed.profile || latest.session.state !== 'ready') return;
+    const series = seriesId ? latest.observed.series[seriesId] : undefined;
     if (seriesId && !series) return;
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dispatch({ type: 'open-editor', editor: {
-      kind: 'series', key: `series:${series?.id ?? 'new'}`, baseProfile: { ...profile }, baseSeries: series ? { ...series } : null,
-      draft: { name: series?.name ?? '', slug: series?.slug ?? '', description: series?.description ?? '' }, slugManuallyEdited: Boolean(series),
+      kind: 'series', key: `series:${seriesId ?? 'new'}`, seriesId: seriesId ?? null,
+      touchedFields: [], draft: { name: series?.name ?? '', slug: series?.slug ?? '', description: series?.description ?? '' }, slugManuallyEdited: Boolean(series),
     } });
   }
 
   function openMoveEditor(placementId: string) {
     const latest = stateRef.current;
-    const profile = latest.observed.profile;
-    const series = latest.observed.series.find(({ id }) => id === latest.location.query.serie);
-    const placement = latest.observed.links.find(({ placementId: id }) => id === placementId);
-    if (!profile || !series || !placement) return;
-    const order = latest.observed.links.filter((link) => link.series.some(({ seriesId }) => seriesId === series.id))
-      .sort((left, right) => (left.series.find(({ seriesId }) => seriesId === series.id)?.position ?? 0)
-        - (right.series.find(({ seriesId }) => seriesId === series.id)?.position ?? 0)
-        || left.placementId.localeCompare(right.placementId));
-    const index = order.findIndex(({ placementId: id }) => id === placementId);
-    if (index < 0) return;
+    const seriesId = latest.location.query.serie;
+    const series = latest.observed.series[seriesId];
+    if (!latest.observed.profile || !series || !series.chapters.includes(placementId)) return;
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dispatch({ type: 'open-editor', editor: {
-      kind: 'move-chapter', key: `move:${series.id}:${placement.placementId}`, seriesId: series.id, placementId: placement.placementId,
-      baseProfile: { ...profile }, baseSeries: { ...series }, basePlacement: { ...placement, series: placement.series.map((item) => ({ ...item })) },
-      baseOrder: order.map(({ placementId: id }) => id), targetPosition: String(index + 1),
-    } });
+    dispatch({ type: 'open-editor', editor: { kind: 'move-chapter', key: `move:${seriesId}:${placementId}`, seriesId, placementId,
+      targetPosition: String(series.chapters.indexOf(placementId) + 1) } });
   }
 
   function openLinkEditor(placementId: string) {
     const latest = stateRef.current;
-    const profile = latest.observed.profile;
-    const link = latest.observed.links.find(({ placementId: id }) => id === placementId);
-    if (!profile || !link || latest.session.state !== 'ready') return;
+    const link = ownerLinks(latest.observed).find((item) => item.placementId === placementId);
+    if (!latest.observed.profile || !link || latest.session.state !== 'ready') return;
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dispatch({ type: 'open-editor', editor: {
-      kind: 'link-placement', key: `link:${link.placementId}`, baseProfile: { ...profile },
-      baseLink: { ...link, series: link.series.map((membership) => ({ ...membership })) },
-      editable: latest.observed.editableResources.some(({ id }) => id === link.resourceId),
-      draft: { title: link.title, url: link.url, description: link.description ?? '', featured: link.featured, selectedForDirectory: link.selectedForDirectory },
-    } });
+    dispatch({ type: 'open-editor', editor: { kind: 'link-placement', key: `link:${link.placementId}`, placementId,
+      editable: link.metadataEditable,
+      touchedFields: [], draft: { title: link.title, url: link.url, description: link.description ?? '', featured: link.featured, selectedForDirectory: link.selectedForDirectory } } });
   }
 
   function openRetainedEditor(resourceId: string) {
     const latest = stateRef.current;
-    const resource = latest.observed.editableResources.find(({ id }) => id === resourceId);
-    if (!resource || latest.observed.links.some(({ resourceId: id }) => id === resourceId) || latest.session.state !== 'ready') return;
+    const resource = ownerResource(latest.observed, resourceId);
+    if (!resource?.metadataEditable || Object.values(latest.observed.placements).some(({ resourceId: id }) => id === resourceId)
+      || latest.session.state !== 'ready') return;
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dispatch({ type: 'open-editor', editor: { kind: 'link-resource', key: `resource:${resource.id}`, baseResource: { ...resource },
+    dispatch({ type: 'open-editor', editor: { kind: 'link-resource', key: `resource:${resource.id}`, resourceId, touchedFields: [],
       draft: { title: resource.title, url: resource.url, description: resource.description ?? '' } } });
   }
 
   function openAddLink() {
-    const profile = stateRef.current.observed.profile;
-    if (!profile || stateRef.current.session.state !== 'ready') return;
+    if (!stateRef.current.observed.profile || stateRef.current.session.state !== 'ready') return;
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dispatch({ type: 'open-editor', editor: { kind: 'add-link', key: 'add-link', baseProfile: { ...profile },
-      draft: { title: '', url: '', description: '', featured: false, selectedForDirectory: true } } });
+    dispatch({ type: 'open-editor', editor: { kind: 'add-link', key: 'add-link',
+      touchedFields: [], draft: { title: '', url: '', description: '', featured: false, selectedForDirectory: true } } });
   }
 
   function openLinkMoveEditor(placementId: string) {
     const latest = stateRef.current;
-    const profile = latest.observed.profile;
-    const link = latest.observed.links.find(({ placementId: id }) => id === placementId);
-    if (!profile || !link) return;
-    const order = creatorOwnerLinkGroup(latest.observed.links, link.featured);
-    const index = order.findIndex(({ placementId: id }) => id === placementId);
+    const link = ownerLinks(latest.observed).find((item) => item.placementId === placementId);
+    if (!latest.observed.profile || !link) return;
+    const group = link.featured ? latest.observed.order.featured : latest.observed.order.ordinary;
+    const index = group.indexOf(placementId);
     if (index < 0) return;
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dispatch({ type: 'open-editor', editor: { kind: 'move-link', key: `move-link:${placementId}`, baseProfile: { ...profile },
-      baseLink: { ...link, series: link.series.map((membership) => ({ ...membership })) },
-      baseOrder: order.map(({ placementId: id }) => id), targetPosition: String(index + 1) } });
+    dispatch({ type: 'open-editor', editor: { kind: 'move-link', key: `move-link:${placementId}`, placementId, targetPosition: String(index + 1) } });
   }
 
   function openReferenceEditor() {
-    const profile = stateRef.current.observed.profile;
-    if (!profile || stateRef.current.session.state !== 'ready') return;
+    if (!stateRef.current.observed.profile || stateRef.current.session.state !== 'ready') return;
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dispatch({ type: 'open-editor', editor: { kind: 'reference', key: 'reference', baseProfile: { ...profile }, selected: undefined, selectedForDirectory: true } });
+    dispatch({ type: 'open-editor', editor: { kind: 'reference', key: 'reference', selectedForDirectory: true } });
     void loadCatalog();
   }
 
   function openClaimEditor(placementId?: string) {
     const latest = stateRef.current;
-    const profile = latest.observed.profile;
-    if (!profile || latest.session.state !== 'ready') {
+    if (!latest.observed.profile || latest.session.state !== 'ready') {
       setMessage('Primero prepara tu página para solicitar edición.', 'info');
       return;
     }
-    const link = placementId ? latest.observed.links.find(({ placementId: id }) => id === placementId) : undefined;
-    if (placementId && (!link || latest.observed.editableResources.some(({ id }) => id === link.resourceId))) {
+    const link = placementId ? ownerLinks(latest.observed).find((item) => item.placementId === placementId) : undefined;
+    if (placementId && (!link || link.metadataEditable)) {
       setMessage('La ficha compartida cambió. Actualiza Enlaces antes de solicitar edición.', 'error');
       return;
     }
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dispatch({ type: 'open-editor', editor: { kind: 'claim', key: 'claim', baseProfile: { ...profile },
+    dispatch({ type: 'open-editor', editor: { kind: 'claim', key: 'claim',
       selected: link ? [{ resourceId: link.resourceId, url: link.url, title: link.title }] : [], knownUrls: '', evidence: '' } });
     void loadCatalog();
   }
 
+  function makeIntent(action: CreatorOwnerWireOperation, fields: Record<string, unknown>, options: {
+    target?: CreatorOwnerIntent['target']; resourceVersion?: number; editor?: CreatorOwnerEditorDraft;
+  } = {}): PendingOwnerCommand {
+    const latest = stateRef.current;
+    return { id: nextId(action), ...(options.editor ? { editorKey: options.editor.key, capture: options.editor } : {}),
+      action, profileId: latest.observed.profile?.id ?? null, creatorVersion: latest.observed.creatorVersion,
+      ...(options.target ? { target: options.target } : {}),
+      ...(options.resourceVersion !== undefined ? { base: { resourceVersion: options.resourceVersion } } : {}),
+      ...(exitSubmitTransitionRef.current ? { exitTransition: exitSubmitTransitionRef.current } : {}), fields };
+  }
+
   function removeOwnerLink(placementId: string) {
     const latest = stateRef.current;
-    const link = latest.observed.links.find(({ placementId: id }) => id === placementId);
-    const own = latest.observed.editableResources.some(({ id }) => id === link?.resourceId);
-    const context = listContext('remove-link', undefined, placementId);
-    if (!link || !context) return;
-    const message = own
+    const link = ownerLinks(latest.observed).find((item) => item.placementId === placementId);
+    if (!link) return;
+    const message = link.metadataEditable
       ? '¿Quieres quitar este enlace de tu página? La ficha propia se conservará para editarla o volver a agregarla después.'
       : '¿Quieres quitar esta referencia de tu página? La ficha compartida no se edita ni se retira del catálogo.';
     if (!window.confirm(message)) return;
-    void startCommand(creatorOwnerWriteIntent(nextId('remove-link'), context));
+    void startCommand(makeIntent('remove-link', {}, { target: { placementId } }));
   }
 
   function reincludeResource(resourceId: string) {
-    const context = listContext('reinclude-resource', undefined, undefined, resourceId);
-    if (!context) return;
-    void startCommand(creatorOwnerWriteIntent(nextId('reinclude-resource'), context));
+    const resource = ownerResource(stateRef.current.observed, resourceId);
+    if (!resource?.reincludeAllowed || Object.values(stateRef.current.observed.placements).some(({ resourceId: id }) => id === resourceId)) return;
+    void startCommand(makeIntent('reinclude-link', {}, { target: { resourceId }, resourceVersion: resource.version }));
   }
 
   function closeOrGuardEditor() {
@@ -995,373 +889,506 @@ export default function CreatorOwnerApp(props: Props) {
     dispatch({ type: 'close-editor' });
   }
 
-  function listContext(operation: CreatorOwnerListContext['operation'], seriesId?: string, placementId?: string, resourceId?: string): CreatorOwnerListContext | undefined {
-    const latest = stateRef.current;
-    const profile = latest.observed.profile;
-    if (!profile) return undefined;
-    const series = seriesId ? latest.observed.series.find(({ id }) => id === seriesId) : undefined;
-    const placement = placementId ? latest.observed.links.find(({ placementId: id }) => id === placementId) : undefined;
-    const resource = resourceId ? latest.observed.editableResources.find(({ id }) => id === resourceId) : undefined;
-    if (seriesId && !series || placementId && !placement || resourceId && !resource) return undefined;
-    if (operation === 'reinclude-resource' && (!resource || latest.observed.links.some(({ resourceId: id }) => id === resourceId))) return undefined;
-    return {
-      kind: 'list-command', key: `list:${operation}:${seriesId ?? ''}:${placementId ?? ''}`, operation,
-      baseProfile: { ...profile }, ...(series ? { baseSeries: { ...series } } : {}),
-      ...(placement ? { basePlacement: { ...placement, series: placement.series.map((item) => ({ ...item })) } } : {}),
-      ...(resource ? { baseResource: { ...resource } } : {}),
-      ...(seriesId ? { seriesId } : {}), ...(placementId ? { placementId } : {}),
-    };
-  }
-
-  function clearSessionDerivedClaimHistory(throughSequence: number) {
-    dispatch({ type: 'claim-history-session-cleared', sequence: throughSequence });
-  }
-
-  function confirmBoundWrite(historySequence: number, operationId: number, csrfToken: string) {
+  function confirmBoundWrite(operationId: number, csrfToken: string) {
     recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'write-confirmed',
-      csrfToken, message: 'La escritura confirmó la sesión ligada.' }, historySequence);
+      csrfToken, message: 'La escritura confirmó la sesión ligada.' });
   }
 
-  function validateSocialUrls(editor: Extract<CreatorOwnerEditor, { kind: 'profile'; section: 'redes' }>): boolean {
+  function observeBoundSessionFailure(status: number, payload: CreatorSessionResponse | null, operationId: number): string | undefined {
+    const recovery = creatorSessionRecoveryReason(status, payload);
+    const check = classifyCreatorSessionCheck(status, payload);
+    const reason = status === 409 && payload?.error === 'CREATOR_CONTRACT_OBSOLETE'
+      ? 'obsolete-contract'
+      : recovery ?? (check.state === 'context-changed' ? 'different-principal' : check.state);
+    let message: string;
+    switch (reason) {
+      case 'expired':
+      case 'csrf': message = loginRecoveryMessage(reason); break;
+      case 'different-principal':
+        message = 'La cuenta o el rol activo no coinciden con esta página. Vuelve a la cuenta original; conservamos tus cambios.';
+        break;
+      case 'disabled': message = 'Esta cuenta está desactivada. Conservamos tus cambios.'; break;
+      case 'invalid-context': message = 'El contexto de esta página no es válido. Abre una página nueva con la cuenta original.'; break;
+      case 'obsolete-contract': message = 'Esta página usa una versión anterior. Conservamos el borrador para que puedas copiarlo antes de abrir una página nueva.'; break;
+      default: return undefined;
+    }
+    const terminal = reason === 'disabled' || reason === 'invalid-context' || reason === 'obsolete-contract';
+    recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound',
+      outcome: terminal ? 'terminal' : 'recoverable', reason, message });
+    return message;
+  }
+
+  function rejectBoundWrite(status: number, payload: CreatorSessionResponse | null, operationId: number, intentId: string): boolean {
+    const message = observeBoundSessionFailure(status, payload, operationId);
+    if (!message) return false;
+    dispatch({ type: 'operation-rejected', intentId, message });
+    return true;
+  }
+
+  function validateSocialUrls(editor: Extract<CreatorOwnerEditorDraft, { kind: 'profile'; section: 'redes' }>): boolean {
     for (const key of ['instagram', 'x', 'linkedin', 'awsBuilder', 'website'] as const) {
-      const value = normalizeCreatorText(editor.draft[key]);
-      if (!value) continue;
-      let valid = false;
-      try {
-        const url = new URL(value);
-        valid = ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password;
-      } catch { valid = false; }
+      const value = editor.draft[key];
+      const valid = !value || value.length <= CREATOR_FIELD_LIMITS.social && isSafeCatalogUrl(value);
       const input = document.querySelector<HTMLInputElement>(`#owner-social-${key}`);
-      input?.setCustomValidity(valid ? '' : 'Ingresa una URL HTTP o HTTPS sin usuario ni contraseña.');
+      input?.setCustomValidity(valid ? '' : 'Ingresa una URL HTTP o HTTPS completa sin usuario ni contraseña.');
       if (!valid) { input?.reportValidity(); return false; }
     }
     return true;
   }
 
-  async function startCommand(intent: ReturnType<typeof creatorOwnerWriteIntent>) {
+  function operationIsCurrent(generation: number, binding: string, accountEmail: string, isAdmin: boolean,
+    profileId: string | null, root: HTMLDivElement | null, ownerDocument: Document): boolean {
+    const current = stateRef.current;
+    return operationGenerationRef.current === generation && rootRef.current === root && document === ownerDocument
+      && current.sessionBinding === binding && current.accountEmail === accountEmail && current.isAdmin === isAdmin
+      && (current.observed.profile?.id ?? null) === profileId;
+  }
+
+  function snapshotMeetsTrustedFloors(snapshot: CreatorOwnerSnapshotDTO, intent?: CreatorOwnerIntent): boolean {
+    const previous = stateRef.current.observed;
+    if (previous.creatorVersion !== null && snapshot.creatorVersion !== null && snapshot.creatorVersion < previous.creatorVersion) return false;
+    const acknowledgement = intent?.acknowledgement;
+    if (!acknowledgement) return true;
+    if (acknowledgement.profileId && snapshot.profile?.id !== acknowledgement.profileId) return false;
+    if (acknowledgement.creatorVersionFloor !== undefined
+      && (snapshot.creatorVersion === null || snapshot.creatorVersion < acknowledgement.creatorVersionFloor)) return false;
+    if (acknowledgement.resourceId && acknowledgement.resourceVersionFloor !== undefined) {
+      const resource = snapshot.resources.find(({ id }) => id === acknowledgement.resourceId);
+      if (resource && resource.version < acknowledgement.resourceVersionFloor) return false;
+    }
+    if (acknowledgement.claimId && acknowledgement.claimVersion !== undefined) {
+      const claim = snapshot.claims.find(({ id }) => id === acknowledgement.claimId);
+      if (claim?.version !== undefined && claim.version < acknowledgement.claimVersion) return false;
+    }
+    return true;
+  }
+
+  async function readOwnerSnapshot(fact: CreatorOwnerReadFact, intent?: CreatorOwnerIntent) {
     const latest = stateRef.current;
-    const canSupersedeClaimCheck = latest.attempt.status === 'checking' && latest.attempt.intent.kind === 'claim'
-      && intent.kind === 'claim' && latest.attempt.intent.editorKey === intent.editorKey
-      && latest.editor?.kind === 'claim' && latest.editor.key === intent.editorKey;
-    if (latest.session.state !== 'ready' || isWriteActive(latest)
-      || latest.attempt.status === 'checking' && !canSupersedeClaimCheck) return;
-    if (intent.kind === 'reference' && intent.capture.kind === 'reference') {
-      const item = intent.capture.selected;
-      const selectionStatus = creatorOwnerReferenceSubmissionStatus(latest, item);
-      if (selectionStatus === 'rejected') {
-        setMessage('Esa dirección ya fue rechazada por estar desactualizada. Elige una selección vigente del catálogo.', 'error');
+    if (latest.operation.status === 'reading' || latest.session.state !== 'ready') return;
+    const readFollowsWrite = latest.operation.status === 'sending' && intent
+      && latest.operation.intent.id === intent.id && (fact === 'acknowledged' || fact === 'conflict');
+    if (latest.operation.status === 'sending' && !readFollowsWrite) return;
+    if (!readFollowsWrite && latest.operation.status !== 'idle' && latest.operation.status !== 'refresh-failed'
+      && latest.operation.status !== 'unknown' && latest.operation.status !== 'conflict') return;
+    const binding = latest.sessionBinding;
+    const accountEmail = latest.accountEmail;
+    const isAdmin = latest.isAdmin;
+    const profileId = latest.observed.profile?.id ?? null;
+    const root = rootRef.current;
+    const ownerDocument = document;
+    const generation = ++operationGenerationRef.current;
+    const operationId = nextSessionOperationId();
+    const readMessage = fact === 'claims' ? 'Actualizando Solicitudes con una lectura completa…'
+      : fact === 'acknowledged' ? `${acknowledgedActionLabel(intent)}. Actualizando el estado guardado…`
+          : fact === 'conflict' ? intent?.targetMissing ? 'El destino ya no está disponible. Leyendo el estado actual y conservando el borrador…'
+            : 'Leyendo el estado actual para comparar…'
+          : 'Leyendo el estado guardado…';
+    dispatch({ type: 'operation-reading', ...(intent ? { intent } : {}), fact, message: readMessage });
+    const current = () => operationIsCurrent(generation, binding, accountEmail, isAdmin, profileId, root, ownerDocument);
+    const fail = (message: string, sessionFailure = false) => {
+      if (!current()) return;
+      const detail = fact === 'acknowledged' && !sessionFailure ? `${acknowledgedReadFailureLabel(intent)}. ${message}` : message;
+      const feedback = fact === 'acknowledged' ? `${acknowledgedActionLabel(intent)}. ${detail}`
+        : fact === 'conflict' && intent?.targetMissing ? `El destino ya no está disponible. ${message}` : message;
+      const chapterRefresh = fact === 'acknowledged' && (intent?.action === 'add-chapter' || intent?.action === 'remove-chapter');
+      dispatch({ type: 'operation-read-failed', ...(intent ? { intent } : {}), fact, message: feedback,
+        ...(chapterRefresh ? { suppressGlobalMessage: true } : {}) });
+    };
+    try {
+      const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store',
+        headers: { 'x-creator-page-binding': binding, accept: 'application/json' } });
+      if (!current()) return;
+      if (!response.ok) {
+        const payload = await readCreatorSessionResponse(response);
+        if (!current()) return;
+        const sessionFailure = observeBoundSessionFailure(response.status, payload, operationId);
+        fail(sessionFailure ?? 'No pudimos leer el estado completo. La vista sigue desactualizada; vuelve a comprobar antes de guardar.', Boolean(sessionFailure));
         return;
       }
+      const raw: unknown = await response.json();
+      if (!current()) return;
+      let snapshot: CreatorOwnerSnapshotDTO;
+      try { snapshot = readCreatorOwnerSnapshot(raw); }
+      catch {
+        fail('La lectura no contiene un estado completo y válido. La vista sigue desactualizada; vuelve a comprobar.');
+        return;
+      }
+      if (profileId && snapshot.profile?.id !== profileId) {
+        fail('La lectura no corresponde al perfil que abrió esta página. Conservamos tus cambios.');
+        return;
+      }
+      if (intent?.acknowledgement?.profileId && snapshot.profile?.id !== intent.acknowledgement.profileId) {
+        fail('La lectura no corresponde al perfil confirmado por la acción. Conservamos el estado anterior.');
+        return;
+      }
+      if (snapshot.profile === null && profileId !== null) {
+        fail('La lectura no contiene el perfil que abrió esta página. Conservamos el estado anterior.');
+        return;
+      }
+      if (!snapshotMeetsTrustedFloors(snapshot, intent)) {
+        fail(STALE_CREATOR_READ_MESSAGE);
+        return;
+      }
+      if (!recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'read-confirmed',
+        message: 'La lectura confirmó esta página. Comprueba la sesión para habilitar cambios.' })) {
+        fail(STALE_CREATOR_READ_MESSAGE);
+        return;
+      }
+      if (!current()) return;
+      const consumeEditor = fact === 'acknowledged' && Boolean(intent?.editorKey)
+        && stateRef.current.editor?.key === intent?.editorKey
+        && !(intent?.action === 'add-link' && intent.acknowledgement?.disposition !== 'resource-created');
+      const message = fact === 'acknowledged'
+        ? intent?.action === 'create-claim' ? 'La solicitud fue enviada. Actualizamos el historial sin repetir el envío.'
+          : intent?.action === 'add-link' && intent.acknowledgement?.disposition === 'resource-reused'
+            ? 'La ficha existente se agregó; no guardamos los metadatos del borrador. Conservamos el borrador completo para que decidas qué hacer con él.'
+            : intent?.action === 'add-link' && intent.acknowledgement?.disposition === 'already-present'
+              ? 'El enlace ya estaba en tu página; no cambiamos la ficha ni sus opciones. Conservamos el borrador completo para que decidas qué hacer con él.'
+              : intent?.action === 'reference-link' && intent.acknowledgement?.disposition === 'already-present'
+                ? 'El enlace ya estaba en tu página. Conservamos la ficha y sus opciones.'
+                : 'Cambios guardados y estado actualizado.'
+        : fact === 'claims' ? 'Solicitudes actualizadas con el estado completo de la página.'
+          : fact === 'conflict' ? intent?.targetMissing
+            ? 'El destino ya no está disponible. Conservamos el borrador; revisa el estado actual antes de continuar.'
+            : 'Esta acción no se guardó. Compara el estado actual y elige cómo continuar.'
+            : 'La lectura no confirma si la acción anterior se guardó. Elige cómo continuar.';
+      const active = document.activeElement;
+      const currentLocation = stateRef.current.location;
+      const listAction = intent?.action;
+      const focusWasLost = active === document.body || active?.matches('[data-owner-refresh-retry]');
+      let focusAfterRender: string | undefined;
+      if (fact === 'acknowledged') {
+        if ((listAction === 'add-chapter' || listAction === 'remove-chapter')
+          && currentLocation.query.serie === intent?.target?.seriesId
+          && (focusWasLost || active?.matches('[data-chapter-add], [data-chapter-remove]'))) {
+          focusAfterRender = '#owner-chapter-search';
+        }
+        if ((listAction === 'remove-link' || listAction === 'reinclude-link') && currentLocation.view === 'enlaces'
+          && (focusWasLost || active?.matches('[data-link-remove], [data-resource-reinclude]'))) {
+          focusAfterRender = '#owner-link-search';
+        }
+      }
+      dispatch({ type: 'operation-read-installed', ...(intent ? { intent } : {}), fact, snapshot, message,
+        ...(consumeEditor ? { consumeEditor: true } : {}), ...(focusAfterRender ? { focusAfterRender } : {}) });
+    } catch {
+      fail(fact === 'acknowledged'
+        ? 'El estado anterior sigue visible; vuelve a comprobar. No repetiremos la escritura.'
+        : 'No pudimos comprobar el estado completo. La vista sigue desactualizada; puedes volver a leerla.');
+    }
+  }
+
+  async function startCommand(intent: PendingOwnerCommand, fromConflict = false) {
+    const latest = stateRef.current;
+    const canResolveConflict = fromConflict && latest.operation.status === 'conflict' && latest.operation.readCompleted
+      && latest.operation.intent.editorKey === intent.editorKey;
+    if (latest.session.state !== 'ready' || isWriteActive(latest)
+      || latest.operation.status !== 'idle' && !canResolveConflict) return;
+    if (intent.action === 'reference-link') {
+      const selection = latest.editor?.kind === 'reference' && latest.editor.key === intent.editorKey ? latest.editor.selected : undefined;
+      const selectionStatus = creatorOwnerReferenceSubmissionStatus(latest, selection);
       if (selectionStatus !== 'ready') {
-        setMessage(selectionStatus === 'needs-selection'
-          ? 'Elige una ficha vigente del catálogo antes de agregarla a tu página.'
-          : 'Actualiza el catálogo y vuelve a elegir una ficha vigente antes de agregarla a tu página.', 'error');
+        setMessage(selectionStatus === 'rejected'
+          ? 'Esa dirección fue rechazada por estar desactualizada. Elige una selección vigente del catálogo.'
+          : selectionStatus === 'needs-selection' ? 'Elige una ficha vigente del catálogo antes de agregarla a tu página.'
+            : 'Actualiza el catálogo y vuelve a elegir una ficha vigente antes de agregarla a tu página.', 'error');
         return;
       }
     }
-    if (intent.kind === 'claim' && intent.capture.kind === 'claim') {
-      if (!creatorOwnerClaimSelectionIsCurrent(latest, intent.capture.selected)) {
-        dispatch({ type: 'catalog-require-refresh', message: 'Actualiza el catálogo y vuelve a seleccionar las fichas cuyo destino pudo cambiar.' });
-        setMessage('Actualiza el catálogo y vuelve a seleccionar las fichas cuyo destino pudo cambiar.', 'error');
-        return;
-      }
+    if (intent.action === 'create-claim' && latest.editor?.kind === 'claim' && latest.editor.key === intent.editorKey
+      && !creatorOwnerClaimSelectionIsCurrent(latest, latest.editor.selected)) {
+      dispatch({ type: 'catalog-require-refresh', message: 'Actualiza el catálogo y vuelve a seleccionar las fichas cuyo destino pudo cambiar.' });
+      setMessage('Actualiza el catálogo y vuelve a seleccionar las fichas cuyo destino pudo cambiar.', 'error');
+      return;
     }
     let request;
-    try { request = prepareCreatorOwnerRequest(intent); }
-    catch (error) {
+    try {
+      const wireCommand: CreatorOwnerWireCommand = {
+        operation: intent.action as CreatorOwnerWireOperation,
+        profileId: intent.profileId,
+        creatorVersion: intent.creatorVersion,
+        ...(intent.target ? { target: intent.target } : {}),
+        ...(intent.base ? { base: intent.base } : {}),
+        fields: intent.fields,
+      };
+      request = createCreatorOwnerRequest(wireCommand);
+    } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No pudimos preparar esta acción. Conservamos tus cambios.', 'error');
       return;
     }
-    const commandHistorySequence = claimHistorySequenceRef.current;
     const operationId = nextSessionOperationId();
-    dispatch({ type: 'begin-write', intent, exitTransition: exitSubmitTransitionRef.current });
+    const generation = ++operationGenerationRef.current;
+    const binding = latest.sessionBinding;
+    const accountEmail = latest.accountEmail;
+    const isAdmin = latest.isAdmin;
+    const profileId = latest.observed.profile?.id ?? null;
+    const root = rootRef.current;
+    const ownerDocument = document;
     const token = latest.session.csrfToken;
+    const storedIntent = ownerIntent(intent);
+    dispatch({ type: 'operation-started', intent: storedIntent });
+    const current = () => operationIsCurrent(generation, binding, accountEmail, isAdmin, profileId, root, ownerDocument);
     try {
-      const response = await fetch(request.path, {
-        method: request.method,
-        credentials: 'same-origin',
-        cache: 'no-store',
-        headers: { accept: 'application/json', 'content-type': 'application/json', 'x-csrf-token': token, 'x-creator-page-binding': latest.sessionBinding },
-        body: JSON.stringify(request.body),
+      const response = await fetch(request.path, { method: request.method, credentials: 'same-origin', cache: 'no-store',
+        headers: { accept: 'application/json', 'content-type': 'application/json', 'x-csrf-token': token,
+          'x-creator-page-binding': binding, [CREATOR_CONTRACT_HEADER]: CREATOR_CONTRACT_VERSION },
+        body: JSON.stringify(request.body) });
+      if (!current()) return;
+      if (!response.ok) {
+        const payload = await readCreatorSessionResponse(response);
+        if (!current()) return;
+        if (rejectBoundWrite(response.status, payload, operationId, intent.id)) return;
+        const error = payload?.error;
+        const targetMissing = response.status === 403 && error === 'RESOURCE_EDIT_FORBIDDEN'
+          || response.status === 404 && ['PLACEMENT_NOT_FOUND', 'SERIES_NOT_FOUND',
+            'SERIES_MEMBERSHIP_NOT_FOUND', 'RESOURCE_NOT_FOUND'].includes(String(error));
+        const staleCatalog = response.status === 409 && error === 'RESOURCE_CONFLICT'
+          && (intent.action === 'reference-link' || intent.action === 'create-claim');
+        if (staleCatalog) {
+          const selected = intent.action === 'reference-link' && typeof intent.fields.url === 'string' && intent.target?.resourceId
+            ? { id: intent.target.resourceId, url: intent.fields.url } : undefined;
+          dispatch({ type: 'catalog-require-refresh', message: 'Actualiza el catálogo y vuelve a seleccionar las fichas cuyo destino pudo cambiar.',
+            ...(selected ? { rejectedSelection: selected } : {}) });
+        }
+        if (targetMissing || response.status === 409 && typeof error === 'string' && error.endsWith('_CONFLICT')) {
+          await readOwnerSnapshot('conflict', { ...storedIntent, ...(targetMissing ? { targetMissing: true } : {}) });
+          return;
+        }
+        if (response.status >= 500 || response.status === 408) {
+          dispatch({ type: 'operation-unknown', intent: storedIntent, message: 'No pudimos confirmar el resultado. Comprueba el estado guardado antes de decidir si vuelves al borrador.' });
+          return;
+        }
+        const message = rejectedOwnerWriteMessage(error, response.status);
+        dispatch({ type: 'operation-rejected', intentId: intent.id, message });
+        return;
+      }
+      const acknowledgement = await readCreatorOwnerAcknowledgement(response, {
+        operation: intent.action as CreatorOwnerWireOperation,
+        profileId: intent.profileId,
+        ...(intent.target ? { target: intent.target } : {}),
+        ...(intent.creatorVersion !== null ? { creatorVersion: intent.creatorVersion } : {}),
+        ...(intent.base?.resourceVersion !== undefined ? { resourceVersion: intent.base.resourceVersion } : {}),
       });
-      const outcome = await interpretCreatorOwnerResponse(response, intent, latest.observed);
-      if (outcome.kind === 'session') {
-        dispatch({ type: 'write-rejected', intentId: intent.id, message: outcome.message });
-        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'recoverable', reason: outcome.reason, message: outcome.message }, commandHistorySequence);
+      if (!current()) return;
+      if (acknowledgement.kind !== 'confirmed') {
+        dispatch({ type: 'operation-unknown', intent: storedIntent, message: 'La respuesta no confirma con claridad el resultado. Lee el estado guardado antes de decidir qué hacer.' });
         return;
       }
-      if (outcome.kind === 'session-blocked') {
-        dispatch({ type: 'write-rejected', intentId: intent.id, message: outcome.message });
-        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'terminal', reason: outcome.reason, message: outcome.message }, commandHistorySequence);
-        return;
-      }
-      if (outcome.kind === 'uncertain' || outcome.kind === 'conflict') {
-        dispatch({ type: 'write-uncertain', intentId: intent.id, status: outcome.kind, message: outcome.message, ...(outcome.code ? { code: outcome.code } : {}) });
-        if ((intent.kind === 'reference' && ['RESOURCE_CONFLICT', 'STALE_RESOURCE_REFERENCE'].includes(outcome.code ?? ''))
-          || (intent.kind === 'claim' && ['RESOURCE_CONFLICT', 'RESOURCE_URL_CONFLICT', 'STALE_RESOURCE_REFERENCE'].includes(outcome.code ?? ''))) {
-          dispatch({ type: 'catalog-require-refresh', message: 'Actualiza el catálogo y vuelve a seleccionar las fichas cuya URL pudo cambiar.' });
-        }
-        return;
-      }
-      if (outcome.kind === 'rejected') {
-        dispatch({ type: 'write-rejected', intentId: intent.id, message: outcome.message });
-        if (outcome.viablePosition !== undefined) {
-          if (intent.kind === 'move-link') dispatch({ type: 'set-link-move-suggestion', targetPosition: outcome.viablePosition });
-          else dispatch({ type: 'set-move-suggestion', targetPosition: outcome.viablePosition });
-        }
-        return;
-      }
-      if (outcome.kind === 'confirmed') {
-        confirmBoundWrite(commandHistorySequence, operationId, token);
-      }
-      const correction = creatorOwnerEditorChangedSince(intent.capture, stateRef.current.editor);
-      dispatch({ type: 'write-confirmed', intentId: intent.id, effect: outcome.effect, correction });
-      const referenceCompletionOwnedByReducer = intent.kind === 'reference' && intent.capture.kind === 'reference';
-      const confirmedUrlDuplicate = outcome.effect.kind === 'link-added' && outcome.effect.source === 'url' && !outcome.effect.created;
-      const retainsSharedAdd = intent.capture.kind === 'link-placement' && Boolean(intent.capture.pendingAddDraft);
-      if (!correction && intent.capture.kind !== 'list-command' && !referenceCompletionOwnedByReducer
-        && !confirmedUrlDuplicate && !retainsSharedAdd) dispatch({ type: 'close-editor' });
+      confirmBoundWrite(operationId, token);
+      const confirmedIntent: CreatorOwnerIntent = { ...storedIntent, profileId: acknowledgement.profileId,
+        acknowledgement: { profileId: acknowledgement.profileId, disposition: acknowledgement.disposition,
+          ...(acknowledgement.creatorVersionFloor !== undefined ? { creatorVersionFloor: acknowledgement.creatorVersionFloor } : {}),
+          ...(acknowledgement.resourceId ? { resourceId: acknowledgement.resourceId } : {}),
+          ...(acknowledgement.resourceVersionFloor !== undefined ? { resourceVersionFloor: acknowledgement.resourceVersionFloor } : {}),
+          ...(acknowledgement.placementId ? { placementId: acknowledgement.placementId } : {}),
+          ...(acknowledgement.seriesId ? { seriesId: acknowledgement.seriesId } : {}),
+          ...(acknowledgement.claimId ? { claimId: acknowledgement.claimId } : {}),
+          ...(acknowledgement.claimVersion !== undefined ? { claimVersion: acknowledgement.claimVersion } : {}) } };
+      await readOwnerSnapshot('acknowledged', confirmedIntent);
     } catch {
-      dispatch({ type: 'write-uncertain', intentId: intent.id, status: 'uncertain', message: 'No pudimos confirmar el resultado. Comprueba lo guardado antes de volver a intentar; no repetiremos la escritura.' });
+      if (current()) dispatch({ type: 'operation-unknown', intent: storedIntent, message: 'No pudimos confirmar el resultado. Comprueba el estado guardado antes de decidir si vuelves al borrador.' });
     }
+  }
+
+  function intentForEditor(editor: CreatorOwnerEditorDraft): PendingOwnerCommand | undefined {
+    const latest = stateRef.current;
+    const snapshot = latest.observed;
+    if (editor.kind === 'create-profile') return makeIntent('save-profile', { displayName: editor.draft.displayName, slug: editor.draft.slug }, { editor });
+    const profile = snapshot.profile;
+    if (!profile) return undefined;
+    if (editor.kind === 'profile') {
+      if (editor.section === 'redes') {
+        const socials = Object.fromEntries(editor.touchedFields.map((key) => [key, editor.draft[key]]));
+        return makeIntent('save-profile', { ...(Object.keys(socials).length ? { socials } : {}) }, { editor });
+      }
+      const optionalFields = Object.fromEntries(editor.touchedFields
+        .filter((key) => key !== 'displayName' && key !== 'slug')
+        .map((key) => [key, editor.draft[key]]));
+      return makeIntent('save-profile', { displayName: editor.draft.displayName, slug: editor.draft.slug,
+        ...optionalFields }, { editor });
+    }
+    if (editor.kind === 'series') {
+      const action = editor.seriesId ? 'edit-series' : 'create-series';
+      const optionalFields = Object.fromEntries(editor.touchedFields.filter((key) => key === 'description')
+        .map((key) => [key, editor.draft[key]]));
+      return makeIntent(action, { name: editor.draft.name, slug: editor.draft.slug, ...optionalFields },
+        { ...(editor.seriesId ? { target: { seriesId: editor.seriesId } } : {}), editor });
+    }
+    if (editor.kind === 'move-chapter') {
+      const destination = Number(editor.targetPosition);
+      if (!Number.isSafeInteger(destination) || destination < 1) { setMessage('Ingresa una posición entera mayor que cero.', 'error'); return undefined; }
+      return makeIntent('move-chapter', { destination }, { target: { seriesId: editor.seriesId, placementId: editor.placementId }, editor });
+    }
+    if (editor.kind === 'link-placement') {
+      const placement = snapshot.placements[editor.placementId];
+      const resource = placement ? ownerResource(snapshot, placement.resourceId) : undefined;
+      if (!placement || !resource) return undefined;
+      if (!editor.editable) {
+        const fields = Object.fromEntries(editor.touchedFields.filter((key) => key === 'featured' || key === 'selectedForDirectory')
+          .map((key) => [key, editor.draft[key]]));
+        return makeIntent('set-link-options', fields, { target: { placementId: editor.placementId }, editor });
+      }
+      const fields = Object.fromEntries(editor.touchedFields.map((key) => [key, editor.draft[key]]));
+      return makeIntent('edit-link', fields,
+        { target: { resourceId: placement.resourceId, placementId: editor.placementId }, resourceVersion: resource.version, editor });
+    }
+    if (editor.kind === 'link-resource') {
+      const resource = ownerResource(snapshot, editor.resourceId);
+      if (!resource) return undefined;
+      const fields = Object.fromEntries(editor.touchedFields.map((key) => [key, editor.draft[key]]));
+      return makeIntent('edit-resource', fields,
+        { target: { resourceId: editor.resourceId }, resourceVersion: resource.version, editor });
+    }
+    if (editor.kind === 'add-link') {
+      const optionalFields = Object.fromEntries(editor.touchedFields.filter((key) => key === 'description')
+        .map((key) => [key, editor.draft[key]]));
+      return makeIntent('add-link', { title: editor.draft.title, url: editor.draft.url,
+        selectedForDirectory: editor.draft.selectedForDirectory, ...optionalFields }, { editor });
+    }
+    if (editor.kind === 'move-link') {
+      const destination = Number(editor.targetPosition);
+      if (!Number.isSafeInteger(destination) || destination < 1) { setMessage('Ingresa una posición entera mayor que cero.', 'error'); return undefined; }
+      return makeIntent('move-link', { destination }, { target: { placementId: editor.placementId }, editor });
+    }
+    if (editor.kind === 'reference') {
+      if (!editor.selected) { setMessage('Elige una ficha vigente del catálogo antes de agregarla a tu página.', 'error'); return undefined; }
+      return makeIntent('reference-link', { url: editor.selected.url, selectedForDirectory: editor.selectedForDirectory },
+        { target: { resourceId: editor.selected.id }, editor });
+    }
+    if (editor.kind === 'claim') {
+      const urls = parseCreatorOwnerClaimUrls(editor.knownUrls);
+      if (!urls) { setMessage('Revisa las URLs: usa una URL HTTP o HTTPS por línea, sin credenciales.', 'error'); return undefined; }
+      const resources = [
+        ...editor.selected.map(({ resourceId, url }) => ({ resourceId, url })),
+        ...urls.map((url) => ({ url })),
+      ];
+      if (!resources.length) { setMessage('Selecciona una ficha o agrega una URL conocida.', 'error'); return undefined; }
+      return makeIntent('create-claim', { resources, evidence: editor.evidence }, { editor });
+    }
+    return undefined;
   }
 
   function submitCurrentEditor() {
     const latest = stateRef.current;
     const editor = latest.editor;
-    if (!editor || editor.kind === 'create-profile' || editor.kind === 'photo') {
-      if (editor?.kind === 'photo') void startPhotoUpload(editor);
-      return;
-    }
+    if (!editor) return;
+    if (editor.kind === 'photo') { void startPhotoUpload(editor); return; }
     if (editor.kind === 'profile' && editor.section === 'redes' && !validateSocialUrls(editor)) return;
-    const intent = creatorOwnerWriteIntent(nextId(editor.kind), editor);
-    void startCommand(intent);
+    const intent = intentForEditor(editor);
+    if (intent) void startCommand(intent, latest.operation.status === 'conflict' && Boolean(latest.operation.readCompleted));
   }
 
-  async function startPhotoUpload(editor: Extract<CreatorOwnerEditor, { kind: 'photo' }>) {
+  async function startPhotoUpload(editor: Extract<CreatorOwnerEditorDraft, { kind: 'photo' }>) {
     const latest = stateRef.current;
+    const profile = latest.observed.profile;
     const file = editor.file;
-    if (!file || !latest.observed.profile || latest.session.state !== 'ready' || isWriteActive(latest)) return;
-    if (!PHOTO_TYPES.has(file.type) || file.size > PHOTO_LIMIT_BYTES) {
+    if (!file || !profile || latest.session.state !== 'ready' || latest.operation.status !== 'idle') return;
+    if (!CREATOR_PHOTO_MIME_TYPES.includes(file.type) || file.size > CREATOR_PHOTO_MAX_UPLOAD_BYTES) {
       setMessage('Elige una imagen JPEG, PNG o WebP de hasta 15 MiB.', 'error');
       return;
     }
-    const commandHistorySequence = claimHistorySequenceRef.current;
-    let operationId = nextSessionOperationId();
-    const intent = creatorOwnerWriteIntent(nextId('photo'), editor);
-    dispatch({ type: 'begin-write', intent, exitTransition: exitSubmitTransitionRef.current });
-    let finalizationRequested = false;
-    const headers = { accept: 'application/json', 'content-type': 'application/json', 'x-csrf-token': latest.session.csrfToken, 'x-creator-page-binding': latest.sessionBinding };
-    const classifyAuthorizationFailure = async (response: Response) => {
-      const payload = await readCreatorSessionResponse(response);
-      const sessionOutcome = classifyCreatorOwnerWriteSessionFailure(response.status, payload, 'photo');
-      if (sessionOutcome?.kind === 'session') {
-        dispatch({ type: 'write-rejected', intentId: intent.id, message: sessionOutcome.message });
-        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'recoverable', reason: sessionOutcome.reason, message: sessionOutcome.message }, commandHistorySequence);
-        return true;
-      }
-      if (sessionOutcome?.kind === 'session-blocked') {
-        dispatch({ type: 'write-rejected', intentId: intent.id, message: sessionOutcome.message });
-        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'terminal', reason: sessionOutcome.reason, message: sessionOutcome.message }, commandHistorySequence);
-        return true;
-      }
-      if (response.status === 409) {
-        dispatch({ type: 'write-uncertain', intentId: intent.id, status: 'conflict', message: 'El perfil cambió antes de iniciar la carga. Comprueba qué foto quedó activa antes de volver a cargar.' });
-        return true;
-      }
-      if (response.status === 408 || response.status >= 500) {
-        dispatch({ type: 'write-uncertain', intentId: intent.id, status: 'uncertain', message: 'No pudimos confirmar si se preparó la carga. Comprueba qué foto quedó activa antes de volver a intentarlo.' });
-        return true;
-      }
-      dispatch({ type: 'write-rejected', intentId: intent.id, message: response.status === 422
-        ? 'La imagen no cumple los requisitos. El archivo seleccionado sigue disponible.'
-        : 'No pudimos preparar la carga. El archivo seleccionado sigue disponible.' });
-      return true;
-    };
+    const intent: CreatorOwnerIntent = { id: nextId('photo'), editorKey: editor.key, action: 'photo-authorize',
+      profileId: profile.id, creatorVersion: latest.observed.creatorVersion,
+      ...(exitSubmitTransitionRef.current ? { exitTransition: exitSubmitTransitionRef.current } : {}) };
+    const generation = ++operationGenerationRef.current;
+    const operationId = nextSessionOperationId();
+    const binding = latest.sessionBinding;
+    const accountEmail = latest.accountEmail;
+    const isAdmin = latest.isAdmin;
+    const originalProfileId = profile.id;
+    const root = rootRef.current;
+    const ownerDocument = document;
+    const token = latest.session.csrfToken;
+    dispatch({ type: 'operation-started', intent });
+    const current = () => operationIsCurrent(generation, binding, accountEmail, isAdmin, originalProfileId, root, ownerDocument);
+    let finalizeSent = false;
+    let finalizeIntent: CreatorOwnerIntent | undefined;
     try {
-      const authorize = await fetch('/api/creador/foto/autorizar/', { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers,
-        body: JSON.stringify({ version: editor.base.version }) });
-      if (!authorize.ok) { await classifyAuthorizationFailure(authorize); return; }
-      const upload = await detailText(authorize);
-      const post = upload?.post;
-      const fields = typeof post === 'object' && post !== null && !Array.isArray(post) ? (post as Record<string, unknown>).fields : undefined;
-      const postUrl = typeof post === 'object' && post !== null && !Array.isArray(post) ? (post as Record<string, unknown>).url : undefined;
-      const uploadId = upload?.uploadId;
-      if (typeof uploadId !== 'string' || !uploadId || typeof postUrl !== 'string' || !fields || typeof fields !== 'object' || Array.isArray(fields)) {
-        dispatch({ type: 'write-uncertain', intentId: intent.id, status: 'uncertain', message: 'No pudimos validar la preparación de la carga. Comprueba qué foto quedó activa.' });
+      const authorization = await fetch('/api/creador/foto/autorizar/', { method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: { accept: 'application/json', 'content-type': 'application/json', 'x-csrf-token': token,
+          'x-creator-page-binding': binding, [CREATOR_CONTRACT_HEADER]: CREATOR_CONTRACT_VERSION },
+        body: JSON.stringify({ creatorVersion: latest.observed.creatorVersion }) });
+      if (!current()) return;
+      if (!authorization.ok) {
+        const payload = await readCreatorSessionResponse(authorization);
+        if (!current()) return;
+        if (rejectBoundWrite(authorization.status, payload, operationId, intent.id)) return;
+        if (authorization.status === 409) { await readOwnerSnapshot('conflict', intent); return; }
+        if (authorization.status >= 500 || authorization.status === 408) {
+          dispatch({ type: 'operation-unknown', intent, message: 'No pudimos confirmar la preparación. Comprueba el estado guardado antes de volver a cargar.' });
+        } else dispatch({ type: 'operation-rejected', intentId: intent.id, message: 'No pudimos preparar la carga. El archivo seleccionado sigue disponible.' });
         return;
       }
-      let destination: URL;
-      try { destination = new URL(postUrl); } catch {
-        dispatch({ type: 'write-uncertain', intentId: intent.id, status: 'uncertain', message: 'No pudimos validar el destino de la carga. Comprueba qué foto quedó activa.' });
+      const prepared = await readCreatorOwnerPhotoAuthorizationAcknowledgement(authorization, { profileId: profile.id,
+        ...(latest.observed.creatorVersion !== null ? { creatorVersion: latest.observed.creatorVersion } : {}) });
+      if (!current()) return;
+      if (prepared.kind !== 'confirmed') {
+        dispatch({ type: 'operation-rejected', intentId: intent.id, message: 'No pudimos validar la preparación. La foto anterior sigue activa y conservamos el archivo.' });
         return;
       }
-      if (destination.username || destination.password || !['https:', ...(destination.origin === window.location.origin ? ['http:'] : [])].includes(destination.protocol)) {
-        dispatch({ type: 'write-uncertain', intentId: intent.id, status: 'uncertain', message: 'No pudimos validar el destino de la carga. Comprueba qué foto quedó activa.' });
-        return;
-      }
-      confirmBoundWrite(commandHistorySequence, operationId, latest.session.csrfToken);
+      confirmBoundWrite(operationId, token);
       const form = new FormData();
-      for (const [key, value] of Object.entries(fields)) if (typeof value === 'string') form.append(key, value);
+      for (const [key, value] of Object.entries(prepared.post.fields)) form.append(key, value);
       form.append('file', file);
-      const uploadResponse = await fetch(destination, { method: 'POST', mode: 'cors', credentials: 'omit', body: form });
+      const uploadResponse = await fetch(prepared.post.url, { method: 'POST', mode: 'cors', credentials: 'omit', body: form });
+      if (!current()) return;
       if (!uploadResponse.ok) {
         dispatch({ type: 'clear-photo-upload', intentId: intent.id });
-        dispatch({ type: 'write-rejected', intentId: intent.id, message: 'No pudimos subir la foto. La anterior sigue activa y conservamos el archivo seleccionado.' });
+        dispatch({ type: 'operation-rejected', intentId: intent.id, message: 'No pudimos subir la foto. La anterior sigue activa y conservamos el archivo seleccionado.' });
         return;
       }
-      dispatch({ type: 'photo-upload-started', intentId: intent.id, uploadId, file });
-      finalizationRequested = true;
-      operationId = nextSessionOperationId();
-      const finish = await fetch('/api/creador/foto/finalizar/', { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers,
-        body: JSON.stringify({ uploadId, version: editor.base.version }) });
-      const outcome = await interpretCreatorOwnerPhotoFinalize(finish, intent, uploadId);
-      if (outcome.kind === 'session') {
-        dispatch({ type: 'write-rejected', intentId: intent.id, message: outcome.message });
-        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'recoverable', reason: outcome.reason, message: outcome.message }, commandHistorySequence);
+      dispatch({ type: 'photo-upload-started', intentId: intent.id, uploadId: prepared.uploadId, file });
+      finalizeIntent = { ...intent, action: 'photo-finalize' };
+      dispatch({ type: 'operation-started', intent: finalizeIntent });
+      const finalizeId = nextSessionOperationId();
+      finalizeSent = true;
+      const finish = await fetch('/api/creador/foto/finalizar/', { method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: { accept: 'application/json', 'content-type': 'application/json', 'x-csrf-token': token,
+          'x-creator-page-binding': binding, [CREATOR_CONTRACT_HEADER]: CREATOR_CONTRACT_VERSION },
+        body: JSON.stringify({ creatorVersion: latest.observed.creatorVersion, uploadId: prepared.uploadId }) });
+      if (!current()) return;
+      if (!finish.ok) {
+        const payload = await readCreatorSessionResponse(finish);
+        if (!current()) return;
+        if (rejectBoundWrite(finish.status, payload, finalizeId, intent.id)) return;
+        if (finish.status === 409) { await readOwnerSnapshot('conflict', finalizeIntent); return; }
+        if (finish.status >= 500 || finish.status === 408) {
+          dispatch({ type: 'operation-unknown', intent: finalizeIntent, message: 'No pudimos confirmar si la foto se guardó. Comprueba el estado antes de volver a cargar.' });
+        } else {
+          dispatch({ type: 'clear-photo-upload', intentId: intent.id });
+          dispatch({ type: 'operation-rejected', intentId: intent.id, message: 'No pudimos guardar la foto. La anterior sigue activa y conservamos el archivo.' });
+        }
         return;
       }
-      if (outcome.kind === 'session-blocked') {
-        dispatch({ type: 'write-rejected', intentId: intent.id, message: outcome.message });
-        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'terminal', reason: outcome.reason, message: outcome.message }, commandHistorySequence);
+      const finalized = await readCreatorOwnerPhotoFinalizeAcknowledgement(finish, { profileId: profile.id, uploadId: prepared.uploadId });
+      if (!current()) return;
+      if (finalized.kind !== 'confirmed') {
+        dispatch({ type: 'operation-unknown', intent: finalizeIntent, message: 'La respuesta no confirma la foto con claridad. Comprueba el estado guardado antes de volver a cargar.' });
         return;
       }
-      if (outcome.kind === 'uncertain' || outcome.kind === 'conflict') {
-        dispatch({ type: 'write-uncertain', intentId: intent.id, status: outcome.kind, message: outcome.message });
-        return;
-      }
-      if (outcome.kind === 'rejected') {
-        dispatch({ type: 'write-rejected', intentId: intent.id, message: outcome.message });
-        return;
-      }
-      confirmBoundWrite(commandHistorySequence, operationId, latest.session.csrfToken);
-      const current = stateRef.current.editor;
-      const correction = current?.kind === 'photo' && current.file !== undefined && current.file !== file;
-      dispatch({ type: 'write-confirmed', intentId: intent.id, effect: outcome.effect, correction });
-      if (!correction) dispatch({ type: 'close-editor' });
+      confirmBoundWrite(finalizeId, token);
+      const confirmedIntent: CreatorOwnerIntent = { ...finalizeIntent, acknowledgement: {
+        profileId: finalized.profileId, disposition: finalized.disposition, creatorVersionFloor: finalized.historicalCreatorVersion,
+      } };
+      await readOwnerSnapshot('acknowledged', confirmedIntent);
     } catch {
-      if (finalizationRequested) {
-        dispatch({ type: 'write-uncertain', intentId: intent.id, status: 'uncertain', message: 'No pudimos confirmar si la foto se guardó. Comprueba cuál quedó activa antes de volver a cargar.' });
-      } else {
-        dispatch({ type: 'write-rejected', intentId: intent.id, message: 'No pudimos completar la carga. La foto anterior sigue activa y conservamos el archivo elegido.' });
+      if (current()) {
+        if (finalizeSent && finalizeIntent) dispatch({ type: 'operation-unknown', intent: finalizeIntent,
+          message: 'No pudimos confirmar si la foto se guardó. Comprueba el estado antes de volver a cargar.' });
+        else dispatch({ type: 'operation-rejected', intentId: intent.id,
+          message: 'No pudimos subir la foto. La anterior sigue activa y conservamos el archivo seleccionado.' });
       }
     }
   }
 
-  async function checkCurrentAttempt() {
-    const latest = stateRef.current;
-    if (latest.attempt.status !== 'uncertain' && latest.attempt.status !== 'conflict') return;
-    const intent = latest.attempt.intent;
-    if (isWriteActive(latest)) return;
-    const checkId = nextId('check');
-    const historySequence = claimHistorySequenceRef.current;
-    dispatch({ type: 'begin-check', intentId: intent.id, checkId });
-    if (intent.kind === 'claim') {
-      const profileId = latest.observed.profile?.id;
-      if (profileId) await refreshClaimHistory({ intentId: intent.id, checkId, profileId });
-      return;
-    }
-    const binding = latest.sessionBinding;
-    const boundView = latest.location.view;
-    const boundProfileId = latest.observed.profile?.id;
-    const boundSeriesId = latest.location.query.serie;
-    const operationId = nextSessionOperationId();
-    const checkIsCurrent = () => {
-      const current = stateRef.current;
-      if (current.attempt.status !== 'checking' || current.attempt.intent.id !== intent.id || current.attempt.checkId !== checkId) return false;
-      if (current.sessionBinding !== binding || current.location.view !== boundView || current.observed.profile?.id !== boundProfileId) return false;
-      if (intent.capture.kind === 'list-command') {
-        return !current.editor && current.attempt.intent.capture.kind === 'list-command'
-          && (boundView !== 'series' || current.location.query.serie === boundSeriesId);
-      }
-      return current.editor?.key === intent.editorKey && current.editor.kind === intent.capture.kind;
-    };
-    try {
-      const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store',
-        headers: { 'x-creator-page-binding': binding, accept: 'application/json' } });
-      if (!checkIsCurrent()) return;
-      const payload = response.ok ? null : await readCreatorSessionResponse(response);
-      if (!checkIsCurrent()) return;
-      const recoveryReason = creatorSessionRecoveryReason(response.status, payload);
-      if (recoveryReason) {
-        const message = loginRecoveryMessage(recoveryReason);
-        const accepted = recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'recoverable', reason: recoveryReason, message }, historySequence);
-        dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: accepted ? message : STALE_CREATOR_READ_MESSAGE, sessionDerived: accepted });
-        return;
-      }
-      if (!response.ok) {
-        const sessionState = classifyCreatorSessionCheck(response.status, payload);
-        if (sessionState.state === 'context-changed') {
-          const message = 'La cuenta o el rol activo no coinciden con esta página. Vuelve a la cuenta original para comprobar; conservamos tus cambios.';
-          const accepted = recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'recoverable', reason: 'different-principal', message }, historySequence);
-          dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: accepted ? message : STALE_CREATOR_READ_MESSAGE, sessionDerived: accepted });
-          return;
-        }
-        if (sessionState.state === 'disabled' || sessionState.state === 'invalid-context') {
-          const message = sessionState.state === 'disabled' ? 'Esta cuenta está desactivada. Conservamos tus cambios.'
-            : 'El contexto de esta página no es válido. Abre una página nueva con la cuenta original.';
-          const accepted = recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'terminal', reason: sessionState.state, message }, historySequence);
-          dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: accepted ? message : STALE_CREATOR_READ_MESSAGE, sessionDerived: accepted });
-          return;
-        }
-        dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'No pudimos leer el estado guardado. Conservamos tus cambios; puedes volver a comprobar.' });
-        return;
-      }
-      const raw: unknown = await response.json();
-      if (!checkIsCurrent()) return;
-      const current = stateRef.current;
-      if (!isCreatorOwnerSnapshot(raw) || (raw.profile === null && !(intent.kind === 'create-profile'
-        && intent.capture.kind === 'create-profile' && current.observed.profile === null))) {
-        dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: intent.capture.kind === 'list-command'
-          ? 'La lectura no contiene un estado completo y coherente de esta página. Conservamos la lista; puedes volver a comprobar.'
-          : 'La lectura no contiene un estado completo y coherente de esta página. Conservamos tu edición.' });
-        return;
-      }
-      const snapshot = readCreatorEditorData(raw);
-      if (boundProfileId && snapshot.profile?.id !== boundProfileId) {
-        dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'La lectura no corresponde al perfil que abrió esta página. Conservamos tus cambios.' });
-        return;
-      }
-      if (current.observed.profile && snapshot.profile?.id === current.observed.profile.id
-        && snapshot.profile.version < current.observed.profile.version) {
-        dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'La lectura devolvió una versión anterior a la ya observada. Conservamos tus cambios y no adoptamos esa respuesta.' });
-        return;
-      }
-      recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'read-confirmed',
-        message: 'La lectura confirmó esta página. Comprueba la sesión para habilitar cambios.' }, historySequence);
-      if (intent.kind === 'photo' && intent.capture.kind === 'photo') {
-        if (snapshot.profile?.id !== intent.capture.base.id) {
-          dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'No pudimos confirmar que la foto corresponda a esta página. Conservamos el archivo elegido.' });
-          return;
-        }
-        const uploadId = intent.capture.uploadId;
-        const uploadedFile = intent.capture.uploadedFile;
-        const uploaded = Boolean(uploadId && String(snapshot.profile.photo?.version) === uploadId);
-        dispatch({ type: 'photo-check-complete', intentId: intent.id, snapshot, uploaded, ...(uploadedFile ? { uploadedFile } : {}) });
-        if (uploaded && stateRef.current.editor?.kind === 'photo' && stateRef.current.editor.file === uploadedFile) dispatch({ type: 'close-editor' });
-        return;
-      }
-      const comparison = createCreatorOwnerComparison(intent, snapshot, current.editor);
-      if (!comparison.canAdopt && !comparison.missingTarget && intent.kind !== 'save-series') {
-        comparison.message = intent.kind === 'chapter-move'
-          ? 'El capítulo o la serie ya no están disponibles. Conservamos el destino para que decidas cómo seguir.'
-          : 'La lectura no coincide con la página que abrió esta edición. Conservamos tus cambios.';
-      }
-      if (intent.capture.kind === 'list-command') {
-        if (!comparison.canAdopt) {
-          dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'No pudimos confirmar el resultado con esta lista guardada. Conservamos la lista; puedes volver a comprobar.' });
-          return;
-        }
-        revealFocusAfterListAdoptionRef.current = intent.id;
-        dispatch({ type: 'check-compared', intentId: intent.id, checkId, comparison });
-        return;
-      }
-      dispatch({ type: 'check-compared', intentId: intent.id, checkId, comparison });
-    } catch {
-      if (checkIsCurrent()) {
-        dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'No pudimos conectar para leer el estado guardado. Tus cambios siguen aquí; puedes volver a comprobar.' });
-      }
-    }
+  function checkClick() {
+    const operation = stateRef.current.operation;
+    if (operation.status === 'unknown' || operation.status === 'conflict') void readOwnerSnapshot(operation.status, operation.intent);
+    else if (operation.status === 'refresh-failed') void readOwnerSnapshot(operation.fact, operation.intent);
+  }
+
+  function checkClaimHistory() {
+    if (stateRef.current.operation.status === 'idle' && stateRef.current.session.state === 'ready') void readOwnerSnapshot('claims');
   }
 
   async function checkSession() {
@@ -1369,110 +1396,122 @@ export default function CreatorOwnerApp(props: Props) {
     if (latest.session.state !== 'recovery-required') return;
     const recoveryReason = latest.session.reason;
     const binding = latest.sessionBinding;
-    const historySequence = claimHistorySequenceRef.current;
-    if (isWriteActive(latest)) {
-      setMessage('Espera a que termine la operación antes de comprobar la sesión. Tus cambios siguen aquí.', 'info');
+    const accountEmail = latest.accountEmail;
+    const profileId = latest.observed.profile?.id ?? null;
+    const isAdmin = latest.isAdmin;
+    const root = rootRef.current;
+    const ownerDocument = document;
+    if (latest.operation.status === 'sending' || latest.operation.status === 'reading') {
+      setMessage('Espera a que termine la operación de lectura antes de comprobar la sesión.', 'info');
       return;
     }
     const operationId = nextSessionOperationId();
     const checkId = nextId('session-check');
-    if (!isCreatorSessionBinding(latest.sessionBinding)) {
+    if (!isCreatorSessionBinding(binding)) {
       recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'terminal', reason: 'invalid-context',
-        message: 'No pudimos comprobar el contexto de esta página. Ingresa con la cuenta original y vuelve a abrirla.' }, historySequence);
+        message: 'No pudimos comprobar el contexto de esta página. Ingresa con la cuenta original y vuelve a abrirla.' });
       return;
     }
-    const checkIsCurrent = () => {
-      const current = stateRef.current;
-      return current.sessionBinding === binding && current.session.state === 'checking' && current.session.checkId === checkId;
+    const current = () => {
+      const state = stateRef.current;
+      return rootRef.current === root && document === ownerDocument && state.sessionBinding === binding
+        && state.accountEmail === accountEmail && state.isAdmin === isAdmin && (state.observed.profile?.id ?? null) === profileId
+        && state.session.state === 'checking' && state.session.checkId === checkId
+        && state.operation.status !== 'sending' && state.operation.status !== 'reading';
     };
     if (!queueSessionPolicyAction({ type: 'session-check-started', operationId, checkId })) return;
     try {
       const response = await fetch('/api/creador/sesion/', { method: 'GET', credentials: 'same-origin', cache: 'no-store',
         headers: { 'x-creator-page-binding': binding, accept: 'application/json' } });
-      if (!checkIsCurrent()) return;
+      if (!current()) return;
       const payload = await readCreatorSessionResponse(response);
-      if (!checkIsCurrent()) return;
+      if (!current()) return;
       const result = classifyCreatorSessionCheck(response.status, payload);
       if (result.state === 'ready') {
-        const accepted = recordSessionEvidence({ type: 'session-evidence', operationId, source: 'session-check', checkId, outcome: 'renewed',
-          csrfToken: result.csrfToken, message: 'Sesión comprobada.' }, historySequence);
-        if (!accepted) return;
+        if (!recordSessionEvidence({ type: 'session-evidence', operationId, source: 'session-check', checkId, outcome: 'renewed',
+          csrfToken: result.csrfToken, message: 'Sesión comprobada.' })) return;
         const logoutForm = document.querySelector<HTMLFormElement>('[data-account-logout]');
         const tokenInput = logoutForm?.querySelector<HTMLInputElement>('input[name="csrfToken"]');
         if (tokenInput) tokenInput.value = result.csrfToken;
-        return;
-      }
-      if (result.state === 'expired') {
+      } else if (result.state === 'expired') {
         recordSessionEvidence({ type: 'session-evidence', operationId, source: 'session-check', checkId, outcome: 'recoverable', reason: 'expired',
-          message: 'No hay una sesión activa. Ingresa con la misma cuenta en otra pestaña y vuelve a comprobarla.' }, historySequence);
+          message: 'No hay una sesión activa. Ingresa con la misma cuenta en otra pestaña y vuelve a comprobarla.' });
       } else if (result.state === 'disabled') {
         recordSessionEvidence({ type: 'session-evidence', operationId, source: 'session-check', checkId, outcome: 'terminal', reason: 'disabled',
-          message: 'Esta cuenta está desactivada. Conservamos tus cambios.' }, historySequence);
+          message: 'Esta cuenta está desactivada. Conservamos tus cambios.' });
       } else if (result.state === 'context-changed') {
         recordSessionEvidence({ type: 'session-evidence', operationId, source: 'session-check', checkId, outcome: 'recoverable', reason: 'different-principal',
-          message: 'La sesión activa pertenece a otra cuenta o tiene otros permisos. Ingresa con la cuenta original antes de volver a guardar.' }, historySequence);
+          message: 'La sesión activa pertenece a otra cuenta o tiene otros permisos. Ingresa con la cuenta original antes de volver a guardar.' });
       } else if (result.state === 'invalid-context') {
         recordSessionEvidence({ type: 'session-evidence', operationId, source: 'session-check', checkId, outcome: 'terminal', reason: 'invalid-context',
-          message: 'No pudimos comprobar el contexto de esta página. Abre una página nueva con la cuenta original.' }, historySequence);
+          message: 'No pudimos comprobar el contexto de esta página. Abre una página nueva con la cuenta original.' });
       } else {
         recordSessionEvidence({ type: 'session-evidence', operationId, source: 'session-check', checkId, outcome: 'recoverable', reason: recoveryReason,
-          message: 'No pudimos comprobar la sesión. Inténtalo de nuevo; tus cambios siguen aquí.' }, historySequence);
+          message: 'No pudimos comprobar la sesión. Inténtalo de nuevo; tus cambios siguen aquí.' });
       }
     } catch {
-      if (checkIsCurrent()) recordSessionEvidence({ type: 'session-evidence', operationId, source: 'session-check', checkId, outcome: 'recoverable', reason: recoveryReason,
-        message: 'No pudimos conectar para comprobar la sesión. Tus cambios siguen aquí.' }, historySequence);
+      if (current()) recordSessionEvidence({ type: 'session-evidence', operationId, source: 'session-check', checkId, outcome: 'recoverable', reason: recoveryReason,
+        message: 'No pudimos conectar para comprobar la sesión. Tus cambios siguen aquí.' });
     }
   }
 
-  function adoptComparison(comparisonId: string) {
-    dispatch({ type: 'adopt-comparison', comparisonId });
-  }
-
-  function checkClick() { void checkCurrentAttempt(); }
-
-  function submitCreateProfile(retry: boolean) {
-    const editor = stateRef.current.editor;
+  function submitCreateProfile() {
+    const latest = stateRef.current;
+    const editor = latest.editor;
     if (editor?.kind !== 'create-profile') return;
     const form = rootRef.current?.querySelector<HTMLFormElement>('[data-owner-form="crear"]');
     if (!form?.reportValidity()) return;
-    void startCommand(creatorOwnerWriteIntent(nextId(retry ? 'create-profile-retry' : 'create-profile'), editor));
+    const intent = intentForEditor(editor);
+    if (intent) void startCommand(intent, latest.operation.status === 'conflict' && Boolean(latest.operation.readCompleted));
   }
 
   function createProfile() {
-    submitCreateProfile(false);
-  }
-
-  function retryCreateProfile() {
-    submitCreateProfile(true);
+    submitCreateProfile();
   }
 
   function publishProfile() {
-    const context = listContext('publish');
-    if (!context) return;
-    void startCommand(creatorOwnerWriteIntent(nextId('publish'), context));
+    if (!stateRef.current.observed.profile) return;
+    void startCommand(makeIntent('publish-profile', {}));
   }
 
   function deleteSeries(seriesId: string) {
-    const latest = stateRef.current;
-    const series = latest.observed.series.find(({ id }) => id === seriesId);
-    const context = listContext('delete-series', seriesId);
-    if (!series || !context || !window.confirm(`¿Eliminar la serie «${series.name}»? Se conservarán los enlaces de tu página, sus opciones y las demás series.`)) return;
-    void startCommand(creatorOwnerWriteIntent(nextId('delete-series'), context));
+    const series = stateRef.current.observed.series[seriesId];
+    if (!series || !window.confirm(`¿Eliminar la serie «${series.name}»? Se conservarán los enlaces de tu página, sus opciones y las demás series.`)) return;
+    void startCommand(makeIntent('delete-series', {}, { target: { seriesId } }));
   }
 
-  function mutateChapter(placementId: string, operation: 'chapter-add' | 'chapter-remove') {
-    const context = listContext(operation, stateRef.current.location.query.serie, placementId);
-    if (!context) return;
-    void startCommand(creatorOwnerWriteIntent(nextId(operation), context));
+  function mutateChapter(placementId: string, operation: 'add-chapter' | 'remove-chapter') {
+    const seriesId = stateRef.current.location.query.serie;
+    if (!seriesId || !stateRef.current.observed.series[seriesId]?.chapters.includes(placementId)
+      && operation === 'remove-chapter') return;
+    void startCommand(makeIntent(operation, {}, { target: { seriesId, placementId } }));
   }
 
   function updateSeriesDraft(value: { name?: string; slug?: string; description?: string }, manuallyEditedSlug = false) {
-    const current = stateRef.current.editor;
-    if (current?.kind !== 'series') return;
-    if (value.name !== undefined && !current.slugManuallyEdited) {
-      dispatch({ type: 'update-series-draft', value: { ...value, slug: seriesDraftSlug(value.name) }, manuallyEditedSlug: false });
-    } else {
-      dispatch({ type: 'update-series-draft', value, manuallyEditedSlug });
+    dispatch({ type: 'update-series-draft', value, ...(manuallyEditedSlug ? { manuallyEditedSlug: true } : {}) });
+  }
+
+  function submitEditorForm() {
+    const editor = stateRef.current.editor;
+    if (!editor) return;
+    const selector = editor.kind === 'create-profile' ? '[data-owner-form="crear"]'
+      : '[data-owner-dialog] form[data-owner-form]:not([hidden])';
+    const form = rootRef.current?.querySelector<HTMLFormElement>(selector);
+    const submitter = form?.querySelector<HTMLButtonElement>('button[type="submit"]:enabled');
+    if (form && submitter) form.requestSubmit(submitter);
+    else submitCurrentEditor();
+  }
+
+  function saveRecoveryDraft() {
+    const operation = stateRef.current.operation;
+    if (operation.status === 'conflict' && operation.readCompleted && !operation.intent.targetMissing) submitEditorForm();
+  }
+
+  function resolveRecovery(choice: 'saved' | 'draft') {
+    const operation = stateRef.current.operation;
+    if ((operation.status === 'unknown' || operation.status === 'conflict') && operation.readCompleted) {
+      dispatch({ type: 'resolve-operation', choice });
+      if (choice === 'saved') returnFocusRef.current?.focus({ preventScroll: true });
     }
   }
 
@@ -1487,6 +1526,8 @@ export default function CreatorOwnerApp(props: Props) {
         setMessage('Estamos guardando la acción iniciada. Espera a que termine antes de salir.', 'info');
         return;
       }
+      if (latest.operation.status === 'reading' || latest.operation.status === 'refresh-failed'
+        || latest.operation.status === 'unknown' || latest.operation.status === 'conflict') operationGenerationRef.current += 1;
       dispatch({ type: 'resolve-transition', action });
       if (!latest.location.exitRequest) queueMicrotask(() => returnFocusRef.current?.focus({ preventScroll: true }));
       return;
@@ -1498,17 +1539,9 @@ export default function CreatorOwnerApp(props: Props) {
     window.requestAnimationFrame(() => {
       const current = stateRef.current;
       if (current.editor !== editor || current.location.prompt !== 'none') return;
-      const selector = editor.kind === 'create-profile' ? '[data-owner-form="crear"]'
-        : '[data-owner-dialog] form[data-owner-form]:not([hidden])';
-      const form = rootRef.current?.querySelector<HTMLFormElement>(selector);
-      const submitter = form?.querySelector<HTMLButtonElement>('button[type="submit"]:enabled');
-      if (!form || !submitter) return;
       exitSubmitTransitionRef.current = transition;
-      try {
-        form.requestSubmit(submitter);
-      } finally {
-        exitSubmitTransitionRef.current = undefined;
-      }
+      submitEditorForm();
+      exitSubmitTransitionRef.current = undefined;
     });
   }
 
@@ -1530,13 +1563,15 @@ export default function CreatorOwnerApp(props: Props) {
     setMessage(copied ? 'Copiaste el enlace público.' : 'No pudimos copiar el enlace. Puedes copiarlo desde la dirección de tu página.', copied ? 'success' : 'error');
   }
 
-  const attempt = state.attempt;
-  const listAttempt = 'intent' in attempt && attempt.intent.capture.kind === 'list-command' ? attempt.intent : undefined;
-  const listAttemptState = listAttempt && (attempt.status === 'uncertain' || attempt.status === 'conflict' || attempt.status === 'checking');
-  const linkListAttempt = listAttempt && (listAttempt.kind === 'remove-link' || listAttempt.kind === 'reinclude-resource');
+  const operation = state.operation;
+  const listOperation = !state.editor && isListRecoveryOperation(operation) ? operation : undefined;
+  const listRecoveryKind = listOperation
+    ? listOperation.status === 'reading' || listOperation.status === 'refresh-failed' ? listOperation.fact : listOperation.status
+    : undefined;
   const showActivitySummary = !(props.view === 'estadisticas' && props.hasStatisticsDetail);
 
-  return <div ref={rootRef}>
+  return <div ref={rootRef} data-owner-operation={state.operation.status}
+    data-owner-stale={state.operation.status === 'refresh-failed' ? 'true' : undefined}>
     <CreatorOwnerIdentityPanel
       state={state}
       logout={props.logout}
@@ -1548,16 +1583,23 @@ export default function CreatorOwnerApp(props: Props) {
       onActivityPeriod={(period) => dispatch({ type: 'set-activity-period', period })}
       onRetryActivity={() => dispatch({ type: 'activity-retry' })}
       onCreateProfileInput={(value) => dispatch({ type: 'update-profile-draft', value })}
-      onCheck={checkClick}
+      onRetryRead={checkClick}
       onCheckSession={() => void checkSession()}
-      onAdopt={adoptComparison}
+      onResolveRecovery={resolveRecovery}
+      onSaveRecoveryDraft={saveRecoveryDraft}
       onCopyLink={copyLink}
-      onRetryCreateProfile={retryCreateProfile}
     >
-      {listAttemptState && <section class="creator-owner__conflict" data-series-list-recovery={linkListAttempt ? undefined : true} data-owner-list-recovery={linkListAttempt ? 'links' : 'series'}>
-        <h3>{listAttempt.kind === 'delete-series' ? 'Comprobar eliminación' : listAttempt.kind === 'publish' ? 'Comprobar publicación' : listAttempt.kind === 'remove-link' ? 'Comprobar que se quitó el enlace' : listAttempt.kind === 'reinclude-resource' ? 'Comprobar la reincorporación' : 'Comprobar capítulos'}</h3>
-        <p>{attempt.status === 'checking' ? 'Consultando el estado guardado…' : attempt.message}</p>
-        {(!('comparison' in attempt) || !attempt.comparison) && <button class="button button--outline" type="button" data-owner-compare data-series-reconcile-retry disabled={attempt.status === 'checking'} onClick={checkClick}>Comprobar</button>}
+      {listOperation && <section class="creator-owner__conflict" data-owner-recovery data-owner-stale={listOperation.status === 'refresh-failed' ? 'true' : undefined} data-recovery-kind={listRecoveryKind}
+        data-owner-list-recovery={['remove-link', 'reinclude-link'].includes(listOperation.intent.action) ? 'links' : 'series'}>
+        <h3>{listOperation.intent.action === 'delete-series' ? 'Comprobar eliminación'
+          : listOperation.intent.action === 'publish-profile' ? 'Comprobar publicación'
+            : listOperation.intent.action === 'remove-link' ? 'Comprobar que se quitó el enlace'
+              : listOperation.intent.action === 'reinclude-link' ? 'Comprobar la reincorporación' : 'Comprobar capítulos'}</h3>
+        <p role={listOperation.status === 'reading' ? 'status' : undefined} aria-live={listOperation.status === 'reading' ? 'polite' : undefined}>{listOperation.message}</p>
+        {listOperation.status === 'refresh-failed' && <button class="button button--outline" type="button" data-owner-refresh-retry onClick={checkClick}>Reintentar actualización</button>}
+        {listOperation.status === 'unknown' && !listOperation.readCompleted && <button class="button button--outline" type="button" data-owner-compare onClick={checkClick}>Comprobar el estado guardado</button>}
+        {(listOperation.status === 'unknown' && listOperation.readCompleted || listOperation.status === 'conflict' && listOperation.readCompleted)
+          && <button class="button button--outline" type="button" data-owner-use-saved onClick={() => resolveRecovery('saved')}>Usar lo guardado</button>}
       </section>}
       {props.view === 'series' && <CreatorOwnerSeriesPanel
         state={state}
@@ -1568,9 +1610,10 @@ export default function CreatorOwnerApp(props: Props) {
         onCreate={() => openSeriesEditor()}
         onEditSeries={openSeriesEditor}
         onDeleteSeries={deleteSeries}
-        onAddChapter={(placementId) => mutateChapter(placementId, 'chapter-add')}
-        onRemoveChapter={(placementId) => mutateChapter(placementId, 'chapter-remove')}
+        onAddChapter={(placementId) => mutateChapter(placementId, 'add-chapter')}
+        onRemoveChapter={(placementId) => mutateChapter(placementId, 'remove-chapter')}
         onMoveChapter={openMoveEditor}
+        onRetryRead={checkClick}
       />}
       {props.view === 'enlaces' && <CreatorOwnerLinksPanel
         state={state}
@@ -1588,7 +1631,7 @@ export default function CreatorOwnerApp(props: Props) {
         onReinclude={reincludeResource}
       />}
       {props.view === 'solicitudes' && <CreatorOwnerClaimsPanel state={state} disabled={writeDisabled}
-        onOpen={() => openClaimEditor()} onCheck={() => void checkClaimHistory()} onRetryCatalog={retryCatalog} />}
+        onOpen={() => openClaimEditor()} onRefresh={checkClaimHistory} onRetryRead={checkClick} onRetryCatalog={retryCatalog} />}
       {props.view === 'estadisticas' && props.hasStatisticsDetail ? props.statistics : null}
     </CreatorOwnerIdentityPanel>
     <CreatorOwnerEditorDialog
@@ -1597,11 +1640,8 @@ export default function CreatorOwnerApp(props: Props) {
       onUpdateSocial={(key, value) => dispatch({ type: 'update-socials-draft', value: { [key]: value } })}
       onUpdateSeries={updateSeriesDraft}
       onUpdateMove={(value) => dispatch({ type: 'update-move-draft', targetPosition: value })}
-      onSetMoveSuggestion={(value) => dispatch({ type: 'set-move-suggestion', targetPosition: value })}
       onUpdateLink={(value) => dispatch({ type: 'update-link-draft', value })}
       onUpdateAddLink={(value) => dispatch({ type: 'update-add-link-draft', value })}
-      onResumeSharedAdd={() => dispatch({ type: 'resume-shared-add' })}
-      onAdoptAddPlacement={(comparisonId, addPlacementId) => dispatch({ type: 'adopt-comparison', comparisonId, addPlacementId })}
       onUpdateMoveLink={(value) => dispatch({ type: 'update-move-link-draft', targetPosition: value })}
       onUpdateReference={(value) => dispatch({ type: 'update-reference-draft', ...value })}
       onUpdateClaim={(value) => dispatch({ type: 'update-claim-draft', value })}
@@ -1611,11 +1651,11 @@ export default function CreatorOwnerApp(props: Props) {
       onSetPhoto={(file) => dispatch({ type: 'update-photo-file', file })}
       onSubmit={submitCurrentEditor}
       onRequestClose={closeOrGuardEditor}
-      onCheck={checkClick}
-      onAdopt={adoptComparison}
+      onRetryRead={checkClick}
+      onResolveRecovery={resolveRecovery}
+      onSaveRecoveryDraft={saveRecoveryDraft}
       onExit={resolveExit}
       onCheckSession={() => void checkSession()}
-      onCheckClaim={checkClick}
     />
   </div>;
 }

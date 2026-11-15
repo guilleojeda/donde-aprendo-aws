@@ -27,12 +27,22 @@ test('private resource and creator control fields never enter the public DTO', (
   assert.equal(serialized.includes('approvalRevoked'), false);
 });
 
-test('malformed current selection flags cannot fall back to the legacy flag', () => {
+const aggregate = (overrides = {}) => ({
+  pk: 'PROFILE#profile-a', sk: 'META', recordType: 'creatorState', schemaVersion: 2,
+  id: 'profile-a', version: 1, displayName: 'Creator A', slug: 'creator-a', published: true, hidden: false,
+  placements: { placement1: { resourceId: 'resource-a', selectedForDirectory: true } },
+  order: { featured: [], ordinary: ['placement1'] }, series: {},
+  ...overrides,
+});
+
+test('legacy placement rows are ignored and malformed v2 selection cannot use legacy fields', () => {
   assert.deepEqual(normalizeCreatorRows([{
-    recordType: 'placement', profileId: 'profile-a', resourceId: 'resource-a', selected: true,
-  }]).placements, [{ profileId: 'profile-a', resourceId: 'resource-a', selected: true }]);
+    pk: 'PROFILE#profile-a', sk: 'PLACEMENT#placement1', recordType: 'placement',
+    id: 'placement1', profileId: 'profile-a', resourceId: 'resource-a', selectedForDirectory: true,
+  }]), { creators: [] });
   assert.throws(() => normalizeCreatorRows([{
-    recordType: 'placement', profileId: 'profile-a', resourceId: 'resource-a',
-    selectedForDirectory: null, selected: true,
-  }]), /malformed selection flag/);
+    ...aggregate({ placements: { placement1: {
+      resourceId: 'resource-a', selectedForDirectory: null, selected: true,
+    } } }),
+  }]), /creator state placement is malformed/);
 });

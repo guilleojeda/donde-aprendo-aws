@@ -147,11 +147,12 @@ test('Enlaces: Atrás a un filtro de serie antes válido y ahora eliminado norma
   await expect(linkRow(page, link.placementId)).toBeVisible();
   await page.getByRole('navigation', { name: 'Secciones de Tu página' }).getByRole('link', { name: 'Estadísticas', exact: true }).click();
   await expect(page).toHaveURL((url) => url.searchParams.get('vista') === 'estadisticas');
-  const beforeDelete = (await fixture.rawOwner(cookie)).profile;
+  const beforeDelete = await fixture.rawOwner(cookie);
   const deletion = await api(fixture, cookie, '/api/creador/series/' + series.id, {
-    method: 'DELETE', body: { version: series.version, profileVersion: beforeDelete.version },
+    method: 'DELETE', body: { creatorVersion: beforeDelete.profile.version },
   });
-  assert.equal(deletion.response.status, 204);
+  assert.equal(deletion.response.status, 200);
+  assert.equal(deletion.body.operation, 'delete-series');
   await page.goBack();
   await expect(page).toHaveURL((url) => url.searchParams.get('vista') === 'enlaces'
     && (url.searchParams.get('serie') ?? 'todos') === 'todos'
@@ -219,11 +220,13 @@ test('Enlaces móvil:0,1 y50 filas conservan búsqueda, validación nativa, edic
     await page.goto(fixture.origin + '/cuenta/?vista=enlaces');
     await expect(page.locator('[data-link-count]')).toHaveText('0 coincidencias de 0 enlaces');
     await expect(page.getByRole('button', { name: 'Agregar enlace', exact: true })).toBeVisible();
+    await expect(page.locator('[data-link-move]')).toHaveCount(0);
     const title = 'Destino largo móvil '.padEnd(200, 'x');
     const link = await addLink(fixture, cookie, { title, url: 'https://shell.example/largo' });
     await page.reload();
     await expect(page.locator('[data-link-count]')).toHaveText('1 coincidencia de 1 enlace');
     await expect(linkRow(page, link.placementId)).toContainText(title);
+    await expect(linkRow(page, link.placementId).locator('[data-link-move]')).toBeVisible();
     const sizes = await page.evaluate(() => ({ width: innerWidth, scroll: document.documentElement.scrollWidth }));
     assert.equal(sizes.width, 390); assert.ok(sizes.scroll <= sizes.width);
     await linkRow(page, link.placementId).getByRole('button', { name: 'Editar ficha', exact: true }).click();
@@ -242,6 +245,8 @@ test('Enlaces móvil:0,1 y50 filas conservan búsqueda, validación nativa, edic
     await page.reload();
     await expect(page.locator('[data-link-count]')).toHaveText('50 coincidencias de 50 enlaces');
     await expect(page.locator('[data-link-row]')).toHaveCount(25);
+    await expect(page.locator('[data-link-row] [data-link-move]')).toHaveCount(25,
+      'each visible placement retains its contextual move action at 50 saved rows');
     const search = page.getByRole('searchbox', { name: 'Buscar título, URL o serie', exact: true });
     await search.fill('Destino largo móvil');
     await expect(page.locator('[data-link-count]')).toHaveText('1 coincidencia de 50 enlaces');
@@ -258,8 +263,8 @@ test('Enlaces móvil:0,1 y50 filas conservan búsqueda, validación nativa, edic
     assert.equal(capture.writes().length, 1);
     const after = (await api(fixture, cookie, '/api/creador/perfil')).body;
     assert.equal((await fixture.rawResource(link.resourceId)).title, updatedTitle);
-    assert.deepEqual(after.links.map(({ placementId, position, featured, selectedForDirectory, series }) => ({ placementId, position, featured, selectedForDirectory, series })),
-      before.links.map(({ placementId, position, featured, selectedForDirectory, series }) => ({ placementId, position, featured, selectedForDirectory, series })));
+    assert.deepEqual(after.order, before.order);
+    assert.deepEqual(after.placements, before.placements);
     await expect(linkRow(page, link.placementId).getByRole('button', { name: 'Editar ficha', exact: true })).toBeFocused();
     await expect(search).toHaveValue('Destino largo móvil');
   } finally {

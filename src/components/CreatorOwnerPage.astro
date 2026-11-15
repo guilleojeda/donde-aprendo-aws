@@ -1,5 +1,5 @@
 ---
-import type { CreatorEditorDTO } from '../types/creators';
+import type { CreatorOwnerSnapshotDTO } from '../types/creators';
 import type { CreatorStatisticsPageLoad } from '../pages/cuenta/_statistics-page';
 import { DEFAULT_CREATOR_OWNER_LINKS_QUERY, type CreatorOwnerLinksQuery } from '../lib/creator-owner-links';
 import { DEFAULT_CREATOR_OWNER_SERIES_QUERY, type CreatorOwnerSeriesQuery } from '../lib/creator-owner-series';
@@ -8,7 +8,7 @@ import CreatorStatistics from './CreatorStatistics.astro';
 import CreatorOwnerApp from './creator-owner/CreatorOwnerApp';
 
 interface Props {
-  data: CreatorEditorDTO;
+  data: CreatorOwnerSnapshotDTO;
   accountEmail: string;
   logoutCsrfToken: string;
   csrfToken: string;

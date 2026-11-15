@@ -52,6 +52,7 @@ async function api(harness, pathname, body, { method = 'POST', session = 'creato
     method,
     session,
     csrf: sessionCsrf[session],
+    creatorContract: '2',
     ...(body === undefined ? {} : { body }),
   });
   return { response, status: response.status, data: response.status === 204 ? null : await response.json() };
@@ -60,6 +61,7 @@ async function api(harness, pathname, body, { method = 'POST', session = 'creato
 async function owner(harness, session = 'creator-a') {
   const result = await api(harness, '/api/creador/perfil', undefined, { method: 'GET', session });
   assert.equal(result.status, 200);
+  assert.equal(result.data.schemaVersion, 2);
   return result.data;
 }
 
@@ -84,13 +86,13 @@ test('catalog ID limit uses UTF-8 bytes and rejects oversized references and cla
   });
   installPhysicalKeyLimits(harness.mock);
 
-  const profile = (await owner(harness)).profile;
+  const initialOwner = await owner(harness);
   const oversizedIds = new Set([importedId(257), importedUtf8Id(257)]);
   const callsBefore = harness.mock.calls.length;
   const writesBefore = harness.mock.transactions.length;
 
   const reference = await api(harness, '/api/creador/referencias', {
-    resourceId: importedId(257), url: 'https://catalog.example/too-long/ascii', profileVersion: profile.version,
+    resourceId: importedId(257), url: 'https://catalog.example/too-long/ascii', creatorVersion: initialOwner.creatorVersion,
   });
   assert.equal(reference.status, 422, 'a 257-byte resource ID cannot become a creator reference');
   assert.deepEqual(writesSince(harness, writesBefore), []);
@@ -98,7 +100,7 @@ test('catalog ID limit uses UTF-8 bytes and rejects oversized references and cla
 
   for (const [label, body] of [
     ['paired selection', { resources: [{ resourceId: importedId(257), url: 'https://catalog.example/too-long/ascii' }] }],
-    ['legacy ID selection', { resourceIds: [importedUtf8Id(257)] }],
+    ['URL-only selection', { resources: [{ url: 'https://catalog.example/too-long/utf8' }] }],
   ]) {
     const start = harness.mock.calls.length;
     const writeStart = harness.mock.transactions.length;
@@ -118,10 +120,9 @@ test('catalog ID limit uses UTF-8 bytes and rejects oversized references and cla
   assert.deepEqual(catalogReadsSince(harness, adminStart, oversizedIds), []);
 
   const current = await owner(harness);
-  assert.equal(current.links.some(({ resourceId }) => oversizedIds.has(resourceId)), false);
-  assert.equal(current.editableResources.some(({ id }) => oversizedIds.has(id)), false);
+  assert.equal(current.resources.some(({ id }) => oversizedIds.has(id)), false);
   assert.equal((await harness.store.list('claim:')).length, 0);
-  assert.equal((await harness.store.list(`claim-ref:${profile.id}:`)).length, 0);
+  assert.equal((await harness.store.list(`claim-ref:${current.profile.id}:`)).length, 0);
 });
 
 test('owner edit and re-add reject an oversized retained resource identity before reading it', async () => {
@@ -140,8 +141,8 @@ test('owner edit and re-add reject an oversized retained resource identity befor
 
   const start = harness.mock.calls.length;
   const writeStart = harness.mock.transactions.length;
-  const directEdit = await api(harness, `/api/creador/recursos/${encodeURIComponent(resourceId)}`, {
-    version: 1, title: 'No debe guardarse',
+  const directEdit = await api(harness, `/api/creador/recursos/?id=${encodeURIComponent(resourceId)}`, {
+    resourceVersion: 1, title: 'No debe guardarse',
   }, { method: 'PATCH' });
   assert.equal(directEdit.status, 422, 'a retained record outside the ID contract cannot be edited');
   assert.deepEqual(catalogReadsSince(harness, start, new Set([resourceId])), []);
@@ -149,11 +150,11 @@ test('owner edit and re-add reject an oversized retained resource identity befor
 
   const readdStart = harness.mock.calls.length;
   const readdWriteStart = harness.mock.transactions.length;
-  const readd = await api(harness, '/api/creador/enlaces', { resourceId, resourceVersion: 1 });
+  const readd = await api(harness, '/api/creador/enlaces', { creatorVersion: 1, resourceId, resourceVersion: 1 });
   assert.equal(readd.status, 422, 'an oversized ID cannot be accepted as a retained-resource reference');
   assert.deepEqual(catalogReadsSince(harness, readdStart, new Set([resourceId])), []);
   assert.deepEqual(writesSince(harness, readdWriteStart), []);
-  assert.deepEqual(await harness.store.list('placement:profile-move-a:'), []);
+  assert.deepEqual((await harness.store.get('profile:profile-move-a')).placements, {});
 });
 
 test('the former 1900-byte catalog ID is rejected before a claim is stored', async () => {
@@ -173,7 +174,7 @@ test('the former 1900-byte catalog ID is rejected before a claim is stored', asy
   assert.equal((await harness.store.list('claim:')).length, 0);
   assert.equal((await harness.store.list('claim-ref:profile-move-a:')).length, 0);
   assert.deepEqual(await harness.store.list('editor:profile-move-a:'), []);
-  assert.deepEqual(await harness.store.list('placement:profile-move-a:'), []);
+  assert.deepEqual((await harness.store.get('profile:profile-move-a')).placements, {});
 });
 
 test('URL-only claim selection rejects a reservation for an over-limit resource without writes', async () => {
@@ -191,7 +192,7 @@ test('URL-only claim selection rejects a reservation for an over-limit resource 
   assert.equal((await harness.store.list('claim:')).length, 0);
   assert.equal((await harness.store.list('claim-ref:profile-move-a:')).length, 0);
   assert.deepEqual(await harness.store.list('editor:profile-move-a:'), []);
-  assert.deepEqual(await harness.store.list('placement:profile-move-a:'), []);
+  assert.deepEqual((await harness.store.get('profile:profile-move-a')).placements, {});
 });
 
 test('URL-only owner link rejects an over-limit reservation before reading its resource', async () => {
@@ -202,13 +203,16 @@ test('URL-only owner link rejects an over-limit reservation before reading its r
   seedMoveResource(harness.mock, { id: resourceId, title: 'Reserved long-ID case', url });
   installPhysicalKeyLimits(harness.mock);
 
+  const current = await owner(harness);
   const readStart = harness.mock.calls.length;
   const writeStart = harness.mock.transactions.length;
-  const result = await api(harness, '/api/creador/enlaces', { title: 'Nueva ficha', url });
+  const result = await api(harness, '/api/creador/enlaces', {
+    creatorVersion: current.creatorVersion, title: 'Nueva ficha', url,
+  });
   assert.equal(result.status, 422, 'resolving a URL reservation does not create an impossible editor reference');
   assert.deepEqual(catalogReadsSince(harness, readStart, new Set([resourceId])), []);
   assert.deepEqual(writesSince(harness, writeStart), []);
-  assert.deepEqual(await harness.store.list('placement:profile-move-a:'), []);
+  assert.deepEqual((await harness.store.get('profile:profile-move-a')).placements, {});
   assert.deepEqual(await harness.store.list('editor:profile-move-a:'), []);
 });
 
@@ -235,7 +239,7 @@ test('a valid target followed by an over-limit target cannot partially save a mi
   assert.equal((await harness.store.list('claim:')).length, 0);
   assert.equal((await harness.store.list('claim-ref:profile-move-a:')).length, 0);
   assert.deepEqual(await harness.store.list('editor:profile-move-a:'), []);
-  assert.deepEqual(await harness.store.list('placement:profile-move-a:'), []);
+  assert.deepEqual((await harness.store.get('profile:profile-move-a')).placements, {});
 });
 
 test('256-byte and current legacy IDs retain exact claim moderation and owner editing behavior', async () => {
@@ -274,7 +278,9 @@ test('256-byte and current legacy IDs retain exact claim moderation and owner ed
     evidence: 'La cuenta acredita la autoría.',
   });
   assert.equal(submitted.status, 202);
-  assert.deepEqual(submitted.data.claim.resourceIds, ids, 'the claim preserves every exact historical or boundary identity');
+  assert.equal(submitted.data.operation, 'create-claim');
+  assert.equal(submitted.data.schemaVersion, 2);
+  const claimId = submitted.data.claimId;
 
   const resolution = await api(harness, '/api/admin/reclamaciones/vincular', {
     accountId: 'private-account-a', resourceIds: ids,
@@ -290,7 +296,9 @@ test('256-byte and current legacy IDs retain exact claim moderation and owner ed
   assert.equal(harness.mock.transactions.length, transactionCount, 'repeating resolution does not rewrite exact linked identities');
 
   let current = await owner(harness);
-  assert.deepEqual(new Set(current.editableResources.map(({ id }) => id)), new Set(ids));
+  assert.deepEqual(new Set(current.resources.map(({ id }) => id)), new Set(ids));
+  assert.deepEqual(current.claims.find(({ id }) => id === claimId).resourceIds, ids,
+    'the full owner read preserves every exact historical or boundary identity');
   for (const id of ids) {
     const editorReference = await harness.store.get(`editor:profile-move-a:${id}`);
     assert.equal(editorReference.resourceId, id);
@@ -298,36 +306,46 @@ test('256-byte and current legacy IDs retain exact claim moderation and owner ed
   }
 
   const boundaryId = ids[0];
-  const linked = current.links.find(({ resourceId }) => resourceId === boundaryId);
-  assert.ok(linked);
-  const removed = await api(harness, `/api/creador/enlaces/${encodeURIComponent(linked.placementId)}`, {
-    profileVersion: current.profile.version,
+  const boundary = current.resources.find(({ id }) => id === boundaryId);
+  let placementId = Object.entries(current.placements).find(([, placement]) => placement.resourceId === boundaryId)?.[0];
+  if (!placementId) {
+    const attached = await api(harness, '/api/creador/enlaces', {
+      creatorVersion: current.creatorVersion, resourceId: boundaryId, resourceVersion: boundary.version,
+    });
+    assert.ok([200, 201].includes(attached.status), JSON.stringify(attached.data));
+    placementId = attached.data.placementId;
+    assert.equal(attached.data.resourceId, boundaryId);
+    current = await owner(harness);
+  }
+  const removed = await api(harness, `/api/creador/enlaces/${encodeURIComponent(placementId)}`, {
+    creatorVersion: current.creatorVersion,
   }, { method: 'DELETE' });
-  assert.equal(removed.status, 204);
+  assert.equal(removed.status, 200);
 
   current = await owner(harness);
-  assert.equal(current.links.some(({ resourceId }) => resourceId === boundaryId), false);
-  const retained = current.editableResources.find(({ id }) => id === boundaryId);
+  assert.equal(Object.hasOwn(current.placements, placementId), false);
+  const retained = current.resources.find(({ id }) => id === boundaryId);
   assert.ok(retained, 'removing a placement keeps edit authority at the maximum accepted ID');
-  const changed = await api(harness, `/api/creador/recursos/${encodeURIComponent(boundaryId)}`, {
-    version: retained.version, title: 'Título editado en el límite', description: 'Se conserva la identidad de 256 bytes.',
+  const changed = await api(harness, `/api/creador/recursos/?id=${encodeURIComponent(boundaryId)}`, {
+    resourceVersion: retained.version, title: 'Título editado en el límite', description: 'Se conserva la identidad de 256 bytes.',
   }, { method: 'PATCH' });
   assert.equal(changed.status, 200);
-  assert.equal(changed.data.resource.id, boundaryId);
+  assert.equal(changed.data.operation, 'edit-resource');
+  assert.equal(changed.data.resourceId, boundaryId);
 
   current = await owner(harness);
-  const updatedResource = current.editableResources.find(({ id }) => id === boundaryId);
+  const updatedResource = current.resources.find(({ id }) => id === boundaryId);
   const readded = await api(harness, '/api/creador/enlaces', {
-    resourceId: boundaryId, resourceVersion: updatedResource.version,
+    creatorVersion: current.creatorVersion, resourceId: boundaryId, resourceVersion: updatedResource.version,
   });
   assert.equal(readded.status, 201);
-  assert.equal(readded.data.link.resourceId, boundaryId);
-  assert.equal(readded.data.link.placementId, linked.placementId);
-  assert.equal(readded.data.link.title, 'Título editado en el límite');
+  assert.equal(readded.data.resourceId, boundaryId);
+  assert.equal(readded.data.placementId, placementId);
+  assert.equal((await owner(harness)).resources.find(({ id }) => id === boundaryId).title, 'Título editado en el límite');
 
-  const otherOwnerEdit = await api(harness, `/api/creador/recursos/${encodeURIComponent(boundaryId)}`, {
-    version: updatedResource.version, title: 'Otra persona no puede editar',
+  const otherOwnerEdit = await api(harness, `/api/creador/recursos/?id=${encodeURIComponent(boundaryId)}`, {
+    resourceVersion: updatedResource.version, title: 'Otra persona no puede editar',
   }, { method: 'PATCH', session: 'creator-b' });
   assert.equal(otherOwnerEdit.status, 403);
-  assert.equal((await owner(harness, 'creator-b')).links.some(({ resourceId }) => resourceId === boundaryId), false);
+  assert.equal((await owner(harness, 'creator-b')).resources.some(({ id }) => id === boundaryId), false);
 });

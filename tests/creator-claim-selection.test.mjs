@@ -17,16 +17,52 @@ const ADMIN_CLAIMS_PATH = '/api/admin/reclamaciones/';
 const ADMIN_LINK_PATH = '/api/admin/reclamaciones/vincular/';
 
 async function api(harness, path, session = 'creator-a', options = {}) {
-  return callApi(harness, path, { session, csrf: sessionCsrf[session], ...options });
+  return callApi(harness, path, { session, csrf: sessionCsrf[session], creatorContract: '2', ...options });
+}
+
+async function ownerView(harness, session = 'creator-a') {
+  const response = await api(harness, '/api/creador/perfil', session);
+  assert.equal(response.status, 200);
+  const snapshot = await responseJson(response);
+  assert.equal(snapshot.schemaVersion, 2);
+  return snapshot;
 }
 
 async function createProfile(harness, session = 'creator-a', slug = 'claim-selection') {
+  const before = await ownerView(harness, session);
   const response = await api(harness, '/api/creador/perfil', session, {
     method: 'PUT',
-    body: { displayName: `${session} creator`, slug, programs: [], socials: {} },
+    body: {
+      creatorVersion: before.profile ? before.creatorVersion : null,
+      displayName: `${session} creator`, slug, programs: [], socials: {},
+    },
   });
   assert.equal(response.status, 200, 'the real service harness can create the owner profile');
-  return (await responseJson(response)).profile;
+  return ownerView(harness, session);
+}
+
+async function seedHistoricalClaim(harness, {
+  profileId, id, accountId = 'private-account-a', resourceIds, resources,
+  sourceId = 'same-source', evidence, status = 'pending', version,
+} = {}) {
+  const value = {
+    recordType: 'claim', id, accountId, profileId, resourceIds: [...resourceIds],
+    ...(resources === undefined ? {} : { resources: structuredClone(resources) }),
+    ...(sourceId ? { sourceId } : {}), ...(evidence ? { evidence } : {}),
+    status, createdAt: Date.UTC(2026, 10, 14),
+    ...(Number.isSafeInteger(version) && version >= 0 ? { version } : {}),
+  };
+  assert.equal(await harness.store.transact({
+    checks: [
+      { key: `claim:${id}`, version: null },
+      { key: `claim-ref:${profileId}:${id}`, version: null },
+    ],
+    puts: [
+      { key: `claim:${id}`, value },
+      { key: `claim-ref:${profileId}:${id}`, value: { id, version: 1 } },
+    ],
+  }), true);
+  return value;
 }
 
 function resource(id, url, extra = {}) {
@@ -121,12 +157,13 @@ test('POST accepts exact ID+URL pairs and reserved URL-only targets without gran
   await seedResource(harness.store, reserved);
   await seedResource(harness.store, sibling);
 
+  const current = await ownerView(harness);
   const publication = await api(harness, '/api/creador/perfil/publicar', 'creator-a', {
-    method: 'POST', body: {},
+    method: 'POST', body: { creatorVersion: current.creatorVersion },
   });
   assert.equal(publication.status, 200);
 
-  const profileBefore = await harness.store.get(`profile:${profile.id}`);
+  const profileBefore = await harness.store.get(`profile:${profile.profile.id}`);
   const resourceBefore = await harness.store.get(`resource:${pair.id}`);
   const reservationBefore = await harness.store.get(currentUrlKey(reservedUrl));
   const callIndex = harness.store.calls.length;
@@ -145,26 +182,31 @@ test('POST accepts exact ID+URL pairs and reserved URL-only targets without gran
   assert.equal(response.status, 202);
   assert.match(response.headers.get('cache-control') ?? '', /private.*no-store/i);
   const result = await responseJson(response);
-  const stored = await harness.store.get(`claim:${result.claim.id}`);
-  assert.equal(result.claim.id, stored.id);
-  assert.equal(result.claim.status, stored.status);
-  assert.equal(result.claim.version, stored.version, 'the private acknowledgement exposes the existing claim version');
-  assert.equal(result.claim.createdAt, stored.createdAt);
-  assert.deepEqual(result.claim.resourceIds, [pair.id, reserved.id]);
-  assert.deepEqual(result.claim.resources, [
+  assert.deepEqual(Object.keys(result).sort(), [
+    'claimId', 'claimVersion', 'disposition', 'operation', 'profileId', 'schemaVersion',
+  ]);
+  assert.equal(result.schemaVersion, 2);
+  assert.equal(result.operation, 'create-claim');
+  assert.equal(result.profileId, profile.profile.id);
+  assert.equal(result.disposition, 'submitted');
+  assert.equal(Object.hasOwn(result, 'creatorVersion'), false);
+  const stored = await harness.store.get(`claim:${result.claimId}`);
+  assert.equal(result.claimId, stored.id);
+  assert.equal(result.claimVersion, stored.version, 'the acknowledgement exposes the independent claim version');
+  assert.deepEqual(stored.resourceIds, [pair.id, reserved.id]);
+  assert.deepEqual(stored.resources, [
     { resourceId: pair.id, url: exactUrl },
     { resourceId: reserved.id, url: reservedUrl },
-  ], 'the new creation response requires every resolved ID+submitted URL pair');
-  assert.equal(result.claim.sourceId, 'shared-source');
-  assert.equal(result.claim.evidence, 'Confirmación privada del creador');
-  assert.deepEqual(result.versionChanges, [], 'claim creation does not advance profile, resource or placement versions');
+  ], 'claim history records the exact resolved ID and submitted URL pairs');
+  assert.equal(stored.sourceId, 'shared-source');
+  assert.equal(stored.evidence, 'Confirmación privada del creador');
 
   const writes = claimWritesSince(harness, callIndex);
   assert.equal(writes.length, 1, 'claim and owner reference are written in one transaction');
   assert.equal(writes[0].input.puts.length, 2, 'the transaction contains the two existing logical rows');
   assert.deepEqual(writes[0].input.puts.map(({ key }) => key).sort(), [
-    `claim:${result.claim.id}`,
-    `claim-ref:${profile.id}:${result.claim.id}`,
+    `claim:${result.claimId}`,
+    `claim-ref:${profile.profile.id}:${result.claimId}`,
   ].sort());
   assert.deepEqual(stored.resourceIds, [pair.id, reserved.id]);
   assert.equal(stored.sourceId, 'shared-source');
@@ -172,28 +214,28 @@ test('POST accepts exact ID+URL pairs and reserved URL-only targets without gran
     { resourceId: pair.id, url: exactUrl },
     { resourceId: reserved.id, url: reservedUrl },
   ], 'the claim stores resolved IDs with URLs supplied by the requester');
-  assert.deepEqual(await harness.store.get(`claim-ref:${profile.id}:${result.claim.id}`), {
-    id: result.claim.id,
+  assert.deepEqual(await harness.store.get(`claim-ref:${profile.profile.id}:${result.claimId}`), {
+    id: result.claimId,
     version: 1,
   });
-  assert.deepEqual(await harness.store.get(`profile:${profile.id}`), profileBefore);
+  assert.deepEqual(await harness.store.get(`profile:${profile.profile.id}`), profileBefore);
   assert.deepEqual(await harness.store.get(`resource:${pair.id}`), resourceBefore);
   assert.equal(await harness.store.get(currentUrlKey(exactUrl)), null,
     'an exact ID+URL claim does not require or create a URL reservation');
   assert.deepEqual(await harness.store.get(currentUrlKey(reservedUrl)), reservationBefore);
-  assert.deepEqual(await harness.store.list(`placement:${profile.id}:`), []);
-  assert.deepEqual(await harness.store.list(`editor:${profile.id}:`), []);
+  assert.deepEqual((await ownerView(harness)).placements, {});
+  assert.deepEqual(await harness.store.list(`editor:${profile.profile.id}:`), []);
   assert.equal((await harness.store.get(`resource:${sibling.id}`)).editorProfileId, undefined,
     'sourceId does not expand the request to a sibling resource');
 
-  const ownerView = await responseJson(await api(harness, '/api/creador/perfil', 'creator-a'));
-  assert.equal(ownerView.claims[0].id, stored.id);
-  assert.equal(ownerView.claims[0].status, stored.status);
-  assert.equal(ownerView.claims[0].version, stored.version, 'the owner projector exposes the persisted claim version');
-  assert.equal(ownerView.claims[0].createdAt, stored.createdAt);
-  assert.deepEqual(ownerView.claims[0].resourceIds, [pair.id, reserved.id]);
-  assert.equal(ownerView.claims[0].evidence, 'Confirmación privada del creador');
-  assert.deepEqual(ownerView.claims[0].resources, stored.resources,
+  const owner = await ownerView(harness);
+  assert.equal(owner.claims[0].id, stored.id);
+  assert.equal(owner.claims[0].status, stored.status);
+  assert.equal(owner.claims[0].version, stored.version, 'the owner read exposes the persisted claim version');
+  assert.equal(owner.claims[0].createdAt, stored.createdAt);
+  assert.deepEqual(owner.claims[0].resourceIds, [pair.id, reserved.id]);
+  assert.equal(owner.claims[0].evidence, 'Confirmación privada del creador');
+  assert.deepEqual(owner.claims[0].resources, stored.resources,
     'new owner history requires submitted URLs and resolved IDs');
   const adminView = await responseJson(await api(harness, ADMIN_CLAIMS_PATH, 'admin'));
   assert.equal(adminView.claims[0].id, stored.id);
@@ -203,19 +245,19 @@ test('POST accepts exact ID+URL pairs and reserved URL-only targets without gran
   assert.deepEqual(adminView.claims[0].resources, stored.resources,
     'new admin history requires submitted URLs and resolved IDs');
 
-  const edit = await api(harness, `/api/creador/recursos/${encodeURIComponent(pair.id)}`, 'creator-a', {
+  const edit = await api(harness, `/api/creador/recursos/?id=${encodeURIComponent(pair.id)}`, 'creator-a', {
     method: 'PATCH',
-    body: { title: 'La solicitud no concede edición' },
+    body: { title: 'La solicitud no concede edición', resourceVersion: resourceBefore.version },
   });
   assert.equal(edit.status, 403, 'a known catalog resource does not grant editing before exact admin linking');
 
   // Astro's public /c/{slug}/ route reads this public model from the service.
-  const publicPage = await harness.service.readPublicProfile(profile.slug);
+  const publicPage = await harness.service.readPublicProfile(profile.profile.slug);
   assert.equal(publicPage.status, 200);
   assert.deepEqual(publicPage.links, [], 'claim submission does not add a public link or placement');
   const publicJson = JSON.stringify(publicPage);
   for (const privateMarker of [
-    result.claim.id,
+    result.claimId,
     pair.id,
     reserved.id,
     exactUrl,
@@ -295,25 +337,15 @@ test('admin claim listing preserves submitted resource pairs through the physica
 
 test('owner projection keeps a legacy claim without a persisted version readable', async () => {
   const harness = await createCreatorPagesHarness();
-  await createProfile(harness, 'creator-a', 'claim-legacy-version');
+  const profile = await createProfile(harness, 'creator-a', 'claim-legacy-version');
   const target = resource('claim-legacy-version-target', 'https://catalog.example/legacy-version');
   await seedResource(harness.store, target);
-  const submitted = await api(harness, CLAIMS_PATH, 'creator-a', { method: 'POST', body: { resourceIds: [target.id] } });
-  assert.equal(submitted.status, 202);
-  const body = await responseJson(submitted);
-  const key = `claim:${body.claim.id}`;
-  const stored = await harness.store.get(key);
-  const { version: _version, ...legacyRow } = stored;
-  assert.equal(await harness.store.transact({
-    checks: [{ key, version: stored.version }],
-    puts: [{ key, value: legacyRow }],
-  }), true);
+  const legacyId = 'claim-legacy-version-row';
+  await seedHistoricalClaim(harness, { profileId: profile.profile.id, id: legacyId, resourceIds: [target.id], version: undefined });
 
-  const ownerResponse = await api(harness, '/api/creador/perfil', 'creator-a');
-  assert.equal(ownerResponse.status, 200);
-  const owner = await responseJson(ownerResponse);
+  const owner = await ownerView(harness);
   assert.equal(owner.claims.length, 1);
-  assert.equal(owner.claims[0].id, body.claim.id);
+  assert.equal(owner.claims[0].id, legacyId);
   assert.equal(owner.claims[0].status, 'pending');
   assert.equal(Object.hasOwn(owner.claims[0], 'version'), false,
     'the private projector omits only the unavailable legacy ordering token');
@@ -344,24 +376,27 @@ test('exact cohost pairs preserve both IDs while URL-only collision is rejected 
   assert.equal(ambiguousJson.includes(first.id), false, 'collision errors do not disclose the first candidate ID');
   assert.equal(ambiguousJson.includes(second.id), false, 'collision errors do not disclose the second candidate ID');
   assert.equal(ambiguousJson.includes(first.title), false, 'collision errors do not disclose catalog titles');
-  await assertNoClaimCreated(harness, profile.id, rejectedAt);
+  await assertNoClaimCreated(harness, profile.profile.id, rejectedAt);
 
   const acceptedAt = harness.store.calls.length;
   const exact = await api(harness, CLAIMS_PATH, 'creator-a', {
     method: 'POST', body: { resources: [{ resourceId: first.id, url }, { resourceId: second.id, url }] },
   });
   assert.equal(exact.status, 202, 'each exact ID+URL pair remains independently claimable despite the URL collision');
-  const body = await responseJson(exact);
-  assert.deepEqual(body.claim.resourceIds, [first.id, second.id]);
-  assert.equal(new Set(body.claim.resourceIds).size, 2, 'same URL does not deduplicate distinct cohost IDs');
+  const ack = await responseJson(exact);
+  assert.equal(ack.operation, 'create-claim');
+  assert.equal(ack.disposition, 'submitted');
+  const stored = await harness.store.get(`claim:${ack.claimId}`);
+  assert.deepEqual(stored.resourceIds, [first.id, second.id]);
+  assert.equal(new Set(stored.resourceIds).size, 2, 'same URL does not deduplicate distinct cohost IDs');
   const write = claimWritesSince(harness, acceptedAt);
   assert.equal(write.length, 1);
-  assert.deepEqual((await harness.store.get(`claim:${body.claim.id}`)).resources, [
+  assert.deepEqual(stored.resources, [
     { resourceId: first.id, url },
     { resourceId: second.id, url },
   ]);
-  assert.deepEqual(await harness.store.list(`placement:${profile.id}:`), []);
-  assert.deepEqual(await harness.store.list(`editor:${profile.id}:`), []);
+  assert.deepEqual((await ownerView(harness)).placements, {});
+  assert.deepEqual(await harness.store.list(`editor:${profile.profile.id}:`), []);
 });
 
 test('URL-only resolution distinguishes missing and inconsistent reservations and preserves literal URLs', async () => {
@@ -431,7 +466,7 @@ test('URL-only resolution distinguishes missing and inconsistent reservations an
     method: 'POST', body: { resources: [{ url: absentUrl }] },
   });
   assert.equal(missing.status, 404, 'URL-only requests need a unique reservation');
-  await assertNoClaimCreated(harness, profile.id, missingAt);
+  await assertNoClaimCreated(harness, profile.profile.id, missingAt);
 
   const inconsistentAt = harness.store.calls.length;
   const broken = await api(harness, CLAIMS_PATH, 'creator-a', {
@@ -441,34 +476,35 @@ test('URL-only resolution distinguishes missing and inconsistent reservations an
   const brokenJson = JSON.stringify(await responseJson(broken));
   assert.equal(brokenJson.includes(inconsistentUrl), false);
   assert.equal(brokenJson.includes(inconsistent.title), false);
-  await assertNoClaimCreated(harness, profile.id, inconsistentAt);
+  await assertNoClaimCreated(harness, profile.profile.id, inconsistentAt);
 
   const controlAt = harness.store.calls.length;
   const controlOnly = await api(harness, CLAIMS_PATH, 'creator-a', {
     method: 'POST', body: { resources: [{ url: controlUrl }] },
   });
   assert.equal(controlOnly.status, 503, 'a reservation cannot resolve to its own internal control row');
-  await assertNoClaimCreated(harness, profile.id, controlAt);
+  await assertNoClaimCreated(harness, profile.profile.id, controlAt);
 
   const movedAt = harness.store.calls.length;
   const movedUrl = await api(harness, CLAIMS_PATH, 'creator-a', {
     method: 'POST', body: { resources: [{ url: movedResourceUrl }] },
   });
   assert.equal(movedUrl.status, 503, 'a valid-looking reservation must still match the resource current URL');
-  await assertNoClaimCreated(harness, profile.id, movedAt);
+  await assertNoClaimCreated(harness, profile.profile.id, movedAt);
 
   const literalAt = harness.store.calls.length;
   const literalMismatch = await api(harness, CLAIMS_PATH, 'creator-a', {
     method: 'POST', body: { resources: [{ resourceId: trailing.id, url: currentUrl.slice(0, -1) }] },
   });
   assert.equal(literalMismatch.status, 409, 'a trailing slash change is a stale URL observation');
-  await assertNoClaimCreated(harness, profile.id, literalAt);
+  await assertNoClaimCreated(harness, profile.profile.id, literalAt);
 
   const eventClaim = await api(harness, CLAIMS_PATH, 'creator-a', {
     method: 'POST', body: { resources: [{ url: eventUrl }] },
   });
   assert.equal(eventClaim.status, 202, 'an event resolves against its current registrationUrl, even after it ended');
-  assert.deepEqual((await responseJson(eventClaim)).claim.resourceIds, [event.id]);
+  const eventAck = await responseJson(eventClaim);
+  assert.deepEqual((await harness.store.get(`claim:${eventAck.claimId}`)).resourceIds, [event.id]);
 });
 
 test('all submitted pairs are validated before deduplication and errors do not reveal an unsubmitted private URL or title', async () => {
@@ -497,7 +533,7 @@ test('all submitted pairs are validated before deduplication and errors do not r
     const error = JSON.stringify(await responseJson(response));
     assert.equal(error.includes(privateResource.title), false);
     assert.equal(error.includes(currentUrl), false, 'the service does not return an unsubmitted current URL');
-    await assertNoClaimCreated(harness, profile.id, callIndex);
+    await assertNoClaimCreated(harness, profile.profile.id, callIndex);
   }
 
   const exactDuplicate = await api(harness, CLAIMS_PATH, 'creator-a', {
@@ -508,7 +544,8 @@ test('all submitted pairs are validated before deduplication and errors do not r
     ] },
   });
   assert.equal(exactDuplicate.status, 202, 'valid duplicate ID pairs collapse after validation');
-  assert.deepEqual((await responseJson(exactDuplicate)).claim.resourceIds, [privateResource.id]);
+  const duplicateAck = await responseJson(exactDuplicate);
+  assert.deepEqual((await harness.store.get(`claim:${duplicateAck.claimId}`)).resourceIds, [privateResource.id]);
 
   const missingAt = harness.store.calls.length;
   const missingId = await api(harness, CLAIMS_PATH, 'creator-a', {
@@ -556,7 +593,7 @@ test('exactly one selection mode is accepted and catalog control rows are not cl
   assert.equal(controlClaim.status, 422, 'a physical URL reservation control row is not a catalog target');
   assert.equal(claimWritesSince(harness, controlCallIndex).length, 0);
   assert.equal((await claimRows(harness)).length, 0);
-  assert.equal((await claimRefRows(harness, profile.id)).length, 0);
+  assert.equal((await claimRefRows(harness, profile.profile.id)).length, 0);
 });
 
 test('legacy ID claims remain legible only to their owner and admin without adding raw catalog metadata', async () => {
@@ -567,31 +604,35 @@ test('legacy ID claims remain legible only to their owner and admin without addi
   const sibling = resource('legacy-source-sibling', 'https://private.catalog.example/sibling', { sourceId: 'same-source' });
   await seedResource(harness.store, target);
   await seedResource(harness.store, sibling);
-  const published = await api(harness, '/api/creador/perfil/publicar', 'creator-a', { method: 'POST', body: {} });
-  assert.equal(published.status, 200);
-  const profileBeforeClaim = await harness.store.get(`profile:${owner.id}`);
-
-  const created = await api(harness, CLAIMS_PATH, 'creator-a', {
-    method: 'POST', body: { resourceIds: [target.id], sourceId: 'same-source', evidence: 'e'.repeat(2000) },
+  const beforePublish = await ownerView(harness);
+  const published = await api(harness, '/api/creador/perfil/publicar', 'creator-a', {
+    method: 'POST', body: { creatorVersion: beforePublish.creatorVersion },
   });
-  assert.equal(created.status, 202);
-  assert.match(created.headers.get('cache-control') ?? '', /private.*no-store/i);
-  const result = await responseJson(created);
-  assert.deepEqual(result.claim.resourceIds, [target.id]);
-  const stored = await harness.store.get(`claim:${result.claim.id}`);
+  assert.equal(published.status, 200);
+  const profileBeforeClaim = await harness.store.get(`profile:${owner.profile.id}`);
+  const historical = await seedHistoricalClaim(harness, {
+    profileId: owner.profile.id,
+    id: 'legacy-id-only-claim',
+    resourceIds: [target.id],
+    sourceId: 'same-source',
+    evidence: 'e'.repeat(2000),
+    resources: undefined,
+    version: 1,
+  });
+  const stored = await harness.store.get(`claim:${historical.id}`);
   assert.deepEqual(stored.resourceIds, [target.id]);
   assert.equal(stored.resources, undefined, 'legacy IDs do not cause the service to fetch and persist a raw URL');
   assert.equal(stored.title, undefined);
   assert.equal(stored.url, undefined);
 
-  const ownerView = await responseJson(await api(harness, '/api/creador/perfil', 'creator-a'));
-  assert.equal(ownerView.claims.length, 1);
-  assert.equal(ownerView.claims[0].evidence, 'e'.repeat(2000));
-  assert.deepEqual(ownerView.claims[0].resourceIds, [target.id]);
-  const ownerJson = JSON.stringify(ownerView);
+  const view = await ownerView(harness, 'creator-a');
+  assert.equal(view.claims.length, 1);
+  assert.equal(view.claims[0].evidence, 'e'.repeat(2000));
+  assert.deepEqual(view.claims[0].resourceIds, [target.id]);
+  const ownerJson = JSON.stringify(view);
   assert.equal(ownerJson.includes(target.title), false);
   assert.equal(ownerJson.includes(target.url), false, 'legacy IDs do not gain raw URLs in owner history');
-  const otherView = await responseJson(await api(harness, '/api/creador/perfil', 'creator-b'));
+  const otherView = await ownerView(harness, 'creator-b');
   assert.deepEqual(otherView.claims, [], 'evidence is private to the request owner');
   const publicPage = await harness.service.readPublicProfile('claim-legacy-owner');
   assert.equal(publicPage.status, 200);
@@ -614,7 +655,7 @@ test('legacy ID claims remain legible only to their owner and admin without addi
   }
   assert.equal((await harness.store.get(`resource:${sibling.id}`)).editorProfileId, undefined,
     'a shared sourceId is descriptive and never expands the exact ID selection');
-  assert.equal((await harness.store.get(`profile:${owner.id}`)).version, profileBeforeClaim.version,
+  assert.equal((await harness.store.get(`profile:${owner.profile.id}`)).version, profileBeforeClaim.version,
     'claim creation leaves the already-published profile version unchanged');
 
   const forbiddenAdminRead = await api(harness, ADMIN_CLAIMS_PATH, 'creator-a');
@@ -632,17 +673,16 @@ test('colon and long catalog IDs survive exact partial admin resolution without 
   await seedResource(harness.store, second);
   await seedResource(harness.store, sibling);
 
-  const request = await api(harness, CLAIMS_PATH, 'creator-a', {
-    method: 'POST',
-    body: {
-      resourceIds: [first.id, second.id],
-      sourceId: 'same-source',
-      evidence: 'evidencia privada',
-    },
+  const claimId = 'historical-colon-long-claim';
+  await seedHistoricalClaim(harness, {
+    profileId: profile.profile.id,
+    id: claimId,
+    resourceIds: [first.id, second.id],
+    sourceId: 'same-source',
+    evidence: 'evidencia privada',
+    resources: undefined,
+    version: 1,
   });
-  assert.equal(request.status, 202);
-  const created = await responseJson(request);
-  assert.deepEqual(created.claim.resourceIds, [first.id, second.id]);
 
   const nonAdminLink = await api(harness, ADMIN_LINK_PATH, 'creator-a', {
     method: 'POST', body: { accountId: 'private-account-a', resourceIds: [first.id] },
@@ -653,7 +693,7 @@ test('colon and long catalog IDs survive exact partial admin resolution without 
   assert.equal(pending.claims[0].status, 'pending');
   assert.deepEqual(pending.claims[0].resourceIds, [first.id, second.id]);
   assert.equal(pending.claims[0].evidence, 'evidencia privada');
-  const storedClaim = await harness.store.get(`claim:${created.claim.id}`);
+  const storedClaim = await harness.store.get(`claim:${claimId}`);
   assert.equal(storedClaim.resources, undefined, 'legacy IDs are not enriched with URLs during claim creation');
   if (pending.claims[0].resources !== undefined) {
     assert.deepEqual(pending.claims[0].resources, []);
@@ -671,7 +711,7 @@ test('colon and long catalog IDs survive exact partial admin resolution without 
   assert.equal(partialOwnerView.claims[0].version, storedClaim.version + 1,
     'the owner projector carries the existing claim-row status version');
   assert.deepEqual(partial.claims[0].resourceIds, [first.id, second.id]);
-  assert.equal((await harness.store.get(`resource:${first.id}`)).editorProfileId, profile.id);
+  assert.equal((await harness.store.get(`resource:${first.id}`)).editorProfileId, profile.profile.id);
   assert.equal((await harness.store.get(`resource:${second.id}`)).editorProfileId, undefined);
   assert.equal((await harness.store.get(`resource:${sibling.id}`)).editorProfileId, undefined);
 
@@ -691,11 +731,15 @@ test('colon and long catalog IDs survive exact partial admin resolution without 
     assert.deepEqual(resolved.claims[0].resources, [],
       'admin state updates do not reconstruct raw URLs for a legacy claim');
   }
-  assert.equal((await harness.store.get(`resource:${second.id}`)).editorProfileId, profile.id);
+  assert.equal((await harness.store.get(`resource:${second.id}`)).editorProfileId, profile.profile.id);
   assert.equal((await harness.store.get(`resource:${sibling.id}`)).editorProfileId, undefined);
 
-  const ownerEdit = await api(harness, `/api/creador/recursos/${encodeURIComponent(second.id)}`, 'creator-a', {
-    method: 'PATCH', body: { title: 'La autorización llegó sólo tras la resolución exacta' },
+  const resourceBeforeEdit = await harness.store.get(`resource:${second.id}`);
+  const ownerEdit = await api(harness, `/api/creador/recursos/?id=${encodeURIComponent(second.id)}`, 'creator-a', {
+    method: 'PATCH', body: {
+      resourceVersion: resourceBeforeEdit.version,
+      title: 'La autorización llegó sólo tras la resolución exacta',
+    },
   });
   assert.equal(ownerEdit.status, 200);
 });
@@ -717,23 +761,23 @@ test('admin linking rechecks current ownership and does not grant a stale pendin
     puts: [{ key: `resource:${target.id}`, value: {
       ...current,
       directoryControl: 'creator',
-      editorProfileId: other.id,
+      editorProfileId: other.profile.id,
       autoSync: false,
       version: current.version + 1,
     } }],
   });
   const targetBeforeAdmin = await harness.store.get(`resource:${target.id}`);
-  const profileBeforeAdmin = await harness.store.get(`profile:${owner.id}`);
+  const profileBeforeAdmin = await harness.store.get(`profile:${owner.profile.id}`);
   const rejected = await api(harness, ADMIN_LINK_PATH, 'admin', {
     method: 'POST', body: { accountId: 'private-account-a', resourceIds: [target.id] },
   });
   assert.equal(rejected.status, 409, 'admin approval validates the resource state at resolution time');
   assert.deepEqual(await harness.store.get(`resource:${target.id}`), targetBeforeAdmin);
-  assert.deepEqual(await harness.store.get(`profile:${owner.id}`), profileBeforeAdmin);
+  assert.deepEqual(await harness.store.get(`profile:${owner.profile.id}`), profileBeforeAdmin);
   const claims = await responseJson(await api(harness, ADMIN_CLAIMS_PATH, 'admin'));
   assert.equal(claims.claims[0].status, 'pending');
-  assert.equal(claims.claims[0].profileId, owner.id);
-  assert.equal((await harness.store.get(`resource:${target.id}`)).editorProfileId, other.id);
+  assert.equal(claims.claims[0].profileId, owner.profile.id);
+  assert.equal((await harness.store.get(`resource:${target.id}`)).editorProfileId, other.profile.id);
 });
 
 test('51 targets fit the existing two-action claim transaction and expanded physical rows fail before writing', async () => {
@@ -753,16 +797,18 @@ test('51 targets fit the existing two-action claim transaction and expanded phys
   });
   assert.equal(response.status, 202, 'there is no product limit of 50 requested resources');
   const created = await responseJson(response);
-  assert.equal(created.claim.resourceIds.length, 51);
+  assert.equal(created.operation, 'create-claim');
+  const storedClaim = await harness.store.get(`claim:${created.claimId}`);
+  assert.equal(storedClaim.resourceIds.length, 51);
   const writes = claimWritesSince(harness, callIndex);
   assert.equal(writes.length, 1);
   assert.equal(writes[0].input.puts.length, 2, 'claim creation does not use one transaction action per target');
   assert.deepEqual(writes[0].input.checks.map(({ key }) => key).sort(), [
-    `claim:${created.claim.id}`,
-    `claim-ref:${profile.id}:${created.claim.id}`,
+    `claim:${created.claimId}`,
+    `claim-ref:${profile.profile.id}:${created.claimId}`,
   ].sort(), 'there are no per-resource or per-reservation CAS checks');
-  assert.deepEqual(await harness.store.list(`placement:${profile.id}:`), []);
-  assert.deepEqual(await harness.store.list(`editor:${profile.id}:`), []);
+  assert.deepEqual((await ownerView(harness)).placements, {});
+  assert.deepEqual(await harness.store.list(`editor:${profile.profile.id}:`), []);
 
   const oversizedHarness = await createCreatorPagesHarness();
   const oversizedProfile = await createProfile(oversizedHarness, 'creator-a', 'claim-expanded-size');
@@ -781,7 +827,7 @@ test('51 targets fit the existing two-action claim transaction and expanded phys
   const expandedCallIndex = oversizedHarness.store.calls.length;
   const tooLarge = await api(oversizedHarness, CLAIMS_PATH, 'creator-a', { method: 'POST', body });
   assert.equal(tooLarge.status, 422, 'the expanded claim row is rejected before the transaction');
-  await assertNoClaimCreated(oversizedHarness, oversizedProfile.id, expandedCallIndex);
+  await assertNoClaimCreated(oversizedHarness, oversizedProfile.profile.id, expandedCallIndex);
 });
 
 test('new-mode field limits and storage failures preserve request, atomicity, receipt, and no-grant behavior', async (t) => {
@@ -824,7 +870,7 @@ test('new-mode field limits and storage failures preserve request, atomicity, re
       method: 'POST', body: { resources: [{ resourceId: evidenceTarget.id, url: evidenceTarget.url }], evidence: 'e'.repeat(2001) },
     });
     assert.equal(tooMuchEvidence.status, 422);
-    assert.equal((await harness.store.list(`claim-ref:${profile.id}:`)).length, 2,
+    assert.equal((await harness.store.list(`claim-ref:${profile.profile.id}:`)).length, 2,
       'rejected values do not add owner references');
 
     const oversizedBody = await api(harness, CLAIMS_PATH, 'creator-a', {
@@ -856,13 +902,13 @@ test('new-mode field limits and storage failures preserve request, atomicity, re
       });
       assert.equal(response.status, failure === 'throws' ? 503 : 409);
       assert.equal((await claimRows(harness)).length, 0);
-      assert.equal((await claimRefRows(harness, profile.id)).length, 0);
+      assert.equal((await claimRefRows(harness, profile.profile.id)).length, 0);
       assert.equal(claimWritesSince(harness, start).length, 1,
         'the only attempted mutation is one transaction containing claim and ref together');
-      assert.deepEqual(await harness.store.list(`placement:${profile.id}:`), []);
-      assert.deepEqual(await harness.store.list(`editor:${profile.id}:`), []);
-      const edit = await api(harness, `/api/creador/recursos/${target.id}`, 'creator-a', {
-        method: 'PATCH', body: { title: 'El fallo de guardado no concede autoridad' },
+      assert.deepEqual((await ownerView(harness)).placements, {});
+      assert.deepEqual(await harness.store.list(`editor:${profile.profile.id}:`), []);
+      const edit = await api(harness, `/api/creador/recursos/?id=${target.id}`, 'creator-a', {
+        method: 'PATCH', body: { resourceVersion: target.version, title: 'El fallo de guardado no concede autoridad' },
       });
       assert.equal(edit.status, 403, 'a failed atomic claim write grants no edit authority');
     }
@@ -888,17 +934,19 @@ test('new-mode field limits and storage failures preserve request, atomicity, re
     });
     assert.equal(uncertain.status, 503, 'a lost receipt does not claim that the transaction was absent');
     const claims = await claimRows(harness);
-    const refs = await claimRefRows(harness, profile.id);
+    const refs = await claimRefRows(harness, profile.profile.id);
     assert.equal(claims.length, 1);
     assert.equal(refs.length, 1, 'the uncertain result still contains both sides of the transaction');
-    assert.equal(claims[0].value.profileId, profile.id);
+    assert.equal(claims[0].value.profileId, profile.profile.id);
     assert.deepEqual(claims[0].value.resourceIds, [target.id]);
     assert.deepEqual(claims[0].value.resources, [{ resourceId: target.id, url: target.url }]);
-    assert.deepEqual(await harness.store.list(`placement:${profile.id}:`), []);
-    assert.deepEqual(await harness.store.list(`editor:${profile.id}:`), []);
+    const afterLostAck = await ownerView(harness);
+    assert.deepEqual(afterLostAck.placements, {});
+    assert.equal(afterLostAck.claims.length, 1);
+    assert.deepEqual(await harness.store.list(`editor:${profile.profile.id}:`), []);
 
-    const edit = await api(harness, `/api/creador/recursos/${target.id}`, 'creator-a', {
-      method: 'PATCH', body: { title: 'No hay grant tras la solicitud ni el recibo perdido' },
+    const edit = await api(harness, `/api/creador/recursos/?id=${target.id}`, 'creator-a', {
+      method: 'PATCH', body: { resourceVersion: target.version, title: 'No hay grant tras la solicitud ni el recibo perdido' },
     });
     assert.equal(edit.status, 403, 'a known catalog resource remains forbidden until exact admin linking');
   });

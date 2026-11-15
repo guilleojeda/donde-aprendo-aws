@@ -13,13 +13,43 @@ function itemKey(table, key) {
   return `${table}:${key.pk}:${key.sk}`;
 }
 
-function publicReadFixture(placementRecordType) {
+function publicReadFixture(corruptSequence) {
   const profileId = 'creator-public-test';
   const profileSlug = 'public-creator';
   const seriesId = 'series-public-test';
   const seriesSlug = 'public-series';
   const placementId = 'damaged-placement';
   const resourceId = 'resource-public-test';
+  const creatorState = {
+    pk: `PROFILE#${profileId}`,
+    sk: 'META',
+    recordType: 'creatorState',
+    schemaVersion: 2,
+    id: profileId,
+    version: 2,
+    displayName: 'Creador de prueba',
+    slug: profileSlug,
+    programs: [],
+    socials: {},
+    published: true,
+    hidden: false,
+    createdAt: 0,
+    updatedAt: 0,
+    placements: {
+      [placementId]: { resourceId, selectedForDirectory: true },
+    },
+    order: { featured: [], ordinary: [placementId] },
+    series: {
+      [seriesId]: {
+        name: 'Serie de prueba',
+        slug: seriesSlug,
+        chapters: [placementId],
+      },
+    },
+  };
+  if (corruptSequence === 'order') creatorState.order.ordinary = ['missing-placement'];
+  if (corruptSequence === 'chapters') creatorState.series[seriesId].chapters = ['missing-placement'];
+
   const records = new Map([
     [itemKey(TABLES.profilesTableName, { pk: `SLUG#${profileSlug}`, sk: 'META' }), {
       pk: `SLUG#${profileSlug}`,
@@ -29,29 +59,7 @@ function publicReadFixture(placementRecordType) {
       profileId,
       version: 1,
     }],
-    [itemKey(TABLES.profilesTableName, { pk: `PROFILE#${profileId}`, sk: 'META' }), {
-      pk: `PROFILE#${profileId}`,
-      sk: 'META',
-      recordType: 'profile',
-      id: profileId,
-      slug: profileSlug,
-      displayName: 'Creador de prueba',
-      programs: [],
-      socials: {},
-      published: true,
-      hidden: false,
-      version: 2,
-    }],
-    [itemKey(TABLES.profilesTableName, { pk: `PROFILE#${profileId}`, sk: `SERIES#${seriesId}` }), {
-      pk: `PROFILE#${profileId}`,
-      sk: `SERIES#${seriesId}`,
-      recordType: 'series',
-      id: seriesId,
-      profileId,
-      name: 'Serie de prueba',
-      slug: seriesSlug,
-      version: 1,
-    }],
+    [itemKey(TABLES.profilesTableName, { pk: `PROFILE#${profileId}`, sk: 'META' }), creatorState],
     [itemKey(TABLES.profilesTableName, { pk: `PROFILE#${profileId}`, sk: `SERIES_SLUG#${seriesSlug}` }), {
       pk: `PROFILE#${profileId}`,
       sk: `SERIES_SLUG#${seriesSlug}`,
@@ -62,19 +70,6 @@ function publicReadFixture(placementRecordType) {
       version: 1,
     }],
   ]);
-  const placement = {
-    pk: `PROFILE#${profileId}`,
-    sk: `PLACEMENT#${placementId}`,
-    id: placementId,
-    profileId,
-    resourceId,
-    position: 0,
-    featured: false,
-    selectedForDirectory: true,
-    series: { [seriesId]: { position: 0 } },
-    version: 1,
-    ...(placementRecordType === undefined ? {} : { recordType: placementRecordType }),
-  };
   const resource = {
     id: resourceId,
     title: 'Capítulo visible',
@@ -89,17 +84,6 @@ function publicReadFixture(placementRecordType) {
       const { input } = command;
       if (command.constructor.name === 'GetCommand') {
         return { Item: records.get(itemKey(input.TableName, input.Key)) };
-      }
-      if (command.constructor.name === 'QueryCommand') {
-        const { ':pk': pk, ':sk': prefix } = input.ExpressionAttributeValues;
-        if (pk !== `PROFILE#${profileId}`) throw new Error(`unexpected partition key ${pk}`);
-        if (prefix === 'PLACEMENT#') return { Items: [placement] };
-        if (prefix === 'SERIES#') {
-          return {
-            Items: [...records.values()].filter((item) => item.pk === pk && item.sk.startsWith(prefix)),
-          };
-        }
-        throw new Error(`unexpected query prefix ${prefix}`);
       }
       if (command.constructor.name === 'BatchGetCommand') {
         const requestedIds = input.RequestItems[TABLES.catalogTableName].Keys.map(({ id }) => id);
@@ -124,7 +108,7 @@ function publicReadFixture(placementRecordType) {
 }
 
 test('DynamoDB public profile and series include the valid visible chapter', async () => {
-  const { service, profileSlug, seriesSlug, placementId, resourceId, seriesId } = publicReadFixture('placement');
+  const { service, profileSlug, seriesSlug, placementId, resourceId, seriesId } = publicReadFixture();
   const profile = await service.readPublicProfile(profileSlug);
   assert.equal(profile.status, 200);
   assert.equal(profile.links.length, 1);
@@ -132,7 +116,7 @@ test('DynamoDB public profile and series include the valid visible chapter', asy
   assert.equal(profile.links[0].resourceId, resourceId);
   assert.deepEqual(profile.links[0].series, [{
     seriesId,
-    position: 0,
+    position: 1,
     name: 'Serie de prueba',
     href: `/c/${profileSlug}/series/${seriesSlug}/`,
   }]);
@@ -146,11 +130,11 @@ test('DynamoDB public profile and series include the valid visible chapter', asy
   assert.equal(series.links[0].resourceId, resourceId);
 });
 
-for (const recordType of [undefined, 'placment']) {
-  const description = recordType === undefined ? 'missing placement recordType' : 'misspelled placement recordType';
+for (const corruptSequence of ['order', 'chapters']) {
+  const label = corruptSequence === 'order' ? 'general order' : 'chapter order';
 
-  test(`DynamoDB public profile fails closed for a ${description}`, async () => {
-    const { service, profileSlug } = publicReadFixture(recordType);
+  test(`DynamoDB public profile fails closed for a malformed aggregate ${label}`, async () => {
+    const { service, profileSlug } = publicReadFixture(corruptSequence);
     const result = await service.readPublicProfile(profileSlug);
 
     assert.equal(result.status, 503);
@@ -159,8 +143,8 @@ for (const recordType of [undefined, 'placment']) {
     assert.equal(Object.hasOwn(result, 'links'), false);
   });
 
-  test(`DynamoDB public series fails closed for a ${description}`, async () => {
-    const { service, profileSlug, seriesSlug } = publicReadFixture(recordType);
+  test(`DynamoDB public series fails closed for a malformed aggregate ${label}`, async () => {
+    const { service, profileSlug, seriesSlug } = publicReadFixture(corruptSequence);
     const result = await service.readPublicSeries(profileSlug, seriesSlug);
 
     assert.equal(result.status, 503);
