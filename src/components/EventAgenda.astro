@@ -176,7 +176,8 @@ const utcDayHeading = (instant: string) => {
       const organizers = [...new Map(group.events.map((cohost) => {
         const community = communityById.get(cohost.communityId ?? '');
         const name = community?.title ?? cohost.organizer;
-        return [community?.id ?? name, { community, name }] as const;
+        const identity = community ? `community:${community.id}` : `organizer:${name}`;
+        return [identity, { community, name }] as const;
       })).values()];
       return <li
         id={`event-${event.id}`}

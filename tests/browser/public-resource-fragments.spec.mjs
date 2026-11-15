@@ -32,6 +32,9 @@ const unicodeSourceId = 'source:author-é';
 const unicodeCommunityId = 'community:argentina-é';
 const historyUnicodeContentId = 'history:module-é';
 const historyPercentContentId = 'history:module-%C3%A9';
+const shorterCommunityId = 'community-fragment-prefix';
+const textDirectiveCommunityId = `${shorterCommunityId}:~:~:text`;
+const collidingOrganizerName = 'Grupo AWS Córdoba';
 
 function catalogResource({
   id, title, kind = 'content', format = 'Curso', topics = ['Seguridad'], order,
@@ -95,6 +98,35 @@ function fragmentCatalog() {
       id: 'community-jump-target', title: 'Comunidad de Córdoba', kind: 'community',
       format: 'User Group', topics: ['Comunidad'], country: 'AR', order: 30,
     }),
+    catalogResource({
+      id: shorterCommunityId, title: 'Comunidad con ID prefijo', kind: 'community',
+      format: 'User Group', topics: ['Comunidad'], country: 'AR', order: 29,
+    }),
+    catalogResource({
+      id: textDirectiveCommunityId, title: 'Text directive match target', kind: 'community',
+      format: 'User Group', topics: ['Comunidad'], country: 'AR', order: 28,
+    }),
+    catalogResource({
+      id: collidingOrganizerName, title: 'AWS User Group Córdoba', kind: 'community',
+      format: 'User Group', topics: ['Comunidad'], country: 'AR', order: 26,
+    }),
+    catalogResource({
+      id: 'fragment-link-source', title: 'Artículo con comunidad vinculada', order: 27,
+      communityId: textDirectiveCommunityId,
+    }),
+    ...[
+      { id: 'organizer-community-a', communityId: collidingOrganizerName, organizer: 'Nombre de comunidad A' },
+      { id: 'organizer-community-b', communityId: collidingOrganizerName, organizer: 'Nombre de comunidad B' },
+      { id: 'organizer-label-a', organizer: collidingOrganizerName },
+      { id: 'organizer-label-b', organizer: collidingOrganizerName },
+    ].map(({ id, communityId, organizer }) => ({
+      recordType: 'event', id, title: 'Encuentro de coorganizadores',
+      description: 'Evento compartido para verificar las identidades de organización.',
+      startsAt: '2099-06-10T18:00:00-03:00', endsAt: '2099-06-10T20:00:00-03:00',
+      timeZone: 'America/Argentina/Buenos_Aires', organizer, mode: 'online',
+      registrationUrl: 'https://events.example.invalid/coorganized-session',
+      ...(communityId ? { communityId } : {}), published: true,
+    })),
   ];
 }
 
@@ -223,6 +255,56 @@ test('a real related-source link and browser Back and Forward restore its destin
   await page.goForward();
   await expect(page).toHaveURL(`${fixture.origin}/creadores/#resource-source-jump-target`);
   await expectFocused(page, 'source-jump-target');
+});
+
+test('a real related-community Astro link cannot become a Chromium text-fragment directive', async ({ fixture, browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false, ignoreHTTPSErrors: true });
+  try {
+    const page = await context.newPage();
+    await page.goto(`${fixture.origin}/aprender/`);
+    const source = resourceCard(page, 'fragment-link-source');
+    const communityLink = source.getByRole('link', {
+      name: 'Comunidad: Text directive match target', exact: true,
+    });
+    const href = await communityLink.getAttribute('href');
+    await communityLink.click();
+    const nativeState = await page.evaluate(({ shorterId, exactId }) => ({
+      url: location.href,
+      hash: location.hash,
+      targetId: document.querySelector(':target')?.id ?? null,
+      shorterCardId: document.getElementById(`resource-${shorterId}`)?.id ?? null,
+      exactCardId: document.getElementById(`resource-${exactId}`)?.id ?? null,
+    }), { shorterId: shorterCommunityId, exactId: textDirectiveCommunityId });
+    assert.deepEqual(
+      [nativeState.shorterCardId, nativeState.exactCardId],
+      [`resource-${shorterCommunityId}`, `resource-${textDirectiveCommunityId}`],
+      'both the shorter-prefix card and the exact resource card exist in the destination page');
+    assert.equal(nativeState.targetId, `resource-${textDirectiveCommunityId}`,
+      `Chromium native fragment navigation targets the exact resource ID, not its shorter prefix: ${JSON.stringify(nativeState)}`);
+    await expect(resourceCard(page, textDirectiveCommunityId)).toBeVisible();
+    assert.equal(href, `/comunidades/argentina/#resource-${shorterCommunityId}:%7E:%7E:text`);
+  } finally {
+    await context.close();
+  }
+});
+
+test('grouped agenda keeps a community link and the colliding plain organizer label distinct', async ({ fixture, page }) => {
+  await page.goto(`${fixture.origin}/eventos/?view=month&date=2099-06-10&tz=UTC`);
+  const card = page.locator('.event-card[data-event-id="organizer-community-a"]');
+  await expect(card).toBeVisible();
+  await expect(card).toHaveAttribute('data-event-alias-ids',
+    'organizer-community-a|organizer-community-b|organizer-label-a|organizer-label-b');
+  const visibleMember = card.locator('article[data-event-member-id]:not([hidden])');
+  await visibleMember.locator('summary[data-event-detail-toggle]').click({ timeout: 5_000 });
+
+  const organizerRow = visibleMember.locator('dt').filter({ hasText: /^Organiza$/u }).locator('xpath=..');
+  const organizerDetails = organizerRow.locator('dd');
+  await expect(visibleMember).toHaveAttribute('data-member-community-id', collidingOrganizerName);
+  await expect(organizerDetails).toHaveText('AWS User Group Córdoba; Grupo AWS Córdoba');
+  const linkedCommunity = organizerDetails.getByRole('link', { name: 'AWS User Group Córdoba', exact: true });
+  await expect(linkedCommunity).toHaveAttribute('href', '/comunidades/argentina/#resource-Grupo%20AWS%20C%C3%B3rdoba');
+  await expect(organizerDetails.locator('a')).toHaveCount(1,
+    'the repeated community IDs deduplicate within the community kind, while identical fallback labels deduplicate within the plain-organizer kind');
 });
 
 test('same-document Unicode and literal-percent fragments restore exact targets through Back, Forward, and reload', async ({ fixture, page }) => {

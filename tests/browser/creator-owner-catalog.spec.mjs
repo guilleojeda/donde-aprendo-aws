@@ -73,6 +73,39 @@ async function openOwnerCatalog(page, fixture) {
   await expect(page.getByRole('dialog')).toBeVisible();
 }
 
+test('el estado migrado conserva una red opcional vacía en SSR sin mostrarla en público', async ({ fixture, page, publicPage }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  let stored = await fixture.rawOwner(cookie);
+  const publish = await api(fixture, cookie, '/api/creador/perfil/publicar', {
+    method: 'POST', body: { creatorVersion: stored.profile.version },
+  });
+  assert.equal(publish.response.status, 200, JSON.stringify(publish.body));
+
+  stored = await fixture.rawOwner(cookie);
+  const migrated = {
+    ...stored.profile,
+    socials: { ...stored.profile.socials, website: '' },
+  };
+  assert.equal(await fixture.creatorStore.transact({
+    checks: [{ key: `profile:${stored.profile.id}`, version: stored.profile.version }],
+    puts: [{ key: `profile:${stored.profile.id}`, value: migrated }],
+  }), true, 'the fixture installs a persisted legacy blank social value after the real publication command');
+
+  const serviceRead = await api(fixture, cookie, '/api/creador/perfil');
+  assert.equal(serviceRead.response.status, 200, JSON.stringify(serviceRead.body));
+  assert.equal(serviceRead.body.profile.socials.website, '', 'the real owner service preserves the stored blank value');
+
+  const ownerPage = await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  assert.equal(ownerPage?.status(), 200, 'SSR accepts the actual service observation containing the legacy blank social');
+  await expect(page.getByRole('heading', { name: 'Enlaces', exact: true })).toBeVisible();
+  await expect(page.locator('astro-island[component-url*="CreatorOwnerApp"]')).not.toHaveAttribute('ssr', '');
+
+  const publicResponse = await publicPage.goto(`${fixture.origin}/c/${stored.profile.slug}/`);
+  assert.equal(publicResponse?.status(), 200);
+  await expect(publicPage.locator('[data-creator-link-id="social:website"]')).toHaveCount(0,
+    'the public profile omits the blank social destination');
+});
+
 async function openOwnerClaimCatalog(page, fixture) {
   await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
   await page.waitForLoadState('networkidle');

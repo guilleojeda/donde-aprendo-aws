@@ -211,6 +211,21 @@ function validateResourceUrl(url) {
   }
 }
 
+function trimTopLevelUrl(body) {
+  if (typeof body.url === 'string') body.url = body.url.trim();
+  return body;
+}
+
+function trimFreeTextClaimUrls(body) {
+  if (!Array.isArray(body.resources)) return body;
+  for (const target of body.resources) {
+    if (isRecord(target) && !Object.hasOwn(target, 'resourceId') && typeof target.url === 'string') {
+      target.url = target.url.trim();
+    }
+  }
+  return body;
+}
+
 function storedClaimResources(claim) {
   if (!Object.hasOwn(claim, 'resources')) return undefined;
   if (!Array.isArray(claim.resourceIds) || !Array.isArray(claim.resources)
@@ -329,7 +344,7 @@ function writeJsonResponse(value, status = 200) {
   return jsonResponse({ ...payload, versionChanges: changes }, status);
 }
 
-async function parseRequestBody(request) {
+async function parseRequestBody(request, normalize = (body) => body) {
   const declaredLength = Number(request.headers.get('content-length'));
   if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BODY_BYTES) {
     fail(413, 'BODY_TOO_LARGE', 'request body exceeds the 32 KiB limit');
@@ -370,6 +385,7 @@ async function parseRequestBody(request) {
     fail(400, 'INVALID_JSON', 'request body must be valid JSON');
   }
   if (!isRecord(body)) fail(400, 'INVALID_BODY', 'request body must be a JSON object');
+  body = normalize(body);
   validateTextLengths(body);
   return body;
 }
@@ -581,20 +597,22 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
   function nextCreatorState(profile, changes) {
     const revision = storedVersion(profile.version, 'creator');
-    const candidate = {
+    return {
       ...profile,
       ...changes,
       version: nextVersion(revision, 'creator'),
       updatedAt: timestamp(),
     };
-    return creatorStateFits(candidate);
+  }
+
+  function creatorStatePut(candidate) {
+    return { key: profileKey(candidate.id), value: creatorStateFits(candidate) };
   }
 
   async function commitCreatorState(profile, candidate, { checks = [], puts = [], deletes = [], code = 'CREATOR_CONFLICT' } = {}) {
-    creatorStateFits(candidate);
     const ok = await store.transact({
       checks: [{ key: profileKey(profile.id), version: profile.version }, ...checks],
-      puts: [...puts, { key: profileKey(profile.id), value: candidate }],
+      puts: [...puts, ...(candidate ? [creatorStatePut(candidate)] : [])],
       deletes,
     });
     if (!ok) fail(409, code, 'creator content or a related record changed while saving');
@@ -949,12 +967,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const fields = validateProfileFields(body, profile);
     if (!profile) {
       const id = newId();
-      const created = creatorStateFits({
+      const created = {
         recordType: 'creatorState', schemaVersion: 2, id, version: 1,
         ...fields, published: false, hidden: false,
         placements: {}, order: { featured: [], ordinary: [] }, series: {},
         createdAt: timestamp(), updatedAt: timestamp(),
-      });
+      };
       const alias = created.slug ? await store.get(aliasKey(created.slug)) : null;
       if (alias) fail(409, 'SLUG_TAKEN', 'slug is already reserved');
       const checks = [
@@ -964,7 +982,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       ];
       const puts = [
         { key: accountKey(principal.accountId), value: { recordType: 'accountProfile', profileId: id, version: 1 } },
-        { key: profileKey(id), value: created },
+        creatorStatePut(created),
         ...(created.slug ? [{ key: aliasKey(created.slug), value: { recordType: 'profileAlias', slug: created.slug, profileId: id, version: 1 } }] : []),
       ];
       if (!await store.transact({ checks, puts })) {
@@ -1158,6 +1176,33 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return { id, candidate };
   }
 
+  function placementOptionChanges(profile, id, body) {
+    const placement = profile.placements[id];
+    const currentFeatured = profile.order.featured.includes(id);
+    const nextFeatured = Object.hasOwn(body, 'featured') ? body.featured : currentFeatured;
+    const nextSelected = Object.hasOwn(body, 'selectedForDirectory')
+      ? body.selectedForDirectory : placement.selectedForDirectory;
+    for (const field of ['featured', 'selectedForDirectory']) {
+      if (Object.hasOwn(body, field) && typeof body[field] !== 'boolean') {
+        fail(422, 'INVALID_PLACEMENT', `${field} must be boolean`);
+      }
+    }
+    if (nextFeatured === currentFeatured && nextSelected === placement.selectedForDirectory) {
+      return null;
+    }
+
+    const placements = { ...profile.placements, [id]: { ...placement, selectedForDirectory: nextSelected } };
+    let order = profile.order;
+    if (nextFeatured !== currentFeatured) {
+      const featured = profile.order.featured.filter((value) => value !== id);
+      const ordinary = profile.order.ordinary.filter((value) => value !== id);
+      order = nextFeatured
+        ? { featured: [...featured, id], ordinary }
+        : { featured, ordinary: [...ordinary, id] };
+    }
+    return nextCreatorState(profile, { placements, order });
+  }
+
   async function checkCreatorState(profile, checks = [], code = 'CREATOR_CONFLICT') {
     if (!await store.transact({ checks: [{ key: profileKey(profile.id), version: profile.version }, ...checks] })) {
       fail(409, code, 'creator content or a related record changed while saving');
@@ -1271,12 +1316,34 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (!reservation || !isValidUrlReservation(reservation, url)) fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the selected resource');
     if (reservation.status === 'collision') fail(409, 'URL_COLLISION', 'this URL needs administrative review');
     if (reservation.resourceId !== resource.id) fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the selected resource');
-    return attachExistingResource(profile, resource, {
-      selectedForDirectory: body.selectedForDirectory ?? true,
-      checks: [urlReservationCheck(reservationKey, reservation)],
-      operation: 'reference-link',
-      disposition: 'attached',
-    });
+    try {
+      return await attachExistingResource(profile, resource, {
+        selectedForDirectory: body.selectedForDirectory ?? true,
+        checks: [urlReservationCheck(reservationKey, reservation)],
+        operation: 'reference-link',
+        disposition: 'attached',
+      });
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.code !== 'LINK_CONFLICT') throw error;
+      let latestResource;
+      let latestReservation;
+      try {
+        latestResource = await store.get(`resource:${resource.id}`);
+        latestReservation = await store.get(reservationKey);
+      } catch {
+        throw error;
+      }
+      const resourceStillMatches = latestResource?.id === resource.id
+        && isCatalogResource(latestResource)
+        && currentResourceUrl(latestResource) === url;
+      const reservationStillMatches = isValidUrlReservation(latestReservation, url)
+        && latestReservation.status === 'reserved'
+        && latestReservation.resourceId === resource.id;
+      if (!resourceStillMatches || !reservationStillMatches) {
+        fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
+      }
+      throw error;
+    }
   }
 
   async function addLink(principal, body) {
@@ -1356,39 +1423,19 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
     const resourceChanges = creatorResourceChanges(resource, body);
     const resourceMutation = await buildCreatorResourceMutation(resource, resourceChanges);
-    const options = {};
-    for (const field of ['featured', 'selectedForDirectory']) {
-      if (!Object.hasOwn(body, field)) continue;
-      if (typeof body[field] !== 'boolean') fail(422, 'INVALID_PLACEMENT', `${field} must be boolean`);
-      options[field] = body[field];
-    }
-    const currentFeatured = profile.order.featured.includes(id);
-    const nextFeatured = Object.hasOwn(options, 'featured') ? options.featured : currentFeatured;
-    const currentSelected = placement.selectedForDirectory;
-    const nextSelected = Object.hasOwn(options, 'selectedForDirectory') ? options.selectedForDirectory : currentSelected;
-    const placementChanged = nextFeatured !== currentFeatured || nextSelected !== currentSelected;
-    const stateChanged = placementChanged;
-    let candidate = null;
-    if (stateChanged) {
-      const placements = { ...profile.placements, [id]: { ...placement, selectedForDirectory: nextSelected } };
-      const featured = profile.order.featured.filter((value) => value !== id);
-      const ordinary = profile.order.ordinary.filter((value) => value !== id);
-      const nextOrder = nextFeatured
-        ? { featured: [...featured, id], ordinary }
-        : { featured, ordinary: [...ordinary, id] };
-      candidate = nextCreatorState(profile, { placements, order: nextOrder });
-    }
+    const candidate = placementOptionChanges(profile, id, body);
     const checks = [
       { key: `resource:${resource.id}`, version: resourceVersion },
       ...resourceMutation.checks.filter((check) => check.key !== `resource:${resource.id}`),
     ];
     const puts = [...resourceMutation.puts];
     const deletes = [...resourceMutation.deletes];
-    if (candidate) puts.push({ key: profileKey(profile.id), value: candidate });
-    const transactionChecks = [{ key: profileKey(profile.id), version: profile.version }, ...checks];
-    if (!await store.transact({ checks: transactionChecks, puts, deletes })) {
-      fail(409, 'LINK_CONFLICT', 'creator link or shared resource changed while saving');
-    }
+    await commitCreatorState(profile, candidate, {
+      checks,
+      puts,
+      deletes,
+      code: 'LINK_CONFLICT',
+    });
     return creatorAck('edit-link', profile.id, candidate?.version ?? profile.version,
       candidate || resourceMutation.changed ? 'saved' : 'unchanged', {
         placementId: id, resourceId: resource.id,
@@ -1444,19 +1491,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const placement = profile.placements[id];
     if (!placement) fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
     requireCreatorVersion(body, profile);
-    const currentFeatured = profile.order.featured.includes(id);
-    const nextFeatured = Object.hasOwn(body, 'featured') ? body.featured : currentFeatured;
-    const nextSelected = Object.hasOwn(body, 'selectedForDirectory') ? body.selectedForDirectory : placement.selectedForDirectory;
-    if (typeof nextFeatured !== 'boolean' || typeof nextSelected !== 'boolean') fail(422, 'INVALID_PLACEMENT', 'placement options must be boolean');
-    if (nextFeatured === currentFeatured && nextSelected === placement.selectedForDirectory) {
+    const candidate = placementOptionChanges(profile, id, body);
+    if (!candidate) {
       await checkCreatorState(profile);
       return creatorAck('set-link-options', profile.id, profile.version, 'unchanged', { placementId: id });
     }
-    const placements = { ...profile.placements, [id]: { ...placement, selectedForDirectory: nextSelected } };
-    const featured = profile.order.featured.filter((value) => value !== id);
-    const ordinary = profile.order.ordinary.filter((value) => value !== id);
-    const order = nextFeatured ? { featured: [...featured, id], ordinary } : { featured, ordinary: [...ordinary, id] };
-    const candidate = nextCreatorState(profile, { placements, order });
     await commitCreatorState(profile, candidate, { code: 'LINK_CONFLICT' });
     return creatorAck('set-link-options', profile.id, candidate.version, 'saved', { placementId: id });
   }
@@ -1666,9 +1705,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       return { profile: cleanPublicProfile(profile), versionChanges: [] };
     }
     const updated = nextCreatorState(profile, { hidden });
-    creatorStateFits(updated);
-    const ok = await store.transact({ checks: [{ key, version: observedVersion }], puts: [{ key, value: updated }] });
-    if (!ok) fail(409, 'PROFILE_CONFLICT', 'profile changed while applying action');
+    await commitCreatorState(profile, updated, { code: 'PROFILE_CONFLICT' });
     return {
       profile: cleanPublicProfile(updated),
       versionChanges: versionChanges(versionChange('profile', profileId, observedVersion, updated.version)),
@@ -1717,9 +1754,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (!isRecord(value)) fail(422, 'INVALID_CLAIM_RESOURCES', 'each resource must contain a URL and optional exact resource ID');
       assertOwnerFields(value, new Set(['resourceId', 'url']));
       if (!Object.hasOwn(value, 'url')) fail(422, 'INVALID_CLAIM_RESOURCES', 'each resource URL is required');
+      const hasExplicitResourceId = Object.hasOwn(value, 'resourceId');
       const url = validateResourceUrl(value.url);
       let resourceId;
-      if (Object.hasOwn(value, 'resourceId')) {
+      if (hasExplicitResourceId) {
         if (typeof value.resourceId !== 'string' || !value.resourceId) fail(422, 'INVALID_RESOURCE_ID', 'resourceId must identify a catalog resource');
         requireCatalogResourceIdWithinLimit(value.resourceId);
         resourceId = value.resourceId;
@@ -1799,6 +1837,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const stateRow = await store.get(profileKey(owner.profileId));
     if (!stateRow) fail(503, 'INVALID_PROFILE', 'account mapping points to missing profile data');
     let profile = readCreatorStateOrFail(stateRow, owner.profileId);
+    const startingProfileVersion = profile.version;
     const requestedIds = [...body.resourceIds];
     const observedResources = new Map();
     for (const resourceId of requestedIds) {
@@ -1815,6 +1854,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
     const didLink = [];
     const committedVersionChanges = [];
+    const linkResult = () => ({
+      linkedResourceIds: didLink,
+      versionChanges: committedVersionChanges,
+      profileChanged: profile.version !== startingProfileVersion,
+    });
     try {
       for (const resourceId of requestedIds) {
         const resourceKey = `resource:${resourceId}`;
@@ -1855,9 +1899,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
           checks.push({ key: editKey, version: null });
           puts.push({ key: editKey, value: { recordType: 'editorReference', profileId: profile.id, resourceId, version: 1 } });
         }
-        if (candidate) puts.push({ key: profileKey(profile.id), value: candidate });
-        else checks.push({ key: profileKey(profile.id), version: profile.version });
-        if (!await store.transact({ checks, puts })) fail(409, 'CLAIM_CONFLICT', `resource ${resourceId} changed while linking`);
+        await commitCreatorState(profile, candidate, { checks, puts, code: 'CLAIM_CONFLICT' });
 
         if (candidate) {
           committedVersionChanges.push(versionChange('profile', profile.id, profile.version, candidate.version));
@@ -1898,16 +1940,16 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     } catch (error) {
       if (didLink.length > 0) {
         if (error instanceof ApiError) {
-          error.details = { linkedResourceIds: didLink, versionChanges: committedVersionChanges };
+          error.details = linkResult();
           throw error;
         }
         const partial = new ApiError(503, 'PARTIAL_CLAIM_WRITE', 'some resources were linked before storage became unavailable');
-        partial.details = { linkedResourceIds: didLink, versionChanges: committedVersionChanges };
+        partial.details = linkResult();
         throw partial;
       }
       throw error;
     }
-    return { linkedResourceIds: didLink, versionChanges: committedVersionChanges };
+    return linkResult();
   }
 
   function publicSeriesSummaries(profile, series, links) {
@@ -2137,14 +2179,14 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (path === '/api/creador/enlaces') {
       requireMethod(request, 'POST');
       requireWriteRequest(request, principal);
-      const result = await addLink(principal, await parseRequestBody(request));
+      const result = await addLink(principal, await parseRequestBody(request, trimTopLevelUrl));
       return jsonResponse(result, result.disposition === 'already-present' ? 200 : 201);
     }
     const linkEditMatch = path.match(/^\/api\/creador\/enlaces\/([^/]+)\/editar$/);
     if (linkEditMatch) {
       requireMethod(request, 'PATCH');
       requireWriteRequest(request, principal);
-      return jsonResponse(await editLink(principal, decodeSegment(linkEditMatch[1]), await parseRequestBody(request)));
+      return jsonResponse(await editLink(principal, decodeSegment(linkEditMatch[1]), await parseRequestBody(request, trimTopLevelUrl)));
     }
     const placementMoveMatch = path.match(/^\/api\/creador\/enlaces\/([^/]+)\/mover$/);
     if (placementMoveMatch) {
@@ -2175,12 +2217,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       }
       const resourceId = resourceIds[0];
       requireCatalogResourceIdWithinLimit(resourceId);
-      return jsonResponse(await patchCreatorResource(principal, resourceId, await parseRequestBody(request)));
+      return jsonResponse(await patchCreatorResource(principal, resourceId, await parseRequestBody(request, trimTopLevelUrl)));
     }
     if (path === '/api/creador/reclamaciones') {
       requireMethod(request, 'POST');
       requireWriteRequest(request, principal);
-      return jsonResponse(await createClaim(principal, await parseRequestBody(request)), 202);
+      return jsonResponse(await createClaim(principal, await parseRequestBody(request, trimFreeTextClaimUrls)), 202);
     }
 
     const adminResourceCollectionPath = '/api/admin/recursos';

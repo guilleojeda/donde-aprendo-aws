@@ -218,18 +218,21 @@ function targetKey(entity: string, id: string): string {
   return `${entity}:${id}`;
 }
 
-function receiptScopeIsValid(changes: CreatorVersionChange[], context: AdminCommandContext): boolean {
+function receiptScopeIsValid(
+  changes: CreatorVersionChange[],
+  context: AdminCommandContext,
+  linkedIds: readonly string[] = [],
+): boolean {
   const targets = new Set(context.targets.map(({ entity, id }) => targetKey(entity, id)));
+  const linked = new Set(linkedIds);
   for (const change of changes) {
-    if (change.entity === 'placement' && context.kind === 'claim') continue;
     if (change.entity !== 'resource' && change.entity !== 'profile') return false;
-    if (!targets.has(targetKey(change.entity, change.id))) return false;
+    const key = targetKey(change.entity, change.id);
+    if (!targets.has(key)) return false;
+    if (change.entity === 'resource' && context.kind === 'claim' && !linked.has(change.id)) return false;
   }
 
   if (context.kind === 'claim') {
-    const changedGrant = changes.some(({ entity }) => entity === 'resource' || entity === 'placement');
-    const hasProfileChange = changes.some(({ entity }) => entity === 'profile');
-    if (changedGrant && !hasProfileChange) return false;
     return true;
   }
 
@@ -268,46 +271,50 @@ function singleTargetCanonicalIsValid(
   return changes.length === 1 && changes[0].after === canonicalVersion;
 }
 
-function confirmedPartialLinkIds(
-  response: Response,
+function claimLinkedPrefix(
   payload: Record<string, unknown> | null,
   context: AdminCommandContext,
-): { ids: string[]; confirmed: boolean; contradictory: boolean } {
-  if (context.kind !== 'claim' || (response.status !== 409 && response.status !== 503)
-    || !Array.isArray(payload?.linkedResourceIds)) {
-    return { ids: [], confirmed: false, contradictory: false };
-  }
-  const requested = new Set(context.targets.filter(({ entity }) => entity === 'resource').map(({ id }) => id));
+  requireComplete: boolean,
+): { ids: string[]; valid: boolean } {
+  if (context.kind !== 'claim' || !Array.isArray(payload?.linkedResourceIds)) return { ids: [], valid: false };
+  const requested = context.targets.filter(({ entity }) => entity === 'resource').map(({ id }) => id);
+  if (new Set(requested).size !== requested.length) return { ids: [], valid: false };
   const ids: string[] = [];
-  let contradictory = false;
-  for (const value of payload.linkedResourceIds) {
-    if (typeof value !== 'string' || !requested.has(value) || ids.includes(value)) {
-      contradictory = true;
-      continue;
-    }
+  for (let index = 0; index < payload.linkedResourceIds.length; index += 1) {
+    const value = payload.linkedResourceIds[index];
+    if (typeof value !== 'string' || value !== requested[index] || ids.includes(value)) break;
     ids.push(value);
   }
-  return { ids, confirmed: ids.length > 0, contradictory };
+  const valid = ids.length === payload.linkedResourceIds.length
+    && (requireComplete ? ids.length === requested.length : ids.length > 0);
+  return { ids, valid };
 }
 
 async function completeAdminWrite(response: Response, context: AdminCommandContext): Promise<AdminCompletion> {
   const payload = await responsePayload(response);
-  const partial = confirmedPartialLinkIds(response, payload, context);
-  if (!response.ok && !partial.confirmed) {
+  const partialAttempt = context.kind === 'claim' && !response.ok
+    && Array.isArray(payload?.linkedResourceIds);
+  if (!response.ok && !partialAttempt) {
     return { payload, linkedIds: [], confirmedPartial: false, receiptProblem: false, gaps: [] };
   }
 
-  const changes = await readCreatorVersionChanges(response);
-  const usable = changes !== null && !partial.contradictory
-    && receiptScopeIsValid(changes ?? [], context)
+  const changes = readCreatorVersionChanges(payload);
+  const linkedReceipt = context.kind === 'claim' ? claimLinkedPrefix(payload, context, response.ok) : { ids: [], valid: true };
+  const linkedIds = linkedReceipt.ids;
+  const profileDeltaPresent = changes?.some(({ entity }) => entity === 'profile') ?? false;
+  const profileChangedMatchesReceipt = context.kind !== 'claim'
+    || (typeof payload?.profileChanged === 'boolean' && payload.profileChanged === profileDeltaPresent);
+  const usable = changes !== null && linkedReceipt.valid
+    && profileChangedMatchesReceipt
+    && receiptScopeIsValid(changes ?? [], context, linkedIds)
     && receiptChainIsValid(changes ?? [])
     && singleTargetCanonicalIsValid(payload, changes ?? [], context);
   if (!usable) {
     pauseAdminRows(context.targets);
     return {
       payload,
-      linkedIds: partial.ids,
-      confirmedPartial: partial.confirmed,
+      linkedIds,
+      confirmedPartial: partialAttempt,
       receiptProblem: true,
       gaps: [],
     };
@@ -317,8 +324,8 @@ async function completeAdminWrite(response: Response, context: AdminCommandConte
   pauseAdminRows(gaps);
   return {
     payload,
-    linkedIds: partial.ids,
-    confirmedPartial: partial.confirmed,
+    linkedIds,
+    confirmedPartial: partialAttempt,
     receiptProblem: false,
     gaps,
   };
@@ -622,9 +629,15 @@ if (root && state && csrfToken) {
             showViewTransition(completion.receiptProblem || completion.gaps.length > 0
               ? 'La vinculación se completó parcialmente, pero el recibo no coincide con las versiones observadas. Actualiza la vista antes de resolver otra vez esta solicitud.'
               : 'La vinculación se completó parcialmente. Actualiza la vista antes de resolver otra vez esta solicitud.');
-            announce(itemStatus(item), remainingIds.length > 0
-              ? `Vinculación parcial. Ya vinculados: ${linkedIds.join(', ')}. Pendientes: ${remainingIds.join(', ')}. Los checks de los pendientes se conservaron; recarga para actualizar el estado y reintenta sólo esos IDs.`
-              : `Los recursos ya vinculados son: ${linkedIds.join(', ')}. Recarga para actualizar el estado de la solicitud.`, 'error');
+            let partialMessage = linkedIds.length === 0
+              ? 'No pudimos confirmar qué recursos se vincularon. Conservamos tus checks y bloqueamos esta solicitud hasta que actualices la vista.'
+              : remainingIds.length > 0
+                ? `Vinculación parcial. Ya vinculados: ${linkedIds.join(', ')}. Pendientes: ${remainingIds.join(', ')}. Los checks de los pendientes se conservaron; recarga para actualizar el estado y reintenta sólo esos IDs.`
+                : `Los recursos ya vinculados son: ${linkedIds.join(', ')}. Recarga para actualizar el estado de la solicitud.`;
+            if (completion.receiptProblem || completion.gaps.length > 0) {
+              partialMessage += ' El recibo no coincide con las versiones observadas; actualiza la vista antes de resolver otra vez esta solicitud.';
+            }
+            announce(itemStatus(item), partialMessage, 'error');
             return;
           }
           announce(itemStatus(item), await responseErrorMessage(response), 'error');

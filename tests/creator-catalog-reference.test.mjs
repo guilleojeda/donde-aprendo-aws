@@ -408,6 +408,13 @@ test('a stale resource ID and URL pair conflicts without revealing the current U
 
   let stateBefore = await ownerLinkWriteState(harness, initial.profile.id, [oldUrl, currentUrl]);
   let response = await reference(harness, {
+    resourceId: selected.id, url: `  ${currentUrl}  `, creatorVersion: initial.creatorVersion,
+  });
+  assert.equal(response.status, 422, 'selected catalog ID and URL pairs retain literal URL identity');
+  assert.equal((await response.json()).error, 'INVALID_URL');
+  assert.deepEqual(await ownerLinkWriteState(harness, initial.profile.id, [oldUrl, currentUrl]), stateBefore);
+
+  response = await reference(harness, {
     resourceId: selected.id, url: oldUrl, creatorVersion: initial.creatorVersion,
   });
   assert.equal(response.status, 409, 'a stale pair is rejected before a placement exists');
@@ -478,11 +485,16 @@ test('a real URL edit between reference admission and commit rejects the stale p
   assert.equal(raced, true, 'the real resource move runs after reference admission and before its conditional commit');
   assert.equal(response.status, 409);
   assertPrivateJson(response);
-  assert.doesNotMatch(await response.text(), /race-current/u,
+  const error = await response.json();
+  assert.equal(error.error, 'RESOURCE_CONFLICT', 'a selected resource URL move requires a refresh');
+  assert.deepEqual(Object.keys(error).sort(), ['error', 'message']);
+  assert.doesNotMatch(JSON.stringify(error), /race-current/u,
     'the failed selection does not disclose a URL outside the submitted pair');
   const after = await ownerLinkWriteState(harness, current.profile.id, [requestedUrl, movedUrl]);
   assert.deepEqual(after.profile.placements, before.profile.placements,
     'the stale reference adds no placement after the resource moves');
+  assert.deepEqual(after.profile.order, before.profile.order,
+    'the rejected reference leaves both order groups unchanged');
   assert.equal(after.resources.find(({ value }) => value.id === created.resourceId).value.url, movedUrl);
   assert.deepEqual(after.reservations, [null, await harness.store.get(currentUrlKey(movedUrl))]);
   assert.equal(moveAck.resourceVersion, selected.version + 1);
@@ -650,7 +662,11 @@ for (const raceField of ['resource', 'reservation', 'profile']) {
           }), true);
         }
       }
-      return rawTransact(transaction);
+      const committed = await rawTransact(transaction);
+      if (raceField === 'profile' && raced && candidate && !committed) {
+        harness.store.failNext('get', new Error('refresh read unavailable after rejected CAS'));
+      }
+      return committed;
     };
 
     const offset = harness.store.calls.length;
@@ -660,6 +676,9 @@ for (const raceField of ['resource', 'reservation', 'profile']) {
     assert.equal(raced, true, 'the reference reached its conditional aggregate transaction');
     assert.equal(response.status, 409);
     assertPrivateJson(response);
+    const error = await response.json();
+    assert.equal(error.error, 'LINK_CONFLICT',
+      'a same-pair update and a creator-only race remain ordinary link conflicts');
     const after = await ownerLinkWriteState(harness, current.profile.id, [selected.url]);
     assert.deepEqual(after.profile.placements, stateBefore.profile.placements);
     assert.deepEqual(after.editorReferences, stateBefore.editorReferences);

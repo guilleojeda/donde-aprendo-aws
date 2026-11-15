@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { addCookie, expect, test } from '../fixtures/creator-browser-test.mjs';
+import { dynamoDbCreatorStateSizes } from '../../src/lib/creator-dynamodb-size.mjs';
 import {
   adminPath,
   loginAsSeparateOwner,
@@ -50,6 +52,61 @@ function createClaim(fixture, cookie, resourceIds, sourceId) {
     evidence: 'Solicitud de prueba para comprobar la revisión administrativa.',
     sourceId,
   });
+}
+
+async function seedProfileAtGrantBoundary(fixture, profileId, resourceIds) {
+  const profileKey = `profile:${profileId}`;
+  const current = await fixture.creatorStore.get(profileKey);
+  const series = Object.fromEntries(Array.from({ length: 240 }, (_, index) => {
+    const suffix = String(index).padStart(3, '0');
+    return [`series-${suffix}`, {
+      name: `Serie ${suffix}`,
+      slug: `serie-${suffix}`,
+      description: '',
+      chapters: [],
+      createdAt: 1,
+      updatedAt: 1,
+    }];
+  }));
+  const withSeries = { ...current, series };
+  const contentBytes = dynamoDbCreatorStateSizes(withSeries).contentBytes;
+  const placementId = (resourceId) => `placement-${createHash('sha256')
+    .update(JSON.stringify([profileId, resourceId]), 'utf8').digest('hex')}`;
+  const withFirstGrant = structuredClone(withSeries);
+  const firstPlacement = placementId(resourceIds[0]);
+  withFirstGrant.placements[firstPlacement] = { resourceId: resourceIds[0], selectedForDirectory: true };
+  withFirstGrant.order.ordinary.push(firstPlacement);
+  const growthForFirst = dynamoDbCreatorStateSizes(withFirstGrant).contentBytes - contentBytes;
+  const targetBytes = 384 * 1024 - growthForFirst;
+  let remaining = targetBytes - contentBytes;
+  assert.ok(remaining >= 0 && remaining <= Object.keys(series).length * 2000,
+    'the bounded series descriptions can place the first grant exactly at the content limit');
+  for (const entry of Object.values(series)) {
+    const length = Math.min(remaining, 2000);
+    entry.description = 'x'.repeat(length);
+    remaining -= length;
+    if (remaining === 0) break;
+  }
+  assert.equal(remaining, 0);
+  const atBoundary = { ...current, series };
+  const exactFirst = structuredClone(atBoundary);
+  exactFirst.placements[firstPlacement] = { resourceId: resourceIds[0], selectedForDirectory: true };
+  exactFirst.order.ordinary.push(firstPlacement);
+  assert.equal(dynamoDbCreatorStateSizes(exactFirst).contentBytes, 384 * 1024,
+    'the first placement fits exactly at the same 384 KiB limit exercised by the quota acceptance test');
+  const secondPlacement = placementId(resourceIds[1]);
+  const afterSecond = structuredClone(exactFirst);
+  afterSecond.placements[secondPlacement] = { resourceId: resourceIds[1], selectedForDirectory: true };
+  afterSecond.order.ordinary.push(secondPlacement);
+  assert.ok(dynamoDbCreatorStateSizes(afterSecond).contentBytes > 384 * 1024,
+    'the second placement crosses the quota after the first one commits');
+  assert.ok(dynamoDbCreatorStateSizes(atBoundary).itemBytes < 400 * 1024,
+    'the seeded valid state remains below the separate physical item limit');
+  assert.equal(await fixture.creatorStore.transact({
+    checks: [{ key: profileKey, version: current.version }],
+    puts: [{ key: profileKey, value: atBoundary }],
+  }), true, 'the valid quota fixture replaces only setup state before the real claim command');
+  return { placementId };
 }
 
 async function interceptAdminWrite(page, matches, deliver) {
@@ -628,6 +685,158 @@ test('a real partial claim with an unreadable receipt pauses every submitted tar
   } finally {
     await route.stop();
     fixture.creatorStore.transact = transact;
+  }
+});
+
+test('a real quota 422 confirms and advances only the committed resource prefix', async ({ fixture, page }) => {
+  const ids = ['admin-quota-grant-a', 'admin-quota-grant-b', 'admin-quota-draft'];
+  await prepareAdmin(fixture, page, ids);
+  const owner = await createOwnerProfile(fixture, 'admin-quota-grant-owner', 'admin-quota-grant@example.invalid');
+  const boundary = await seedProfileAtGrantBoundary(fixture, owner.profile.id, ids.slice(0, 2));
+  const claim = await createClaim(fixture, owner.cookie, ids.slice(0, 2));
+  await openAdmin(fixture, page);
+  const form = claimForm(page, claim.id);
+  await row(page, ids[2]).getByLabel('Categoría').fill('El borrador sigue editable');
+  await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
+
+  const route = await interceptAdminWrite(page,
+    (request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/reclamaciones/vincular/',
+    async (currentRoute, response, actual) => {
+      assert.equal(actual.status, 422, 'the real claim service stops at B when its placement exceeds the creator quota');
+      assert.equal(actual.body.error, 'CREATOR_CONTENT_TOO_LARGE');
+      assert.deepEqual(actual.body.linkedResourceIds, [ids[0]]);
+      assert.equal(actual.body.profileChanged, true);
+      assert.ok(actual.body.versionChanges.some(({ entity, id, before, after }) =>
+        entity === 'resource' && id === ids[0] && before === 1 && after === 2));
+      assert.ok(actual.body.versionChanges.some(({ entity, id, before, after }) =>
+        entity === 'profile' && id === owner.profile.id && before === 1 && after === 2));
+      assert.equal(actual.body.versionChanges.some(({ entity, id }) => entity === 'resource' && id === ids[1]), false,
+        'the failed B attempt contributes no resource version receipt');
+      await currentRoute.fulfill({ response });
+    });
+  try {
+    const responsePromise = page.waitForResponse((candidate) => candidate.request().method() === 'POST'
+      && new URL(candidate.url()).pathname === '/api/admin/reclamaciones/vincular/');
+    await form.getByRole('button', { name: 'Vincular recursos seleccionados' }).click();
+    assert.equal((await responsePromise).status(), 422);
+    assert.deepEqual(route.observed[0].requestBody.resourceIds, ids.slice(0, 2));
+    assert.equal((await fixture.creatorStore.get(`profile:${owner.profile.id}`)).version, 2);
+    assert.equal((await fixture.rawResource(ids[0])).version, 2);
+    assert.equal((await fixture.rawResource(ids[0])).directoryControl, 'creator');
+    assert.equal((await fixture.creatorStore.get(`profile:${owner.profile.id}`)).placements[boundary.placementId(ids[0])].resourceId, ids[0]);
+    assert.equal((await fixture.rawResource(ids[1])).version, 1);
+    assert.equal((await fixture.rawResource(ids[1])).directoryControl, 'editorial');
+    assert.equal((await fixture.creatorStore.get(`editor:${owner.profile.id}:${ids[1]}`)), null);
+    assert.equal((await fixture.creatorStore.get(`claim:${claim.id}`)).status, 'pending');
+
+    await expect(form).toHaveAttribute('aria-busy', 'false');
+    await expect(claimSelection(form, ids[0])).toBeChecked();
+    await expect(claimSelection(form, ids[0])).toBeDisabled();
+    await expect(claimSelection(form, ids[1])).toBeChecked();
+    await expect(claimSelection(form, ids[1])).toBeDisabled();
+    await expect(form.locator('[data-item-status]')).toContainText(`Ya vinculados: ${ids[0]}`);
+    await expect(form.locator('[data-item-status]')).toContainText(`Pendientes: ${ids[1]}`);
+    await expect(row(page, ids[2]).getByLabel('Categoría')).toHaveValue('El borrador sigue editable');
+    await expect(saveButton(page, ids[2])).toBeEnabled();
+
+    const profileAction = page.waitForResponse((candidate) => candidate.request().method() === 'POST'
+      && new URL(candidate.url()).pathname === `/api/admin/perfiles/${owner.profile.id}/ocultar/`);
+    await profileRow(page, owner.profile.id).getByRole('button', { name: 'Ocultar perfil' }).click();
+    const profileResponse = await profileAction;
+    assert.equal(profileResponse.status(), 200);
+    assert.deepEqual(JSON.parse(profileResponse.request().postData()), { version: 2 },
+      'the profile receipt advances its known version after the committed placement');
+
+    const savedA = await submitClassification(page, ids[0], 'Comunidad');
+    assert.equal(savedA.status(), 200, 'the confirmed A receipt permits a follow-up save');
+    assert.equal(JSON.parse(savedA.request().postData()).version, 2);
+    assert.equal((await fixture.rawResource(ids[0])).category, 'Comunidad');
+    assert.equal((await fixture.rawResource(ids[0])).version, 3);
+    const savedDraft = await submitClassification(page, ids[2], 'Certificaciones');
+    assert.equal(savedDraft.status(), 200, 'the independent draft remains saveable after the 422 partial result');
+    assert.equal(JSON.parse(savedDraft.request().postData()).version, 1);
+    assert.equal((await fixture.rawResource(ids[2])).category, 'Certificaciones');
+    assert.equal(route.observed.length, 1, 'the partial claim is not automatically replayed');
+  } finally {
+    await route.stop();
+  }
+});
+
+test('a grant of an existing placement updates resource authority without advancing the profile', async ({ fixture, page }) => {
+  const ids = ['admin-existing-placement-a', 'admin-existing-placement-draft'];
+  const records = ids.map((id, index) => resource(id, index));
+  await prepareAdmin(fixture, page, records);
+  const owner = await createOwnerProfile(fixture, 'admin-existing-placement-owner', 'admin-existing-placement@example.invalid');
+  const ownerState = await fixture.rawOwner(owner.cookie);
+  const reference = await fixture.request(owner.cookie, '/api/creador/enlaces/', {
+    method: 'POST',
+    body: {
+      creatorVersion: ownerState.profile.version,
+      title: 'Referencia existente',
+      url: records[0].url,
+      selectedForDirectory: true,
+    },
+  });
+  assert.equal(reference.status, 201, await reference.clone().text());
+  const referenceBody = await reference.json();
+  assert.equal(referenceBody.operation, 'add-link');
+  assert.equal(referenceBody.disposition, 'resource-reused');
+  const profileBeforeGrant = await fixture.rawOwner(owner.cookie);
+  assert.equal(profileBeforeGrant.profile.version, 2);
+  assert.equal(Object.values(profileBeforeGrant.profile.placements).some(({ resourceId: id }) => id === ids[0]), true);
+  assert.equal((await fixture.rawResource(ids[0])).directoryControl, 'editorial');
+  assert.equal(await fixture.creatorStore.get(`editor:${owner.profile.id}:${ids[0]}`), null);
+
+  const claim = await createClaim(fixture, owner.cookie, [ids[0]]);
+  await openAdmin(fixture, page);
+  const form = claimForm(page, claim.id);
+  await row(page, ids[1]).getByLabel('Categoría').fill('El borrador independiente se conserva');
+  await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
+  const route = await interceptAdminWrite(page,
+    (request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/reclamaciones/vincular/',
+    async (currentRoute, response, actual) => {
+      assert.equal(actual.status, 200);
+      assert.deepEqual(actual.body.linkedResourceIds, [ids[0]]);
+      assert.equal(actual.body.profileChanged, false, 'the existing placement needs no profile mutation');
+      assert.deepEqual(actual.body.versionChanges, [
+        { entity: 'resource', id: ids[0], before: 1, after: 2 },
+      ]);
+      await currentRoute.fulfill({ response });
+    });
+  try {
+    const responsePromise = page.waitForResponse((candidate) => candidate.request().method() === 'POST'
+      && new URL(candidate.url()).pathname === '/api/admin/reclamaciones/vincular/');
+    await form.getByRole('button', { name: 'Vincular recursos seleccionados' }).click();
+    assert.equal((await responsePromise).status(), 200);
+    assert.equal((await fixture.rawOwner(owner.cookie)).profile.version, 2);
+    assert.equal((await fixture.rawResource(ids[0])).version, 2);
+    assert.equal((await fixture.rawResource(ids[0])).directoryControl, 'creator');
+    assert.equal((await fixture.creatorStore.get(`editor:${owner.profile.id}:${ids[0]}`)).profileId, owner.profile.id);
+
+    await expect(form).toHaveAttribute('aria-busy', 'false');
+    await expect(row(page, ids[1]).getByLabel('Categoría')).toHaveValue('El borrador independiente se conserva');
+    await expect(saveButton(page, ids[1])).toBeEnabled();
+
+    const profileAction = page.waitForResponse((candidate) => candidate.request().method() === 'POST'
+      && new URL(candidate.url()).pathname === `/api/admin/perfiles/${owner.profile.id}/ocultar/`);
+    await profileRow(page, owner.profile.id).getByRole('button', { name: 'Ocultar perfil' }).click();
+    const profileResponse = await profileAction;
+    assert.equal(profileResponse.status(), 200);
+    assert.deepEqual(JSON.parse(profileResponse.request().postData()), { version: 2 },
+      'the profile action uses the unchanged version after a resource-only grant');
+    assert.equal((await fixture.rawOwner(owner.cookie)).profile.version, 3);
+
+    const savedResource = await submitClassification(page, ids[0], 'Comunidad');
+    assert.equal(savedResource.status(), 200, 'the grant receipt advances the resource to version 2');
+    assert.equal(JSON.parse(savedResource.request().postData()).version, 2);
+    const savedDraft = await submitClassification(page, ids[1], 'Certificaciones');
+    assert.equal(savedDraft.status(), 200);
+    assert.equal(JSON.parse(savedDraft.request().postData()).version, 1);
+    assert.equal((await fixture.rawResource(ids[0])).category, 'Comunidad');
+    assert.equal((await fixture.rawResource(ids[1])).category, 'Certificaciones');
+    assert.equal(route.observed.length, 1);
+  } finally {
+    await route.stop();
   }
 });
 

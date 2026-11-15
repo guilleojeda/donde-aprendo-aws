@@ -851,18 +851,19 @@ test('new-mode field limits and storage failures preserve request, atomicity, re
     });
     assert.equal(acceptedEvidence.status, 202, 'evidence at its existing 2000 character limit remains valid');
 
-    for (const url of [
-      `${prefix}${'x'.repeat(2048 - prefix.length + 1)}`,
-      'https://user:password@claim.example/unsafe',
-      'javascript:alert(1)',
-      ' https://claim.example/outer-space',
-      'https://claim.example/control\ncharacter',
+    for (const observation of [
+      { url: `${prefix}${'x'.repeat(2048 - prefix.length + 1)}` },
+      { url: 'https://user:password@claim.example/unsafe' },
+      { url: 'javascript:alert(1)' },
+      { url: 'https://claim.example/control\ncharacter' },
+      // Submitted catalog pairs stay literal even though free-text claims trim outer whitespace.
+      { resourceId: evidenceTarget.id, url: ` ${evidenceTarget.url}` },
     ]) {
       const callIndex = harness.store.calls.length;
       const response = await api(harness, CLAIMS_PATH, 'creator-a', {
-        method: 'POST', body: { resources: [{ url }] },
+        method: 'POST', body: { resources: [observation] },
       });
-      assert.equal(response.status, 422, `unsafe or overlong URL is rejected: ${JSON.stringify(url.slice(0, 80))}`);
+      assert.equal(response.status, 422, `invalid URL is rejected: ${JSON.stringify(observation.url.slice(0, 80))}`);
       assert.equal(claimWritesSince(harness, callIndex).length, 0);
     }
 
