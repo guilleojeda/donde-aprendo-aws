@@ -182,7 +182,7 @@ test('exhausts paginated scans and sends the continuation key', async () => {
     { Items: [record({ id: 'first', order: 10 })] },
   ]);
 
-  const result = await loadCatalog({ tableName: 'catalog', scanPage: pages.scanPage });
+  const result = await loadCatalog({ tableName: 'catalog', creatorTableName: '', scanPage: pages.scanPage });
   assert.deepEqual(result.map(({ id }) => id), ['later', 'first']);
   assert.equal(pages.calls.length, 2);
   assert.deepEqual(pages.calls[1].ExclusiveStartKey, { id: 'page-1' });
@@ -257,7 +257,7 @@ test('fails on a later page instead of returning a partial catalog', async () =>
     new Error('connection closed'),
   ]);
   await assert.rejects(
-    loadCatalog({ tableName: 'catalog', scanPage: pages.scanPage }),
+    loadCatalog({ tableName: 'catalog', creatorTableName: '', scanPage: pages.scanPage }),
     /Catalog scan failed on page 2: connection closed/,
   );
 });
@@ -265,14 +265,14 @@ test('fails on a later page instead of returning a partial catalog', async () =>
 test('fails closed on a malformed pagination key', async () => {
   const { scanPage } = scanPages([{ Items: [], LastEvaluatedKey: 'not-a-key' }]);
   await assert.rejects(
-    loadCatalog({ tableName: 'catalog', scanPage }),
+    loadCatalog({ tableName: 'catalog', creatorTableName: '', scanPage }),
     /malformed pagination key/,
   );
 });
 
 test('accepts a valid empty published result', async () => {
   const { scanPage } = scanPages([{ Items: [] }]);
-  assert.deepEqual(await loadCatalog({ tableName: 'catalog', scanPage }), []);
+  assert.deepEqual(await loadCatalog({ tableName: 'catalog', creatorTableName: '', scanPage }), []);
 });
 
 test('uses an explicitly selected fixture and rejects conflicting source config', async () => {
@@ -364,7 +364,9 @@ test('catalog fixture rejects the retired profile/placement row contract', async
   const fixturePath = join(temporaryDirectory, 'catalog.json');
   try {
     await writeFile(fixturePath, JSON.stringify({ items: [], profiles: [], placements: [] }));
-    await assert.rejects(loadCatalog({ fixturePath }), /optional v2 creators/);
+    await withoutEnvironment({ CATALOG_TABLE: undefined }, async () => {
+      await assert.rejects(loadCatalog({ fixturePath }), /optional v2 creators/);
+    });
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }
