@@ -277,9 +277,6 @@ export function normalizeCreatorRows(rows) {
       throw new Error(`Creator-state aggregate ${index + 1} has malformed public identity`);
     }
     validateCreatorSequences({ placements: row.placements, order: row.order, series: row.series });
-    if (Object.values(row.placements).some(({ resourceId }) => !isPublicCatalogResourceId(resourceId))) {
-      throw new Error(`Creator-state aggregate ${index + 1} has an invalid public resource reference`);
-    }
     creators.push({
       id,
       displayName: row.displayName,
@@ -402,9 +399,6 @@ function normalizeCreatorState(state) {
     if (creatorIds.has(creator.id)) throw new Error(`Creator directory aggregate ${index + 1} is duplicated`);
     creatorIds.add(creator.id);
     validateCreatorSequences({ placements: creator.placements, order: creator.order, series: creator.series });
-    if (Object.values(creator.placements).some(({ resourceId }) => !isPublicCatalogResourceId(resourceId))) {
-      throw new Error(`Creator directory aggregate ${index + 1} has an invalid public resource reference`);
-    }
     return creator;
   });
   return { creators };

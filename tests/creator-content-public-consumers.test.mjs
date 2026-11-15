@@ -386,6 +386,25 @@ test('catalog loading rejects an aggregate whose sequence references a missing p
     'the build catalog loader must reject malformed aggregate data rather than silently omit creator content');
 });
 
+test('private placement IDs cannot block a catalog scan, and the public ID rule applies when a record becomes eligible', async () => {
+  const pendingId = 'private\rresource';
+  const hiddenId = 'private\0resource';
+  const state = creatorState();
+  state.placements['pending-private'] = { resourceId: pendingId, selectedForDirectory: true };
+  state.placements['hidden-private'] = { resourceId: hiddenId, selectedForDirectory: false };
+  state.order.ordinary.push('pending-private', 'hidden-private');
+  const harness = createPublicReaderHarness({ state });
+  putItem(harness.rows, TABLES.catalog, contentResource(pendingId, { published: false }));
+  putItem(harness.rows, TABLES.catalog, contentResource(hiddenId, { hidden: true }));
+
+  const catalog = await harness.readCatalog();
+  assert.deepEqual(catalog.map(({ id }) => id).sort(), [RESOURCE_SHARED, 'resource-a', 'resource-b'].sort());
+
+  putItem(harness.rows, TABLES.catalog, contentResource(pendingId));
+  await assert.rejects(() => harness.readCatalog(), /invalid id/u,
+    'an eligible record still has to pass the public ID rule');
+});
+
 test('hidden published profiles stay private publicly while their owner statistics remain ID-scoped', async () => {
   const reads = [];
   const state = defaultState({
