@@ -193,3 +193,16 @@ export function assertCreatorStateFits(candidate) {
   }
   return candidate;
 }
+
+/** Prepare the validated logical aggregate put and its observed-revision condition together. */
+export function prepareCreatorStateWrite(candidate, observedVersion) {
+  if (observedVersion !== null && (!Number.isSafeInteger(observedVersion) || observedVersion < 0)) {
+    throw new TypeError('creator-state observed version must be null or a non-negative integer');
+  }
+  const value = assertCreatorStateFits(candidate);
+  const key = `profile:${value.id}`;
+  return {
+    check: { key, version: observedVersion },
+    put: { key, value },
+  };
+}

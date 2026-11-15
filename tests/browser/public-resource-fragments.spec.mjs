@@ -35,6 +35,7 @@ const historyPercentContentId = 'history:module-%C3%A9';
 const shorterCommunityId = 'community-fragment-prefix';
 const textDirectiveCommunityId = `${shorterCommunityId}:~:~:text`;
 const collidingOrganizerName = 'Grupo AWS Córdoba';
+const pipeCommunityId = 'community:cohost|mendoza';
 
 function catalogResource({
   id, title, kind = 'content', format = 'Curso', topics = ['Seguridad'], order,
@@ -111,6 +112,10 @@ function fragmentCatalog() {
       format: 'User Group', topics: ['Comunidad'], country: 'AR', order: 26,
     }),
     catalogResource({
+      id: pipeCommunityId, title: 'AWS User Group Mendoza', kind: 'community',
+      format: 'User Group', topics: ['Comunidad'], country: 'AR', order: 25,
+    }),
+    catalogResource({
       id: 'fragment-link-source', title: 'Artículo con comunidad vinculada', order: 27,
       communityId: textDirectiveCommunityId,
     }),
@@ -126,6 +131,16 @@ function fragmentCatalog() {
       timeZone: 'America/Argentina/Buenos_Aires', organizer, mode: 'online',
       registrationUrl: 'https://events.example.invalid/coorganized-session',
       ...(communityId ? { communityId } : {}), published: true,
+    })),
+    ...[
+      ['organizer-exact-a', collidingOrganizerName, 'AWS User Group Córdoba'],
+      ['organizer-exact-b', pipeCommunityId, 'AWS User Group Mendoza'],
+    ].map(([id, communityId, organizer]) => ({
+      recordType: 'event', id, title: 'Encuentro con dos comunidades',
+      description: 'Evento compartido en la agenda.',
+      startsAt: '2099-06-11T18:00:00-03:00', endsAt: '2099-06-11T20:00:00-03:00',
+      timeZone: 'America/Argentina/Buenos_Aires', organizer, mode: 'online',
+      registrationUrl: 'https://events.example.invalid/exact-cohosts', communityId, published: true,
     })),
   ];
 }
@@ -305,6 +320,27 @@ test('grouped agenda keeps a community link and the colliding plain organizer la
   await expect(linkedCommunity).toHaveAttribute('href', '/comunidades/argentina/#resource-Grupo%20AWS%20C%C3%B3rdoba');
   await expect(organizerDetails.locator('a')).toHaveCount(1,
     'the repeated community IDs deduplicate within the community kind, while identical fallback labels deduplicate within the plain-organizer kind');
+});
+
+test('grouped agenda filters an exact co-host ID and changes representative using member data', async ({ fixture, page }) => {
+  const response = await page.goto(`${fixture.origin}/eventos/?view=month&date=2099-06-10&tz=UTC`);
+  assert.equal(response?.status(), 200);
+  const card = page.locator('.event-card[data-event-alias-ids="organizer-exact-a|organizer-exact-b"]');
+  const visibleMember = card.locator('article[data-event-member-id]:not([hidden])');
+  await expect(visibleMember).toHaveAttribute('data-member-community-id', collidingOrganizerName);
+
+  await page.locator('[data-event-secondary-disclosure] summary').click();
+  await page.locator('[data-event-community]').selectOption(pipeCommunityId);
+  await expect.poll(() => new URL(page.url()).searchParams.get('community')).toBe(pipeCommunityId);
+  await expect(card).toBeVisible();
+  await expect(card).toHaveAttribute('data-event-id', 'organizer-exact-b');
+  await expect(visibleMember).toHaveAttribute('data-member-community-id', pipeCommunityId);
+  await expect(card.locator('article[data-event-member-id]:visible')).toHaveCount(1);
+
+  assert.doesNotMatch(await response.text(), /\bdata-event-communities=/u,
+    'SSR exposes each member ID and omits the redundant card aggregate');
+  await expect(card).not.toHaveAttribute('data-event-communities', /.*/u,
+    'choosing a representative does not recreate the old aggregate');
 });
 
 test('same-document Unicode and literal-percent fragments restore exact targets through Back, Forward, and reload', async ({ fixture, page }) => {

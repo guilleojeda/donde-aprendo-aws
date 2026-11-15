@@ -120,7 +120,8 @@ const corruptions = [
   ['malformed optional description', (v) => { v.resources[0].description = 42; }],
   ['malformed optional location', (v) => { v.profile.city = null; }],
   ['unknown program', (v) => { v.profile.programs.push('Unknown'); }],
-  ['malformed social', (v) => { v.profile.socials.website = 42; }],
+  ['a non-string social value', (v) => { v.profile.socials.website = 42; }],
+  ['a malformed social URL string', (v) => { v.profile.socials.website = 'not a URL'; }],
   ['malformed claim evidence', (v) => { v.claims[0].evidence = 42; }],
   ['null profile with content', (v) => { v.profile = null; v.creatorVersion = null; }],
 ];

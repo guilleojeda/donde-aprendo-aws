@@ -365,16 +365,24 @@ export function creatorOwnerPreservesAcknowledgedRead(operation: CreatorOwnerOpe
     && operation.fact === 'acknowledged' && Boolean(operation.intent?.acknowledgement);
 }
 
+export function creatorOwnerChapterRecoveryIsVisibleInDetail(state: CreatorOwnerState): boolean {
+  const operation = state.operation;
+  const seriesId = state.location.query.serie;
+  return (operation.status === 'reading' || operation.status === 'refresh-failed')
+    && operation.fact === 'acknowledged'
+    && (operation.intent?.action === 'add-chapter' || operation.intent?.action === 'remove-chapter')
+    && state.location.view === 'series' && !state.seriesQueryError && seriesId !== undefined
+    && operation.intent.target?.seriesId === seriesId && Boolean(state.observed.series[seriesId]);
+}
+
 function normalizeAfterRead(state: CreatorOwnerState, snapshot: CreatorOwnerSnapshotDTO) {
   const query = normalizeOwnerSeriesQuery(snapshot, state.location.query);
   const linksQuery = normalizeOwnerLinksQuery(snapshot, state.location.linksQuery);
   const pendingLinksQuery = normalizeOwnerLinksQuery(snapshot, state.location.pendingLinksQuery);
-  const selectedSeriesRemoved = state.location.view === 'series' && Boolean(state.location.query.serie) && !query.serie;
   return {
     query,
     linksQuery,
     pendingLinksQuery,
-    ...(selectedSeriesRemoved ? { focusAfterRender: '#owner-series-title' } : {}),
   };
 }
 
@@ -435,6 +443,21 @@ export function creatorOwnerLinkMoveContext(snapshot: CreatorOwnerSnapshotDTO, p
   const order = snapshot.order[group];
   const index = order.indexOf(placementId);
   return index < 0 ? undefined : { group, position: index + 1, count: order.length };
+}
+
+export function creatorOwnerMoveDestinationIsValid(editor: CreatorOwnerEditorDraft, snapshot: CreatorOwnerSnapshotDTO): boolean {
+  let maximum: number;
+  if (editor.kind === 'move-chapter') {
+    const series = snapshot.series[editor.seriesId];
+    if (!series?.chapters.includes(editor.placementId)) return false;
+    maximum = series.chapters.length;
+  } else if (editor.kind === 'move-link') {
+    const position = creatorOwnerLinkMoveContext(snapshot, editor.placementId);
+    if (!position) return false;
+    maximum = position.count;
+  } else return true;
+  const destination = Number(editor.targetPosition);
+  return Number.isSafeInteger(destination) && destination >= 1 && destination <= maximum;
 }
 
 export function creatorOwnerCanSubmitEditor(state: CreatorOwnerState): boolean {
@@ -551,9 +574,9 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       else if (action.fact === 'unknown') operation = action.intent ? { status: 'unknown', intent: action.intent, message: action.message, readCompleted: true } : { status: 'idle' };
       else operation = { status: 'idle' };
       return { ...state, observed: snapshot, operation,
-        ...(action.fact === 'acknowledged' || action.fact === 'claims' ? { seriesQueryError: undefined } : {}),
+        ...(action.fact === 'claims' || action.fact === 'acknowledged' && !state.seriesQueryError ? { seriesQueryError: undefined } : {}),
         ...(action.consumeEditor ? { editor: undefined } : {}),
-        location: { ...state.location, ...(action.focusAfterRender ? { focusAfterRender: action.focusAfterRender } : {}), ...navigation,
+        location: { ...state.location, focusAfterRender: action.focusAfterRender, ...navigation,
           ...(action.fact === 'acknowledged' && action.consumeEditor ? { transition: action.intent?.exitTransition, exitRequest: undefined, prompt: 'none' as const } : {}),
           ...(action.fact === 'acknowledged' || action.fact === 'claims' ? { linksQueryError: undefined } : {}) },
         ...(action.message ? { message: { text: action.message, kind: action.fact === 'acknowledged' || action.fact === 'claims' ? 'success' : 'info' } } : { message: undefined }) };

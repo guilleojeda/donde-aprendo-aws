@@ -171,7 +171,6 @@ const utcDayHeading = (instant: string) => {
       if (showDayHeading) defaultVisibleDays.add(utcDay);
       const recording = recordingForGroup(group);
       const eventSeries = seriesForGroup(group);
-      const eventCommunities = [...new Set(group.events.map((item) => item.communityId).filter((id): id is string => Boolean(id)))];
       const aliasIds = group.events.map((item) => item.id).join('|');
       const organizers = [...new Map(group.events.map((cohost) => {
         const community = communityById.get(cohost.communityId ?? '');
@@ -190,7 +189,6 @@ const utcDayHeading = (instant: string) => {
         data-event-mode={event.mode}
         data-country={effectiveEventLocation(event, communityById).country}
         data-event-countries={[...new Set(group.events.map((item) => effectiveEventLocation(item, communityById).country).filter(Boolean))].join('|')}
-        data-event-communities={eventCommunities.join('|')}
         data-event-city={effectiveEventLocation(event, communityById).city ? `${effectiveEventLocation(event, communityById).country}:${effectiveEventLocation(event, communityById).city}` : ''}
         data-event-alias-ids={aliasIds}
         hidden={!selectedByDefault}

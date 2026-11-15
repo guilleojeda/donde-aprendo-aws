@@ -7,7 +7,8 @@ import {
   loggedInOwner,
   openSeriesView,
 } from '../fixtures/creator-browser-test.mjs';
-import { defaultState, seedState } from '../fixtures/creator-content.mjs';
+import { createCreatorStateConversionPlan } from '../../scripts/lib/creator-state-cutover.mjs';
+import { seedState } from '../fixtures/creator-content.mjs';
 import { seedResource } from '../fixtures/creator-pages.mjs';
 
 const PROFILE_ID = 'profile-phase5-order';
@@ -26,46 +27,46 @@ async function seedOrderState(fixture, cookie) {
   const principal = await fixture.principal(cookie);
   assert.equal(principal.state, 'authenticated');
   const createdAt = Date.UTC(2026, 10, 14);
-  const state = defaultState({
-    profileId: PROFILE_ID,
-    creatorVersion: 70,
-    profile: { displayName: 'Orden independiente', slug: 'orden-independiente' },
-    placements: {
-      z: { resourceId: 'resource-z', selectedForDirectory: true },
-      a: { resourceId: 'resource-a', selectedForDirectory: false },
-    },
-    order: { featured: [], ordinary: ['z', 'a'] },
-    series: {
-      [PRIMARY_SERIES]: { name: 'Ruta principal', slug: 'ruta-principal', chapters: ['a', 'z'] },
-      [OTHER_SERIES]: { name: 'Ruta secundaria', slug: 'ruta-secundaria', chapters: ['z'] },
-    },
-  });
-  await seedState(fixture.creatorStore, principal.accountId, state);
-  for (const [id, title, url, hidden] of [
+  const resources = [
     ['resource-z', 'Capítulo z', 'https://order.example/z', false],
     ['resource-a', 'Capítulo a oculto', 'https://order.example/a', true],
-  ]) {
-    await seedResource(fixture.creatorStore, {
-      id,
-      title,
-      url,
-      description: '',
-      category: 'Serverless',
-      kind: 'content',
-      format: 'Artículo',
-      topics: ['Serverless'],
-      order: 0,
-      featured: false,
-      published: false,
-      hidden,
-      approvalRevoked: false,
-      directoryControl: 'editorial',
-      version: 1,
-      createdAt,
-      updatedAt: createdAt,
-    });
-  }
-  return state;
+  ].map(([id, title, url, hidden]) => ({
+    id, title, url, hidden, description: '', category: 'Serverless', kind: 'content',
+    format: 'Artículo', topics: ['Serverless'], order: 0, featured: false, published: false,
+    approvalRevoked: false, directoryControl: 'editorial', version: 1, createdAt, updatedAt: createdAt,
+  }));
+  const pk = `PROFILE#${PROFILE_ID}`;
+  const { convertedState } = createCreatorStateConversionPlan({
+    profileId: PROFILE_ID,
+    rows: [
+      {
+        pk, sk: 'META', recordType: 'profile', id: PROFILE_ID, version: 69,
+        displayName: 'Orden independiente', slug: 'orden-independiente', published: false,
+        hidden: false, createdAt, updatedAt: createdAt,
+      },
+      {
+        pk, sk: 'PLACEMENT#z', recordType: 'placement', id: 'z', profileId: PROFILE_ID,
+        resourceId: 'resource-z', position: 10, featured: false, selectedForDirectory: true,
+        series: { [PRIMARY_SERIES]: { position: 7 }, [OTHER_SERIES]: { position: 0 } },
+      },
+      {
+        pk, sk: 'PLACEMENT#a', recordType: 'placement', id: 'a', profileId: PROFILE_ID,
+        resourceId: 'resource-a', position: 20, featured: false, selectedForDirectory: false,
+        series: { [PRIMARY_SERIES]: { position: 7 } },
+      },
+      {
+        pk, sk: `SERIES#${PRIMARY_SERIES}`, recordType: 'series', id: PRIMARY_SERIES, profileId: PROFILE_ID,
+        name: 'Ruta principal', slug: 'ruta-principal', createdAt, updatedAt: createdAt,
+      },
+      {
+        pk, sk: `SERIES#${OTHER_SERIES}`, recordType: 'series', id: OTHER_SERIES, profileId: PROFILE_ID,
+        name: 'Ruta secundaria', slug: 'ruta-secundaria', createdAt, updatedAt: createdAt,
+      },
+    ],
+    resourceRows: resources,
+  });
+  await seedState(fixture.creatorStore, principal.accountId, convertedState);
+  for (const resource of resources) await seedResource(fixture.creatorStore, resource);
 }
 
 function chapterRow(page, placementId) {
@@ -76,9 +77,9 @@ function moveForm(page) {
   return page.locator('[data-owner-dialog] form[data-owner-form="mover-capitulo"]');
 }
 
-test('F8: la comparación usa la secuencia de capítulos guardada aunque el orden general sea el opuesto', async ({ fixture, page }) => {
+test('F8: la comparación usa la secuencia de capítulos migrada aunque el orden general sea el opuesto', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page, { profile: false });
-  const state = await seedOrderState(fixture, cookie);
+  await seedOrderState(fixture, cookie);
   const initialRead = await api(fixture, cookie, '/api/creador/perfil/');
   assert.equal(initialRead.response.status, 200, JSON.stringify(initialRead.body));
   assert.deepEqual(initialRead.body.order, { featured: [], ordinary: ['z', 'a'] });
@@ -184,7 +185,5 @@ test('F8: la comparación usa la secuencia de capítulos guardada aunque el orde
   assert.deepEqual(finalRead.responseBody.order, { featured: [], ordinary: ['z', 'a'] });
   assert.deepEqual(chapters(finalRead.responseBody, OTHER_SERIES), ['z']);
   assert.equal(finalRead.responseBody.resources.find(({ id }) => id === 'resource-a').hidden, true);
-  assert.deepEqual(state.order, { featured: [], ordinary: ['z', 'a'] },
-    'the independently seeded general order remains the expected sequence');
   await capture.stop({ skipErrorBodies: true });
 });

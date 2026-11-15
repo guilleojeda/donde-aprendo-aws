@@ -719,7 +719,6 @@ for (const path of ['eventos/index.html', ...eventCountryRoutes.map(({ htmlPath 
 for (const field of ['mode', 'country', 'community', 'city']) assert.match(events, new RegExp(`data-event-${field}`));
 if (fixtureBuild) {
   assert.match(events, /data-event-city="PE:Lima"/);
-  assert.match(events, /data-event-communities="fixture-community\|fixture-student-colombia"/);
   assert.match(events, /href="\/comunidades\/peru\/#resource-fixture-community"/);
   assert.match(events, /<option value="CO"[^>]*>Colombia<\/option>/, 'The global agenda filter includes a co-host country.');
   assert.match(events, /<option value="CR"[^>]*>Costa Rica<\/option>/, 'The global agenda filter keeps published countries with no upcoming events.');
@@ -735,6 +734,19 @@ if (fixtureBuild) {
   assert.match(fallbackMember, /Lima/u, 'Cards show the known community city when the event does not supply one.');
   const globalEventCards = [...events.matchAll(/<li id="event-fixture-event"[^>]*>/gu)];
   assert.equal(globalEventCards.length, 1, 'A cross-posted event appears once in the overall agenda.');
+  const groupStart = globalEventCards[0].index;
+  const groupEnd = events.indexOf('</li>', groupStart);
+  assert.ok(groupEnd > groupStart, 'The cross-posted event has a complete card.');
+  const groupMarkup = events.slice(groupStart, groupEnd);
+  const communitiesByMember = [...groupMarkup.matchAll(/<article\b([^>]*)>/gu)]
+    .map(([, attributes]) => [
+      attributes.match(/\bdata-event-member-id="([^"]*)"/u)?.[1],
+      attributes.match(/\bdata-member-community-id="([^"]*)"/u)?.[1],
+    ]).sort();
+  assert.deepEqual(communitiesByMember, [
+    ['fixture-event', 'fixture-community'],
+    ['fixture-event-colombia', 'fixture-student-colombia'],
+  ], 'The grouped event exposes the exact community of each co-host member.');
   const globalAliases = globalEventCards[0][0].match(/data-event-alias-ids="([^"]+)"/u)?.[1].split('|') ?? [];
   assert.ok(globalAliases.includes('fixture-event-colombia'), 'SSR exposes the co-host alias consumed by fragment navigation.');
   assert.match(events, /<span id="event-fixture-event-colombia"\s/u,

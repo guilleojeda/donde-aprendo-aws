@@ -4,6 +4,7 @@ import {
   assertCreatorStateFits,
   CREATOR_CONTENT_LIMIT_BYTES,
   CreatorStateError,
+  prepareCreatorStateWrite,
   readCreatorState,
   validateCreatorSequences,
 } from '../src/lib/creator-state.mjs';
@@ -101,6 +102,15 @@ test('candidate sizing includes exact physical keys and excludes only bounded ro
   assert.equal(assertCreatorStateFits(candidate), candidate);
 });
 
+test('creator-state write preparation binds its logical key, observed revision, and validated candidate', () => {
+  const candidate = creatorState();
+  const prepared = prepareCreatorStateWrite(candidate, candidate.version - 1);
+  assert.deepEqual(prepared.check, { key: 'profile:creator-one', version: candidate.version - 1 });
+  assert.deepEqual(prepared.put, { key: 'profile:creator-one', value: candidate });
+  assert.strictEqual(prepared.put.value, candidate);
+  assert.throws(() => prepareCreatorStateWrite(candidate, -1), TypeError);
+});
+
 test('content above the fixed 384 KiB allowance fails with the storage quota contract', () => {
   const series = {};
   for (let index = 0; index < 197; index += 1) {
@@ -115,6 +125,12 @@ test('content above the fixed 384 KiB allowance fails with the storage quota con
   const candidate = creatorState({ series });
   assert.ok(dynamoDbCreatorStateSizes(candidate).contentBytes > CREATOR_CONTENT_LIMIT_BYTES);
   assert.throws(() => assertCreatorStateFits(candidate), (error) => {
+    assert.equal(error.status, 422);
+    assert.equal(error.code, 'CREATOR_CONTENT_TOO_LARGE');
+    return true;
+  });
+  assert.throws(() => prepareCreatorStateWrite(candidate, candidate.version - 1), (error) => {
+    assert.ok(error instanceof CreatorStateError);
     assert.equal(error.status, 422);
     assert.equal(error.code, 'CREATOR_CONTENT_TOO_LARGE');
     return true;

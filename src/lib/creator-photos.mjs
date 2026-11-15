@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import sharp from 'sharp';
-import { assertCreatorStateFits, readCreatorState } from './creator-state.mjs';
+import { prepareCreatorStateWrite, readCreatorState } from './creator-state.mjs';
 import {
   CREATOR_PHOTO_FORMATS,
   CREATOR_PHOTO_MAX_PIXELS,
@@ -261,12 +261,13 @@ export function createCreatorPhotoService(dependencies) {
         const output = await prepareCreatorPhoto(input);
         finalKey = finalObjectKey(profileId, uploadId, output);
         const photo = photoReference(profileId, uploadId);
-        const nextState = assertCreatorStateFits({
+        const nextState = {
           ...state,
           version: state.version + 1,
           updatedAt: timestamp,
           photo,
-        });
+        };
+        const prepared = prepareCreatorStateWrite(nextState, expectedVersion);
         await objects.put(finalKey, output);
 
         const nextUpload = {
@@ -279,11 +280,11 @@ export function createCreatorPhotoService(dependencies) {
 
         const committed = await store.transact({
           checks: [
-            { key: PROFILE_KEY(profileId), version: expectedVersion },
+            prepared.check,
             { key: uploadKey, version: upload.version },
           ],
           puts: [
-            { key: PROFILE_KEY(profileId), value: nextState },
+            prepared.put,
             { key: uploadKey, value: nextUpload },
           ],
         });

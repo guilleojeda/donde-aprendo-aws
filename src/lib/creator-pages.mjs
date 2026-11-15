@@ -12,7 +12,7 @@ import {
   isCreatorStateId,
   normalizeCreatorText,
 } from './creator-values.mjs';
-import { CreatorStateError, assertCreatorStateFits, readCreatorState } from './creator-state.mjs';
+import { CreatorStateError, prepareCreatorStateWrite, readCreatorState } from './creator-state.mjs';
 import {
   creatorPageSessionBindingFailureForRequest,
 } from './creator-session-context.mjs';
@@ -73,6 +73,12 @@ function hash(value) {
 
 function currentResourceUrl(resource) {
   return resource.recordType === 'event' ? resource.registrationUrl : resource.url;
+}
+
+function resourceMatchesSelection(resource, resourceId, url) {
+  return resource?.id === resourceId
+    && isCatalogResource(resource)
+    && currentResourceUrl(resource) === url;
 }
 
 function isCatalogResource(resource) {
@@ -564,9 +570,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
   }
 
-  function creatorStateFits(candidate) {
+  function creatorStateWrite(candidate, observedVersion) {
     try {
-      return assertCreatorStateFits(candidate);
+      return prepareCreatorStateWrite(candidate, observedVersion);
     } catch (error) {
       if (error instanceof CreatorStateError) fail(error.status, error.code, error.message);
       throw error;
@@ -605,14 +611,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     };
   }
 
-  function creatorStatePut(candidate) {
-    return { key: profileKey(candidate.id), value: creatorStateFits(candidate) };
-  }
-
   async function commitCreatorState(profile, candidate, { checks = [], puts = [], deletes = [], code = 'CREATOR_CONFLICT' } = {}) {
+    const prepared = candidate ? creatorStateWrite(candidate, profile.version) : null;
     const ok = await store.transact({
-      checks: [{ key: profileKey(profile.id), version: profile.version }, ...checks],
-      puts: [...puts, ...(candidate ? [creatorStatePut(candidate)] : [])],
+      checks: [prepared?.check ?? { key: profileKey(profile.id), version: profile.version }, ...checks],
+      puts: [...puts, ...(prepared ? [prepared.put] : [])],
       deletes,
     });
     if (!ok) fail(409, code, 'creator content or a related record changed while saving');
@@ -975,14 +978,15 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       };
       const alias = created.slug ? await store.get(aliasKey(created.slug)) : null;
       if (alias) fail(409, 'SLUG_TAKEN', 'slug is already reserved');
+      const prepared = creatorStateWrite(created, null);
       const checks = [
         { key: accountKey(principal.accountId), version: null },
-        { key: profileKey(id), version: null },
+        prepared.check,
         ...(created.slug ? [{ key: aliasKey(created.slug), version: null }] : []),
       ];
       const puts = [
         { key: accountKey(principal.accountId), value: { recordType: 'accountProfile', profileId: id, version: 1 } },
-        creatorStatePut(created),
+        prepared.put,
         ...(created.slug ? [{ key: aliasKey(created.slug), value: { recordType: 'profileAlias', slug: created.slug, profileId: id, version: 1 } }] : []),
       ];
       if (!await store.transact({ checks, puts })) {
@@ -1313,9 +1317,15 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (currentUrl !== url) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
     const reservationKey = currentUrlKey(url);
     const reservation = await store.get(reservationKey);
-    if (!reservation || !isValidUrlReservation(reservation, url)) fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the selected resource');
-    if (reservation.status === 'collision') fail(409, 'URL_COLLISION', 'this URL needs administrative review');
-    if (reservation.resourceId !== resource.id) fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the selected resource');
+    const validReservation = isValidUrlReservation(reservation, url);
+    if (!validReservation || reservation.status === 'collision' || reservation.resourceId !== resource.id) {
+      const latestResource = await store.get(`resource:${resource.id}`);
+      if (!resourceMatchesSelection(latestResource, resource.id, url)) {
+        fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
+      }
+      if (validReservation && reservation.status === 'collision') fail(409, 'URL_COLLISION', 'this URL needs administrative review');
+      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the selected resource');
+    }
     try {
       return await attachExistingResource(profile, resource, {
         selectedForDirectory: body.selectedForDirectory ?? true,
@@ -1333,9 +1343,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       } catch {
         throw error;
       }
-      const resourceStillMatches = latestResource?.id === resource.id
-        && isCatalogResource(latestResource)
-        && currentResourceUrl(latestResource) === url;
+      const resourceStillMatches = resourceMatchesSelection(latestResource, resource.id, url);
       const reservationStillMatches = isValidUrlReservation(latestReservation, url)
         && latestReservation.status === 'reserved'
         && latestReservation.resourceId === resource.id;
@@ -2115,7 +2123,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         return jsonResponse(await readCreatorEditor(context));
       }
       if (request.method === 'PUT') {
-        requireWriteRequest(request, principal);
         const body = await parseRequestBody(request);
         return jsonResponse(await saveProfile(principal, body));
       }
@@ -2124,7 +2131,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (path === '/api/creador/series') {
       if (request.method === 'GET') return jsonResponse(await readCreatorSeries(context));
       if (request.method === 'POST') {
-        requireWriteRequest(request, principal);
         const body = await parseRequestBody(request);
         return jsonResponse(await createCreatorSeries(principal, body), 201);
       }
@@ -2133,7 +2139,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const seriesChapterMoveMatch = path.match(/^\/api\/creador\/series\/([^/]+)\/capitulos\/([^/]+)\/mover$/);
     if (seriesChapterMoveMatch) {
       requireMethod(request, 'POST');
-      requireWriteRequest(request, principal);
       return jsonResponse(await moveCreatorOrder(
         principal,
         decodeSegment(seriesChapterMoveMatch[2]),
@@ -2146,7 +2151,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       const seriesId = decodeSegment(seriesChapterMatch[1]);
       const chapterId = decodeSegment(seriesChapterMatch[2]);
       if (!['PUT', 'DELETE'].includes(request.method)) fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
-      requireWriteRequest(request, principal);
       const body = await parseRequestBody(request);
       const operation = request.method === 'PUT' ? 'add' : 'remove';
       const result = await changeSeriesChapter(principal, seriesId, chapterId, body, operation);
@@ -2156,61 +2160,51 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (seriesMatch) {
       const id = decodeSegment(seriesMatch[1]);
       if (request.method === 'PATCH') {
-        requireWriteRequest(request, principal);
         return jsonResponse(await patchCreatorSeries(principal, id, await parseRequestBody(request)));
       }
       if (request.method === 'DELETE') {
-        requireWriteRequest(request, principal);
         return jsonResponse(await deleteCreatorSeries(principal, id, await parseRequestBody(request)));
       }
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
     }
     if (path === '/api/creador/perfil/publicar') {
       requireMethod(request, 'POST');
-      requireWriteRequest(request, principal);
       return jsonResponse(await publishProfile(principal, await parseRequestBody(request)));
     }
     if (path === '/api/creador/referencias') {
       requireMethod(request, 'POST');
-      requireWriteRequest(request, principal);
       const result = await referenceResource(principal, await parseRequestBody(request));
       return jsonResponse(result, result.disposition === 'attached' ? 201 : 200);
     }
     if (path === '/api/creador/enlaces') {
       requireMethod(request, 'POST');
-      requireWriteRequest(request, principal);
       const result = await addLink(principal, await parseRequestBody(request, trimTopLevelUrl));
       return jsonResponse(result, result.disposition === 'already-present' ? 200 : 201);
     }
     const linkEditMatch = path.match(/^\/api\/creador\/enlaces\/([^/]+)\/editar$/);
     if (linkEditMatch) {
       requireMethod(request, 'PATCH');
-      requireWriteRequest(request, principal);
       return jsonResponse(await editLink(principal, decodeSegment(linkEditMatch[1]), await parseRequestBody(request, trimTopLevelUrl)));
     }
     const placementMoveMatch = path.match(/^\/api\/creador\/enlaces\/([^/]+)\/mover$/);
     if (placementMoveMatch) {
       requireMethod(request, 'POST');
-      requireWriteRequest(request, principal);
       return jsonResponse(await moveCreatorOrder(principal, decodeSegment(placementMoveMatch[1]), await parseRequestBody(request)));
     }
     const placementMatch = path.match(/^\/api\/creador\/enlaces\/([^/]+)$/);
     if (placementMatch) {
       const id = decodeSegment(placementMatch[1]);
       if (request.method === 'DELETE') {
-        requireWriteRequest(request, principal);
         const changes = await deletePlacement(principal, id, request.body ? await parseRequestBody(request) : {});
         return jsonResponse(changes);
       }
       if (request.method === 'PATCH') {
-        requireWriteRequest(request, principal);
         return jsonResponse(await patchPlacement(principal, id, await parseRequestBody(request)));
       }
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
     }
     if (path === '/api/creador/recursos' && url.searchParams.has('id')) {
       requireMethod(request, 'PATCH');
-      requireWriteRequest(request, principal);
       const resourceIds = url.searchParams.getAll('id');
       if (resourceIds.length !== 1 || [...url.searchParams.keys()].length !== 1) {
         fail(400, 'INVALID_RESOURCE_ID', 'exactly one resource id is required');
@@ -2221,7 +2215,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
     if (path === '/api/creador/reclamaciones') {
       requireMethod(request, 'POST');
-      requireWriteRequest(request, principal);
       return jsonResponse(await createClaim(principal, await parseRequestBody(request, trimFreeTextClaimUrls)), 202);
     }
 

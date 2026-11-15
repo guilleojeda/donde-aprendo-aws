@@ -14,6 +14,7 @@ import {
 import {
   creatorOwnerCanSubmitEditor,
   creatorOwnerLinkMoveContext,
+  creatorOwnerMoveDestinationIsValid,
   creatorOwnerReferenceSubmissionStatus,
   type CreatorOwnerEditorDraft,
   type CreatorOwnerLinkDraft,
@@ -189,6 +190,7 @@ export default function CreatorOwnerEditorDialog({
   const canSubmitAfterConflict = editor && operation.status === 'conflict' && !operation.intent.targetMissing
     && !(state.catalog.needsRefresh && operation.intent.action === 'create-claim')
     && (editor.kind !== 'photo' || recoverablePhotoConflict)
+    && creatorOwnerMoveDestinationIsValid(editor, state.observed)
     ? creatorOwnerCanSubmitEditor({ ...state, operation: { status: 'idle' } })
     : false;
   const rows = editor && matches ? comparisonRows(editor, state.observed) : [];
@@ -455,6 +457,11 @@ function OperationFeedback({ state, rows, canSaveDraft, onRetryRead, onResolve, 
   const claimIntent = (operation.status === 'unknown' || operation.status === 'conflict') && operation.intent.action === 'create-claim';
   const photoConflict = operation.status === 'conflict'
     && (operation.intent.action === 'photo-authorize' || operation.intent.action === 'photo-finalize');
+  const moveDraft = state.editor?.kind === 'move-chapter' || state.editor?.kind === 'move-link' ? state.editor : undefined;
+  const canCorrectMoveDraft = operation.status === 'conflict' && operation.readCompleted && !operation.intent.targetMissing
+    && moveDraft && moveDraft.key === operation.intent.editorKey
+    && creatorOwnerCanSubmitEditor({ ...state, operation: { status: 'idle' } })
+    && !creatorOwnerMoveDestinationIsValid(moveDraft, state.observed);
   const canReselect = operation.status === 'conflict' && state.catalog.needsRefresh
     && (operation.intent.action === 'reference-link' || operation.intent.action === 'create-claim');
   const title = fact === 'acknowledged' ? 'La acción está confirmada'
@@ -476,9 +483,11 @@ function OperationFeedback({ state, rows, canSaveDraft, onRetryRead, onResolve, 
     {operation.status === 'conflict' && operation.readCompleted && <div class="creator-owner__dialog-actions">
       {canSaveDraft && <button class="button button--dark" type="button" data-owner-conflict-save data-owner-photo-retry={photoConflict ? true : undefined} onClick={onSaveDraft}>{photoConflict ? 'Cargar de nuevo esta foto' : 'Guardar mi borrador'}</button>}
       {canReselect && <button class="button button--outline" type="button" data-owner-return-to-draft onClick={() => onResolve('draft')}>Volver al borrador</button>}
+      {canCorrectMoveDraft && <button class="button button--outline" type="button" data-owner-return-to-draft data-owner-move-draft-correction onClick={() => onResolve('draft')}>Corregir posición</button>}
       <button class="button button--outline" type="button" data-owner-use-saved onClick={() => onResolve('saved')}>Usar lo guardado</button>
     </div>}
-    {operation.status === 'conflict' && operation.readCompleted && !canSaveDraft && !canReselect && <p>No se puede guardar este cambio con el destino actual. Conservamos el borrador para que puedas copiarlo o usar lo guardado.</p>}
+    {canCorrectMoveDraft && <p data-owner-move-draft-range>El orden cambió y esa posición ya no existe. Conservamos el borrador para que elijas una posición vigente.</p>}
+    {operation.status === 'conflict' && operation.readCompleted && !canSaveDraft && !canReselect && !canCorrectMoveDraft && <p>No se puede guardar este cambio con el destino actual. Conservamos el borrador para que puedas copiarlo o usar lo guardado.</p>}
   </section>;
 }
 

@@ -129,7 +129,19 @@ test('a signed upload is exact, short-lived, size-limited, and publishes only a 
   assert.ok(policy.contentLengthRange[0] >= 0);
   assert.ok(policy.contentLengthRange[1] > 0 && policy.contentLengthRange[1] <= MAX_UPLOAD_BYTES);
 
+  const transactionOffset = harness.store.calls.length;
   await harness.service.finalizeUpload({ profileId: 'creator-a', uploadId: upload.uploadId, expectedVersion: 1 });
+  const finalization = harness.store.calls.slice(transactionOffset)
+    .filter(({ operation }) => operation === 'transact')
+    .map(({ input }) => input)
+    .find(({ puts }) => puts.some(({ key }) => key === profileStoreKey('creator-a')));
+  assert.ok(finalization, 'photo selection uses a single profile/upload transaction');
+  assert.deepEqual(finalization.checks, [
+    { key: profileStoreKey('creator-a'), version: 1 },
+    { key: `photo-upload:${upload.uploadId}`, version: 1 },
+  ], 'the shared preparation carries the exact observed profile revision alongside the upload fence');
+  assert.equal(finalization.puts.find(({ key }) => key === profileStoreKey('creator-a')).value.version, 2);
+  assert.equal(finalization.puts.find(({ key }) => key === `photo-upload:${upload.uploadId}`).value.state, 'complete');
   const profile = await profileRecord(harness);
   assert.equal(profile.version, 2);
   const photo = await currentPhoto(harness);

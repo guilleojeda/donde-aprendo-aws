@@ -100,6 +100,7 @@ async function setResource(harness, id, nextResource) {
 
 test('profile commands normalize raw fields, preserve optional presence, publish explicitly, and keep old aliases stable', async () => {
   const harness = await createCreatorContentHarness({ state: null });
+  const createCallOffset = harness.store.calls.length;
   const rawCreate = {
     creatorVersion: null,
     displayName: '  Ada de Lambda  ',
@@ -115,6 +116,13 @@ test('profile commands normalize raw fields, preserve optional presence, publish
   assertAck(created.body, { operation: 'save-profile', disposition: 'created', profileId: created.body.profileId });
   const createdProfileId = created.body.profileId;
   assert.equal(createdProfileId, 'fixture-id-1');
+  const createTransaction = harness.store.calls.slice(createCallOffset)
+    .find(({ operation, input }) => operation === 'transact'
+      && input.puts.some(({ key }) => key === `profile:${createdProfileId}`)).input;
+  assert.deepEqual(createTransaction.checks.filter(({ key }) => key === `profile:${createdProfileId}`), [{
+    key: `profile:${createdProfileId}`, version: null,
+  }], 'initial creation uses the shared preparation key and absent-row condition');
+  assert.equal(createTransaction.puts.find(({ key }) => key === `profile:${createdProfileId}`).value.version, 1);
 
   let snapshot = await requireSnapshot(harness, createdProfileId);
   assert.equal(snapshot.profile.published, false, 'creation does not publish');
@@ -144,6 +152,7 @@ test('profile commands normalize raw fields, preserve optional presence, publish
   assert.equal((await harness.service.readPublicProfile('ada-lambda')).status, 200);
 
   const previousVersion = snapshot.creatorVersion;
+  const updateCallOffset = harness.store.calls.length;
   const updated = await command(harness, '/api/creador/perfil/', 'PUT', {
     creatorVersion: previousVersion,
     displayName: '  Ada de Lambda  ',
@@ -153,6 +162,14 @@ test('profile commands normalize raw fields, preserve optional presence, publish
   });
   assert.equal(updated.response.status, 200, JSON.stringify(updated.body));
   assertAck(updated.body, { operation: 'save-profile', disposition: 'saved', profileId: snapshot.profile.id });
+  const updateTransaction = harness.store.calls.slice(updateCallOffset)
+    .find(({ operation, input }) => operation === 'transact'
+      && input.puts.some(({ key }) => key === `profile:${snapshot.profile.id}`)).input;
+  assert.deepEqual(updateTransaction.checks.filter(({ key }) => key === `profile:${snapshot.profile.id}`), [{
+    key: `profile:${snapshot.profile.id}`, version: previousVersion,
+  }], 'an existing creator update uses the shared observed-revision condition');
+  assert.equal(updateTransaction.puts.find(({ key }) => key === `profile:${snapshot.profile.id}`).value.version,
+    previousVersion + 1);
   snapshot = await requireSnapshot(harness, createdProfileId);
   assert.equal(snapshot.profile.displayName, 'Ada de Lambda');
   assert.equal(snapshot.profile.city, 'Córdoba', 'an omitted field is preserved');

@@ -208,7 +208,7 @@ class MockElement {
 
 function createEventCards(count, {
   now, alternateModes = false, expiringFirst = false,
-  eventCountriesByCard = [], eventCommunitiesByCard = [], events = [],
+  eventCountriesByCard = [], events = [],
 } = {}) {
   return Array.from({ length: count }, (_, index) => {
     const spec = events[index] ?? {};
@@ -228,7 +228,6 @@ function createEventCards(count, {
         country: spec.country ?? 'AR',
         eventVenueCountry: spec.venueCountry ?? '',
         eventCountries: spec.countries ?? eventCountriesByCard[index] ?? spec.country ?? 'AR',
-        eventCommunities: spec.communities ?? eventCommunitiesByCard[index] ?? '',
         eventCity: spec.city ?? '',
         eventAliasIds: spec.aliasIds ?? '',
       },
@@ -243,9 +242,8 @@ function createEventCards(count, {
     card.dayHeading.append(card.dayDate);
     // Give each co-host its own detail disclosure and action links, as consumed by the agenda client.
     const countries = card.dataset.eventCountries.split('|').filter(Boolean);
-    const communities = card.dataset.eventCommunities.split('|').filter(Boolean);
     const aliases = card.dataset.eventAliasIds.split('|').filter(Boolean);
-    card.members = Array.from({ length: Math.max(countries.length, communities.length, aliases.length + 1, memberSpecs.length, 1) }, (_, memberIndex) => {
+    card.members = Array.from({ length: Math.max(countries.length, aliases.length + 1, memberSpecs.length) }, (_, memberIndex) => {
       const memberSpec = memberSpecs[memberIndex] ?? {};
       const view = new MockElement(null, {
         tagName: 'ARTICLE',
@@ -259,7 +257,7 @@ function createEventCards(count, {
           country: memberSpec.country ?? countries[memberIndex] ?? countries[0] ?? '',
           memberVenueCountry: memberSpec.venueCountry ?? (memberIndex === 0 ? card.dataset.eventVenueCountry : ''),
           memberCity: memberSpec.city ?? card.dataset.eventCity.replace(/^[^:]*:/u, ''),
-          memberCommunityId: memberSpec.communityId ?? communities[memberIndex] ?? communities[0] ?? '',
+          memberCommunityId: memberSpec.communityId ?? (memberIndex === 0 ? spec.communityId : undefined) ?? '',
           memberTitle: memberSpec.title ?? (memberIndex === 0 ? spec.title : undefined) ?? `Evento de agenda ${index + 1}${memberIndex ? ` · comunidad ${memberIndex + 1}` : ''}`,
           memberRegistrationUrl: memberSpec.registrationUrl ?? spec.registrationUrl ?? `https://example.test/events/${index}${memberIndex ? `/community-${memberIndex + 1}` : ''}`,
         },
@@ -314,7 +312,7 @@ function createAgenda({
   expiringFirst = false, filter = '', communityOptions = [
     { value: 'community-ar', dataset: { eventCountry: 'AR', eventCity: 'Córdoba' } },
     { value: 'community-co', dataset: { eventCountry: 'CO', eventCity: 'Bogotá' } },
-  ], eventCountriesByCard = [], eventCommunitiesByCard = [], events = [], includeEnded = true,
+  ], eventCountriesByCard = [], events = [], includeEnded = true,
   hostname = 'dondeaprendoaws.com', visitorTimeZone = 'UTC', pathname = '/eventos/', hash = '',
   defaultCountry = '', defaultMode = '', additionalKnownEventIds = [], clipboard,
   cityOptions = [
@@ -331,7 +329,7 @@ function createAgenda({
   document.body = new MockElement(document, { tagName: 'BODY' });
   document.activeElement = document.body;
   const cards = createEventCards(count, {
-    now, alternateModes, expiringFirst, eventCountriesByCard, eventCommunitiesByCard, events,
+    now, alternateModes, expiringFirst, eventCountriesByCard, events,
   });
   for (const card of cards) {
     card.document = document;
@@ -1150,7 +1148,7 @@ test('an empty period retains valid filters and clear changes only filters', () 
     now,
     filter: '?view=week&date=2026-10-05&tz=UTC&mode=online&country=AR&community=community-ar',
     events: [
-      { id: 'next-week', startsAt: '2026-10-12T01:00:00Z', endsAt: '2026-10-12T02:00:00Z', mode: 'online', country: 'AR', communities: 'community-ar' },
+      { id: 'next-week', startsAt: '2026-10-12T01:00:00Z', endsAt: '2026-10-12T02:00:00Z', mode: 'online', country: 'AR', communityId: 'community-ar' },
     ],
   });
 
@@ -1192,16 +1190,16 @@ test('route defaults yield to query overrides and online keeps the physical loca
     events: [
       {
         id: 'organizer-ar-venue-co', mode: 'in-person', country: 'AR', venueCountry: 'CO',
-        city: 'Bogotá', communities: 'community-ar',
+        city: 'Bogotá', communityId: 'community-ar',
       },
       {
         id: 'organizer-co-venue-ar', mode: 'hybrid', country: 'CO', venueCountry: 'AR',
-        city: 'Córdoba', communities: 'community-co',
+        city: 'Córdoba', communityId: 'community-co',
       },
-      { id: 'remote-co', mode: 'online', country: 'CO', communities: 'community-co' },
+      { id: 'remote-co', mode: 'online', country: 'CO', communityId: 'community-co' },
       {
         id: 'organizer-ar-venue-ar', mode: 'in-person', country: 'AR', venueCountry: 'AR',
-        city: 'Córdoba', communities: 'community-ar',
+        city: 'Córdoba', communityId: 'community-ar',
       },
     ],
   });
@@ -1262,7 +1260,7 @@ test('a query-overridden national route reveals an event fragment without switch
     defaultMode: 'in-person',
     filter: '?view=week&date=2026-10-05&tz=UTC&country=CO&mode=online',
     hash: '#event-remote-co',
-    events: [{ id: 'remote-co', mode: 'online', country: 'CO', communities: 'community-co' }],
+    events: [{ id: 'remote-co', mode: 'online', country: 'CO', communityId: 'community-co' }],
   });
 
   assert.equal(agenda.cards[0].hidden, false,
@@ -1321,7 +1319,7 @@ test('a community without matching events remains selectable independently of ph
       { value: 'community-co', dataset: { eventCountry: 'CO', eventCity: 'Bogotá' } },
       { value: 'community-pe', dataset: { eventCountry: 'PE', eventCity: 'Lima' } },
     ],
-    events: [{ id: 'argentina-event', mode: 'in-person', country: 'AR', venueCountry: 'AR', communities: 'community-ar' }],
+    events: [{ id: 'argentina-event', mode: 'in-person', country: 'AR', venueCountry: 'AR', communityId: 'community-ar' }],
   });
 
   assert.equal(agenda.countLabel.textContent, '0 eventos');
@@ -1340,7 +1338,7 @@ test('a community without matching events remains selectable independently of ph
       { value: 'community-co', dataset: { eventCountry: 'CO', eventCity: 'Bogotá' } },
       { value: 'community-pe', dataset: { eventCountry: 'PE', eventCity: 'Lima' } },
     ],
-    events: [{ id: 'argentina-event', mode: 'in-person', country: 'AR', venueCountry: 'AR', communities: 'community-ar' }],
+    events: [{ id: 'argentina-event', mode: 'in-person', country: 'AR', venueCountry: 'AR', communityId: 'community-ar' }],
   });
   assert.equal(reloaded.communityFilter.value, 'community-pe');
   assert.equal(reloaded.countLabel.textContent, '0 eventos',
@@ -1497,7 +1495,7 @@ test('an out-of-period co-host fragment opens its start period and keeps compati
       {
         id: 'event-primary', aliasIds: 'cohost',
         startsAt: '2027-01-01T01:00:00Z', endsAt: '2027-01-01T02:00:00Z',
-        mode: 'online', country: 'AR', countries: 'AR', communities: 'community-ar',
+        mode: 'online', country: 'AR', countries: 'AR', communityId: 'community-ar',
       },
     ],
   });
@@ -2003,7 +2001,8 @@ test('a past co-host fragment reopens its group and clears only its incompatible
       {
         id: 'event-primary', aliasIds: 'meetup-event-cohost',
         startsAt: now - 7_200_000, endsAt: now - 3_600_000, mode: 'online',
-        countries: 'AR|CO', communities: 'community-ar|community-co', city: 'AR:Córdoba',
+        countries: 'AR|CO', city: 'AR:Córdoba',
+        members: [{ communityId: 'community-ar' }, { communityId: 'community-co' }],
       },
       { id: 'other', startsAt: now + 3_600_000, endsAt: now + 7_200_000, mode: 'in-person' },
     ],
@@ -2046,9 +2045,9 @@ test('community identity stays selected across country changes and history', () 
     count: 3,
     filter: '?country=AR&community=community-co',
     events: [
-      { id: 'community-co-in-ar', mode: 'hybrid', country: 'CO', venueCountry: 'AR', city: 'Córdoba', communities: 'community-co' },
-      { id: 'community-co-in-co', mode: 'in-person', country: 'CO', venueCountry: 'CO', city: 'Bogotá', communities: 'community-co' },
-      { id: 'community-ar-in-ar', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', communities: 'community-ar' },
+      { id: 'community-co-in-ar', mode: 'hybrid', country: 'CO', venueCountry: 'AR', city: 'Córdoba', communityId: 'community-co' },
+      { id: 'community-co-in-co', mode: 'in-person', country: 'CO', venueCountry: 'CO', city: 'Bogotá', communityId: 'community-co' },
+      { id: 'community-ar-in-ar', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', communityId: 'community-ar' },
     ],
   });
 
@@ -2106,9 +2105,9 @@ test('all route types keep the full primary location and community controls', ()
       { value: 'community-co', dataset: { eventCountry: 'CO', eventCity: 'Bogotá' } },
     ],
     events: [
-      { id: 'event-0', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', communities: 'community-girls' },
-      { id: 'event-1', mode: 'in-person', country: 'CO', venueCountry: 'CO', city: 'Bogotá', communities: 'community-co' },
-      { id: 'event-2', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', communities: 'community-girls' },
+      { id: 'event-0', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', communityId: 'community-girls' },
+      { id: 'event-1', mode: 'in-person', country: 'CO', venueCountry: 'CO', city: 'Bogotá', communityId: 'community-co' },
+      { id: 'event-2', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', communityId: 'community-girls' },
     ],
   });
 
@@ -2163,7 +2162,7 @@ test('the client uses a published community city when the event has no explicit 
     count: 1,
     filter: '?mode=in-person&country=CO&city=CO%3ABogot%C3%A1&community=community-co',
     events: [{
-      id: 'community-city-fallback', mode: 'in-person', country: 'CO', communities: 'community-co',
+      id: 'community-city-fallback', mode: 'in-person', country: 'CO', communityId: 'community-co',
     }],
   });
 
@@ -2180,7 +2179,7 @@ test('an implicit national location default falls back globally for an incompati
     hash: '#event-physical-co',
     events: [{
       id: 'physical-co', mode: 'in-person', country: 'CO', venueCountry: 'CO',
-      city: 'Bogotá', communities: 'community-co',
+      city: 'Bogotá', communityId: 'community-co',
     }],
   });
   const fallback = new URL(agenda.window.location.href, 'https://dondeaprendoaws.com');
@@ -2202,7 +2201,7 @@ test('an implicit online default falls back globally for a physical-only event f
     hash: '#event-physical-ar',
     events: [{
       id: 'physical-ar', mode: 'in-person', country: 'AR', venueCountry: 'AR',
-      city: 'Córdoba', communities: 'community-ar',
+      city: 'Córdoba', communityId: 'community-ar',
     }],
   });
   const fallback = new URL(agenda.window.location.href, 'https://dondeaprendoaws.com');
@@ -2328,10 +2327,10 @@ test('X and LinkedIn open native safe links with the approved prepared posts and
 test('prepared X, LinkedIn and copy data follows period, filters, checkbox, expiry and history changes', async () => {
   const now = Date.parse('2026-10-20T12:00:00Z');
   const events = [
-    { id: 'current-cordoba', title: 'Evento presencial Córdoba', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', communities: 'community-ar', startsAt: '2026-10-21T15:00:00Z', endsAt: '2026-10-21T16:00:00Z' },
-    { id: 'closing-online', title: 'Cierre de hoy', mode: 'online', country: 'AR', communities: 'community-ar', startsAt: '2026-10-20T11:00:00Z', endsAt: '2026-10-20T12:00:30Z' },
-    { id: 'current-colombia', title: 'Evento remoto Colombia', mode: 'online', country: 'CO', communities: 'community-co', startsAt: '2026-10-22T15:00:00Z', endsAt: '2026-10-22T16:00:00Z' },
-    { id: 'next-buenos-aires', title: 'Presencial Buenos Aires', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Buenos Aires', communities: 'community-ar', startsAt: '2026-10-27T15:00:00Z', endsAt: '2026-10-27T16:00:00Z' },
+    { id: 'current-cordoba', title: 'Evento presencial Córdoba', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', communityId: 'community-ar', startsAt: '2026-10-21T15:00:00Z', endsAt: '2026-10-21T16:00:00Z' },
+    { id: 'closing-online', title: 'Cierre de hoy', mode: 'online', country: 'AR', communityId: 'community-ar', startsAt: '2026-10-20T11:00:00Z', endsAt: '2026-10-20T12:00:30Z' },
+    { id: 'current-colombia', title: 'Evento remoto Colombia', mode: 'online', country: 'CO', communityId: 'community-co', startsAt: '2026-10-22T15:00:00Z', endsAt: '2026-10-22T16:00:00Z' },
+    { id: 'next-buenos-aires', title: 'Presencial Buenos Aires', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Buenos Aires', communityId: 'community-ar', startsAt: '2026-10-27T15:00:00Z', endsAt: '2026-10-27T16:00:00Z' },
   ];
   const agenda = createAgenda({
     count: events.length,
@@ -2458,7 +2457,7 @@ test('Copy writes the complete unpaginated plain-text selection, including a rem
     country: index === 13 ? 'CO' : 'AR',
     venueCountry: index === 13 ? 'CO' : '',
     city: index === 13 ? 'Bogotá' : '',
-    communities: index === 13 ? 'community-co' : 'community-ar',
+    communityId: index === 13 ? 'community-co' : 'community-ar',
     startsAt: `2026-10-${String(6 + (index % 5)).padStart(2, '0')}T15:${String(index).padStart(2, '0')}:00Z`,
     endsAt: `2026-10-${String(6 + (index % 5)).padStart(2, '0')}T16:${String(index).padStart(2, '0')}:00Z`,
     registrationUrl: `https://example.test/registro/${index + 1}`,
@@ -2663,9 +2662,9 @@ test('missing clipboard support reports failure and allows a later retry', async
 
 test('fixed share links follow selection, period, zone, history and reload without checkbox or fragment', async () => {
   const events = [
-    { id: 'share-remote-co', title: 'Online Colombia', mode: 'online', country: 'CO', communities: 'community-co' },
-    { id: 'share-physical-co', title: 'Presencial Bogotá', mode: 'in-person', country: 'CO', venueCountry: 'CO', city: 'Bogotá', communities: 'community-co' },
-    { id: 'share-physical-ar', title: 'Presencial Córdoba', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', communities: 'community-ar' },
+    { id: 'share-remote-co', title: 'Online Colombia', mode: 'online', country: 'CO', communityId: 'community-co' },
+    { id: 'share-physical-co', title: 'Presencial Bogotá', mode: 'in-person', country: 'CO', venueCountry: 'CO', city: 'Bogotá', communityId: 'community-co' },
+    { id: 'share-physical-ar', title: 'Presencial Córdoba', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', communityId: 'community-ar' },
   ];
   const agenda = createAgenda({
     count: events.length,
@@ -2774,7 +2773,6 @@ test('a co-hosted occurrence shares the visible representative schedule and its 
       id: 'cohost-ar',
       aliasIds: 'cohost-co',
       countries: 'AR|CO',
-      communities: 'community-ar|community-co',
       members: [
         { id: 'cohost-ar', country: 'AR', communityId: 'community-ar', title: 'Horario organizador Argentina', registrationUrl: 'https://example.test/registro/ar', startsAt: '2026-10-06T14:00:00Z', endsAt: '2026-10-06T15:00:00Z' },
         { id: 'cohost-co', country: 'CO', communityId: 'community-co', title: 'Horario organizador Colombia', registrationUrl: 'https://example.test/registro/co', startsAt: '2026-10-06T16:00:00Z', endsAt: '2026-10-06T17:30:00Z' },
