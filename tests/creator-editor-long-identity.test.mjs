@@ -293,7 +293,8 @@ test('256-byte and current legacy IDs retain exact claim moderation and owner ed
   }, { session: 'admin' });
   assert.equal(repeatedResolution.status, 200);
   assert.deepEqual(repeatedResolution.data.linkedResourceIds, ids);
-  assert.equal(harness.mock.transactions.length, transactionCount, 'repeating resolution does not rewrite exact linked identities');
+  assert.deepEqual(repeatedResolution.data.versionChanges, []);
+  assert.deepEqual(writesSince(harness, transactionCount), [], 'repeating resolution does not rewrite exact linked identities');
 
   let current = await owner(harness);
   assert.deepEqual(new Set(current.resources.map(({ id }) => id)), new Set(ids));

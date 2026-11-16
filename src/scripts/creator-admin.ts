@@ -26,7 +26,7 @@ interface AdminCommandContext {
 interface AdminCompletion {
   payload: Record<string, unknown> | null;
   linkedIds: string[];
-  partialCommitKnown: boolean;
+  claimReviewRequired: boolean;
   receiptProblem: boolean;
   gaps: CreatorVersionChange[];
 }
@@ -38,6 +38,10 @@ const REQUEST_TOO_LARGE = 'creator-request-too-large';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function resourceDomToken(id: string): string {
+  return encodeURIComponent(id);
 }
 
 function isAdminState(value: unknown): value is CreatorAdminState {
@@ -224,15 +228,12 @@ function targetKey(entity: string, id: string): string {
 function receiptScopeIsValid(
   changes: CreatorVersionChange[],
   context: AdminCommandContext,
-  linkedIds: readonly string[] = [],
 ): boolean {
   const targets = new Set(context.targets.map(({ entity, id }) => targetKey(entity, id)));
-  const linked = new Set(linkedIds);
   for (const change of changes) {
     if (change.entity !== 'resource' && change.entity !== 'profile') return false;
     const key = targetKey(change.entity, change.id);
     if (!targets.has(key)) return false;
-    if (change.entity === 'resource' && context.kind === 'claim' && !linked.has(change.id)) return false;
   }
 
   if (context.kind === 'claim') {
@@ -247,23 +248,33 @@ function receiptScopeIsValid(
     && (target.version === undefined || change.before === target.version);
 }
 
+function isVersionStep(change: CreatorVersionChange): boolean {
+  return Number.isSafeInteger(change.before + 1) && change.after === change.before + 1;
+}
+
 function receiptChainIsValid(
   changes: CreatorVersionChange[],
   context: AdminCommandContext,
   linkedIds: readonly string[],
 ): boolean {
-  const lastReceipt = new Map<string, { after: number; count: number }>();
-  for (const change of changes) {
-    const key = targetKey(change.entity, change.id);
-    const previous = lastReceipt.get(key);
-    const nextCount = (previous?.count ?? 0) + 1;
-    if (!Number.isSafeInteger(change.before + 1) || change.after !== change.before + 1
-      || (change.entity === 'resource' && nextCount > 1)
-      || (context.kind === 'claim' && change.entity === 'profile' && nextCount > linkedIds.length)) return false;
-    if (previous !== undefined && change.before !== previous.after) return false;
-    lastReceipt.set(key, { after: change.after, count: nextCount });
+  if (!changes.every(isVersionStep)) return false;
+  if (context.kind !== 'claim') return true;
+
+  // Each confirmed grant can emit one profile step followed by one resource step.
+  // Either may be absent. Use the first available slot so later grants have room.
+  let offset = 0;
+  let profileAfter: number | undefined;
+  for (const id of linkedIds) {
+    const profile = changes[offset];
+    if (profile?.entity === 'profile') {
+      if (profileAfter !== undefined && profile.before !== profileAfter) return false;
+      profileAfter = profile.after;
+      offset += 1;
+    }
+    const resource = changes[offset];
+    if (resource?.entity === 'resource' && resource.id === id) offset += 1;
   }
-  return true;
+  return offset === changes.length;
 }
 
 function singleTargetCanonicalIsValid(
@@ -285,7 +296,8 @@ function singleTargetCanonicalIsValid(
 function claimLinkedPrefix(
   payload: Record<string, unknown> | null,
   context: AdminCommandContext,
-  requireComplete: boolean,
+  response: Response,
+  changes: CreatorVersionChange[] | null,
 ): { ids: string[]; valid: boolean } {
   if (context.kind !== 'claim' || !Array.isArray(payload?.linkedResourceIds)) return { ids: [], valid: false };
   const requested = context.targets.filter(({ entity }) => entity === 'resource').map(({ id }) => id);
@@ -293,33 +305,53 @@ function claimLinkedPrefix(
   const ids: string[] = [];
   for (let index = 0; index < payload.linkedResourceIds.length; index += 1) {
     const value = payload.linkedResourceIds[index];
-    if (typeof value !== 'string' || value !== requested[index] || ids.includes(value)) break;
+    if (typeof value !== 'string' || value !== requested[index]) break;
     ids.push(value);
   }
-  const valid = ids.length === payload.linkedResourceIds.length
-    && (requireComplete ? ids.length === requested.length : ids.length > 0);
-  return { ids, valid };
+  const complete = ids.length === requested.length;
+  const quotaFailure = response.status === 422 && payload.error === 'CREATOR_CONTENT_TOO_LARGE';
+  const failedAt = typeof payload.failedResourceId === 'string' ? requested.indexOf(payload.failedResourceId) : -1;
+  const stageMatches = complete
+    ? !Object.hasOwn(payload, 'failedResourceId') && !quotaFailure
+    : !response.ok && failedAt > 0 && ids.length === failedAt;
+  const valid = ids.length === payload.linkedResourceIds.length && stageMatches;
+  if (response.ok || valid) return { ids, valid };
+
+  // The server stops at failedResourceId. Without a known stop, only a coherent
+  // chain of resource steps can corroborate IDs, and a full prefix is unsafe.
+  if (failedAt >= 0) return { ids: ids.slice(0, failedAt), valid: false };
+  const earlierIds = ids.slice(0, requested.length - 1);
+  if (!changes || !receiptScopeIsValid(changes, context) || !receiptChainIsValid(changes, context, earlierIds)) {
+    return { ids: [], valid: false };
+  }
+  const changedResources = new Set(changes.filter(({ entity }) => entity === 'resource').map(({ id }) => id));
+  const unsupported = earlierIds.findIndex((id) => !changedResources.has(id));
+  return { ids: unsupported < 0 ? earlierIds : earlierIds.slice(0, unsupported), valid: false };
 }
 
 async function completeAdminWrite(response: Response, context: AdminCommandContext): Promise<AdminCompletion> {
   const payload = await responsePayload(response);
-  const partialCommitKnown = context.kind === 'claim' && !response.ok
+  const claimReviewRequired = context.kind === 'claim' && !response.ok
     && (Array.isArray(payload?.linkedResourceIds)
       || payload?.error === 'PARTIAL_CLAIM_WRITE'
-      || typeof payload?.profileChanged === 'boolean');
-  if (!response.ok && !partialCommitKnown) {
-    return { payload, linkedIds: [], partialCommitKnown: false, receiptProblem: false, gaps: [] };
+      || typeof payload?.profileChanged === 'boolean'
+      || typeof payload?.failedResourceId === 'string'
+      || (Array.isArray(payload?.versionChanges) && payload.versionChanges.length > 0));
+  if (!response.ok && !claimReviewRequired) {
+    return { payload, linkedIds: [], claimReviewRequired: false, receiptProblem: false, gaps: [] };
   }
 
   const changes = readCreatorVersionChanges(payload);
-  const linkedReceipt = context.kind === 'claim' ? claimLinkedPrefix(payload, context, response.ok) : { ids: [], valid: true };
+  const linkedReceipt = context.kind === 'claim'
+    ? claimLinkedPrefix(payload, context, response, changes)
+    : { ids: [], valid: true };
   const linkedIds = linkedReceipt.ids;
   const profileDeltaPresent = changes?.some(({ entity }) => entity === 'profile') ?? false;
   const profileChangedMatchesReceipt = context.kind !== 'claim'
     || (typeof payload?.profileChanged === 'boolean' && payload.profileChanged === profileDeltaPresent);
   const usable = changes !== null && linkedReceipt.valid
     && profileChangedMatchesReceipt
-    && receiptScopeIsValid(changes ?? [], context, linkedIds)
+    && receiptScopeIsValid(changes ?? [], context)
     && receiptChainIsValid(changes ?? [], context, linkedIds)
     && singleTargetCanonicalIsValid(payload, changes ?? [], context);
   if (!usable) {
@@ -327,7 +359,7 @@ async function completeAdminWrite(response: Response, context: AdminCommandConte
     return {
       payload,
       linkedIds,
-      partialCommitKnown,
+      claimReviewRequired,
       receiptProblem: true,
       gaps: [],
     };
@@ -338,7 +370,7 @@ async function completeAdminWrite(response: Response, context: AdminCommandConte
   return {
     payload,
     linkedIds,
-    partialCommitKnown,
+    claimReviewRequired,
     receiptProblem: false,
     gaps,
   };
@@ -395,8 +427,9 @@ function pauseAdminRows(records: readonly Pick<CreatorVersionChange, 'entity' | 
     const datasetKey = entity === 'resource' ? 'adminResource'
       : entity === 'profile' ? 'adminProfile' : undefined;
     if (!selector || !datasetKey) continue;
+    const expectedValue = entity === 'resource' ? resourceDomToken(id) : id;
     const row = Array.from(root.querySelectorAll<HTMLElement>(selector))
-      .find((candidate) => candidate.dataset[datasetKey] === id);
+      .find((candidate) => candidate.dataset[datasetKey] === expectedValue);
     if (row) markAdminActionsStale('button', row);
   }
 }
@@ -466,9 +499,11 @@ if (root && state && csrfToken) {
       event.preventDefault();
       if (!form.reportValidity()) return;
       const item = form.closest<HTMLElement>('[data-admin-resource]');
-      const resourceId = item?.dataset.adminResource;
-      const resource = state?.resources.find((candidate) => candidate.id === resourceId);
-      if (!resourceId || !resource) return;
+      const domToken = item?.dataset.adminResource;
+      const resource = state?.resources.find((candidate) => typeof candidate.id === 'string'
+        && resourceDomToken(candidate.id) === domToken);
+      const resourceId = typeof resource?.id === 'string' ? resource.id : undefined;
+      if (resourceId === undefined || !resource) return;
       const version = observedVersion(resource);
       const values = new FormData(form);
       const topicValues = String(values.get('topics') ?? '').split(',').map((topic) => topic.trim()).filter(Boolean);
@@ -511,11 +546,12 @@ if (root && state && csrfToken) {
   root.querySelectorAll<HTMLButtonElement>('[data-resource-action]').forEach((button) => {
     onWrite(button, 'click', async () => {
       const item = button.closest<HTMLElement>('[data-admin-resource]');
-      const resourceId = item?.dataset.adminResource;
+      const domToken = item?.dataset.adminResource;
+      const resource = state?.resources.find((candidate) => typeof candidate.id === 'string'
+        && resourceDomToken(candidate.id) === domToken);
+      const resourceId = typeof resource?.id === 'string' ? resource.id : undefined;
       const action = button.dataset.resourceAction;
-      if (!resourceId || !['aprobar', 'revocar', 'ocultar', 'restaurar'].includes(action ?? '')) return;
-      const resource = state?.resources.find((candidate) => candidate.id === resourceId);
-      if (!resource) return;
+      if (resourceId === undefined || !resource || !['aprobar', 'revocar', 'ocultar', 'restaurar'].includes(action ?? '')) return;
       button.disabled = true;
       try {
         const version = observedVersion(resource);
@@ -589,11 +625,19 @@ if (root && state && csrfToken) {
         || !Array.isArray(claim.resourceIds)) return;
       const claimResourceIds = claim.resourceIds.filter((id): id is string => typeof id === 'string');
       if (claimResourceIds.length !== claim.resourceIds.length) return;
-      const allowedIds = new Set(claimResourceIds);
+      const idByDomToken = new Map(claimResourceIds.map((id) => [resourceDomToken(id), id]));
       const values = new FormData(form);
       const submittedValues = formState?.capture(form);
-      const selectedIds = values.getAll('resourceIds').map(String);
-      if (selectedIds.length === 0 || selectedIds.some((id) => !allowedIds.has(id))) {
+      const selectedIds: string[] = [];
+      for (const selectedValue of values.getAll('resourceIds')) {
+        const id = idByDomToken.get(String(selectedValue));
+        if (id === undefined) {
+          announce(itemStatus(item), 'Selecciona uno o más IDs incluidos en la solicitud.', 'error');
+          return;
+        }
+        selectedIds.push(id);
+      }
+      if (selectedIds.length === 0) {
         announce(itemStatus(item), 'Selecciona uno o más IDs incluidos en la solicitud.', 'error');
         return;
       }
@@ -623,25 +667,21 @@ if (root && state && csrfToken) {
           ...(typeof claim.sourceId === 'string' && claim.sourceId ? { sourceId: claim.sourceId } : {}),
           resourceIds: selectedIds,
         });
+        const completion = await completeAdminWrite(response, context);
+        if (response.ok || completion.claimReviewRequired) {
+          markAdminActionsStale('[data-claim-resolution] button, [data-claim-resolution] input[name="resourceIds"]', item ?? form);
+        }
         if (!response.ok) {
-          const completion = await completeAdminWrite(response, context);
           const linkedIds = completion.linkedIds;
-          if (completion.partialCommitKnown) {
-            const linked = new Set(linkedIds);
-            form.querySelectorAll<HTMLInputElement>('input[name="resourceIds"]').forEach((checkbox) => {
-              if (linked.has(checkbox.value)) {
-                checkbox.checked = true;
-                checkbox.setAttribute('data-creator-stale', 'true');
-              }
-            });
-            markAdminActionsStale('[data-claim-resolution] button', item ?? form);
-            markAdminActionsStale('[data-claim-resolution] input[name="resourceIds"]', item ?? form);
+          if (completion.claimReviewRequired) {
             formState?.commit(formState.capture(form));
             syncBeforeUnload();
-            const remainingIds = selectedIds.filter((id) => !linked.has(id));
-            showViewTransition(completion.receiptProblem || completion.gaps.length > 0
-              ? 'La vinculación se completó parcialmente, pero el recibo no coincide con las versiones observadas. Actualiza la vista antes de resolver otra vez esta solicitud.'
-              : 'La vinculación se completó parcialmente. Actualiza la vista antes de resolver otra vez esta solicitud.');
+            const remainingIds = selectedIds.slice(linkedIds.length);
+            showViewTransition(linkedIds.length === 0
+              ? 'No pudimos confirmar el resultado de la vinculación. Actualiza la vista para revisar esta solicitud.'
+              : remainingIds.length === 0
+                ? 'Los recursos seleccionados están vinculados. Actualiza la vista para comprobar el estado de la solicitud.'
+                : 'La vinculación se completó parcialmente. Actualiza la vista antes de resolver otra vez esta solicitud.');
             let partialMessage = linkedIds.length === 0
               ? 'No pudimos confirmar qué recursos se vincularon. Conservamos tus checks y bloqueamos esta solicitud hasta que actualices la vista.'
               : remainingIds.length > 0
@@ -656,11 +696,9 @@ if (root && state && csrfToken) {
             announce(itemStatus(item), partialMessage, 'error');
             return;
           }
-          announce(itemStatus(item), await responseErrorMessage(response), 'error');
+          announce(itemStatus(item), await responseErrorMessage(response, completion.payload), 'error');
           return;
         }
-        const completion = await completeAdminWrite(response, context);
-        markAdminActionsStale('[data-claim-resolution] button, [data-claim-resolution] input[name="resourceIds"]', item ?? form);
         await finishAdminCompletion(completion, itemStatus(item), 'Recursos vinculados a la cuenta.', submittedValues, {
           structural: true,
         });

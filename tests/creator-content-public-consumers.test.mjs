@@ -393,16 +393,28 @@ test('private placement IDs cannot block a catalog scan, and the public ID rule 
   state.placements['pending-private'] = { resourceId: pendingId, selectedForDirectory: true };
   state.placements['hidden-private'] = { resourceId: hiddenId, selectedForDirectory: false };
   state.order.ordinary.push('pending-private', 'hidden-private');
+  state.series[SERIES_ID].chapters.splice(1, 0, 'pending-private');
   const harness = createPublicReaderHarness({ state });
   putItem(harness.rows, TABLES.catalog, contentResource(pendingId, { published: false }));
   putItem(harness.rows, TABLES.catalog, contentResource(hiddenId, { hidden: true }));
 
   const catalog = await harness.readCatalog();
   assert.deepEqual(catalog.map(({ id }) => id).sort(), [RESOURCE_SHARED, 'resource-a', 'resource-b'].sort());
+  const publicProfile = await harness.service.readPublicProfile(PROFILE_SLUG);
+  assert.equal(publicProfile.status, 200);
+  assert.equal(publicProfile.links.find(({ placementId }) => placementId === 'pending-private').resourceId, pendingId,
+    'public creator links keep exact legacy resource IDs independently of catalog admission');
+  const publicSeries = await harness.service.readPublicSeries(PROFILE_SLUG, SERIES_SLUG);
+  assert.deepEqual(publicSeries.links.map(({ placementId }) => placementId), [
+    'placement-a', 'pending-private', 'placement-z',
+  ], 'Series keeps its chapter order when a hidden chapter is omitted');
 
   putItem(harness.rows, TABLES.catalog, contentResource(pendingId));
   await assert.rejects(() => harness.readCatalog(), /invalid id/u,
     'an eligible record still has to pass the public ID rule');
+  const retainedPublicProfile = await harness.service.readPublicProfile(PROFILE_SLUG);
+  assert.equal(retainedPublicProfile.links.find(({ placementId }) => placementId === 'pending-private').resourceId, pendingId,
+    'catalog identity admission does not hide an existing creator-page link');
 });
 
 test('hidden published profiles stay private publicly while their owner statistics remain ID-scoped', async () => {

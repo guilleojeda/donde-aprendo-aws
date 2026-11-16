@@ -5,7 +5,7 @@ import { seedResource } from './creator-pages.mjs';
 
 export const adminPath = '/cuenta/administracion/';
 export const root = (page) => page.locator('[data-creator-admin]');
-export const row = (page, id) => page.locator(`[data-admin-resource="${id}"]`);
+export const row = (page, id) => page.locator(`[data-admin-resource="${encodeURIComponent(id)}"]`);
 
 export function resource(id, index, overrides = {}) {
   return {

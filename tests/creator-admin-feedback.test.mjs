@@ -571,10 +571,16 @@ test('R9 partial claim freezes only that form, retains receipts, and allows safe
   format.value = 'Artículo';
   uncheckedResource.checked = false;
 
-  page.responses.push({ status: 503, body: { linkedResourceIds: ['resource-feedback'], profileChanged: true, versionChanges: [
-    { entity: 'resource', id: 'resource-feedback', before: 1, after: 2 },
-    { entity: 'profile', id: 'profile-feedback', before: 1, after: 2 },
-  ] } });
+  page.responses.push({ status: 503, body: {
+    error: 'PARTIAL_CLAIM_WRITE',
+    linkedResourceIds: ['resource-feedback'],
+    failedResourceId: 'resource-two',
+    profileChanged: true,
+    versionChanges: [
+      { entity: 'profile', id: 'profile-feedback', before: 1, after: 2 },
+      { entity: 'resource', id: 'resource-feedback', before: 1, after: 2 },
+    ],
+  } });
   await claimForm.dispatch('submit');
 
   assert.deepEqual(JSON.parse(page.requests[0].init.body).resourceIds, ['resource-feedback', 'resource-two'],
@@ -623,11 +629,12 @@ test('a contradictory partial receipt confirms only its exact prefix and adopts 
   independent.fields[0].value = 'Borrador independiente';
   page.responses.push({ status: 503, body: {
     linkedResourceIds: ['resource-feedback'],
+    failedResourceId: 'resource-two',
     profileChanged: true,
     versionChanges: [
+      { entity: 'profile', id: 'profile-feedback', before: 1, after: 2 },
       { entity: 'resource', id: 'resource-feedback', before: 1, after: 2 },
       { entity: 'resource', id: 'resource-two', before: 1, after: 2 },
-      { entity: 'profile', id: 'profile-feedback', before: 1, after: 2 },
     ],
   } });
 
@@ -658,9 +665,10 @@ test('a partial receipt missing profileChanged keeps its confirmed prefix but ca
   const [linked, pending] = form.fields;
   page.responses.push({ status: 503, body: {
     linkedResourceIds: ['resource-feedback'],
+    failedResourceId: 'resource-two',
     versionChanges: [
-      { entity: 'resource', id: 'resource-feedback', before: 1, after: 2 },
       { entity: 'profile', id: 'profile-feedback', before: 1, after: 2 },
+      { entity: 'resource', id: 'resource-feedback', before: 1, after: 2 },
     ],
   } });
 

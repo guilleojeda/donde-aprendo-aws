@@ -1059,7 +1059,10 @@ export default function CreatorOwnerApp(props: Props) {
       const currentState = stateRef.current;
       const currentLocation = currentState.location;
       const listAction = intent?.action;
-      const focusWasLost = active === document.body || active?.matches('[data-owner-refresh-retry]');
+      const chapterDetailWillDisappear = currentLocation.view === 'series' && Boolean(currentLocation.query.serie)
+        && !snapshot.series[currentLocation.query.serie]
+        && Boolean(active?.closest('[data-owner-series-chapters]'));
+      const focusWasLost = active === document.body || active?.matches('[data-owner-refresh-retry]') || chapterDetailWillDisappear;
       let focusAfterRender: string | undefined;
       if (focusWasLost && currentLocation.view === 'series' && currentLocation.query.serie
         && !snapshot.series[currentLocation.query.serie]) focusAfterRender = '#owner-series-title';
@@ -1523,18 +1526,28 @@ export default function CreatorOwnerApp(props: Props) {
   }
 
   function resolveRecovery(choice: 'saved' | 'draft') {
-    const operation = stateRef.current.operation;
+    const latest = stateRef.current;
+    const operation = latest.operation;
     if ((operation.status === 'unknown' || operation.status === 'conflict') && operation.readCompleted) {
-      const editor = stateRef.current.editor;
+      const editor = latest.editor;
+      const returningFromExitPrompt = choice === 'draft' && latest.location.prompt === 'exit';
+      if (returningFromExitPrompt) dispatch({ type: 'clear-transition' });
       dispatch({ type: 'resolve-operation', choice });
       if (choice === 'saved') returnFocusRef.current?.focus({ preventScroll: true });
-      else if (editor?.kind === 'move-chapter' || editor?.kind === 'move-link') {
-        const selector = editor.kind === 'move-chapter' ? '#owner-chapter-target-position' : '#owner-link-target-position';
+      else if (editor && (returningFromExitPrompt || editor.kind === 'move-chapter' || editor.kind === 'move-link')) {
         window.requestAnimationFrame(() => {
-          if (stateRef.current.editor?.key !== editor.key || stateRef.current.operation.status !== 'idle') return;
-          const input = rootRef.current?.querySelector<HTMLInputElement>(selector);
-          input?.focus({ preventScroll: true });
-          input?.scrollIntoView({ block: 'center', inline: 'nearest' });
+          const current = stateRef.current;
+          if (current.editor?.key !== editor.key || current.operation.status !== 'idle'
+            || current.location.prompt !== 'none') return;
+          const moveSelector = editor.kind === 'move-chapter' ? '#owner-chapter-target-position'
+            : editor.kind === 'move-link' ? '#owner-link-target-position' : undefined;
+          const root = rootRef.current;
+          const form = root?.querySelector<HTMLFormElement>('[data-owner-form]:not([hidden])');
+          const target = moveSelector ? root?.querySelector<HTMLElement>(moveSelector)
+            : [...(form?.querySelectorAll<HTMLElement>('input:not([type="hidden"]), textarea, select, button') ?? [])]
+              .find((candidate) => !candidate.matches(':disabled, [readonly]') && !candidate.closest('[hidden]'));
+          target?.focus({ preventScroll: true });
+          if (target && moveSelector) target.scrollIntoView({ block: 'center', inline: 'nearest' });
         });
       }
     }
