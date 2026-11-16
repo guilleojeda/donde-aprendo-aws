@@ -14,6 +14,7 @@ import {
   normalizeCreatorText,
 } from './creator-values.mjs';
 import { CreatorStateError, prepareCreatorStateWrite, readCreatorState } from './creator-state.mjs';
+import { isConfirmedTransactionRejection } from './creator-store.mjs';
 import {
   creatorPageSessionBindingFailureForRequest,
 } from './creator-session-context.mjs';
@@ -1909,9 +1910,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         try {
           await commitCreatorState(profile, candidate, { checks, puts, code: 'CLAIM_CONFLICT' });
         } catch (error) {
-          // A rejected condition or quota check is definitive. A storage error
-          // can arrive after a write committed, even on the first grant.
-          if (writes && !(error instanceof ApiError)) uncertainResourceId = resourceId;
+          // Unknown storage failures can arrive after a write committed.
+          if (writes && !(error instanceof ApiError) && !isConfirmedTransactionRejection(error)) {
+            uncertainResourceId = resourceId;
+          }
           throw error;
         }
         grantWrote ||= writes;

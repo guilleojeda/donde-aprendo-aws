@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
+import { DynamoDBServiceException } from '@aws-sdk/client-dynamodb';
 import {
   CREATOR_PROFILE_ID,
   createCreatorContentHarness,
@@ -43,6 +44,21 @@ function resourceEditPath(id) {
   const url = new URL('/api/creador/recursos/', SITE_ORIGIN);
   url.searchParams.set('id', id);
   return `${url.pathname}${url.search}`;
+}
+
+function modeledDynamoFailure({
+  name = 'TransactionCanceledException',
+  reasonCode,
+  attempts = 1,
+  httpStatusCode = 400,
+} = {}) {
+  const failure = new DynamoDBServiceException({
+    name,
+    message: `modeled ${name}`,
+    $metadata: { httpStatusCode, attempts },
+  });
+  if (reasonCode !== undefined) failure.CancellationReasons = [{ Code: reasonCode }];
+  return failure;
 }
 
 async function json(response) {
@@ -862,6 +878,116 @@ test('a storage failure before any grant write carries a definitive retryable re
   assert.equal((await requireSnapshot(harness)).creatorVersion, before);
   assert.equal((await grantResources(harness, [id])).response.status, 200);
   assert.equal((await requireSnapshot(harness)).creatorVersion, before + 1);
+});
+
+for (const { label, failure } of [
+  {
+    label: 'a modeled TransactionCanceledException with a throughput reason',
+    failure: () => modeledDynamoFailure({ reasonCode: 'ProvisionedThroughputExceeded' }),
+  },
+  {
+    label: 'a modeled top-level ProvisionedThroughputExceededException',
+    failure: () => modeledDynamoFailure({ name: 'ProvisionedThroughputExceededException' }),
+  },
+]) {
+  test(`${label} before the first physical grant is definitive and leaves no receipt`, async () => {
+    const harness = await createDynamoMoveHarness();
+    const profileId = 'physical-grant-owner';
+    const ids = ['physical-definite-a', 'physical-definite-b'];
+    seedMoveProfile(harness.mock, { profileId, version: 7 });
+    for (const id of ids) seedMoveResource(harness.mock, { id, url: `https://catalog.example/${id}` });
+    const before = {
+      profile: await harness.store.get(`profile:${profileId}`),
+      resources: Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await harness.store.get(`resource:${id}`)]))),
+      editors: Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await harness.store.get(`editor:${profileId}:${id}`)]))),
+    };
+
+    harness.mock.failNextTransaction(failure());
+    const result = await grantResources(harness, ids);
+    assert.equal(result.response.status, 503);
+    assert.equal(result.body.error, 'SERVICE_UNAVAILABLE');
+    assert.equal(result.body.failureStage, 'before-grant-write');
+    assert.equal(Object.hasOwn(result.body, 'linkedResourceIds'), false);
+    assert.equal(Object.hasOwn(result.body, 'versionChanges'), false);
+    assert.equal(Object.hasOwn(result.body, 'uncertainResourceId'), false);
+    assert.equal(harness.mock.transactions.length, 1, 'the provider rejection is not retried by the grant service');
+
+    const after = {
+      profile: await harness.store.get(`profile:${profileId}`),
+      resources: Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await harness.store.get(`resource:${id}`)]))),
+      editors: Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await harness.store.get(`editor:${profileId}:${id}`)]))),
+    };
+    assert.deepEqual(after, before, 'a definitive rejected transaction leaves all persisted grant rows unchanged');
+  });
+}
+
+test('a modeled one-attempt DynamoDB rejection before the second physical grant reports only the committed prefix', async () => {
+  const harness = await createDynamoMoveHarness();
+  const profileId = 'physical-grant-owner';
+  const ids = ['physical-partial-a', 'physical-partial-b', 'physical-partial-c'];
+  seedMoveProfile(harness.mock, { profileId, version: 7 });
+  for (const id of ids) seedMoveResource(harness.mock, { id, url: `https://catalog.example/${id}` });
+  const resourceB = await harness.store.get(`resource:${ids[1]}`);
+  const resourceC = await harness.store.get(`resource:${ids[2]}`);
+  const profileBefore = await harness.store.get(`profile:${profileId}`);
+  harness.mock.mutateAfterNextTransaction(() => {
+    harness.mock.failNextTransaction(modeledDynamoFailure({ reasonCode: 'ProvisionedThroughputExceeded' }));
+  });
+
+  const result = await grantResources(harness, ids);
+  assert.equal(result.response.status, 503);
+  assert.equal(result.body.error, 'PARTIAL_CLAIM_WRITE');
+  assert.deepEqual(result.body.linkedResourceIds, [ids[0]]);
+  assert.deepEqual(result.body.versionChanges, [
+    { entity: 'profile', id: profileId, before: profileBefore.version, after: profileBefore.version + 1 },
+    { entity: 'resource', id: ids[0], before: 1, after: 2 },
+  ]);
+  assert.equal(result.body.profileChanged, true);
+  assert.equal(result.body.failedResourceId, ids[1]);
+  assert.equal(Object.hasOwn(result.body, 'uncertainResourceId'), false);
+  assert.equal(Object.hasOwn(result.body, 'failureStage'), false);
+  assert.equal(harness.mock.transactions.length, 2, 'the definitive rejection stops before attempting the suffix');
+
+  const profileAfter = await harness.store.get(`profile:${profileId}`);
+  assert.equal(profileAfter.version, profileBefore.version + 1);
+  assert.deepEqual(Object.values(profileAfter.placements).map(({ resourceId }) => resourceId), [ids[0]]);
+  assert.equal((await harness.store.get(`resource:${ids[0]}`)).directoryControl, 'creator');
+  assert.equal((await harness.store.get(`resource:${ids[0]}`)).version, 2);
+  assert.deepEqual(await harness.store.get(`resource:${ids[1]}`), resourceB, 'the failed grant remains untouched');
+  assert.deepEqual(await harness.store.get(`resource:${ids[2]}`), resourceC, 'the unattempted suffix remains untouched');
+  assert.ok(await harness.store.get(`editor:${profileId}:${ids[0]}`));
+  assert.equal(await harness.store.get(`editor:${profileId}:${ids[1]}`), null);
+  assert.equal(await harness.store.get(`editor:${profileId}:${ids[2]}`), null);
+});
+
+test('a modeled transaction rejection after a provider retry remains uncertain at the physical adapter boundary', async () => {
+  const harness = await createDynamoMoveHarness();
+  const profileId = 'physical-grant-owner';
+  const id = 'physical-retried-a';
+  seedMoveProfile(harness.mock, { profileId, version: 7 });
+  seedMoveResource(harness.mock, { id, url: `https://catalog.example/${id}` });
+  const before = {
+    profile: await harness.store.get(`profile:${profileId}`),
+    resource: await harness.store.get(`resource:${id}`),
+    editor: await harness.store.get(`editor:${profileId}:${id}`),
+  };
+  harness.mock.failNextTransaction(modeledDynamoFailure({ attempts: 2, reasonCode: 'ProvisionedThroughputExceeded' }));
+
+  const result = await grantResources(harness, [id]);
+  assert.equal(result.response.status, 503);
+  assert.equal(result.body.error, 'CLAIM_GRANT_UNCERTAIN');
+  assert.equal(result.body.uncertainResourceId, id);
+  assert.deepEqual(result.body.linkedResourceIds, []);
+  assert.deepEqual(result.body.versionChanges, []);
+  assert.equal(result.body.profileChanged, false);
+  assert.equal(Object.hasOwn(result.body, 'failedResourceId'), false);
+  assert.equal(Object.hasOwn(result.body, 'failureStage'), false);
+  assert.equal(harness.mock.transactions.length, 1);
+  assert.deepEqual({
+    profile: await harness.store.get(`profile:${profileId}`),
+    resource: await harness.store.get(`resource:${id}`),
+    editor: await harness.store.get(`editor:${profileId}:${id}`),
+  }, before);
 });
 
 for (const stop of [0, 1]) {

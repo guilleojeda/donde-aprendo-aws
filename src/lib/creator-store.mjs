@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient, DynamoDBServiceException } from '@aws-sdk/client-dynamodb';
 import {
   DynamoDBDocumentClient,
   BatchGetCommand,
@@ -14,6 +14,17 @@ const MAX_TRANSACTION_ACTIONS = 100;
 const MAX_BATCH_GET_KEYS = 100;
 const MAX_UNPROCESSED_RETRIES = 3;
 const BATCH_GET_RETRY_DELAYS_MS = [10, 20, 40];
+const DEFINITE_TRANSACTION_REJECTIONS = new Set([
+  'TransactionCanceledException', 'ProvisionedThroughputExceededException', 'RequestLimitExceeded',
+  'ThrottlingException', 'ResourceNotFoundException', 'ValidationException',
+]);
+
+export function isConfirmedTransactionRejection(error) {
+  // A modeled rejection of the only attempt is evidence that this write did
+  // not commit. Keep the outcome unknown after a transport failure or retry.
+  return error instanceof DynamoDBServiceException && error.$metadata?.httpStatusCode === 400
+    && error.$metadata?.attempts === 1 && DEFINITE_TRANSACTION_REJECTIONS.has(error.name);
+}
 
 function sha256(value) {
   return createHash('sha256').update(value, 'utf8').digest('hex');
