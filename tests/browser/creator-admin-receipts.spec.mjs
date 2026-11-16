@@ -611,7 +611,7 @@ test(`a legacy claim without profileId does not guess the account profile as a p
     assert.equal((await fixture.rawResource(ids[0])).directoryControl, 'creator');
     assert.equal((await fixture.creatorStore.get(`profile:${owner.profile.id}`)).version, 2);
 
-    await waitForAdminWriteToSettle(page, ids[3]);
+    await waitForAdminWriteToSettle(page, ids[2]);
     await expect(form).toHaveAttribute('aria-busy', 'false');
     await expect(saveButton(page, ids[0])).toBeDisabled();
     await expect(moderateResource(page, ids[0])).toBeDisabled();
@@ -1713,11 +1713,15 @@ test('valid multi-resource grants accept chained profile receipts and keep unrel
   await openAdmin(fixture, page);
   const form = claimForm(page, claim.id);
   await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
-  await row(page, ids[2]).getByLabel('Categoría').fill('Mantener vivo el documento');
+  const draftCategory = row(page, ids[2]).getByLabel('Categoría');
   const route = await interceptAdminWrite(page,
     (request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/reclamaciones/vincular/',
     async (currentRoute, response, actual) => {
       assert.equal(actual.status, 200);
+      await expect(form).toHaveAttribute('aria-busy', 'true');
+      for (const id of ids.slice(0, 2)) await expect(claimSelection(form, id)).toBeDisabled();
+      await expect(draftCategory).toBeEditable();
+      await draftCategory.fill('Edición durante la vinculación');
       await currentRoute.fulfill({ response });
     });
   try {
@@ -1743,7 +1747,7 @@ test('valid multi-resource grants accept chained profile receipts and keep unrel
     await expect(moderateResource(page, ids[2])).toBeEnabled();
     await expect(profileRow(page, otherOwner.profile.id).getByRole('button', { name: 'Ocultar perfil' })).toBeEnabled();
     await expect(saveButton(page, ids[2])).toBeEnabled();
-    await expect(row(page, ids[2]).getByLabel('Categoría')).toHaveValue('Mantener vivo el documento');
+    await expect(draftCategory).toHaveValue('Edición durante la vinculación');
 
     const profileAction = page.waitForResponse((candidate) => candidate.request().method() === 'POST'
       && new URL(candidate.url()).pathname === `/api/admin/perfiles/${owner.profile.id}/ocultar/`);
@@ -1754,6 +1758,9 @@ test('valid multi-resource grants accept chained profile receipts and keep unrel
     const savedProfile = await fixture.creatorStore.get(`profile:${owner.profile.id}`);
     assert.equal(savedProfile.hidden, true);
     assert.equal(savedProfile.version, 4);
+    const savedDraft = await submitClassification(page, ids[2], 'Edición durante la vinculación');
+    assert.equal(savedDraft.status(), 200);
+    assert.equal((await fixture.rawResource(ids[2])).category, 'Edición durante la vinculación');
   } finally {
     await route.stop();
   }
@@ -1829,7 +1836,8 @@ test(partial
   assert.deepEqual((await externalUpdate.json()).versionChanges, [
     { entity: 'resource', id: ids[0], before: 1, after: 2 },
   ]);
-  await row(page, ids[3]).getByLabel('Categoría').fill('Draft survives a receipt gap');
+  const unrelatedDraft = row(page, ids[3]).getByLabel('Categoría');
+  await unrelatedDraft.fill('Certificaciones');
   await row(page, ids[4]).getByLabel('Categoría').fill('Later draft survives recovery');
   const form = claimForm(page, claim.id);
   await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
@@ -1858,6 +1866,7 @@ test(partial
     if (partial) {
       assert.equal(route.observed[0].body.error, 'PARTIAL_CLAIM_WRITE');
       assert.equal(changes.some(({ entity, id }) => entity === 'resource' && id === ids[2]), false);
+      assert.deepEqual(route.observed[0].body.linkedResourceIds, [ids[0]]);
       assert.equal(route.observed[0].body.failedResourceId, ids[2]);
       assert.deepEqual(changes.filter(({ entity }) => entity === 'profile').map(({ before, after }) => [before, after]), [[1, 2]]);
     } else {
@@ -1867,7 +1876,9 @@ test(partial
     assert.equal((await fixture.creatorStore.get(`profile:${owner.profile.id}`)).version, partial ? 2 : 3);
     assert.equal((await fixture.rawResource(ids[0])).version, 3);
     assert.equal((await fixture.rawResource(ids[1])).version, partial ? 1 : 2);
-    assert.equal((await fixture.rawResource(ids[2])).version, partial ? 1 : 1);
+    const untouchedResource = await fixture.rawResource(ids[2]);
+    assert.equal(untouchedResource.version, 1);
+    assert.equal(untouchedResource.directoryControl, 'editorial');
 
     await waitForAdminWriteToSettle(page, ids[3]);
     await expect(form).toHaveAttribute('aria-busy', 'false');
@@ -1879,12 +1890,9 @@ test(partial
     assert.equal(resourceResponse.status(), 200, 'the independently valid resource receipt was applied');
     assert.deepEqual(JSON.parse(resourceResponse.request().postData()).version, partial ? 1 : 2);
     assert.equal((await fixture.rawResource(ids[1])).category, 'Comunidad');
-    await expect(row(page, ids[3]).getByLabel('Categoría')).toHaveValue('Draft survives a receipt gap');
+    await expect(unrelatedDraft).toHaveValue('Certificaciones');
 
-    const documentMarker = await page.evaluate(() => {
-      window.__creatorAdminGapDocument = `${performance.timeOrigin}`;
-      return window.__creatorAdminGapDocument;
-    });
+    const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
     const originalPrincipal = await fixture.principal(adminCookie);
     fixture.accountStore.sessions.clear();
     const expiredWrite = page.waitForResponse((response) => response.request().method() === 'PATCH'
@@ -1892,6 +1900,7 @@ test(partial
     await saveButton(page, ids[3]).click();
     assert.equal((await expiredWrite).status(), 401, 'the real session store rejects the independent draft after expiry');
     await expect(root(page).locator('[data-session-recovery-check]')).toBeVisible();
+    await expect(unrelatedDraft).toHaveValue('Certificaciones');
 
     const renewedCookie = await fixture.login();
     const renewedPrincipal = await fixture.principal(renewedCookie);
@@ -1903,21 +1912,31 @@ test(partial
     assert.equal((await checkPromise).status(), 200);
     await expect(saveButton(page, ids[0])).toBeDisabled();
     await expect(saveButton(page, ids[1])).toBeEnabled();
-    assert.equal(await page.evaluate(() => window.__creatorAdminGapDocument), documentMarker,
-      'renewing the same account preserves the valid partial receipt and document');
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin,
+      'renewing the same account preserves the receipt and document');
 
-    const retriedDraft = await submitClassification(page, ids[3], 'Certificaciones');
+    await expect(unrelatedDraft).toHaveValue('Certificaciones');
+    const draftResponse = page.waitForResponse((response) => response.request().method() === 'PATCH'
+      && adminResourceCommandMatches(response.url(), ids[3]));
+    await saveButton(page, ids[3]).click();
+    const retriedDraft = await draftResponse;
     assert.equal(retriedDraft.status(), 200, 'the independent draft saves after explicit session renewal');
+    assert.equal(JSON.parse(retriedDraft.request().postData()).version, 1);
+    assert.equal(retriedDraft.request().headers()['x-csrf-token'], renewedPrincipal.csrfToken);
     assert.equal((await fixture.rawResource(ids[3])).category, 'Certificaciones');
-    await row(page, ids[4]).getByLabel('Categoría').fill('Serverless');
+    await expect(row(page, ids[4]).getByLabel('Categoría')).toHaveValue('Later draft survives recovery');
     await expect(root(page).locator('[data-refresh-view]')).toBeVisible();
-    const reload = page.waitForLoadState('load');
-    await root(page).locator('[data-refresh-view]').click();
+    const reload = page.waitForNavigation({ waitUntil: 'load' });
+    const lastDraft = await submitClassification(page, ids[4], 'Seguridad');
+    assert.equal(lastDraft.status(), 200);
     await reload;
+    assert.notEqual(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin,
+      'saving the last independent draft allows the actual refresh');
+    assert.equal((await fixture.rawResource(ids[4])).category, 'Seguridad');
     await expect(row(page, ids[0]).getByLabel('Categoría')).toHaveValue('Seguridad');
     await expect(row(page, ids[1]).getByLabel('Categoría')).toHaveValue('Comunidad');
     await expect(row(page, ids[3]).getByLabel('Categoría')).toHaveValue('Certificaciones');
-    await expect(row(page, ids[4]).getByLabel('Categoría')).toHaveValue('Serverless');
+    await expect(row(page, ids[4]).getByLabel('Categoría')).toHaveValue('Seguridad');
     assert.equal(route.observed.length, 1, 'session recovery and safe refresh never replay the claim grant');
   } finally {
     await route.stop();
