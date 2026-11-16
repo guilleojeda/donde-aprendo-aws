@@ -186,7 +186,7 @@ const message = result.status === 401
         {pendingClaims.length > 0 ? (
           <ul class="creator-admin__list">
             {pendingClaims.map((claim) => {
-              const claimId = String(claim.id ?? claim.claimId ?? '');
+              const claimId = String(claim.id);
               const resourceIds = Array.isArray(claim.resourceIds) ? claim.resourceIds.filter((id): id is string => typeof id === 'string') : [];
               const evidence = typeof claim.evidence === 'string' ? claim.evidence : '';
               const observations: unknown[] = Array.isArray(claim.resources) ? claim.resources : [];

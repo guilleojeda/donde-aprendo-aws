@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { DynamoDBServiceException } from '@aws-sdk/client-dynamodb';
 import { currentUrlKey } from '../src/lib/catalog-url.mjs';
 import { callApi, responseJson, sessionCsrf } from './fixtures/creator-pages.mjs';
 import { createDynamoMoveHarness } from './fixtures/creator-link-move.mjs';
@@ -220,12 +221,15 @@ for (const cancellation of [
       winner = await add(harness, 'creator-b');
       assert.equal(winner.status, 201, JSON.stringify(winner.body));
       if (cancellation.isTransactionConflict) {
-        harness.mock.failNextTransaction(Object.assign(new Error('item contention'), {
+        const failure = new DynamoDBServiceException({
           name: 'TransactionCanceledException',
-          CancellationReasons: actions.map((_, index) => ({
-            Code: index === 0 ? 'TransactionConflict' : 'None',
-          })),
+          message: 'item contention',
+          $metadata: { httpStatusCode: 400, attempts: 1 },
+        });
+        failure.CancellationReasons = actions.map((_, index) => ({
+          Code: index === 0 ? 'TransactionConflict' : 'None',
         }));
+        harness.mock.failNextTransaction(failure);
       }
     });
 

@@ -206,11 +206,11 @@ test('SSR loaders expose only the opaque session binding and reject malformed au
     return actualOwnerRead(...args);
   };
   globalThis.__creatorSessionContextTestRuntime = {
-    auth: { getRequestContext: async () => requestContextForTestPrincipal(state.principal) },
+    auth: { getRequestContext: async () => assert.fail('the owner loader must not authenticate again') },
     service: harness.service,
   };
-  const request = new Request(`${origin}/cuenta/creador/`, { headers: { cookie: 'private-session' } });
-  const result = await page.loadCreatorEditor(request);
+  const loadEditor = () => page.loadCreatorEditor(requestContextForTestPrincipal(state.principal));
+  const result = await loadEditor();
   assert.equal(result.status, 200);
   assert.equal(result.data.profile, null);
   assert.equal(result.principal.sessionBinding, binding('private-creator-id', false));
@@ -220,7 +220,7 @@ test('SSR loaders expose only the opaque session binding and reject malformed au
   assert.deepEqual(profileReads, ['readCreatorEditor']);
 
   state.principal = { state: 'disabled', accountId: 'private-disabled-account', isAdmin: true };
-  const disabledPage = await page.loadCreatorEditor(request);
+  const disabledPage = await loadEditor();
   assert.equal(disabledPage.status, 403);
   assert.equal(Object.hasOwn(disabledPage.principal, 'accountId'), false);
   assert.equal(JSON.stringify(disabledPage.principal).includes('private-disabled-account'), false,
@@ -234,7 +234,7 @@ test('SSR loaders expose only the opaque session binding and reject malformed au
     { state: 'authenticated', accountId: 'private-creator-id', csrfToken: 'csrf', isAdmin: undefined },
   ]) {
     state.principal = malformed;
-    const unavailable = await page.loadCreatorEditor(request);
+    const unavailable = await loadEditor();
     assert.equal(unavailable.status, 503);
     assert.equal(unavailable.principal.state, 'unavailable');
   }

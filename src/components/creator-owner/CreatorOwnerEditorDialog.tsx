@@ -474,8 +474,8 @@ function OperationFeedback({ state, rows, canSaveDraft, onRetryRead, onResolve, 
     {photoConflict && <p data-owner-photo-recovery>Tu archivo sigue seleccionado. Puedes cargarlo con la versión actual del perfil.</p>}
     {claimIntent && operation.status === 'unknown' && <p>El historial puede mostrar solicitudes parecidas, pero no permite confirmar si este envío fue el original. Volver al borrador y enviarlo otra vez puede crear un duplicado.</p>}
     {rows && <div class="creator-owner__comparison" data-owner-comparison><ComparisonRows rows={rows} /></div>}
-    {operation.status === 'refresh-failed' && <button class="button button--outline" type="button" data-owner-refresh-retry onClick={onRetryRead}>Reintentar actualización</button>}
-    {operation.status === 'unknown' && !operation.readCompleted && <button class="button button--outline" type="button" data-owner-check onClick={onRetryRead}>Comprobar estado guardado</button>}
+    {operation.status === 'refresh-failed' && <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>}
+    {operation.status === 'unknown' && !operation.readCompleted && <button class="button button--outline" type="button" data-owner-check disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Comprobar estado guardado</button>}
     {operation.status === 'unknown' && operation.readCompleted && <div class="creator-owner__dialog-actions">
       <button class="button button--outline" type="button" data-owner-use-saved onClick={() => onResolve('saved')}>Usar lo guardado</button>
       <button class="button button--outline" type="button" data-owner-return-to-draft onClick={() => onResolve('draft')}>Volver al borrador</button>

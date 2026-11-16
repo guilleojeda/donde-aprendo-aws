@@ -990,6 +990,65 @@ test('a modeled transaction rejection after a provider retry remains uncertain a
   }, before);
 });
 
+for (const { reasonCode, attempts } of [
+  { reasonCode: 'ConditionalCheckFailed', attempts: 1 },
+  { reasonCode: 'TransactionConflict', attempts: 1 },
+  { reasonCode: 'ConditionalCheckFailed', attempts: 2 },
+  { reasonCode: 'TransactionConflict', attempts: 2 },
+]) {
+  for (const stop of [0, 1]) {
+    test(`a ${attempts === 1 ? 'single-attempt' : 'retried'} modeled ${reasonCode} at grant ${stop + 1} never attempts the suffix`, async () => {
+      const harness = await createDynamoMoveHarness();
+      const profileId = 'physical-grant-owner';
+      const ids = ['physical-stopped-a', 'physical-stopped-b', 'physical-stopped-c'];
+      seedMoveProfile(harness.mock, { profileId, version: 7 });
+      for (const id of ids) seedMoveResource(harness.mock, { id, url: `https://catalog.example/${id}` });
+      const beforeProfile = await harness.store.get(`profile:${profileId}`);
+      const beforeResources = await Promise.all(ids.map((id) => harness.store.get(`resource:${id}`)));
+      const failGrant = () => harness.mock.failNextTransaction(modeledDynamoFailure({ reasonCode, attempts }));
+      if (stop === 0) failGrant();
+      else harness.mock.mutateAfterNextTransaction(failGrant);
+
+      const result = await grantResources(harness, ids);
+      assert.equal(result.response.status, attempts === 1 ? 409 : 503);
+      assert.equal(result.body.error, attempts === 1 ? 'CLAIM_CONFLICT' : 'CLAIM_GRANT_UNCERTAIN');
+      if (attempts === 1 && stop === 0) {
+        assert.equal(result.body.failureStage, 'before-grant-write');
+        assert.equal(Object.hasOwn(result.body, 'linkedResourceIds'), false);
+        assert.equal(Object.hasOwn(result.body, 'failedResourceId'), false);
+        assert.equal(Object.hasOwn(result.body, 'uncertainResourceId'), false);
+      } else {
+        assert.deepEqual(result.body.linkedResourceIds, ids.slice(0, stop));
+        assert.equal(result.body.profileChanged, stop === 1);
+        assert.deepEqual(result.body.versionChanges, stop === 0 ? [] : [
+          { entity: 'profile', id: profileId, before: 7, after: 8 },
+          { entity: 'resource', id: ids[0], before: 1, after: 2 },
+        ]);
+        if (attempts === 1) {
+          assert.equal(result.body.failedResourceId, ids[stop]);
+          assert.equal(Object.hasOwn(result.body, 'uncertainResourceId'), false);
+        } else {
+          assert.equal(result.body.uncertainResourceId, ids[stop]);
+          assert.equal(Object.hasOwn(result.body, 'failedResourceId'), false);
+        }
+      }
+      assert.equal(harness.mock.transactions.length, stop + 1, 'the command never attempts a suffix transaction');
+
+      const afterProfile = await harness.store.get(`profile:${profileId}`);
+      assert.equal(afterProfile.version, beforeProfile.version + stop);
+      assert.deepEqual(Object.values(afterProfile.placements).map(({ resourceId }) => resourceId), ids.slice(0, stop));
+      if (stop === 1) {
+        assert.equal((await harness.store.get(`resource:${ids[0]}`)).version, 2);
+        assert.ok(await harness.store.get(`editor:${profileId}:${ids[0]}`));
+      }
+      for (let index = stop; index < ids.length; index += 1) {
+        assert.deepEqual(await harness.store.get(`resource:${ids[index]}`), beforeResources[index]);
+        assert.equal(await harness.store.get(`editor:${profileId}:${ids[index]}`), null);
+      }
+    });
+  }
+}
+
 for (const stop of [0, 1]) {
   test(`grant ${stop + 1} stays uncertain when its transaction commits and its acknowledgement is lost`, async () => {
     const harness = await createDynamoMoveHarness();

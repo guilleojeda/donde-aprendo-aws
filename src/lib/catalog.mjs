@@ -3,7 +3,7 @@ import { validateCatalogUrl } from './catalog-url-safety.mjs';
 import { classifyLegacyResource, validateTaxonomy } from './resource-taxonomy.mjs';
 import { DISCOVERY_FIELDS, validateDiscoveryMetadata } from './resource-discovery.mjs';
 import { projectPublicEvent } from './events.mjs';
-import { CREATOR_FIELD_LIMITS, isCreatorSlug, isCreatorStateId } from './creator-values.mjs';
+import { CREATOR_FIELD_LIMITS, hasCreatorPublicIdentity, isCreatorSlug, isCreatorStateId } from './creator-values.mjs';
 import {
   containsCarriageReturnOrNul,
   isCatalogResourceIdWithinLimit,
@@ -274,7 +274,7 @@ export function normalizeCreatorRows(rows) {
         || typeof row.published !== 'boolean' || typeof row.hidden !== 'boolean') {
       throw new Error(`Creator-state aggregate ${index + 1} has malformed public profile fields`);
     }
-    if (row.published && !row.hidden && (!row.displayName.trim() || !isCreatorSlug(row.slug))) {
+    if (row.published && !row.hidden && !hasCreatorPublicIdentity(row.displayName, row.slug)) {
       throw new Error(`Creator-state aggregate ${index + 1} has malformed public identity`);
     }
     validateCreatorSequences({ placements: row.placements, order: row.order, series: row.series });
@@ -322,7 +322,6 @@ export function projectPublishedCatalog(items, creatorState) {
     }
     if (!creator.published || creator.hidden) continue;
     for (const [seriesId, series] of Object.entries(creator.series)) {
-      if (typeof creator.displayName !== 'string' || !creator.displayName.trim() || !isCreatorSlug(creator.slug)) continue;
       for (const placementId of series.chapters) {
         const placement = creator.placements[placementId];
         if (!placement.selectedForDirectory) continue;
@@ -398,7 +397,7 @@ function normalizeCreatorState(state) {
         || typeof creator.published !== 'boolean' || typeof creator.hidden !== 'boolean') {
       throw new Error(`Creator directory aggregate ${index + 1} is malformed`);
     }
-    if (creator.published && !creator.hidden && (!creator.displayName.trim() || !isCreatorSlug(creator.slug))) {
+    if (creator.published && !creator.hidden && !hasCreatorPublicIdentity(creator.displayName, creator.slug)) {
       throw new Error(`Creator directory aggregate ${index + 1} has malformed public identity`);
     }
     if (creatorIds.has(creator.id)) throw new Error(`Creator directory aggregate ${index + 1} is duplicated`);

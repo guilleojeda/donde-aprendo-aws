@@ -110,6 +110,26 @@ test('publication rejects a missing display name or URL name without exposing a 
   }
 });
 
+test('public runtime rejects a visible published profile with a blank slug instead of redirecting to /c//', async () => {
+  const harness = await createCreatorPagesHarness();
+  const saved = await saveProfile(harness, 'creator-a', { displayName: 'Perfil visible', slug: 'perfil-visible' });
+  assert.equal(saved.status, 200);
+  const published = await publishProfile(harness, 'creator-a');
+  assert.equal(published.status, 200);
+
+  const owner = await harness.store.get('account-profile:private-account-a');
+  const key = `profile:${owner.profileId}`;
+  const current = await harness.store.get(key);
+  assert.equal(await harness.store.transact({
+    checks: [{ key, version: current.version }],
+    puts: [{ key, value: { ...current, slug: '' } }],
+  }), true);
+
+  const result = await harness.service.readPublicProfile('perfil-visible');
+  assert.equal(result.status, 503);
+  assert.equal(Object.hasOwn(result, 'redirectTo'), false);
+});
+
 test('profile programs, optional fields, and social text do not require directory classification', async () => {
   const harness = await createCreatorPagesHarness();
   const fields = {

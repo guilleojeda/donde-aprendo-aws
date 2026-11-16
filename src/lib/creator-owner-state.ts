@@ -174,7 +174,7 @@ export type CreatorOwnerAction = CreatorOwnerSessionPolicyAction
   | { type: 'catalog-require-refresh'; message: string; rejectedSelection?: Pick<CreatorCatalogSelectionDTO, 'id' | 'url'> }
   | { type: 'operation-started'; intent: CreatorOwnerIntent }
   | { type: 'operation-reading'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string }
-  | { type: 'operation-read-failed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string; suppressGlobalMessage?: boolean }
+  | { type: 'operation-read-failed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string; suppressGlobalMessage?: boolean; focusAfterRender?: string }
   | { type: 'operation-read-installed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; snapshot: CreatorOwnerSnapshotDTO; message: string; consumeEditor?: boolean; focusAfterRender?: string }
   | { type: 'operation-unknown'; intent: CreatorOwnerIntent; message: string }
   | { type: 'operation-rejected'; intentId: string; message: string }
@@ -565,7 +565,8 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       ? { ...state, operation: { status: 'sending', intent: action.intent }, message: undefined } : state;
     case 'operation-reading': return { ...state, operation: { status: 'reading', ...(action.intent ? { intent: action.intent } : {}), fact: action.fact, message: action.message } };
     case 'operation-read-failed': return { ...state, operation: { status: 'refresh-failed', ...(action.intent ? { intent: { ...action.intent, exitTransition: undefined } } : {}), fact: action.fact, message: action.message },
-      ...(action.suppressGlobalMessage ? {} : { message: { text: action.message, kind: 'error' as const } }) };
+      location: { ...state.location, focusAfterRender: action.focusAfterRender },
+      ...(action.suppressGlobalMessage ? { message: undefined } : { message: { text: action.message, kind: 'error' as const } }) };
     case 'operation-read-installed': {
       const snapshot = copyCreatorOwnerSnapshot(action.snapshot);
       const navigation = normalizeAfterRead(state, snapshot);
@@ -573,15 +574,18 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       if (action.fact === 'conflict') operation = action.intent ? { status: 'conflict', intent: action.intent, message: action.message, readCompleted: true } : { status: 'idle' };
       else if (action.fact === 'unknown') operation = action.intent ? { status: 'unknown', intent: action.intent, message: action.message, readCompleted: true } : { status: 'idle' };
       else operation = { status: 'idle' };
+      const publicationRecovery = action.intent?.action === 'publish-profile'
+        && (action.fact === 'unknown' || action.fact === 'conflict');
       return { ...state, observed: snapshot, operation,
         ...(action.fact === 'claims' || action.fact === 'acknowledged' && !state.seriesQueryError ? { seriesQueryError: undefined } : {}),
         ...(action.consumeEditor ? { editor: undefined } : {}),
         location: { ...state.location, focusAfterRender: action.focusAfterRender, ...navigation,
           ...(action.fact === 'acknowledged' && action.consumeEditor ? { transition: action.intent?.exitTransition, exitRequest: undefined, prompt: 'none' as const } : {}),
           ...(action.fact === 'acknowledged' || action.fact === 'claims' ? { linksQueryError: undefined } : {}) },
-        ...(action.message ? { message: { text: action.message, kind: action.fact === 'acknowledged' || action.fact === 'claims' ? 'success' : 'info' } } : { message: undefined }) };
+        ...(publicationRecovery ? { message: undefined } : action.message ? { message: { text: action.message, kind: action.fact === 'acknowledged' || action.fact === 'claims' ? 'success' : 'info' } } : { message: undefined }) };
     }
-    case 'operation-unknown': return { ...state, operation: { status: 'unknown', intent: action.intent, message: action.message }, message: { text: action.message, kind: 'error' } };
+    case 'operation-unknown': return { ...state, operation: { status: 'unknown', intent: action.intent, message: action.message },
+      ...(action.intent.action === 'publish-profile' ? { message: undefined } : { message: { text: action.message, kind: 'error' as const } }) };
     case 'operation-rejected': {
       const intent = operationMatches(state, action.intentId);
       return intent ? { ...state, operation: { status: 'idle' }, message: { text: action.message, kind: 'error' } } : state;

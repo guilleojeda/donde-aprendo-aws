@@ -74,6 +74,19 @@ test('readCreatorState accepts matching optional physical keys and rejects ident
     'the empty draft slug remains valid until explicit publication');
 });
 
+test('published visible state requires a public identity while hidden state remains readable', () => {
+  for (const overrides of [
+    { displayName: 'Creadora', slug: '' },
+    { displayName: '   ', slug: 'creadora' },
+  ]) {
+    assertInvalid(creatorState(overrides));
+  }
+  const blankDraft = readCreatorState(creatorState({ displayName: '', slug: '', published: false }), 'creator-one');
+  assert.equal(blankDraft.slug, '');
+  const hidden = readCreatorState(creatorState({ displayName: '', slug: '', published: true, hidden: true }), 'creator-one');
+  assert.equal(hidden.hidden, true);
+});
+
 test('sequence validation accepts the projected content and rejects incomplete or overlapping orders', () => {
   const { placements, order, series } = creatorState();
   const projected = { placements, order, series };

@@ -147,6 +147,28 @@ test('catalog resource IDs use a 256-byte UTF-8 boundary', () => {
   }));
 });
 
+test('catalog rejects a visible creator without a public identity but keeps drafts and hidden profiles out of admission', () => {
+  assert.throws(
+    () => normalizeCreatorRows([creatorState({ slug: '' })]),
+    /malformed public identity/u,
+  );
+  assert.throws(
+    () => projectPublishedCatalog([record({ id: 'creator-resource', directoryControl: 'creator' })], {
+      creators: [creatorState({ slug: '' })],
+    }),
+    /malformed public identity/u,
+  );
+  assert.deepEqual(normalizeCreatorRows([
+    creatorState({ displayName: '', slug: '', published: false }),
+    creatorState({
+      pk: 'PROFILE#hidden-owner', id: 'hidden-owner', displayName: '', slug: '', published: true, hidden: true,
+    }),
+  ]).creators.map(({ id, slug }) => ({ id, slug })), [
+    { id: 'owner', slug: '' },
+    { id: 'hidden-owner', slug: '' },
+  ]);
+});
+
 test('rejects malformed publication flags instead of coercing strings', () => {
   assert.throws(
     () => projectPublishedCatalog([record({ published: 'true' })]),

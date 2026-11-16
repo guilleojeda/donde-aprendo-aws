@@ -20,8 +20,10 @@ const DEFINITE_TRANSACTION_REJECTIONS = new Set([
 ]);
 
 export function isConfirmedTransactionRejection(error) {
-  // A modeled rejection of the only attempt is evidence that this write did
-  // not commit. Keep the outcome unknown after a transport failure or retry.
+  // A modeled rejection of the only provider attempt is evidence that this
+  // write did not commit. Keep the outcome unknown after a transport failure
+  // or retry. The cancellation reason is retained for the ordinary CAS path;
+  // it does not change the provider-attempt guarantee here.
   return error instanceof DynamoDBServiceException && error.$metadata?.httpStatusCode === 400
     && error.$metadata?.attempts === 1 && DEFINITE_TRANSACTION_REJECTIONS.has(error.name);
 }
@@ -122,6 +124,12 @@ function cleanItem(item) {
 
 function conflictCancel(error) {
   if (error?.name !== 'TransactionCanceledException' && error?.Code !== 'TransactionCanceledException') return false;
+  // A modeled DynamoDB cancellation can be converted to an ordinary CAS miss
+  // only when the single HTTP 400 attempt is known to have been rejected. A
+  // retry, missing attempt metadata, or transport-shaped error leaves a grant
+  // outcome ambiguous and must propagate to the command boundary. The
+  // in-memory CAS store remains responsible for its own false result.
+  if (!isConfirmedTransactionRejection(error)) return false;
   const reasons = error.CancellationReasons ?? error.cancellationReasons;
   if (!Array.isArray(reasons) || reasons.length === 0) return false;
   let hasConflict = false;

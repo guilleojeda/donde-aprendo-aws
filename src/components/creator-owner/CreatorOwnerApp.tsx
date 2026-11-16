@@ -150,13 +150,14 @@ type ListRecoveryOperation = Extract<CreatorOwnerOperation,
 
 function isListRecoveryOperation(operation: CreatorOwnerOperation): operation is ListRecoveryOperation {
   if (operation.status === 'idle' || operation.status === 'sending' || !operation.intent) return false;
-  return ['publish-profile', 'delete-series', 'add-chapter', 'remove-chapter', 'remove-link', 'reinclude-link']
+  return ['delete-series', 'add-chapter', 'remove-chapter', 'remove-link', 'reinclude-link']
     .includes(operation.intent.action);
 }
 
 function isAcknowledgedReadRecovery(operation: CreatorOwnerOperation): operation is Extract<CreatorOwnerOperation, { status: 'reading' | 'refresh-failed' }> & { intent: CreatorOwnerIntent } {
   return (operation.status === 'reading' || operation.status === 'refresh-failed')
-    && operation.fact === 'acknowledged' && Boolean(operation.intent?.acknowledgement);
+    && operation.fact === 'acknowledged' && Boolean(operation.intent?.acknowledgement)
+    && operation.intent?.action !== 'publish-profile';
 }
 
 function isWriteActive(state: CreatorOwnerState): boolean {
@@ -565,11 +566,18 @@ export default function CreatorOwnerApp(props: Props) {
         dispatch({ type: 'clear-focus', selector });
         return;
       }
+      if (selector === '[data-owner-refresh-retry]' && (latestTarget.matches(':disabled')
+        || (document.activeElement instanceof Element && document.activeElement !== latestTarget
+          && document.activeElement !== document.body && document.activeElement.isConnected))) {
+        dispatch({ type: 'clear-focus', selector });
+        return;
+      }
       latestTarget.focus({ preventScroll: true });
       const revealPagerFocus = selector === '#owner-link-pagination'
         || selector === '[data-series-page]:last-of-type'
         || selector === '[data-series-chapter-page]:last-of-type';
-      if (insideOwnerDialog || revealPagerFocus) {
+      const revealContextFocus = selector === '#owner-series-title' || selector === '#owner-series-chapters-title';
+      if (insideOwnerDialog || revealPagerFocus || revealContextFocus) {
         latestTarget.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
       } else if (revealSearchFocus) {
         latestTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
@@ -602,7 +610,8 @@ export default function CreatorOwnerApp(props: Props) {
 
   useEffect(() => {
     const editorKey = state.editor?.key;
-    if (previousEditorKeyRef.current && !editorKey && !state.location.transition && state.location.prompt === 'none') {
+    if (previousEditorKeyRef.current && !editorKey && !state.location.transition && state.location.prompt === 'none'
+      && !state.location.focusAfterRender) {
       const requested = returnFocusRef.current;
       const fallback = stateRef.current.location.view === 'enlaces'
         ? rootRef.current?.querySelector<HTMLElement>('#owner-link-search') ?? rootRef.current?.querySelector<HTMLElement>('#owner-links-title')
@@ -994,6 +1003,8 @@ export default function CreatorOwnerApp(props: Props) {
     const ownerDocument = document;
     const generation = ++operationGenerationRef.current;
     const operationId = nextSessionOperationId();
+    const recoveryFocusElement = document.activeElement instanceof HTMLElement
+      && document.activeElement.matches('[data-owner-refresh-retry]') ? document.activeElement : undefined;
     const readMessage = fact === 'claims' ? 'Actualizando Solicitudes con una lectura completa…'
       : fact === 'acknowledged' ? `${acknowledgedActionLabel(intent)}. Actualizando el estado guardado…`
           : fact === 'conflict' ? intent?.targetMissing ? 'El destino ya no está disponible. Leyendo el estado actual y conservando el borrador…'
@@ -1007,8 +1018,19 @@ export default function CreatorOwnerApp(props: Props) {
       const feedback = fact === 'acknowledged' ? `${acknowledgedActionLabel(intent)}. ${detail}`
         : fact === 'conflict' && intent?.targetMissing ? `El destino ya no está disponible. ${message}` : message;
       const chapterRefresh = fact === 'acknowledged' && (intent?.action === 'add-chapter' || intent?.action === 'remove-chapter');
-      dispatch({ type: 'operation-read-failed', ...(intent ? { intent } : {}), fact, message: feedback,
-        ...(chapterRefresh ? { suppressGlobalMessage: true } : {}) });
+      const staleFeedback = fact === 'acknowledged' && sessionFailure
+        ? `${feedback} La vista sigue desactualizada; comprueba la sesión y luego actualiza.` : feedback;
+      const suppressGlobalMessage = chapterRefresh || intent?.action === 'publish-profile';
+      const activeElement = document.activeElement;
+      const shouldRestoreRecoveryFocus = Boolean(recoveryFocusElement && (
+        activeElement === recoveryFocusElement
+        || activeElement === document.body
+        || !(activeElement instanceof HTMLElement)
+        || !activeElement.isConnected
+      ));
+      dispatch({ type: 'operation-read-failed', ...(intent ? { intent } : {}), fact, message: staleFeedback,
+        ...(shouldRestoreRecoveryFocus ? { focusAfterRender: '[data-owner-refresh-retry]' } : {}),
+        ...(suppressGlobalMessage ? { suppressGlobalMessage: true } : {}) });
     };
     try {
       const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store',
@@ -1072,14 +1094,17 @@ export default function CreatorOwnerApp(props: Props) {
       const currentState = stateRef.current;
       const currentLocation = currentState.location;
       const listAction = intent?.action;
-      const chapterDetailWillDisappear = currentLocation.view === 'series' && Boolean(currentLocation.query.serie)
-        && !snapshot.series[currentLocation.query.serie]
+      const selectedSeriesWillDisappear = currentLocation.view === 'series' && Boolean(currentLocation.query.serie)
+        && !snapshot.series[currentLocation.query.serie];
+      const chapterDetailWillDisappear = selectedSeriesWillDisappear
         && Boolean(active?.closest('[data-owner-series-chapters]'));
+      const editorWillCloseWithMissingSeries = selectedSeriesWillDisappear
+        && Boolean(active?.closest('[data-owner-dialog]'));
       pendingDetailFocusRef.current = active instanceof HTMLElement && active.closest('[data-owner-series-chapters]') ? active : null;
-      const focusWasLost = active === document.body || active?.matches('[data-owner-refresh-retry]') || chapterDetailWillDisappear;
+      const focusWasLost = active === document.body || active?.matches('[data-owner-refresh-retry]')
+        || chapterDetailWillDisappear || editorWillCloseWithMissingSeries;
       let focusAfterRender: string | undefined;
-      if (focusWasLost && currentLocation.view === 'series' && currentLocation.query.serie
-        && !snapshot.series[currentLocation.query.serie]) focusAfterRender = '#owner-series-title';
+      if (focusWasLost && selectedSeriesWillDisappear) focusAfterRender = '#owner-series-title';
       if (fact === 'acknowledged') {
         if (listAction === 'add-chapter' || listAction === 'remove-chapter') {
           const matchingDetail = creatorOwnerChapterRecoveryIsVisibleInDetail({ ...currentState, observed: snapshot });
@@ -1649,15 +1674,14 @@ export default function CreatorOwnerApp(props: Props) {
         data-owner-list-recovery={['remove-link', 'reinclude-link'].includes(listOperation.intent.action) ? 'links'
           : ['add-chapter', 'remove-chapter', 'delete-series'].includes(listOperation.intent.action) ? 'series' : 'owner'}>
         <h3>{listOperation.intent.action === 'delete-series' ? 'Comprobar eliminación'
-          : listOperation.intent.action === 'publish-profile' ? 'Comprobar publicación'
-            : listOperation.intent.action === 'remove-link' ? 'Comprobar que se quitó el enlace'
+          : listOperation.intent.action === 'remove-link' ? 'Comprobar que se quitó el enlace'
               : listOperation.intent.action === 'reinclude-link' ? 'Comprobar la reincorporación'
                 : listOperation.intent.action === 'add-chapter' || listOperation.intent.action === 'remove-chapter' ? 'Comprobar capítulos'
                   : listOperation.intent.action === 'photo-authorize' || listOperation.intent.action === 'photo-finalize' ? 'Comprobar la foto'
                     : 'Actualizar el estado guardado'}</h3>
         <p role={listOperation.status === 'reading' ? 'status' : undefined} aria-live={listOperation.status === 'reading' ? 'polite' : undefined}>{listOperation.message}</p>
-        {listOperation.status === 'refresh-failed' && <button class="button button--outline" type="button" data-owner-refresh-retry onClick={checkClick}>Reintentar actualización</button>}
-        {listOperation.status === 'unknown' && !listOperation.readCompleted && <button class="button button--outline" type="button" data-owner-compare onClick={checkClick}>Comprobar el estado guardado</button>}
+        {listOperation.status === 'refresh-failed' && <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={checkClick}>Reintentar actualización</button>}
+        {listOperation.status === 'unknown' && !listOperation.readCompleted && <button class="button button--outline" type="button" data-owner-compare disabled={state.session.state !== 'ready'} onClick={checkClick}>Comprobar el estado guardado</button>}
         {(listOperation.status === 'unknown' && listOperation.readCompleted || listOperation.status === 'conflict' && listOperation.readCompleted)
           && <button class="button button--outline" type="button" data-owner-use-saved onClick={() => resolveRecovery('saved')}>Usar lo guardado</button>}
       </section>}
