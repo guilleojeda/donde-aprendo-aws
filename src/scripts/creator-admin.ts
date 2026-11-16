@@ -29,7 +29,6 @@ interface AdminCompletion {
   linkedIds: string[];
   claimReviewRequired: boolean;
   uncertainResourceId?: string;
-  remainingUnconfirmed?: boolean;
   receiptProblem: boolean;
   gaps: CreatorVersionChange[];
 }
@@ -302,7 +301,7 @@ function claimLinkedPrefix(
   context: AdminCommandContext,
   response: Response,
   changes: CreatorVersionChange[] | null,
-): { ids: string[]; valid: boolean; uncertainResourceId?: string; remainingUnconfirmed?: boolean } {
+): { ids: string[]; valid: boolean; uncertainResourceId?: string } {
   if (context.kind !== 'claim' || !Array.isArray(payload?.linkedResourceIds)) return { ids: [], valid: false };
   const requested = context.targets.filter(({ entity }) => entity === 'resource').map(({ id }) => id);
   if (new Set(requested).size !== requested.length) return { ids: [], valid: false };
@@ -321,13 +320,6 @@ function claimLinkedPrefix(
   const hasUncertainId = Object.hasOwn(payload, 'uncertainResourceId');
   const claimsUncertainty = payload.error === 'CLAIM_GRANT_UNCERTAIN';
   const definiteStop = failedAt >= 0 && !hasFailureStage && !claimsUncertainty && !hasUncertainId;
-  const reportsStoppedOrLaterId = payload.linkedResourceIds.some((value) =>
-    typeof value === 'string' && requested.indexOf(value) >= failedAt);
-  const stopConflictsWithConfirmedResource = definiteStop && (
-    reportsStoppedOrLaterId
-    || changes?.some((change) => change.entity === 'resource'
-      && requested.indexOf(change.id) >= failedAt) === true
-  );
   const uncertainStage = claimsUncertainty && response.status === 503 && !hasFailureStage && !hasFailedId
     && !complete && uncertainId === requested[ids.length];
   const stageMatches = claimsUncertainty || hasUncertainId ? uncertainStage
@@ -335,35 +327,21 @@ function claimLinkedPrefix(
       ? !hasFailureStage : payload.failureStage === 'claim-status' && !quotaFailure)
       : !response.ok && !hasFailureStage && failedAt > 0 && ids.length === failedAt;
   const valid = ids.length === payload.linkedResourceIds.length && stageMatches;
-  if (stopConflictsWithConfirmedResource) {
-    // The response itself disputes whether the reported stop resource committed.
-    // Keep only the prefix before that point, and require a fresh read before
-    // presenting any later ID as pending or inviting another grant attempt.
-    return { ids: ids.slice(0, failedAt), valid: false, remainingUnconfirmed: true };
-  }
   if (response.ok || valid) return { ids, valid, ...(valid && uncertainStage ? { uncertainResourceId: uncertainId } : {}) };
 
-  // If the stop is later than the delivered prefix, the response omitted one
-  // or more attempted resources. Do not expose that gap as pending or safe to
-  // replay; the whole selected result remains unconfirmed. A coherent
-  // overclaim still retains the trustworthy prefix below.
-  if (definiteStop && ids.length < failedAt) {
-    return { ids: [], valid: false, remainingUnconfirmed: true };
-  }
-
-  // A definite stop can only corroborate a prefix if the outcome does not
-  // also claim uncertainty. In that case, require a coherent version chain.
-  if (failedAt >= 0 && !hasFailureStage && !claimsUncertainty && !hasUncertainId) {
-    return { ids: ids.slice(0, failedAt), valid: false };
+  if (definiteStop) {
+    // Preserve the prefix before a malformed stop, but not when the delivered
+    // linked IDs have a gap before that stop.
+    return { ids: ids.length < failedAt ? [] : ids.slice(0, failedAt), valid: false };
   }
   const uncertainAt = uncertainId === undefined ? -1 : requested.indexOf(uncertainId);
   const earlierIds = ids.slice(0, uncertainAt >= 0 ? uncertainAt : requested.length - 1);
   if (!changes || !receiptScopeIsValid(changes, context) || !receiptChainIsValid(changes, context, earlierIds)) {
-    return { ids: [], valid: false, remainingUnconfirmed: true };
+    return { ids: [], valid: false };
   }
   const changedResources = new Set(changes.filter(({ entity }) => entity === 'resource').map(({ id }) => id));
   const unsupported = earlierIds.findIndex((id) => !changedResources.has(id));
-  return { ids: unsupported < 0 ? earlierIds : earlierIds.slice(0, unsupported), valid: false, remainingUnconfirmed: true };
+  return { ids: unsupported < 0 ? earlierIds : earlierIds.slice(0, unsupported), valid: false };
 }
 
 async function completeAdminWrite(response: Response, context: AdminCommandContext): Promise<AdminCompletion> {
@@ -405,7 +383,6 @@ async function completeAdminWrite(response: Response, context: AdminCommandConte
       payload,
       linkedIds,
       claimReviewRequired,
-      remainingUnconfirmed: linkedReceipt.remainingUnconfirmed,
       receiptProblem: true,
       gaps: [],
     };
@@ -773,20 +750,24 @@ if (root && state && csrfToken) {
               return;
             }
             const remainingIds = selectedIds.slice(linkedIds.length);
-            showViewTransition(linkedIds.length === 0
-              ? 'No pudimos confirmar el resultado de la vinculación. Actualiza la vista para revisar esta solicitud.'
-              : completion.remainingUnconfirmed
-                ? 'Solo pudimos confirmar parte del resultado. Actualiza la vista para comprobar qué recursos se vincularon.'
-              : remainingIds.length === 0
-                ? 'Los recursos seleccionados están vinculados. Actualiza la vista para comprobar el estado de la solicitud.'
-                : 'La vinculación se completó parcialmente. Actualiza la vista antes de resolver otra vez esta solicitud.');
-            let partialMessage = linkedIds.length === 0
-              ? 'No pudimos confirmar qué recursos se vincularon. Conservamos tus checks y bloqueamos esta solicitud hasta que actualices la vista.'
-              : completion.remainingUnconfirmed
-                ? `Ya vinculados: ${linkedIds.join(', ')}. Sin confirmar: ${remainingIds.join(', ')}. Actualiza la vista para revisar el resultado.`
-              : remainingIds.length > 0
-                ? `Vinculación parcial. Ya vinculados: ${linkedIds.join(', ')}. Pendientes: ${remainingIds.join(', ')}. Los checks de los pendientes se conservaron; recarga para actualizar el estado y reintenta sólo esos IDs.`
-                : `Los recursos ya vinculados son: ${linkedIds.join(', ')}. Recarga para actualizar el estado de la solicitud.`;
+            let transitionMessage: string;
+            let partialMessage: string;
+            if (linkedIds.length === 0 || (completion.receiptProblem && remainingIds.length === 0)) {
+              transitionMessage = 'No pudimos confirmar el resultado de la vinculación. Actualiza la vista para revisar esta solicitud.';
+              partialMessage = linkedIds.length === 0
+                ? 'No pudimos confirmar qué recursos se vincularon. Conservamos tus checks y bloqueamos esta solicitud hasta que actualices la vista.'
+                : 'No pudimos confirmar el resultado de la vinculación. Actualiza la vista para revisar esta solicitud.';
+            } else if (completion.receiptProblem) {
+              transitionMessage = 'Solo pudimos confirmar parte del resultado. Actualiza la vista para comprobar qué recursos se vincularon.';
+              partialMessage = `Ya vinculados: ${linkedIds.join(', ')}. Sin confirmar: ${remainingIds.join(', ')}. Actualiza la vista para revisar el resultado.`;
+            } else if (remainingIds.length > 0) {
+              transitionMessage = 'La vinculación se completó parcialmente. Actualiza la vista antes de resolver otra vez esta solicitud.';
+              partialMessage = `Vinculación parcial. Ya vinculados: ${linkedIds.join(', ')}. Pendientes: ${remainingIds.join(', ')}. Los checks de los pendientes se conservaron; recarga para actualizar el estado y reintenta sólo esos IDs.`;
+            } else {
+              transitionMessage = 'Los recursos seleccionados están vinculados. Actualiza la vista para comprobar el estado de la solicitud.';
+              partialMessage = `Los recursos ya vinculados son: ${linkedIds.join(', ')}. Recarga para actualizar el estado de la solicitud.`;
+            }
+            showViewTransition(transitionMessage);
             if (completion.receiptProblem || completion.gaps.length > 0) {
               partialMessage += ' El recibo no coincide con las versiones observadas; actualiza la vista antes de resolver otra vez esta solicitud.';
             }

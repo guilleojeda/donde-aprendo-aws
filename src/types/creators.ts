@@ -1,6 +1,8 @@
+import type { CREATOR_SOCIALS } from '../lib/creator-values.mjs';
+
 export type CreatorProgram = 'User Group Leaders' | 'Community Builders' | 'Heroes';
 
-export type CreatorSocial = 'instagram' | 'x' | 'linkedin' | 'awsBuilder' | 'website';
+export type CreatorSocial = typeof CREATOR_SOCIALS[number];
 
 export type CreatorVersionEntity = 'profile' | 'resource';
 

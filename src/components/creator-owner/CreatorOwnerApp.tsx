@@ -582,6 +582,11 @@ export default function CreatorOwnerApp(props: Props) {
         latestTarget.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
       } else if (revealSearchFocus) {
         latestTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+      } else if (selector === '#owner-profile-name') {
+        const bounds = latestTarget.getBoundingClientRect();
+        if (bounds.top < 0 || bounds.bottom > window.innerHeight || bounds.left < 0 || bounds.right > window.innerWidth) {
+          latestTarget.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+        }
       }
       dispatch({ type: 'clear-focus', selector });
     };
@@ -1040,7 +1045,7 @@ export default function CreatorOwnerApp(props: Props) {
         : fact === 'conflict' && intent?.targetMissing ? `El destino ya no está disponible. ${message}` : message;
       const unknownPublication = fact === 'unknown' && intent?.action === 'publish-profile'
         ? previousOperation.status === 'unknown' && previousOperation.intent.id === intent.id
-          ? `La respuesta de publicación se perdió. ${previousOperation.message}`
+          ? previousOperation.message
           : 'El resultado de la publicación sigue sin confirmarse.'
         : undefined;
       const recoveryFeedback = unknownPublication ? `${unknownPublication} ${message}` : feedback;

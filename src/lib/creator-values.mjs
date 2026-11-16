@@ -3,8 +3,7 @@ export const CREATOR_CONTRACT_VERSION = '2';
 
 /** @type {readonly import('../types/creators').CreatorProgram[]} */
 export const CREATOR_PROGRAMS = Object.freeze(['User Group Leaders', 'Community Builders', 'Heroes']);
-/** @type {readonly import('../types/creators').CreatorSocial[]} */
-export const CREATOR_SOCIALS = Object.freeze(['instagram', 'x', 'linkedin', 'awsBuilder', 'website']);
+export const CREATOR_SOCIALS = Object.freeze(/** @type {const} */ (['instagram', 'x', 'linkedin', 'awsBuilder', 'website']));
 
 export const CREATOR_FIELD_LIMITS = Object.freeze({
   displayName: 120,

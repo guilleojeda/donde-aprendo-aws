@@ -376,24 +376,34 @@ test('un 401 tras confirmar un capítulo exige sesión, conserva stale y permite
   }
 });
 
-test('la publicación perdida conserva el resultado desconocido tras GET fallido y se adopta sin repetir el envío', async ({ fixture, page }) => {
+async function recoverUnknownPublication(fixture, page, acknowledgementDelivery) {
+  await page.setViewportSize({ width: 390, height: 450 });
   const cookie = await loggedInOwner(fixture, page);
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
-  let publicationSeen = false;
+  let publicationRequests = 0;
   let upstreamPublication;
   let ownerReadAttempts = 0;
   const ownerReadStatuses = [];
-  const lostPublication = async (route) => {
+  const controlPublication = async (route) => {
     const request = route.request();
-    if (!publicationSeen && request.method() === 'POST' && ownerPath(request) === '/api/creador/perfil/publicar') {
-      publicationSeen = true;
+    if (request.method() === 'POST' && ownerPath(request) === '/api/creador/perfil/publicar') {
+      publicationRequests += 1;
+      if (publicationRequests > 1) {
+        await route.abort();
+        return;
+      }
       const response = await route.fetch();
       const body = await response.body();
       upstreamPublication = { status: response.status(), body: JSON.parse(body.toString('utf8')) };
-      await route.abort();
+      if (acknowledgementDelivery === 'lost') {
+        await route.abort();
+        return;
+      }
+      await route.fulfill({ status: response.status(), contentType: 'application/json',
+        json: { ...upstreamPublication.body, operation: 'save-profile' } });
       return;
     }
-    if (publicationSeen && request.method() === 'GET' && ownerPath(request) === '/api/creador/perfil') {
+    if (publicationRequests > 0 && request.method() === 'GET' && ownerPath(request) === '/api/creador/perfil') {
       ownerReadAttempts += 1;
       const response = await route.fetch();
       const body = await response.body();
@@ -403,7 +413,7 @@ test('la publicación perdida conserva el resultado desconocido tras GET fallido
     }
     await route.fallback();
   };
-  await page.route('**/api/creador/**', lostPublication);
+  await page.route('**/api/creador/**', controlPublication);
   try {
     await page.goto(`${fixture.origin}/cuenta/?vista=series`);
     await page.getByRole('button', { name: 'Publicar página', exact: true }).click();
@@ -411,9 +421,17 @@ test('la publicación perdida conserva el resultado desconocido tras GET fallido
     assert.equal(upstreamPublication.body.operation, 'publish-profile');
     await expect.poll(() => capture.writes().filter(({ method, path }) => method === 'POST'
       && path === '/api/creador/perfil/publicar').length).toBe(1);
-    assert.equal(capture.writes().find(({ method, path }) => method === 'POST'
-      && path === '/api/creador/perfil/publicar')?.status, undefined,
-    'the page lost the upstream publication acknowledgement after the real request completed');
+    if (acknowledgementDelivery === 'unusable') {
+      await expect.poll(() => capture.writes().find(({ method, path }) => method === 'POST'
+        && path === '/api/creador/perfil/publicar')?.status).toBe(200);
+    }
+    const deliveredPublication = capture.writes().find(({ method, path }) => method === 'POST'
+      && path === '/api/creador/perfil/publicar');
+    assert.equal(deliveredPublication?.status, acknowledgementDelivery === 'lost' ? undefined : 200,
+      acknowledgementDelivery === 'lost'
+        ? 'the browser did not receive the real publication acknowledgement'
+        : 'the browser received an incompatible acknowledgement after the real publication committed');
+    if (acknowledgementDelivery === 'unusable') assert.equal(deliveredPublication?.responseBody?.operation, 'save-profile');
     await expect(page.locator('[data-owner-recovery]')).toHaveCount(1);
     await expect(page.locator('[data-owner-status]')).toHaveCount(0);
     const compare = page.getByRole('button', { name: /Comprobar(?: el)? estado guardado/iu });
@@ -424,6 +442,7 @@ test('la publicación perdida conserva el resultado desconocido tras GET fallido
     await expect(recovery).toHaveAttribute('data-recovery-kind', 'unknown');
     await expect(recovery).toContainText(/no sabemos si se publicó/iu);
     await expect(recovery).toContainText(/no pudimos leer el estado completo/iu);
+    await expect(recovery).not.toContainText(/respuesta de publicación se perdió/iu);
     await expect(page.locator('[data-owner-status]')).toHaveCount(0);
     const retry = recovery.getByRole('button', { name: 'Reintentar actualización', exact: true });
     await expect(retry).toBeEnabled();
@@ -443,7 +462,13 @@ test('la publicación perdida conserva el resultado desconocido tras GET fallido
     await expect(page.locator('[data-owner-status]')).toHaveCount(1);
     await expect(page.locator('[data-owner-status]')).toContainText('Usaste el estado guardado');
     await expect(page.locator('[data-series-write-status]')).toHaveCount(0);
-    await expect(page.locator('#owner-profile-name')).toBeFocused();
+    const heading = page.locator('#owner-profile-name');
+    await expect(heading).toBeFocused();
+    const box = await heading.boundingBox();
+    const viewport = page.viewportSize();
+    assert.ok(box && viewport && box.x >= 0 && box.y >= 0
+      && box.x + box.width <= viewport.width && box.y + box.height <= viewport.height,
+    `the adopted profile heading is visible with focus: ${JSON.stringify({ box, viewport })}`);
     const persisted = await readOwnerSnapshot(fixture, cookie);
     assert.equal(persisted.profile.published, true);
     assert.ok(capture.records.some(({ method, path, status, responseBody }) => method === 'GET'
@@ -453,10 +478,18 @@ test('la publicación perdida conserva el resultado desconocido tras GET fallido
     assert.equal(capture.writes().filter(({ method, path }) => method === 'POST'
       && path === '/api/creador/perfil/publicar').length, 1, 'adopting the saved publication never replays the write');
   } finally {
-    await page.unroute('**/api/creador/**', lostPublication).catch(() => {});
+    await page.unroute('**/api/creador/**', controlPublication).catch(() => {});
     await capture.stop({ skipErrorBodies: true });
   }
-});
+}
+
+for (const { acknowledgementDelivery, description } of [
+  { acknowledgementDelivery: 'lost', description: 'una confirmación perdida' },
+  { acknowledgementDelivery: 'unusable', description: 'una confirmación incompatible recibida' },
+]) {
+  test(`la publicación con ${description} conserva la incertidumbre tras GET fallido y se adopta sin repetir`,
+    async ({ fixture, page }) => recoverUnknownPublication(fixture, page, acknowledgementDelivery));
+}
 
 test('una publicación confirmada conserva una única recuperación cuando falla su lectura', async ({ fixture, page }) => {
   await loggedInOwner(fixture, page);

@@ -717,7 +717,8 @@ test(`a real partial claim with ${delivery.label} pauses submitted targets and k
       await expect(status).not.toContainText(ids[0]);
     } else {
       await expect(status).toContainText(`Ya vinculados: ${ids[0]}`);
-      const unresolvedLabel = delivery.stopLost || delivery.label === 'a version step for the unlinked resource'
+      const unresolvedLabel = delivery.stopLost
+        || ['missing versionChanges', 'a version step for the unlinked resource'].includes(delivery.label)
         ? 'Sin confirmar' : 'Pendientes';
       await expect(status).toContainText(`${unresolvedLabel}: ${ids[1]}`);
       if (unresolvedLabel === 'Sin confirmar') {
@@ -748,11 +749,18 @@ test(`a real partial claim with ${delivery.label} pauses submitted targets and k
 });
 }
 
-for (const alreadyLinkedB of [false, true]) {
-test(alreadyLinkedB
-  ? 'a shifted stop cannot call an already-linked no-op B pending before refresh'
-  : 'a shifted stop cannot call newly committed B pending before refresh', async ({ fixture, page }) => {
-  const suffix = alreadyLinkedB ? 'noop' : 'committed';
+const shiftedStopScenarios = [
+  { suffix: 'committed', alreadyLinkedB: false, malformedReceipt: false,
+    title: 'a shifted stop cannot call newly committed B pending before refresh' },
+  { suffix: 'noop', alreadyLinkedB: true, malformedReceipt: false,
+    title: 'a shifted stop cannot call an already-linked no-op B pending before refresh' },
+  { suffix: 'malformed', alreadyLinkedB: false, malformedReceipt: true,
+    title: 'a shifted stop with a damaged receipt cannot call committed B pending' },
+];
+
+for (const scenario of shiftedStopScenarios) {
+test(scenario.title, async ({ fixture, page }) => {
+  const { suffix, alreadyLinkedB, malformedReceipt } = scenario;
   const ids = [`admin-stop-${suffix}-a`, `admin-stop-${suffix}-b`, `admin-stop-${suffix}-c`,
     `admin-stop-${suffix}-draft`, `admin-stop-${suffix}-hold`];
   const adminCookie = await prepareAdmin(fixture, page, ids);
@@ -789,7 +797,12 @@ test(alreadyLinkedB
         assert.equal(actual.body.versionChanges.some(({ entity, id, before, after }) =>
           entity === 'resource' && id === ids[1] && before === 1 && after === 2), !alreadyLinkedB,
         'a new B grant has its version step; an already-linked no-op B does not');
-        await fulfillActual(currentRoute, response, { ...actual.body, failedResourceId: ids[1] });
+        const delivered = { ...actual.body, failedResourceId: ids[1] };
+        if (malformedReceipt) {
+          delivered.linkedResourceIds = [ids[0]];
+          delivered.versionChanges = [...actual.body.versionChanges, null];
+        }
+        await fulfillActual(currentRoute, response, delivered);
         return;
       }
       assert.equal(actual.status, 200, 'the manual C-only continuation uses the real grant route');
@@ -830,6 +843,9 @@ test(alreadyLinkedB
     await root(page).getByRole('button', { name: 'Actualizar vista' }).click();
     await expect.poll(() => page.evaluate(() => performance.timeOrigin)).not.toBe(documentTimeOrigin);
     await expect(root(page)).toBeVisible();
+    await expect(row(page, ids[0])).toContainText(/selección por creador/i);
+    await expect(row(page, ids[1])).toContainText(/selección por creador/i);
+    await expect(row(page, ids[2])).toContainText(/control editorial/i);
     const freshForm = claimForm(page, claim.id);
     await claimSelection(freshForm, ids[0]).uncheck();
     await claimSelection(freshForm, ids[1]).uncheck();
@@ -1465,7 +1481,7 @@ test(`a real quota 422 reports its cause and protects the committed prefix (${sc
       await expect(form.locator('[data-item-status]')).not.toContainText(ids[0]);
     } else {
       await expect(form.locator('[data-item-status]')).toContainText(`Ya vinculados: ${ids[0]}`);
-      const label = ['omit-stop', 'full', 'extra'].includes(scenario.mutation)
+      const label = ['omit-stop', 'full', 'extra', 'omit-profile-flag'].includes(scenario.mutation)
         ? 'Sin confirmar' : 'Pendientes';
       await expect(form.locator('[data-item-status]')).toContainText(`${label}: ${ids.slice(1).join(', ')}`);
       if (label === 'Sin confirmar') {
