@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
+import { DynamoDBServiceException } from '@aws-sdk/client-dynamodb';
 import { createCreatorStore } from '../src/lib/creator-store.mjs';
 import { currentUrlKey, currentUrlReservationId } from '../src/lib/catalog-url.mjs';
 import { dynamoDbItemSize } from '../src/lib/creator-dynamodb-size.mjs';
@@ -22,6 +23,16 @@ function fakeClient(handler = async () => ({})) {
       },
     },
   };
+}
+
+function modeledCancellation(message, reasons, attempts = 1) {
+  const error = new DynamoDBServiceException({
+    name: 'TransactionCanceledException',
+    message,
+    $metadata: { httpStatusCode: 400, attempts },
+  });
+  error.CancellationReasons = reasons;
+  return error;
 }
 
 function commandName(command) {
@@ -423,41 +434,29 @@ test('expression validation rejects both unused aliases and placeholders without
 });
 
 test('transaction cancellation reports only conditional races as false and propagates operational failures', async () => {
-  let nextError = Object.assign(new Error('conditional'), {
-    name: 'TransactionCanceledException',
-    CancellationReasons: [{ Code: 'ConditionalCheckFailed' }, { Code: 'None' }],
-  });
+  let nextError = modeledCancellation('conditional', [{ Code: 'ConditionalCheckFailed' }, { Code: 'None' }]);
   const { client, calls } = fakeClient(async () => { throw nextError; });
   const store = createCreatorStore({ ...TABLES, client });
   assert.equal(await store.transact({ checks: [{ key: 'profile:p1', version: null }] }), false);
   assert.equal(commandName(calls[0]), 'TransactWriteCommand');
   assert.equal(calls[0].input.TransactItems[0].ConditionCheck.TableName, TABLES.profilesTableName);
 
-  nextError = Object.assign(new Error('transaction conflict'), {
-    name: 'TransactionCanceledException',
-    CancellationReasons: [{ Code: 'None' }, { Code: 'TransactionConflict' }, { Code: 'None' }],
-  });
+  nextError = modeledCancellation('transaction conflict', [{ Code: 'None' }, { Code: 'TransactionConflict' }, { Code: 'None' }]);
   assert.equal(await store.transact({ checks: [{ key: 'profile:p1', version: null }] }), false,
     'a definite item contention is returned to the service conflict/winner handling');
 
-  nextError = Object.assign(new Error('capacity'), { name: 'TransactionCanceledException', CancellationReasons: [{ Code: 'ProvisionedThroughputExceeded' }] });
+  nextError = modeledCancellation('capacity', [{ Code: 'ProvisionedThroughputExceeded' }]);
   await assert.rejects(store.transact({ checks: [{ key: 'profile:p1', version: null }] }), /capacity/);
 
   for (const reason of ['ProvisionedThroughputExceeded', 'ValidationError']) {
-    nextError = Object.assign(new Error(`mixed ${reason}`), {
-      name: 'TransactionCanceledException',
-      CancellationReasons: [{ Code: 'TransactionConflict' }, { Code: reason }],
-    });
+    nextError = modeledCancellation(`mixed ${reason}`, [{ Code: 'TransactionConflict' }, { Code: reason }]);
     await assert.rejects(store.transact({ checks: [{ key: 'profile:p1', version: null }] }), new RegExp(`mixed ${reason}`));
   }
 
-  nextError = Object.assign(new Error('ambiguous cancellation'), {
-    name: 'TransactionCanceledException',
-    CancellationReasons: [{ Code: 'TransactionConflict' }, {}],
-  });
+  nextError = modeledCancellation('ambiguous cancellation', [{ Code: 'TransactionConflict' }, {}]);
   await assert.rejects(store.transact({ checks: [{ key: 'profile:p1', version: null }] }), /ambiguous cancellation/);
 
-  nextError = Object.assign(new Error('uncertain cancellation'), { name: 'TransactionCanceledException' });
+  nextError = modeledCancellation('uncertain cancellation', undefined);
   await assert.rejects(store.transact({ checks: [{ key: 'profile:p1', version: null }] }), /uncertain cancellation/);
 });
 

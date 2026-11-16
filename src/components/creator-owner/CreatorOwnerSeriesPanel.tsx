@@ -81,7 +81,7 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
       {chapterReadPending && <p class="creator-owner__status" data-owner-operation-message role="status" aria-live="polite">{chapterReadPending.message}</p>}
       {chapterReadFailure && <section class="creator-owner__status creator-owner__status--error" data-owner-stale role="alert" aria-live="polite">
         <p>{chapterReadFailure.message}</p>
-        <button class="button button--outline" type="button" data-owner-refresh-retry onClick={onRetryRead}>Reintentar actualización</button>
+        <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>
       </section>}
 
       <form class="creator-owner__series-filters creator-owner__series-filters--chapters" method="get" action="/cuenta/" data-series-chapter-filters>

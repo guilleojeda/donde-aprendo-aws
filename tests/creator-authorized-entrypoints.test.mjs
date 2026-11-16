@@ -369,6 +369,33 @@ test('actual admin SSR authorizes before private collections and keeps the page 
   assertSingleSsrContext();
 });
 
+test('actual admin SSR keeps event rows reviewable without inventing a content-classification form', async () => {
+  const { admin } = seedScenario();
+  const eventId = 'phase3-owner-event';
+  seed(TABLES.catalog, {
+    id: eventId,
+    recordType: 'event',
+    title: 'Encuentro de prueba',
+    description: 'Evento revisable desde administración.',
+    registrationUrl: 'https://events.example.test/phase3-owner-event',
+    published: false,
+    hidden: false,
+    directoryControl: 'editorial',
+    version: 1,
+  });
+  beginRequestObservation();
+
+  const { response, html } = await render(adminRoute.default, '/cuenta/administracion/?state=all&page=1', admin.token);
+
+  assert.equal(response.status, 200);
+  const eventRow = html.match(/<li\b[^>]*data-admin-resource="phase3-owner-event"[\s\S]*?<\/li>/u)?.[0];
+  assert.ok(eventRow, 'the actual SSR page renders the event row');
+  assert.match(eventRow, /Los eventos se revisan sin clasificación de recursos\./u);
+  assert.doesNotMatch(eventRow, /data-classification-form/u);
+  assert.match(html, /data-classification-form/u, 'ordinary resources retain their classification form');
+  assertSingleSsrContext();
+});
+
 test('actual owner GET API uses the same private owner query and one fresh authentication resolution', async () => {
   const { owner } = seedScenario();
   beginRequestObservation();
@@ -412,6 +439,39 @@ test('actual admin GET API uses the production adapter and an owner is rejected 
   assert.equal(JSON.stringify(payload).includes(OWNER_PHYSICAL_SENTINEL), false);
   assertOneAuthenticationResolution();
   assert.deepEqual(serviceDispatches, ['/api/admin/recursos/']);
+});
+
+test('actual admin profile GET uses the Astro adapter with the canonical wrapper and rejects owners before reads', async () => {
+  const { owner, admin } = seedScenario();
+
+  beginRequestObservation();
+  const forbidden = await api(adminApi, '/api/admin/perfiles/', owner.token);
+  assert.equal(forbidden.status, 403);
+  assert.deepEqual(await forbidden.json(), { error: 'ADMIN_REQUIRED', message: 'administrator access is required' });
+  assertPrivateHeaders(forbidden);
+  assertOneAuthenticationResolution();
+  assert.equal(observedReads().collections, 0, 'a non-admin is rejected before the private profile collection is read');
+  assert.deepEqual(serviceDispatches, ['/api/admin/perfiles/']);
+
+  beginRequestObservation();
+  const response = await api(adminApi, '/api/admin/perfiles/', admin.token);
+  const payload = await response.json();
+  assert.equal(response.status, 200);
+  assertPrivateHeaders(response);
+  assert.deepEqual(payload, {
+    profiles: [{
+      id: PROFILE_ID,
+      displayName: 'Ana de Lambda',
+      slug: 'ana-de-lambda',
+      published: true,
+      hidden: false,
+      version: 3,
+    }],
+  }, 'the committed profile GET keeps its exact wrapper and canonical row fields');
+  assert.equal(JSON.stringify(payload).includes('claimId'), false);
+  assert.equal(JSON.stringify(payload).includes(OWNER_PHYSICAL_SENTINEL), false);
+  assertOneAuthenticationResolution();
+  assert.deepEqual(serviceDispatches, ['/api/admin/perfiles/']);
 });
 
 test('actual statistics GET keeps its private unavailable response and authenticates once', async () => {

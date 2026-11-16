@@ -20,6 +20,7 @@ function legacyExport({
   includeDeletedAlias = true,
   count = 3,
   oversized = false,
+  profile = {},
 } = {}) {
   const rows = [{
     pk: PK,
@@ -35,6 +36,7 @@ function legacyExport({
     hidden: false,
     createdAt: 100,
     updatedAt: 200,
+    ...profile,
   }];
   const resourceRows = [];
   const placementRows = [
@@ -145,6 +147,45 @@ test('legacy conversion preserves exact IDs and independently sorts general and 
   assert.equal(plan.backup.profileRows.some(({ sk }) => sk === 'EDITOR#resource:retained'), true);
   assert.equal(plan.cleanup.rows.some(({ sk }) => sk.startsWith('SERIES_SLUG#')), false, 'aliases remain outside cleanup');
   assert.equal(plan.backup.preservedRows[0].item.profileId, PROFILE_ID);
+});
+
+test('conversion rejects a visible legacy profile with a blank public identity before planning replacement', () => {
+  assertCutoverError(
+    () => createCreatorStateConversionPlan(legacyExport({ profile: { slug: '' } })),
+    'INVALID_EXPORT',
+  );
+  assertCutoverError(
+    () => createCreatorStateConversionPlan(legacyExport({ profile: { displayName: '   ' } })),
+    'INVALID_EXPORT',
+  );
+
+  const draft = createCreatorStateConversionPlan(legacyExport({
+    profile: { displayName: '', slug: '', published: false },
+  }));
+  assert.equal(draft.convertedState.slug, '');
+  const hidden = createCreatorStateConversionPlan(legacyExport({
+    profile: { displayName: '', slug: '', published: true, hidden: true },
+  }));
+  assert.equal(hidden.convertedState.hidden, true);
+});
+
+test('apply rejects a stale plan that would replace a visible corrupt profile before provider access', async () => {
+  const plan = createCreatorStateConversionPlan(legacyExport());
+  const stale = structuredClone(plan);
+  stale.backup.profileRows.find(({ sk }) => sk === 'META').slug = '';
+  let reads = 0;
+  let writes = 0;
+  await assert.rejects(() => applyCreatorStateConversion(stale, {
+    tableName: 'profiles-test',
+    async readPhysical() {
+      reads += 1;
+      return undefined;
+    },
+    async transact() {
+      writes += 1;
+    },
+  }), (error) => error.code === 'INVALID_EXPORT');
+  assert.deepEqual({ reads, writes }, { reads: 0, writes: 0 });
 });
 
 test('a deleted-Series membership is omitted only with its exact retained alias', () => {

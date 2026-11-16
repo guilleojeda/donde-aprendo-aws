@@ -34,7 +34,12 @@ export interface CreatorAdminData {
     stateCounts: { all: number; pending: number; approved: number; revoked: number; hidden: number };
   };
   profiles: Record<string, unknown>[];
-  claims: Record<string, unknown>[];
+  claims: CreatorAdminClaim[];
+}
+
+export interface CreatorAdminClaim {
+  id: string;
+  [key: string]: unknown;
 }
 
 export interface CreatorAdminLoad {
@@ -149,23 +154,12 @@ function principalStatus(principal: CreatorPagePrincipal): number {
   return 503;
 }
 
-export async function loadCreatorEditor(
-  request: Request,
-  requestContext?: CreatorRequestContext,
-): Promise<CreatorEditorLoad> {
-  let runtime: Awaited<ReturnType<typeof getCreatorRuntime>>;
-  let context = requestContext;
-  try {
-    runtime = await getCreatorRuntime();
-    context ??= await runtime.auth.getRequestContext(request);
-  } catch {
-    const principal: CreatorPagePrincipal = { state: 'unavailable', isAdmin: false };
-    return { principal, status: 503 };
-  }
+export async function loadCreatorEditor(context: CreatorRequestContext): Promise<CreatorEditorLoad> {
   const principal = readPrincipal(context);
   if (principal.state !== 'authenticated') return { principal, status: principalStatus(principal) };
   if (!principal.csrfToken) return { principal: { state: 'unavailable', isAdmin: false }, status: 503 };
   try {
+    const runtime = await getCreatorRuntime();
     const data: unknown = await runtime.service.readCreatorEditor(context);
     return { principal, status: 200, data: readCreatorOwnerSnapshot(data) };
   } catch (error) {
@@ -173,15 +167,12 @@ export async function loadCreatorEditor(
   }
 }
 
-export async function loadCreatorAdmin(
-  request: Request,
-  requestContext?: CreatorRequestContext,
-): Promise<CreatorAdminLoad> {
+export async function loadCreatorAdmin(request: Request): Promise<CreatorAdminLoad> {
   let runtime: Awaited<ReturnType<typeof getCreatorRuntime>>;
-  let context = requestContext;
+  let context: CreatorRequestContext;
   try {
     runtime = await getCreatorRuntime();
-    context ??= await runtime.auth.getRequestContext(request);
+    context = await runtime.auth.getRequestContext(request);
   } catch {
     const principal: CreatorPagePrincipal = { state: 'unavailable', isAdmin: false };
     return { principal, status: 503 };

@@ -74,7 +74,6 @@ let ownerLinksQueryError: string | undefined;
 let ownerSeriesQuery = DEFAULT_CREATOR_OWNER_SERIES_QUERY;
 let ownerSeriesQueryError: string | undefined;
 let statistics: Awaited<ReturnType<typeof loadCreatorStatisticsPage>> | undefined;
-Astro.response.headers.set('Cache-Control', 'private, no-store');
 
 if (!recognizedCallbackState) {
   try {
@@ -85,16 +84,11 @@ if (!recognizedCallbackState) {
     session = { state: 'unavailable' };
   }
 
-  if (session.state === 'authenticated') {
+  if (session.state === 'authenticated' && requestContext) {
     try {
-      owner = await loadCreatorEditor(Astro.request, requestContext);
+      owner = await loadCreatorEditor(requestContext);
     } catch {
       owner = undefined;
-    }
-    if (!owner || owner.status !== 200 || !owner.data || owner.principal.state !== 'authenticated'
-      || !owner.principal.csrfToken || !owner.principal.sessionBinding) {
-      for (const [name, value] of Object.entries(CREATOR_PRIVATE_HEADERS)) Astro.response.headers.set(name, value);
-      Astro.response.status = owner?.status && owner.status !== 200 ? owner.status : 503;
     }
   }
 }
@@ -137,16 +131,6 @@ if (ownerSeriesQueryError && ownerView === 'series' && ownerIsReady) Astro.respo
 
 if (ownerView === 'estadisticas' && owner && requestContext) {
   statistics = await loadCreatorStatisticsPage(Astro.request, owner, requestContext);
-  Astro.response.status = statistics.status;
-} else if (ownerView === 'estadisticas' && owner) {
-  statistics = {
-    principal: owner.principal,
-    status: 503,
-    state: 'unavailable',
-    period: 7,
-    page: 1,
-    ...(owner.data ? { editor: owner.data } : {}),
-  };
   Astro.response.status = statistics.status;
 }
 

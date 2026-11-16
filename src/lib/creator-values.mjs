@@ -31,6 +31,16 @@ export function isCreatorSlug(value) {
     && value.length <= CREATOR_FIELD_LIMITS.slug && slugPattern.test(value);
 }
 
+/**
+ * A creator needs both public identity fields only when it is visible.
+ * Drafts and hidden profiles may retain an empty slug until they are shown.
+ * @param {unknown} displayName
+ * @param {unknown} slug
+ */
+export function hasCreatorPublicIdentity(displayName, slug) {
+  return typeof displayName === 'string' && displayName.trim().length > 0 && isCreatorSlug(slug);
+}
+
 /** @param {unknown} value */
 export function isCreatorStateId(value) {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/u.test(value);

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { DynamoDBServiceException } from '@aws-sdk/client-dynamodb';
 import { createCreatorStore } from '../src/lib/creator-store.mjs';
 import { createCreatorPagesService } from '../src/lib/creator-pages.mjs';
 import { currentUrlKey, currentUrlReservationId } from '../src/lib/catalog-url.mjs';
@@ -518,8 +519,11 @@ function createPhysicalClient() {
         };
       });
       if (operations.some(({ action, key }) => !conditionMatches(items.get(key), action))) {
-        const error = new Error('conditional check failed');
-        error.name = 'TransactionCanceledException';
+        const error = new DynamoDBServiceException({
+          name: 'TransactionCanceledException',
+          message: 'conditional check failed',
+          $metadata: { httpStatusCode: 400, attempts: 1 },
+        });
         error.CancellationReasons = [{ Code: 'ConditionalCheckFailed' }];
         throw error;
       }

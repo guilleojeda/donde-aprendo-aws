@@ -152,13 +152,13 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
           </div>
           <button class="button button--dark" type="submit" disabled={disabled || !creatorOwnerCanSubmitEditor(state)}>Crear borrador</button>
           {createMatchesOperation && operation.status === 'refresh-failed' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind={operation.status} data-owner-stale role="alert">
-            <p>{operation.message}</p><button class="button button--outline" type="button" data-owner-refresh-retry onClick={onRetryRead}>Reintentar actualización</button>
+            <p>{operation.message}</p><button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>
           </section>}
           {createMatchesOperation && operation.status === 'reading' && <p class="creator-owner__status" data-owner-operation-message role="status" aria-live="polite">{operation.message}</p>}
           {createMatchesOperation && operation.status === 'unknown' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind="unknown" aria-live="polite">
             <h3>No sabemos si se guardó</h3><p>{operation.message}</p>
             {operation.readCompleted && createRows && <ComparisonRows rows={createRows} />}
-            {!operation.readCompleted ? <button class="button button--outline" type="button" data-owner-check onClick={onRetryRead}>Comprobar estado guardado</button>
+            {!operation.readCompleted ? <button class="button button--outline" type="button" data-owner-check disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Comprobar estado guardado</button>
               : <div class="creator-owner__dialog-actions">
                 <button class="button button--outline" type="button" data-owner-use-saved onClick={() => onResolveRecovery('saved')}>Usar lo guardado</button>
                 <button class="button button--outline" type="button" data-owner-return-to-draft onClick={() => onResolveRecovery('draft')}>Volver al borrador</button>
@@ -217,8 +217,21 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
             {!profile.hidden && <button class="button button--dark" type="button" data-owner-publish disabled={disabled} onClick={onPublish}>Publicar página</button>}
           </>}
           {publishOperation && operation.status === 'reading' && <p class="creator-owner__status" data-owner-operation-message role="status" aria-live="polite">{operation.message}</p>}
-          {publishOperation && operation.status === 'unknown' && !operation.readCompleted && <button class="button button--outline" type="button" data-owner-publish-check onClick={onRetryRead}>Comprobar estado guardado</button>}
-          {publishOperation && (operation.status === 'unknown' || operation.status === 'conflict') && operation.readCompleted && <button class="button button--outline" type="button" data-owner-use-saved onClick={() => onResolveRecovery('saved')}>Usar lo guardado</button>}
+          {publishOperation && operation.status === 'refresh-failed' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind="refresh-failed" data-owner-stale role="alert" aria-live="polite">
+            <h3>No pudimos actualizar la publicación</h3>
+            <p>{operation.message}</p>
+            <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>
+          </section>}
+          {publishOperation && operation.status === 'unknown' && !operation.readCompleted && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind="unknown" aria-live="polite">
+            <h3>No sabemos si se publicó</h3>
+            <p>{operation.message}</p>
+            <button class="button button--outline" type="button" data-owner-publish-check disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Comprobar estado guardado</button>
+          </section>}
+          {publishOperation && (operation.status === 'unknown' || operation.status === 'conflict') && operation.readCompleted && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind={operation.status} aria-live="polite">
+            <h3>Estado de publicación comprobado</h3>
+            <p>{operation.message}</p>
+            <button class="button button--outline" type="button" data-owner-use-saved onClick={() => onResolveRecovery('saved')}>Usar lo guardado</button>
+          </section>}
         </section>
 
         {showActivitySummary && <section class="creator-owner__activity" data-owner-activity data-owner-profile-state={profile.hidden ? 'hidden' : profile.published ? 'published' : 'draft'} data-owner-creator-id={profile.id}

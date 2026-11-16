@@ -3,7 +3,13 @@ import { isDeepStrictEqual } from 'node:util';
 import { isCatalogResourceIdWithinLimit } from '../../src/lib/catalog-identity.mjs';
 import { assertCreatorStateFits, isCreatorStateId } from '../../src/lib/creator-state.mjs';
 import { dynamoDbCreatorStateSizes } from '../../src/lib/creator-dynamodb-size.mjs';
-import { CREATOR_FIELD_LIMITS, CREATOR_PROGRAMS, CREATOR_SOCIALS, isCreatorSlug } from '../../src/lib/creator-values.mjs';
+import {
+  CREATOR_FIELD_LIMITS,
+  CREATOR_PROGRAMS,
+  CREATOR_SOCIALS,
+  hasCreatorPublicIdentity,
+  isCreatorSlug,
+} from '../../src/lib/creator-values.mjs';
 import { isSafeCatalogUrl } from '../../src/lib/catalog-url-safety.mjs';
 
 const PLAN_FORMAT = 'creator-state-cutover-v1';
@@ -149,6 +155,9 @@ function validateProfileRow(row, profileId) {
   }
   if (typeof row.published !== 'boolean' || typeof row.hidden !== 'boolean') {
     fail('INVALID_EXPORT', 'profile visibility fields are malformed');
+  }
+  if (row.published && !row.hidden && !hasCreatorPublicIdentity(row.displayName, row.slug)) {
+    fail('INVALID_EXPORT', 'published visible profile has malformed public identity');
   }
   requireVersion(row.createdAt, 'profile createdAt');
   requireVersion(row.updatedAt, 'profile updatedAt');

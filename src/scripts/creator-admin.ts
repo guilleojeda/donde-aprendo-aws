@@ -21,6 +21,7 @@ interface AdminTarget {
 interface AdminCommandContext {
   kind: AdminCommandKind;
   targets: readonly AdminTarget[];
+  accountId?: string;
 }
 
 interface AdminCompletion {
@@ -328,6 +329,15 @@ function claimLinkedPrefix(
   const valid = ids.length === payload.linkedResourceIds.length && stageMatches;
   if (response.ok || valid) return { ids, valid, ...(valid && uncertainStage ? { uncertainResourceId: uncertainId } : {}) };
 
+  // If the stop is later than the delivered prefix, the response omitted one
+  // or more attempted resources. Do not expose that gap as pending or safe to
+  // replay; the whole selected result remains unconfirmed. A coherent
+  // overclaim still retains the trustworthy prefix below.
+  const definiteStop = failedAt >= 0 && !hasFailureStage && !claimsUncertainty && !hasUncertainId;
+  if (definiteStop && ids.length < failedAt) {
+    return { ids: [], valid: false, remainingUnconfirmed: true };
+  }
+
   // A definite stop can only corroborate a prefix if the outcome does not
   // also claim uncertainty. In that case, require a coherent version chain.
   if (failedAt >= 0 && !hasFailureStage && !claimsUncertainty && !hasUncertainId) {
@@ -377,7 +387,7 @@ async function completeAdminWrite(response: Response, context: AdminCommandConte
     && singleTargetCanonicalIsValid(payload, changes ?? [], context);
   if (!usable) {
     pauseAdminRows(context.targets);
-    if (context.kind === 'claim') pauseRelatedClaims(context.targets);
+    if (context.kind === 'claim') pauseRelatedClaims(context);
     return {
       payload,
       linkedIds,
@@ -393,7 +403,11 @@ async function completeAdminWrite(response: Response, context: AdminCommandConte
   const uncertainTargets = uncertainResourceId === undefined ? [] : context.targets.filter(({ entity, id }) =>
     entity === 'profile' || (entity === 'resource' && id === uncertainResourceId));
   pauseAdminRows([...gaps, ...uncertainTargets]);
-  if (context.kind === 'claim') pauseRelatedClaims([...gaps, ...uncertainTargets]);
+  if (context.kind === 'claim') {
+    const statusScopeConfirmed = response.ok || payload?.failureStage === 'claim-status';
+    pauseRelatedClaims(context, [...gaps, ...uncertainTargets],
+      statusScopeConfirmed ? { statusScope: true } : undefined);
+  }
   return {
     payload,
     linkedIds,
@@ -462,16 +476,29 @@ function pauseAdminRows(records: readonly Pick<CreatorVersionChange, 'entity' | 
   }
 }
 
-function pauseRelatedClaims(records: readonly Pick<CreatorVersionChange, 'entity' | 'id'>[]) {
-  if (!root || !state || records.length === 0) return;
-  const resourceIds = new Set(records.filter(({ entity }) => entity === 'resource').map(({ id }) => id));
+function pauseRelatedClaims(
+  context: AdminCommandContext,
+  records: readonly Pick<CreatorVersionChange, 'entity' | 'id'>[] = context.targets,
+  { statusScope = false }: { statusScope?: boolean } = {},
+) {
+  if (!root || !state || context.kind !== 'claim' || typeof context.accountId !== 'string') return;
+  const statusResourceIds = new Set(context.targets.filter(({ entity }) => entity === 'resource').map(({ id }) => id));
+  const dependencyResourceIds = new Set(records.filter(({ entity }) => entity === 'resource').map(({ id }) => id));
   const profileIds = new Set(records.filter(({ entity }) => entity === 'profile').map(({ id }) => id));
-  const claims = state.claims.filter((claim) =>
-    (typeof claim.profileId === 'string' && profileIds.has(claim.profileId))
-    || (Array.isArray(claim.resourceIds) && claim.resourceIds.some((id) => resourceIds.has(id))));
-  const claimIds = new Set(claims.map((claim) => claim.id ?? claim.claimId));
+  if ((!statusScope || statusResourceIds.size === 0)
+    && dependencyResourceIds.size === 0 && profileIds.size === 0) return;
+  const claims = state.claims.filter((claim) => {
+    const statusMatch = statusScope && claim.accountId === context.accountId
+        && Array.isArray(claim.resourceIds)
+        && claim.resourceIds.some((id) => statusResourceIds.has(id));
+    const dependencyMatch = (typeof claim.profileId === 'string' && profileIds.has(claim.profileId))
+      || (Array.isArray(claim.resourceIds) && claim.resourceIds.some((id) => dependencyResourceIds.has(id)));
+    return statusMatch || dependencyMatch;
+  });
+  const claimIds = new Set(claims.map((claim) => claim.id).filter((id): id is string => typeof id === 'string'));
   root.querySelectorAll<HTMLElement>('[data-admin-claim]').forEach((row) => {
-    if (!claimIds.has(row.dataset.adminClaim)) return;
+    const claimId = row.dataset.adminClaim;
+    if (!claimId || !claimIds.has(claimId)) return;
     markAdminActionsStale(CLAIM_RESOLUTION_CONTROLS, row);
     const form = row.querySelector<HTMLFormElement>('[data-claim-resolution]');
     // Frozen selections remain visible but can't be saved or reverted here.
@@ -665,7 +692,7 @@ if (root && state && csrfToken) {
       if (!form.reportValidity()) return;
       const item = form.closest<HTMLElement>('[data-admin-claim]');
       const claimId = item?.dataset.adminClaim;
-      const claim = state?.claims.find((candidate) => (candidate.id ?? candidate.claimId) === claimId);
+      const claim = state?.claims.find((candidate) => candidate.id === claimId);
       if (!claimId || !claim || typeof claim.accountId !== 'string'
         || !Array.isArray(claim.resourceIds)) return;
       const claimResourceIds = claim.resourceIds.filter((id): id is string => typeof id === 'string');
@@ -703,6 +730,7 @@ if (root && state && csrfToken) {
             return [{ entity: 'profile' as const, id: profileId, ...(version !== undefined ? { version } : {}) }];
           })() : []),
         ],
+        accountId: claim.accountId,
       };
       selectionControls.forEach((control) => { control.disabled = true; });
       busy(form, true);
@@ -767,7 +795,7 @@ if (root && state && csrfToken) {
         } else {
           pauseResolution();
           pauseAdminRows(context.targets);
-          pauseRelatedClaims(context.targets);
+          pauseRelatedClaims(context);
           formState?.commit(submittedValues);
           syncBeforeUnload();
           const message = 'No pudimos confirmar el resultado de la vinculación. Actualiza la vista para revisar esta solicitud.';

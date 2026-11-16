@@ -1,6 +1,13 @@
 import { isCatalogResourceIdWithinLimit } from './catalog-identity.mjs';
 import { isSafeCatalogUrl } from './catalog-url-safety.mjs';
-import { CREATOR_FIELD_LIMITS, CREATOR_PROGRAMS, CREATOR_SOCIALS, isCreatorSlug, isCreatorStateId } from './creator-values.mjs';
+import {
+  CREATOR_FIELD_LIMITS,
+  CREATOR_PROGRAMS,
+  CREATOR_SOCIALS,
+  hasCreatorPublicIdentity,
+  isCreatorSlug,
+  isCreatorStateId,
+} from './creator-values.mjs';
 import { dynamoDbCreatorStateSizes } from './creator-dynamodb-size.mjs';
 
 export const CREATOR_STATE_SCHEMA_VERSION = 2;
@@ -68,6 +75,8 @@ function validateProfile(state) {
   }
   invalidIf(typeof state.published !== 'boolean' || typeof state.hidden !== 'boolean',
     'creator state visibility fields are malformed');
+  invalidIf(state.published && !state.hidden && !hasCreatorPublicIdentity(state.displayName, state.slug),
+    'creator state public identity is malformed');
   requireTimestamp(state.createdAt, 'createdAt');
   requireTimestamp(state.updatedAt, 'updatedAt');
 

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
+import { DynamoDBServiceException } from '@aws-sdk/client-dynamodb';
 import { createCreatorStore } from '../../src/lib/creator-store.mjs';
 import { createCreatorPagesHarness } from './creator-pages.mjs';
 
@@ -196,10 +197,13 @@ function conditionalMatches(action, current) {
 }
 
 function conditionalFailure() {
-  return Object.assign(new Error('conditional transaction failed'), {
+  const failure = new DynamoDBServiceException({
     name: 'TransactionCanceledException',
-    CancellationReasons: [{ Code: 'ConditionalCheckFailed' }],
+    message: 'conditional transaction failed',
+    $metadata: { httpStatusCode: 400, attempts: 1 },
   });
+  failure.CancellationReasons = [{ Code: 'ConditionalCheckFailed' }];
+  return failure;
 }
 
 function projectQueryItem(item, input) {

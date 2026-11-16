@@ -11,6 +11,7 @@ import {
   CREATOR_SOCIALS,
   isCreatorSlug,
   isCreatorStateId,
+  hasCreatorPublicIdentity,
   normalizeCreatorText,
 } from './creator-values.mjs';
 import { CreatorStateError, prepareCreatorStateWrite, readCreatorState } from './creator-state.mjs';
@@ -1139,7 +1140,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     assertOwnerFields(body, new Set(['creatorVersion']));
     const profile = await getRequiredOwnerProfile(principal);
     requireCreatorVersion(body, profile);
-    if (!profile.displayName.trim() || !profile.slug) fail(422, 'PROFILE_INCOMPLETE', 'save a name and URL name before publishing');
+    if (!hasCreatorPublicIdentity(profile.displayName, profile.slug)) {
+      fail(422, 'PROFILE_INCOMPLETE', 'save a name and URL name before publishing');
+    }
     if (profile.published) {
       if (!await store.transact({ checks: [{ key: profileKey(profile.id), version: profile.version }] })) {
         fail(409, 'PROFILE_CONFLICT', 'creator content changed while checking publication');
@@ -2013,7 +2016,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       const profile = readCreatorStateOrFail(row, alias.profileId);
       if (profile.hidden || !profile.published) return { status: 404 };
       const publicProfile = cleanPublicProfile(profile);
-      if (!publicProfile.displayName.trim()) fail(503, 'INVALID_PROFILE', 'profile display name is malformed');
       if (profile.slug !== slug) {
         return { status: 308, redirectTo: `/c/${encodeURIComponent(profile.slug)}${suffix || '/'}${search}` };
       }
@@ -2044,7 +2046,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       const profile = readCreatorStateOrFail(row, profileAlias.profileId);
       if (profile.hidden || !profile.published) return { status: 404 };
       const publicProfile = cleanPublicProfile(profile);
-      if (!publicProfile.displayName.trim()) fail(503, 'INVALID_PROFILE', 'profile display name is malformed');
 
       const seriesAlias = await readSeriesAlias(profile.id, seriesSlug);
       if (!seriesAlias) return { status: 404 };

@@ -3,7 +3,7 @@ import type {
   CreatorStatisticsReady,
 } from '../../lib/creator-statistics-types';
 import { getCreatorRuntime } from '../../lib/creator-runtime.mjs';
-import { loadCreatorEditor, type CreatorPagePrincipal, type CreatorRequestContext } from './_creator-page';
+import type { loadCreatorEditor, CreatorPagePrincipal, CreatorRequestContext } from './_creator-page';
 import { parseCreatorStatisticsReady } from '../../lib/creator-statistics-response';
 export { getStatisticsLinkLabel } from '../../lib/creator-statistics-labels';
 export { parseCreatorStatisticsReady } from '../../lib/creator-statistics-response';
