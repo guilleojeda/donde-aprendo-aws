@@ -9,6 +9,7 @@ import {
   isCreatorStateId,
 } from './creator-values.mjs';
 import { dynamoDbCreatorStateSizes } from './creator-dynamodb-size.mjs';
+import { isPublicCreator } from './creator-public.mjs';
 
 export const CREATOR_STATE_SCHEMA_VERSION = 2;
 export const CREATOR_CONTENT_LIMIT_BYTES = 384 * 1024;
@@ -75,7 +76,7 @@ function validateProfile(state) {
   }
   invalidIf(typeof state.published !== 'boolean' || typeof state.hidden !== 'boolean',
     'creator state visibility fields are malformed');
-  invalidIf(state.published && !state.hidden && !hasCreatorPublicIdentity(state.displayName, state.slug),
+  invalidIf(isPublicCreator(state) && !hasCreatorPublicIdentity(state.displayName, state.slug),
     'creator state public identity is malformed');
   requireTimestamp(state.createdAt, 'createdAt');
   requireTimestamp(state.updatedAt, 'updatedAt');

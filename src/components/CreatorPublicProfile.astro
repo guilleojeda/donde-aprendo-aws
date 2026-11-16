@@ -1,5 +1,7 @@
 ---
-import type { CreatorProfileDTO, CreatorPublicLinkDTO, CreatorPublicSeriesSummaryDTO } from '../types/creators';
+import type { CreatorProfileDTO, CreatorPublicLinkDTO, CreatorPublicSeriesSummaryDTO, CreatorSocial } from '../types/creators';
+import { CREATOR_SOCIALS } from '../lib/creator-values.mjs';
+import { safeCreatorSocialUrl } from '../lib/creator-public.mjs';
 
 interface Props {
   profile: CreatorProfileDTO;
@@ -39,11 +41,11 @@ function safeSeriesPath(value: string | undefined) {
   }
 }
 const socials = Object.entries(profile.socials ?? {}).flatMap(([key, value]) => {
-  if (!(key in socialLabels) || typeof value !== 'string') return [];
-  const destination = safeHttpUrl(value);
+  if (!CREATOR_SOCIALS.includes(key as CreatorSocial) || typeof value !== 'string') return [];
+  const destination = safeCreatorSocialUrl(value);
   if (!destination) return [];
   const socialKey = key as keyof typeof socialLabels;
-  return [{ key: socialKey, label: socialLabels[socialKey], url: destination.href }];
+  return [{ key: socialKey, label: socialLabels[socialKey], url: destination }];
 });
 const photoPath = profile.photo?.url?.startsWith('/media/fotos/')
   ? profile.photo.url

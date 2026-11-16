@@ -111,6 +111,69 @@ test('real event moderation keeps its failure retryable while the ordinary class
   assert.equal((await fixture.rawResource(eventId)).published, true, 'the explicit retry persists the event approval');
 });
 
+test('a real profile moderation storage 503 gives row feedback and persists only after one manual retry', async ({ fixture, page }) => {
+  const resourceId = 'admin-profile-503-resource';
+  const adminCookie = await prepareAdmin(fixture, page, [resourceId]);
+  const ownerCookie = await loginAsSeparateOwner(
+    fixture,
+    'admin-profile-503-owner',
+    'admin-profile-503-owner@example.invalid',
+  );
+  const profile = await createProfile(fixture, ownerCookie, {
+    displayName: 'Perfil para error de almacenamiento',
+    slug: 'perfil-error-almacenamiento',
+  });
+  await addCookie(page.context(), fixture, adminCookie);
+  await page.goto(`${fixture.origin}${adminPath}?state=all&page=1`);
+  await expect(root(page)).toBeVisible();
+  const target = profileRow(page, profile.id);
+  const hide = target.getByRole('button', { name: 'Ocultar perfil' });
+  await expect(hide).toBeVisible();
+  const before = await fixture.creatorStore.get(`profile:${profile.id}`);
+  const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
+  assert.equal(before.hidden, false);
+
+  const writes = [];
+  const captureWrite = (request) => {
+    if (request.method() === 'POST'
+      && new URL(request.url()).pathname === `/api/admin/perfiles/${profile.id}/ocultar/`) writes.push(request);
+  };
+  page.on('request', captureWrite);
+  try {
+    fixture.creatorStore.failNext('transact', new Error('injected profile moderation storage failure'));
+    const failed = page.waitForResponse((response) => response.request().method() === 'POST'
+      && new URL(response.url()).pathname === `/api/admin/perfiles/${profile.id}/ocultar/`);
+    await hide.click();
+    const failedResponse = await failed;
+    assert.equal(failedResponse.status(), 503, 'the actual profile moderation transaction returned the injected storage failure');
+    assert.deepEqual(JSON.parse(failedResponse.request().postData()), { version: before.version });
+    assert.equal(writes.length, 1, 'the failed action was sent once and was not replayed');
+    await expect(target.locator('[data-item-status]')).toContainText('No pudimos guardar el cambio.');
+    await expect(hide).toBeEnabled();
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin,
+      'the failed request keeps the current admin document available for a manual retry');
+    assert.deepEqual(await fixture.creatorStore.get(`profile:${profile.id}`), before,
+      'the failed storage transaction left the profile unchanged');
+
+    const retry = page.waitForResponse((response) => response.request().method() === 'POST'
+      && new URL(response.url()).pathname === `/api/admin/perfiles/${profile.id}/ocultar/`);
+    const navigation = page.waitForEvent('framenavigated', { predicate: (frame) => frame === page.mainFrame() });
+    await hide.click();
+    const retryResponse = await retry;
+    assert.equal(retryResponse.status(), 200);
+    assert.deepEqual(JSON.parse(retryResponse.request().postData()), { version: before.version });
+    await navigation;
+    assert.notEqual(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin,
+      'the successful manual moderation reloads the refreshed admin row');
+    assert.equal(writes.length, 2, 'the only second moderation request came from the explicit manual retry');
+    const saved = await fixture.creatorStore.get(`profile:${profile.id}`);
+    assert.equal(saved.hidden, true);
+    assert.equal(saved.version, before.version + 1);
+  } finally {
+    page.off('request', captureWrite);
+  }
+});
+
 test('admin recovery rejects a changed role before reads or writes and keeps the stale action blocked', async ({ fixture, page }) => {
   const id = 'admin-role-boundary';
   await prepareAdmin(fixture, page, [resource(id, 0)]);

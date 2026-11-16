@@ -717,7 +717,13 @@ test(`a real partial claim with ${delivery.label} pauses submitted targets and k
       await expect(status).not.toContainText(ids[0]);
     } else {
       await expect(status).toContainText(`Ya vinculados: ${ids[0]}`);
-      await expect(status).toContainText(`${delivery.stopLost ? 'Sin confirmar' : 'Pendientes'}: ${ids[1]}`);
+      const unresolvedLabel = delivery.stopLost || delivery.label === 'a version step for the unlinked resource'
+        ? 'Sin confirmar' : 'Pendientes';
+      await expect(status).toContainText(`${unresolvedLabel}: ${ids[1]}`);
+      if (unresolvedLabel === 'Sin confirmar') {
+        await expect(status).not.toContainText('Pendientes:');
+        await expect(status).not.toContainText(/reintenta sólo esos IDs/i);
+      }
     }
     await expect(status).toContainText(/recibo no coincide/i);
 
@@ -735,6 +741,114 @@ test(`a real partial claim with ${delivery.label} pauses submitted targets and k
     assert.equal(JSON.parse(savedDraft.request().postData()).version, 1);
     assert.equal((await fixture.rawResource(ids[4])).category, 'Certificaciones');
     assert.equal(route.observed.length, 1, 'saving the draft does not replay the partial grant');
+  } finally {
+    await route.stop();
+    fixture.creatorStore.get = get;
+  }
+});
+}
+
+for (const alreadyLinkedB of [false, true]) {
+test(alreadyLinkedB
+  ? 'a shifted stop cannot call an already-linked no-op B pending before refresh'
+  : 'a shifted stop cannot call newly committed B pending before refresh', async ({ fixture, page }) => {
+  const suffix = alreadyLinkedB ? 'noop' : 'committed';
+  const ids = [`admin-stop-${suffix}-a`, `admin-stop-${suffix}-b`, `admin-stop-${suffix}-c`,
+    `admin-stop-${suffix}-draft`, `admin-stop-${suffix}-hold`];
+  const adminCookie = await prepareAdmin(fixture, page, ids);
+  const owner = await createOwnerProfile(fixture, `admin-stop-${suffix}-owner`, `admin-stop-${suffix}@example.invalid`);
+  if (alreadyLinkedB) {
+    const initial = await fixture.request(adminCookie, '/api/admin/reclamaciones/vincular/', {
+      method: 'POST', body: { accountId: owner.principal.accountId, resourceIds: [ids[1]] },
+    });
+    assert.equal(initial.status, 200, 'B is a durable linked no-op in the later full selection');
+    assert.deepEqual((await initial.json()).linkedResourceIds, [ids[1]]);
+  }
+  const claim = await createClaim(fixture, owner.cookie, ids.slice(0, 3));
+  await openAdmin(fixture, page);
+  const form = claimForm(page, claim.id);
+  await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
+  await row(page, ids[3]).getByLabel('Categoría').fill('Borrador independiente');
+  await row(page, ids[4]).getByLabel('Categoría').fill('Borrador que conserva la vista');
+
+  const get = fixture.creatorStore.get.bind(fixture.creatorStore);
+  let stopBeforeThirdGrant = true;
+  fixture.creatorStore.get = async (key) => {
+    if (stopBeforeThirdGrant && key === `editor:${owner.profile.id}:${ids[2]}`) {
+      throw new Error('the third grant stops before its transaction');
+    }
+    return get(key);
+  };
+  const route = await interceptAdminWrite(page,
+    (request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/reclamaciones/vincular/',
+    async (currentRoute, response, actual) => {
+      if (route.observed.length === 1) {
+        assert.equal(actual.status, 503, 'the real route commits A and B before the storage read for C fails');
+        assert.deepEqual(actual.body.linkedResourceIds, ids.slice(0, 2));
+        assert.equal(actual.body.failedResourceId, ids[2]);
+        assert.equal(actual.body.versionChanges.some(({ entity, id, before, after }) =>
+          entity === 'resource' && id === ids[1] && before === 1 && after === 2), !alreadyLinkedB,
+        'a new B grant has its version step; an already-linked no-op B does not');
+        await fulfillActual(currentRoute, response, { ...actual.body, failedResourceId: ids[1] });
+        return;
+      }
+      assert.equal(actual.status, 200, 'the manual C-only continuation uses the real grant route');
+      assert.deepEqual(actual.requestBody.resourceIds, [ids[2]]);
+      await currentRoute.fulfill({ response });
+    });
+  try {
+    await form.getByRole('button', { name: 'Vincular recursos seleccionados' }).click();
+    await waitForAdminWriteToSettle(page, ids[3]);
+    const savedOwner = await fixture.rawOwner(owner.cookie);
+    assert.deepEqual(Object.values(savedOwner.profile.placements).map(({ resourceId }) => resourceId).sort(), ids.slice(0, 2).sort());
+    for (const id of ids.slice(0, 2)) assert.equal((await fixture.rawResource(id)).directoryControl, 'creator');
+    assert.equal((await fixture.rawResource(ids[2])).directoryControl, 'editorial');
+    assert.equal((await fixture.creatorStore.get(`claim:${claim.id}`)).status, 'pending');
+
+    const status = form.locator('[data-item-status]');
+    await expect(status).toContainText(`Ya vinculados: ${ids[0]}. Sin confirmar: ${ids[1]}, ${ids[2]}.`);
+    await expect(status).not.toContainText('Pendientes:');
+    await expect(status).not.toContainText(/reintenta|reenviar/i);
+    for (const id of ids.slice(0, 3)) await expect(claimSelection(form, id)).toBeDisabled();
+    await expect(form.getByRole('button', { name: 'Vincular recursos seleccionados' })).toBeDisabled();
+    await expect(root(page).getByRole('button', { name: 'Actualizar vista' })).toBeVisible();
+
+    const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
+    const savedDraft = await submitClassification(page, ids[3], 'Certificaciones');
+    assert.equal(savedDraft.status(), 200);
+    assert.equal(route.observed.length, 1, 'saving an unrelated draft does not replay the ambiguous grant');
+    assert.equal((await fixture.rawResource(ids[3])).category, 'Certificaciones');
+    await expect(row(page, ids[4]).getByLabel('Categoría')).toHaveValue('Borrador que conserva la vista');
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin,
+      'the unrelated draft keeps the same document open for explicit refresh');
+    const committedVersions = await Promise.all(ids.slice(0, 2).map(async (id) =>
+      (await fixture.rawResource(id)).version));
+
+    await row(page, ids[4]).getByLabel('Categoría').fill('Serverless');
+    stopBeforeThirdGrant = false;
+    fixture.creatorStore.get = get;
+    await root(page).getByRole('button', { name: 'Actualizar vista' }).click();
+    await expect.poll(() => page.evaluate(() => performance.timeOrigin)).not.toBe(documentTimeOrigin);
+    await expect(root(page)).toBeVisible();
+    const freshForm = claimForm(page, claim.id);
+    await claimSelection(freshForm, ids[0]).uncheck();
+    await claimSelection(freshForm, ids[1]).uncheck();
+    await freshForm.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
+    const continuation = page.waitForResponse((candidate) => candidate.request().method() === 'POST'
+      && new URL(candidate.url()).pathname === '/api/admin/reclamaciones/vincular/');
+    await freshForm.getByRole('button', { name: 'Vincular recursos seleccionados' }).click();
+    assert.equal((await continuation).status(), 200);
+    assert.equal(route.observed.length, 2, 'only the explicit C retry follows the safe refresh');
+    assert.deepEqual(route.observed[1].requestBody.resourceIds, [ids[2]]);
+    assert.deepEqual(route.observed[1].body.linkedResourceIds, [ids[2]]);
+    const finalOwner = await fixture.rawOwner(owner.cookie);
+    const finalResourceIds = Object.values(finalOwner.profile.placements).map(({ resourceId }) => resourceId);
+    assert.deepEqual(finalResourceIds.sort(), ids.slice(0, 3).sort(), 'A and B stay committed and C is added once');
+    assert.equal(new Set(finalResourceIds).size, 3);
+    assert.deepEqual(await Promise.all(ids.slice(0, 2).map(async (id) => (await fixture.rawResource(id)).version)), committedVersions);
+    assert.equal((await fixture.rawResource(ids[2])).directoryControl, 'creator');
+    assert.equal((await fixture.rawResource(ids[2])).version, 2);
+    assert.equal((await fixture.creatorStore.get(`claim:${claim.id}`)).status, 'resolved');
   } finally {
     await route.stop();
     fixture.creatorStore.get = get;
@@ -1141,6 +1255,99 @@ test('a first-grant quota rejection explains capacity and leaves the entire clai
   }
 });
 
+test('a definitive pre-write claim 503 preserves the same selection for an explicit retry', async ({ fixture, page }) => {
+  const ids = ['admin-prewrite-503-a', 'admin-prewrite-503-b'];
+  await prepareAdmin(fixture, page, ids);
+  const owner = await createOwnerProfile(fixture, 'admin-prewrite-503-owner', 'admin-prewrite-503@example.invalid');
+  const claim = await createClaim(fixture, owner.cookie, ids);
+  await openAdmin(fixture, page);
+  const form = claimForm(page, claim.id);
+  const first = claimSelection(form, ids[0]);
+  const selected = claimSelection(form, ids[1]);
+  await first.uncheck();
+  await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
+  const before = {
+    profile: await fixture.creatorStore.get(`profile:${owner.profile.id}`),
+    resources: await Promise.all(ids.map((id) => fixture.rawResource(id))),
+    claim: await fixture.creatorStore.get(`claim:${claim.id}`),
+    editor: await fixture.creatorStore.get(`editor:${owner.profile.id}:${ids[1]}`),
+  };
+
+  const originalGet = fixture.creatorStore.get.bind(fixture.creatorStore);
+  const originalTransact = fixture.creatorStore.transact.bind(fixture.creatorStore);
+  let injected = false;
+  const transactions = [];
+  fixture.creatorStore.get = async (key) => {
+    if (!injected && key === `editor:${owner.profile.id}:${ids[1]}`) {
+      injected = true;
+      throw new Error('storage read fails before the selected grant can write');
+    }
+    return originalGet(key);
+  };
+  fixture.creatorStore.transact = async (operation) => {
+    transactions.push(operation);
+    return originalTransact(operation);
+  };
+  const route = await interceptAdminWrite(page,
+    (request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/reclamaciones/vincular/',
+    async (currentRoute, response, actual) => {
+      if (route.observed.length === 1) {
+        assert.equal(actual.status, 503);
+        assert.equal(actual.body.error, 'SERVICE_UNAVAILABLE');
+        assert.equal(actual.body.failureStage, 'before-grant-write');
+        assert.equal(Object.hasOwn(actual.body, 'linkedResourceIds'), false);
+      } else {
+        assert.equal(actual.status, 200, 'the same explicit manual selection is accepted after storage recovers');
+        assert.deepEqual(actual.requestBody.resourceIds, [ids[1]]);
+        assert.deepEqual(actual.body.linkedResourceIds, [ids[1]]);
+      }
+      await currentRoute.fulfill({ response });
+    });
+  try {
+    const submit = form.getByRole('button', { name: 'Vincular recursos seleccionados' });
+    const failed = page.waitForResponse((candidate) => candidate.request().method() === 'POST'
+      && new URL(candidate.url()).pathname === '/api/admin/reclamaciones/vincular/');
+    await submit.click();
+    assert.equal((await failed).status(), 503);
+    assert.equal(route.observed.length, 1);
+    assert.equal(injected, true, 'the actual claim service hit the targeted editor-reference storage read');
+    assert.deepEqual(route.observed[0].requestBody.resourceIds, [ids[1]]);
+    assert.equal(transactions.length, 0, 'the definitive pre-write storage failure made no transaction attempt');
+    assert.deepEqual(await fixture.creatorStore.get(`profile:${owner.profile.id}`), before.profile);
+    assert.deepEqual(await Promise.all(ids.map((id) => fixture.rawResource(id))), before.resources);
+    assert.deepEqual(await fixture.creatorStore.get(`claim:${claim.id}`), before.claim);
+    assert.deepEqual(await fixture.creatorStore.get(`editor:${owner.profile.id}:${ids[1]}`), before.editor);
+
+    await expect(form).toHaveAttribute('aria-busy', 'false');
+    await expect(first).not.toBeChecked();
+    await expect(selected).toBeChecked();
+    await expect(first).toBeEnabled();
+    await expect(selected).toBeEnabled();
+    await expect(form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' })).toBeEnabled();
+    await expect(submit).toBeEnabled();
+    await expect(form.locator('[data-item-status]')).toContainText('No pudimos guardar el cambio.');
+    await expect(form.locator('[data-item-status]')).not.toContainText(/parcial|pendientes/i);
+    assert.equal(route.observed.length, 1, 'no automatic retry follows the pre-write 503');
+
+    const retry = page.waitForResponse((candidate) => candidate.request().method() === 'POST'
+      && new URL(candidate.url()).pathname === '/api/admin/reclamaciones/vincular/');
+    await submit.click();
+    assert.equal((await retry).status(), 200);
+    assert.deepEqual(route.observed.map(({ requestBody }) => requestBody.resourceIds), [[ids[1]], [ids[1]]]);
+    assert.equal(route.observed.length, 2, 'only the explicit retry follows the failed command');
+    const savedOwner = await fixture.rawOwner(owner.cookie);
+    assert.deepEqual(Object.values(savedOwner.profile.placements).map(({ resourceId }) => resourceId), [ids[1]]);
+    assert.equal((await fixture.rawResource(ids[0])).directoryControl, 'editorial');
+    assert.equal((await fixture.rawResource(ids[1])).directoryControl, 'creator');
+    assert.equal((await fixture.rawResource(ids[1])).version, 2);
+    assert.equal((await fixture.creatorStore.get(`claim:${claim.id}`)).status, 'partial');
+  } finally {
+    await route.stop();
+    fixture.creatorStore.get = originalGet;
+    fixture.creatorStore.transact = originalTransact;
+  }
+});
+
 const quotaPartialClaimScenarios = [
   { suffix: 'append', label: 'a confirmed committed prefix' },
   { suffix: 'resource-only', label: 'profileChanged false without linked IDs', includeFirstPlacement: true, mutation: 'omit-ids' },
@@ -1258,8 +1465,13 @@ test(`a real quota 422 reports its cause and protects the committed prefix (${sc
       await expect(form.locator('[data-item-status]')).not.toContainText(ids[0]);
     } else {
       await expect(form.locator('[data-item-status]')).toContainText(`Ya vinculados: ${ids[0]}`);
-      const label = scenario.mutation === 'omit-stop' ? 'Sin confirmar' : 'Pendientes';
+      const label = ['omit-stop', 'full', 'extra'].includes(scenario.mutation)
+        ? 'Sin confirmar' : 'Pendientes';
       await expect(form.locator('[data-item-status]')).toContainText(`${label}: ${ids.slice(1).join(', ')}`);
+      if (label === 'Sin confirmar') {
+        await expect(form.locator('[data-item-status]')).not.toContainText('Pendientes:');
+        await expect(form.locator('[data-item-status]')).not.toContainText(/reintenta sólo esos IDs/i);
+      }
     }
     if (scenario.mutation) {
       for (const id of ids) await expect(saveButton(page, id)).toBeDisabled();

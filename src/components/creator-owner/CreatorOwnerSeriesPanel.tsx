@@ -6,6 +6,7 @@ import {
   type CreatorOwnerSeriesQuery,
 } from '../../lib/creator-owner-series';
 import { joinCreatorOwnerPlacements } from '../../lib/creator-owner-data';
+import { canonicalCreatorSeriesPath, isPublicCreatorSeries, visibleCreatorSeriesChapterCount } from '../../lib/creator-public.mjs';
 import { creatorOwnerChapterRecoveryIsVisibleInDetail, type CreatorOwnerState } from '../../lib/creator-owner-state';
 
 interface Props {
@@ -37,10 +38,9 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
   const chapterSelection = selectedSeries ? selectCreatorOwnerChapters(snapshot, query) : undefined;
   const selectedChapterIds = new Set(chapterSelection?.completeOrder.map(({ placementId }) => placementId) ?? []);
   const positions = new Map(chapterSelection?.completeOrder.map((link, index) => [link.placementId, index + 1]) ?? []);
-  const canPublish = Boolean(snapshot.profile?.published && !snapshot.profile.hidden);
-  const visibleChapters = chapterSelection?.completeOrder.filter((link) => !link.hidden) ?? [];
-  const publicSeriesPath = selectedSeries && snapshot.profile && canPublish && visibleChapters.length
-    ? `/c/${encodeURIComponent(snapshot.profile.slug)}/series/${encodeURIComponent(selectedSeries.slug)}/`
+  const visibleChapterCount = visibleCreatorSeriesChapterCount(chapterSelection?.completeOrder ?? []);
+  const publicSeriesPath = selectedSeries && snapshot.profile && isPublicCreatorSeries(snapshot.profile, visibleChapterCount)
+    ? canonicalCreatorSeriesPath(snapshot.profile.slug, selectedSeries.slug)
     : undefined;
   const seriesCount = `${seriesSelection.totalMatches} ${seriesSelection.totalMatches === 1 ? 'serie' : 'series'}`;
   const chapterCount = `${chapterSelection?.totalMatches ?? 0} ${(chapterSelection?.totalMatches ?? 0) === 1 ? 'coincidencia' : 'coincidencias'} de ${links.length} ${links.length === 1 ? 'enlace' : 'enlaces'}`;
@@ -52,7 +52,6 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
     ? state.operation : undefined;
   const chapterReadPending = state.operation.status === 'reading' && creatorOwnerChapterRecoveryIsVisibleInDetail(state)
     ? state.operation : undefined;
-  const showSeriesMessage = Boolean(state.message) && !chapterReadFailure && !chapterReadPending;
 
   return <section class="creator-owner__series" data-owner-series aria-labelledby="owner-series-title">
     <header class="creator-owner__section-heading">
@@ -135,7 +134,6 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
         {chapterSelection && chapterPage > 1 && <a class="button button--outline" data-series-chapter-page href={creatorOwnerSeriesHref({ ...query, paginaCapitulos: chapterPage - 1 })}>Anterior</a>}
         {chapterSelection && chapterPage < chapterSelection.pageCount && <a class="button button--outline" data-series-chapter-page href={creatorOwnerSeriesHref({ ...query, paginaCapitulos: chapterPage + 1 })}>Siguiente</a>}
       </nav>
-      {showSeriesMessage && state.message && <p class="creator-owner__status" data-series-write-status role="status" aria-live="polite">{state.message.text}</p>}
     </section>
 
     <section class="creator-owner__series-list-view" data-owner-series-list-view hidden={Boolean(state.seriesQueryError) || Boolean(query.serie)}>
@@ -152,9 +150,10 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
       <p class="creator-owner__series-count" data-series-count>{seriesCount}</p>
       <ul class="creator-owner__series-list" data-owner-series-list>
         {seriesSelection.rows.map((series) => {
-          const visibleCount = links.filter((link) => !link.hidden && link.series.some(({ seriesId }) => seriesId === series.id)).length;
-          const publicPath = canPublish && visibleCount > 0 && snapshot.profile
-            ? `/c/${encodeURIComponent(snapshot.profile.slug)}/series/${encodeURIComponent(series.slug)}/` : undefined;
+          const chapters = links.filter((link) => link.series.some(({ seriesId }) => seriesId === series.id));
+          const visibleCount = visibleCreatorSeriesChapterCount(chapters);
+          const publicPath = snapshot.profile && isPublicCreatorSeries(snapshot.profile, visibleCount)
+            ? canonicalCreatorSeriesPath(snapshot.profile.slug, series.slug) : undefined;
           return <li class="creator-owner__series-row" id={series.id} data-owner-series-row={series.id} data-series-id={series.id} key={series.id}>
             <div class="creator-owner__series-copy">
               <h3>{series.name}</h3>
@@ -179,7 +178,6 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
         {seriesPage > 1 && <a class="button button--outline" data-series-page href={pageHref(seriesSelection.query, seriesPage - 1)}>Anterior</a>}
         {seriesPage < seriesSelection.pageCount && <a class="button button--outline" data-series-page href={pageHref(seriesSelection.query, seriesPage + 1)}>Siguiente</a>}
       </nav>
-      {showSeriesMessage && state.message && <p class="creator-owner__status" data-series-write-status role="status" aria-live="polite">{state.message.text}</p>}
     </section>
   </section>;
 }

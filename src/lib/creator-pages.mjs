@@ -20,6 +20,7 @@ import {
   creatorPageSessionBindingFailureForRequest,
 } from './creator-session-context.mjs';
 import { parseHttpsOrigin } from './account-origin.mjs';
+import { canonicalCreatorPath, canonicalCreatorSeriesPath, isPublicCreator, isPublicCreatorSeries, visibleCreatorSeriesChapterCount } from './creator-public.mjs';
 
 const PROGRAMS = new Set(CREATOR_PROGRAMS);
 const SOCIALS = new Set(CREATOR_SOCIALS);
@@ -842,7 +843,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         seriesId,
         position: index + 1,
         name: series.name,
-        href: `/c/${encodeURIComponent(profile.slug)}/series/${encodeURIComponent(series.slug)}/`,
+        href: canonicalCreatorSeriesPath(profile.slug, series.slug),
       });
     }
     return {
@@ -1014,15 +1015,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const puts = aliasToCreate ? [{ key: aliasKey(fields.slug), value: aliasToCreate }] : [];
     await commitCreatorState(profile, updated, { checks, puts, code: 'PROFILE_CONFLICT' });
     return creatorAck('save-profile', profile.id, updated.version, 'saved');
-  }
-
-  async function listCreatorSeries(principal) {
-    const profile = await getRequiredOwnerProfile(principal);
-    return { schemaVersion: 2, profileId: profile.id, creatorVersion: profile.version, series: ownerSeriesMap(profile) };
-  }
-
-  async function readCreatorSeries(context) {
-    return listCreatorSeries(requireAuthenticatedContext(context));
   }
 
   function validateSeriesInput(body, previous = {}) {
@@ -1987,15 +1979,16 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
   function publicSeriesSummaries(profile, series, links) {
     return series.map((item) => {
-      const chapterCount = links.reduce((count, link) => count + Number(link.series.some((tag) => tag.seriesId === item.id)), 0);
-      if (chapterCount === 0) return null;
+      const chapters = links.filter((link) => link.series.some((tag) => tag.seriesId === item.id));
+      const chapterCount = visibleCreatorSeriesChapterCount(chapters);
+      if (!isPublicCreatorSeries(profile, chapterCount)) return null;
       return {
         id: item.id,
         name: item.name,
         slug: item.slug,
         ...(Object.hasOwn(item, 'description') ? { description: item.description } : {}),
         chapterCount,
-        href: `/c/${encodeURIComponent(profile.slug)}/series/${encodeURIComponent(item.slug)}/`,
+        href: canonicalCreatorSeriesPath(profile.slug, item.slug),
       };
     }).filter(Boolean);
   }
@@ -2014,10 +2007,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       const row = await store.get(profileKey(alias.profileId));
       if (!row) fail(503, 'INVALID_ALIAS', 'profile alias points to missing data');
       const profile = readCreatorStateOrFail(row, alias.profileId);
-      if (profile.hidden || !profile.published) return { status: 404 };
+      if (!isPublicCreator(profile)) return { status: 404 };
       const publicProfile = cleanPublicProfile(profile);
       if (profile.slug !== slug) {
-        return { status: 308, redirectTo: `/c/${encodeURIComponent(profile.slug)}${suffix || '/'}${search}` };
+        return { status: 308, redirectTo: `${canonicalCreatorPath(profile.slug, suffix)}${search}` };
       }
       const series = seriesFromState(profile);
       const links = await profileLinks(profile);
@@ -2044,7 +2037,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       const row = await store.get(profileKey(profileAlias.profileId));
       if (!row) fail(503, 'INVALID_ALIAS', 'profile alias points to missing data');
       const profile = readCreatorStateOrFail(row, profileAlias.profileId);
-      if (profile.hidden || !profile.published) return { status: 404 };
+      if (!isPublicCreator(profile)) return { status: 404 };
       const publicProfile = cleanPublicProfile(profile);
 
       const seriesAlias = await readSeriesAlias(profile.id, seriesSlug);
@@ -2065,11 +2058,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         const link = projectCreatorLink(profile, id, resource);
         if (link) links.push(link);
       }
-      if (links.length === 0) return { status: 404 };
+      if (!isPublicCreatorSeries(profile, links.length)) return { status: 404 };
       if (profile.slug !== profileSlug || seriesState.slug !== seriesSlug) {
         return {
           status: 308,
-          redirectTo: `/c/${encodeURIComponent(profile.slug)}/series/${encodeURIComponent(seriesState.slug)}/${search}`,
+          redirectTo: `${canonicalCreatorSeriesPath(profile.slug, seriesState.slug)}${search}`,
         };
       }
       return { status: 200, profile: publicProfile, series: metadata, links };
@@ -2152,12 +2145,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
     }
     if (path === '/api/creador/series') {
-      if (request.method === 'GET') return jsonResponse(await readCreatorSeries(context));
-      if (request.method === 'POST') {
-        const body = await parseRequestBody(request);
-        return jsonResponse(await createCreatorSeries(principal, body), 201);
-      }
-      fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
+      requireMethod(request, 'POST');
+      const body = await parseRequestBody(request);
+      return jsonResponse(await createCreatorSeries(principal, body), 201);
     }
     const seriesChapterMoveMatch = path.match(/^\/api\/creador\/series\/([^/]+)\/capitulos\/([^/]+)\/mover$/);
     if (seriesChapterMoveMatch) {
@@ -2329,7 +2319,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       }
     },
     readCreatorEditor,
-    readCreatorSeries,
     readAdminResources,
     readAdminProfiles,
     readAdminClaims,

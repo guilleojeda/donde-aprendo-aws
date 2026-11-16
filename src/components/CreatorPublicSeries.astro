@@ -1,5 +1,6 @@
 ---
 import type { CreatorProfileDTO, CreatorPublicLinkDTO, CreatorSeriesDTO } from '../types/creators';
+import { canonicalCreatorPath } from '../lib/creator-public.mjs';
 
 interface Props {
   profile: CreatorProfileDTO;
@@ -30,14 +31,14 @@ function safeHttpUrl(value: string | undefined) {
   aria-labelledby="creator-public-series-title"
 >
   <nav class="creator-public-series__breadcrumbs" aria-label="Ruta de navegación">
-    <a href={`/c/${encodeURIComponent(profile.slug)}/`}>Volver al perfil de {profile.displayName}</a>
+    <a href={canonicalCreatorPath(profile.slug)}>Volver al perfil de {profile.displayName}</a>
   </nav>
 
   <header class="creator-public-series__header">
     <p class="creator-profile__eyebrow">Serie de {profile.displayName}</p>
     <h1 id="creator-public-series-title">{series.name}</h1>
     {series.description && <p class="creator-public-series__description">{series.description}</p>}
-    <p class="creator-public-series__creator">Creada por <a href={`/c/${encodeURIComponent(profile.slug)}/`}>{profile.displayName}</a></p>
+    <p class="creator-public-series__creator">Creada por <a href={canonicalCreatorPath(profile.slug)}>{profile.displayName}</a></p>
   </header>
 
   <section class="creator-public-series__chapters" aria-labelledby="creator-public-series-chapters-title">

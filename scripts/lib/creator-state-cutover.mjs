@@ -11,6 +11,7 @@ import {
   isCreatorSlug,
 } from '../../src/lib/creator-values.mjs';
 import { isSafeCatalogUrl } from '../../src/lib/catalog-url-safety.mjs';
+import { isPublicCreator } from '../../src/lib/creator-public.mjs';
 
 const PLAN_FORMAT = 'creator-state-cutover-v1';
 const MAX_TRANSACTION_ACTIONS = 100;
@@ -156,7 +157,7 @@ function validateProfileRow(row, profileId) {
   if (typeof row.published !== 'boolean' || typeof row.hidden !== 'boolean') {
     fail('INVALID_EXPORT', 'profile visibility fields are malformed');
   }
-  if (row.published && !row.hidden && !hasCreatorPublicIdentity(row.displayName, row.slug)) {
+  if (isPublicCreator(row) && !hasCreatorPublicIdentity(row.displayName, row.slug)) {
     fail('INVALID_EXPORT', 'published visible profile has malformed public identity');
   }
   requireVersion(row.createdAt, 'profile createdAt');
@@ -202,6 +203,15 @@ function validateSeriesRows(seriesRows, profileId) {
     result.set(id, row);
   }
   return result;
+}
+
+function validateSeriesCanonicalAliases(seriesById, aliasesBySeriesId) {
+  for (const [seriesId, series] of seriesById) {
+    const ownsCurrentSlug = aliasesBySeriesId.get(seriesId)?.some(({ slug }) => slug === series.slug);
+    if (!ownsCurrentSlug) {
+      fail('SERIES_CANONICAL_ALIAS_MISMATCH', `live Series ${seriesId} does not own its current slug alias ${series.slug}`);
+    }
+  }
 }
 
 function validatePlacementRows(placementRows, profileId, resourcesById) {
@@ -330,6 +340,7 @@ export function createCreatorStateConversionPlan({ profileId, rows, resourceRows
   const seriesById = validateSeriesRows(partition.series, profileId);
   const placementById = validatePlacementRows(partition.placements, profileId, resourcesById);
   const aliasesBySeriesId = validateAliasRows(partition.aliases, profileId);
+  validateSeriesCanonicalAliases(seriesById, aliasesBySeriesId);
   validateProfileRow(partition.profile, profileId);
   const candidate = buildCandidate(profileId, partition.profile, placementById, seriesById, aliasesBySeriesId);
   const conversionSourceRows = [

@@ -160,6 +160,101 @@ test('un DELETE de capítulo confirmado que pierde su Series devuelve a la lista
   }
 });
 
+test('un movimiento confirmado conserva la Series y los filtros cuando se quita su capítulo antes de leer', async ({ fixture, page }) => {
+  await page.setViewportSize({ width: 390, height: 650 });
+  const cookie = await loggedInOwner(fixture, page);
+  const series = await createSeries(fixture, cookie, { name: 'Serie con filtro incluido', slug: 'serie-con-filtro-incluido' });
+  const remaining = await addLink(fixture, cookie, { title: 'Capítulo que permanece en filtro', url: 'https://links.example/post-227-remains' });
+  const moved = await addLink(fixture, cookie, { title: 'Capítulo movido y quitado', url: 'https://links.example/post-227-removed' });
+  await addChapter(fixture, cookie, series.id, remaining.placementId);
+  await addChapter(fixture, cookie, series.id, moved.placementId);
+
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  let read;
+  try {
+    const query = new URLSearchParams({ vista: 'series', buscarSeries: 'filtro', serie: series.id,
+      buscarCapitulos: 'Capítulo', pertenencia: 'incluidos' });
+    await page.goto(`${fixture.origin}/cuenta/?${query}`);
+    const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
+    const move = page.locator(`[data-chapter-row="${moved.placementId}"] [data-chapter-move]`);
+    await move.click();
+    const form = page.locator('[data-owner-dialog] form[data-chapter-move-form]');
+    await form.getByLabel('Posición en esta serie').fill('1');
+    read = await holdNextOwnerRead(page);
+    const save = form.getByRole('button', { name: 'Guardar posición', exact: true }).click();
+    await read.entered;
+
+    const current = await readOwnerSnapshot(fixture, cookie);
+    const removal = await api(fixture, cookie, `/api/creador/series/${encodeURIComponent(series.id)}/capitulos/${moved.placementId}`, {
+      method: 'DELETE', body: { creatorVersion: current.creatorVersion },
+    });
+    assert.equal(removal.response.status, 200, JSON.stringify(removal.body));
+    read.release();
+    await save;
+    await read.finished;
+    assert.equal(read.actual.status, 200);
+    assert.deepEqual(read.actual.body.series[series.id].chapters, [remaining.placementId]);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin,
+      'the moved chapter reconciliation remains in its original document');
+
+    await expect(page.locator('[data-owner-series-chapters]')).toBeVisible();
+    await expect(page.locator('[data-owner-series-list-view]')).toBeHidden();
+    await expect(page).toHaveURL((url) => url.searchParams.get('buscarSeries') === 'filtro'
+      && url.searchParams.get('buscarCapitulos') === 'Capítulo'
+      && url.searchParams.get('pertenencia') === 'incluidos'
+      && url.searchParams.get('serie') === series.id);
+    await expect(page.locator(`[data-chapter-row="${moved.placementId}"]`)).toHaveCount(0);
+    await expect(page.locator(`[data-chapter-row="${remaining.placementId}"]`)).toBeVisible();
+    const search = page.locator('#owner-chapter-search');
+    await expect(search).toBeFocused();
+    await expect(page.locator('#owner-chapter-membership')).toHaveValue('incluidos');
+    const box = await search.boundingBox();
+    const viewport = page.viewportSize();
+    assert.ok(box && viewport && box.y >= 0 && box.y + box.height <= viewport.height,
+      `the detail fallback field is visible: ${JSON.stringify({ box, viewport })}`);
+    assert.equal(capture.writes().filter(({ method, path }) => method === 'POST'
+      && path === `/api/creador/series/${series.id}/capitulos/${moved.placementId}/mover`).length, 1);
+  } finally {
+    read?.release();
+    await read?.remove();
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('una lectura que quita el foco del capítulo conserva el filtro activo si el usuario se mueve a otro control', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const series = await createSeries(fixture, cookie, { name: 'Serie de foco ajeno', slug: 'serie-de-foco-ajeno' });
+  const chapter = await addLink(fixture, cookie, { title: 'Capítulo para quitar', url: 'https://links.example/post-227-focus' });
+  await addChapter(fixture, cookie, series.id, chapter.placementId);
+
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  let read;
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=series&serie=${encodeURIComponent(series.id)}&pertenencia=incluidos`);
+    read = await holdNextOwnerRead(page);
+    const removal = page.locator(`[data-chapter-row="${chapter.placementId}"] [data-chapter-remove]`).click();
+    await read.entered;
+    const unrelated = page.locator('#owner-chapter-membership');
+    await unrelated.focus();
+    await expect(unrelated).toBeFocused();
+    read.release();
+    await removal;
+    await read.finished;
+
+    await expect(page.locator('[data-owner-series-chapters]')).toBeVisible();
+    await expect(page).toHaveURL((url) => url.searchParams.get('serie') === series.id
+      && url.searchParams.get('pertenencia') === 'incluidos');
+    await expect(unrelated).toBeFocused();
+    await expect(page.locator(`[data-chapter-row="${chapter.placementId}"]`)).toHaveCount(0);
+    assert.equal(capture.writes().filter(({ method, path }) => method === 'DELETE'
+      && path === `/api/creador/series/${series.id}/capitulos/${chapter.placementId}`).length, 1);
+  } finally {
+    read?.release();
+    await read?.remove();
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
 test('un 401 tras confirmar un capítulo exige sesión, conserva stale y permite sólo GET y luego otro guardado', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const series = await createSeries(fixture, cookie, { name: 'Serie de sesión', slug: 'serie-de-sesion' });
@@ -189,7 +284,15 @@ test('un 401 tras confirmar un capítulo exige sesión, conserva stale y permite
     await failedRead.promise;
     await expect.poll(() => capture.writes().find(({ method, path }) => method === 'PUT'
       && path === `/api/creador/series/${series.id}/capitulos/${chapter.placementId}`)?.status).toBe(200);
-    await expect(page.locator('[data-owner-series-chapters] [data-owner-stale]')).toBeVisible();
+    const staleFeedback = page.locator('[data-owner-series-chapters] [data-owner-stale]');
+    await expect(staleFeedback).toBeVisible();
+    await expect(staleFeedback).toContainText(/capítulo agregado/iu);
+    await expect(staleFeedback).toContainText(/vista sigue desactualizada/iu);
+    await expect(staleFeedback).toContainText(/no repetiremos la escritura/iu);
+    await expect(staleFeedback).not.toContainText(/ingresa con la misma cuenta|comprueba la sesión/iu);
+    const sessionGuidance = page.locator('[data-session-recovery-status]:visible');
+    await expect(sessionGuidance).toHaveCount(1);
+    await expect(sessionGuidance).toContainText(/misma cuenta|comprueba la sesión/iu);
     const staleRetry = page.locator('[data-owner-series-chapters] [data-owner-refresh-retry]');
     await expect(staleRetry).toBeDisabled();
     const sessionCheck = page.locator('[data-session-recovery-check]:visible').first();
@@ -197,9 +300,21 @@ test('un 401 tras confirmar un capítulo exige sesión, conserva stale y permite
 
     const renewed = await fixture.login();
     await addCookie(page.context(), fixture, renewed);
+    const profileReadsBeforeCheck = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length;
+    const sessionChecksBefore = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/sesion').length;
+    const writesBeforeCheck = capture.writes().length;
     await sessionCheck.click();
     await expect(page.locator('[data-session-recovery-shell]:visible')).toHaveCount(0);
     await expect(staleRetry).toBeEnabled();
+    await expect(staleFeedback).toContainText(/capítulo agregado/iu);
+    await expect(staleFeedback).toContainText(/vista sigue desactualizada/iu);
+    await expect(staleFeedback).not.toContainText(/ingresa con la misma cuenta|comprueba la sesión/iu);
+    await expect(page.locator('[data-owner-status]')).toContainText(/sesión comprobada/iu);
+    assert.equal(capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length,
+      profileReadsBeforeCheck, 'checking the session does not read creator content');
+    assert.equal(capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/sesion').length,
+      sessionChecksBefore + 1, 'session recovery uses its dedicated session endpoint');
+    assert.equal(capture.writes().length, writesBeforeCheck, 'checking the session does not replay the chapter command');
 
     let retryAttempt = 0;
     const retryActualStatuses = [];
@@ -261,11 +376,13 @@ test('un 401 tras confirmar un capítulo exige sesión, conserva stale y permite
   }
 });
 
-test('la publicación perdida y su lectura fallida tienen una sola recuperación visible', async ({ fixture, page }) => {
+test('la publicación perdida conserva el resultado desconocido tras GET fallido y se adopta sin repetir el envío', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
   let publicationSeen = false;
   let upstreamPublication;
+  let ownerReadAttempts = 0;
+  const ownerReadStatuses = [];
   const lostPublication = async (route) => {
     const request = route.request();
     if (!publicationSeen && request.method() === 'POST' && ownerPath(request) === '/api/creador/perfil/publicar') {
@@ -274,6 +391,14 @@ test('la publicación perdida y su lectura fallida tienen una sola recuperación
       const body = await response.body();
       upstreamPublication = { status: response.status(), body: JSON.parse(body.toString('utf8')) };
       await route.abort();
+      return;
+    }
+    if (publicationSeen && request.method() === 'GET' && ownerPath(request) === '/api/creador/perfil') {
+      ownerReadAttempts += 1;
+      const response = await route.fetch();
+      const body = await response.body();
+      ownerReadStatuses.push(response.status());
+      await route.fulfill({ status: ownerReadAttempts === 1 ? 503 : response.status(), headers: response.headers(), body });
       return;
     }
     await route.fallback();
@@ -294,18 +419,37 @@ test('la publicación perdida y su lectura fallida tienen una sola recuperación
     const compare = page.getByRole('button', { name: /Comprobar(?: el)? estado guardado/iu });
     await expect(compare).toHaveCount(1);
     await compare.click();
+    const recovery = page.locator('[data-owner-recovery]');
+    await expect(recovery).toHaveCount(1);
+    await expect(recovery).toHaveAttribute('data-recovery-kind', 'unknown');
+    await expect(recovery).toContainText(/no sabemos si se publicó/iu);
+    await expect(recovery).toContainText(/no pudimos leer el estado completo/iu);
+    await expect(page.locator('[data-owner-status]')).toHaveCount(0);
+    const retry = recovery.getByRole('button', { name: 'Reintentar actualización', exact: true });
+    await expect(retry).toBeEnabled();
+    await expect(retry).toBeFocused();
+    assert.deepEqual(ownerReadStatuses, [200], 'the first failed response followed a real full owner GET');
+    await retry.click();
     const useSaved = page.getByRole('button', { name: 'Usar lo guardado', exact: true });
     await expect(useSaved).toHaveCount(1);
     await expect(page.locator('[data-owner-recovery]')).toHaveCount(1);
+    await expect(useSaved).toBeFocused();
+    await expect(page.locator('[data-owner-recovery]')).toContainText(/no sabemos si fue esta acción la que la publicó/iu);
     await expect(page.locator('[data-owner-status]')).toHaveCount(0);
+    assert.deepEqual(ownerReadStatuses, [200, 200]);
     await useSaved.click();
     await expect(page.locator('[data-owner-recovery]')).toHaveCount(0);
     await expect(page.locator('[data-owner-public-copy]')).toContainText('publicada y visible');
+    await expect(page.locator('[data-owner-status]')).toHaveCount(1);
+    await expect(page.locator('[data-owner-status]')).toContainText('Usaste el estado guardado');
+    await expect(page.locator('[data-series-write-status]')).toHaveCount(0);
+    await expect(page.locator('#owner-profile-name')).toBeFocused();
     const persisted = await readOwnerSnapshot(fixture, cookie);
     assert.equal(persisted.profile.published, true);
     assert.ok(capture.records.some(({ method, path, status, responseBody }) => method === 'GET'
       && path === '/api/creador/perfil' && status === 200 && responseBody?.profile?.published === true),
     'the explicit full owner read installed the persisted publication');
+    assert.equal(ownerReadAttempts, 2);
     assert.equal(capture.writes().filter(({ method, path }) => method === 'POST'
       && path === '/api/creador/perfil/publicar').length, 1, 'adopting the saved publication never replays the write');
   } finally {

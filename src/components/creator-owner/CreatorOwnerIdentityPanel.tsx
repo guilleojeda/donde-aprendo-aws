@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import type { CreatorSocial } from '../../types/creators';
+import { canonicalCreatorPath, isPublicCreator, safeCreatorSocialUrl } from '../../lib/creator-public.mjs';
 import { CREATOR_FIELD_LIMITS, CREATOR_SLUG_MIN_LENGTH, CREATOR_SLUG_PATTERN, CREATOR_SOCIALS } from '../../lib/creator-values.mjs';
 import { creatorOwnerCanSubmitEditor, type CreatorOwnerRecoveryChoice, type CreatorOwnerState } from '../../lib/creator-owner-state';
 
@@ -27,16 +28,6 @@ interface Props {
   onCopyLink(url: string): void;
 }
 
-function safeSocialUrl(value: string | undefined): string | undefined {
-  if (!value) return undefined;
-  try {
-    const parsed = new URL(value);
-    return ['http:', 'https:'].includes(parsed.protocol) && !parsed.username && !parsed.password ? parsed.href : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 function socialLabel(value: string | undefined): string {
   return value ?? '—';
 }
@@ -58,6 +49,7 @@ function OwnerSectionNavigation({ view, period }: { view: CreatorOwnerState['loc
 
 export default function CreatorOwnerIdentityPanel({ state, children, logout, showActivitySummary = true, disabled, onOpenProfile, onCreateProfile, onPublish, onActivityPeriod, onRetryActivity, onCreateProfileInput, onRetryRead, onCheckSession, onResolveRecovery, onSaveRecoveryDraft, onCopyLink }: Props) {
   const profile = state.observed.profile;
+  const isPublic = isPublicCreator(profile);
   const operation = state.operation;
   const createEditor = state.editor?.kind === 'create-profile' ? state.editor : undefined;
   const createLocked = operation.status !== 'idle';
@@ -73,7 +65,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
   const photoPath = profile?.photo?.version !== undefined
     ? `/media/fotos/${encodeURIComponent(profile.id)}/${encodeURIComponent(String(profile.photo.version))}.webp`
     : undefined;
-  const canonicalPath = profile ? `/c/${encodeURIComponent(profile.slug)}/` : undefined;
+  const canonicalPath = profile ? canonicalCreatorPath(profile.slug) : undefined;
   let canonicalUrl: string | undefined;
   if (canonicalPath) {
     try { canonicalUrl = new URL(canonicalPath, state.publicOrigin).href; } catch { canonicalUrl = canonicalPath; }
@@ -190,7 +182,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
             <div class="creator-owner__photo creator-owner__photo--placeholder" aria-hidden="true" data-owner-photo-placeholder hidden={Boolean(photoPath)}>{profile.displayName.slice(0, 1).toUpperCase()}</div>
             <div class="creator-owner__identity-copy">
               <p class="creator-owner__eyebrow">Identidad pública</p>
-              <h2 id="owner-profile-name" data-owner-name>{profile.displayName}</h2>
+              <h2 id="owner-profile-name" data-owner-name tabIndex={-1}>{profile.displayName}</h2>
               <p class="creator-owner__slug" data-owner-slug>{canonicalPath}</p>
               {(profile.hidden || !profile.published) && <span class="creator-owner__badge" data-owner-state>{profile.hidden ? 'Oculta' : 'Borrador'}</span>}
             </div>
@@ -203,7 +195,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
         </section>
 
         <section class="creator-owner__public" aria-label="Página pública" data-owner-public>
-          {profile.published && !profile.hidden && <>
+          {isPublic && <>
             <p data-owner-public-copy>Tu página está publicada y visible.</p>
             <a class="button button--outline" data-owner-public-link href={canonicalUrl} target="_blank" rel="noopener noreferrer" aria-label="Ver página pública (abre en otra pestaña)">Ver página pública <span aria-hidden="true">↗</span></a>
             <button class="button button--outline" type="button" data-owner-copy onClick={() => {
@@ -217,8 +209,8 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
             {!profile.hidden && <button class="button button--dark" type="button" data-owner-publish disabled={disabled} onClick={onPublish}>Publicar página</button>}
           </>}
           {publishOperation && operation.status === 'reading' && <p class="creator-owner__status" data-owner-operation-message role="status" aria-live="polite">{operation.message}</p>}
-          {publishOperation && operation.status === 'refresh-failed' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind="refresh-failed" data-owner-stale role="alert" aria-live="polite">
-            <h3>No pudimos actualizar la publicación</h3>
+          {publishOperation && operation.status === 'refresh-failed' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind={operation.fact === 'unknown' ? 'unknown' : 'refresh-failed'} data-owner-stale role="alert" aria-live="polite">
+            <h3>{operation.fact === 'unknown' ? 'No sabemos si se publicó' : 'No pudimos actualizar la publicación'}</h3>
             <p>{operation.message}</p>
             <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>
           </section>}
@@ -281,13 +273,13 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
           <div class="creator-owner__section-heading"><div><p class="creator-owner__eyebrow">Dónde encontrarte</p><h2 id="owner-socials-title">Redes y sitio web</h2></div></div>
           <ul data-owner-social-list>
             {SOCIALS.map(({ key, label }) => {
-              const url = safeSocialUrl(profile.socials[key]);
+              const url = safeCreatorSocialUrl(profile.socials[key]);
               return <li data-owner-social={key} hidden={!url} key={key}>{url
                 ? <a href={url} target="_blank" rel="noopener noreferrer"><span data-owner-social-label>{label}</span><span class="creator-owner__social-url" data-owner-social-url>{socialLabel(url)}</span></a>
                 : <span><span data-owner-social-label>{label}</span><span class="creator-owner__social-url" data-owner-social-url>—</span></span>}</li>;
             })}
           </ul>
-          <p class="creator-owner__empty" data-owner-no-socials hidden={SOCIALS.some(({ key }) => safeSocialUrl(profile.socials[key]))}>Aún no agregaste redes o enlaces externos.</p>
+          <p class="creator-owner__empty" data-owner-no-socials hidden={SOCIALS.some(({ key }) => safeCreatorSocialUrl(profile.socials[key]))}>Aún no agregaste redes o enlaces externos.</p>
         </section>
       </div>}
       {children}

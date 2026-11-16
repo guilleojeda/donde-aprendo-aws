@@ -320,6 +320,14 @@ function claimLinkedPrefix(
   const hasFailedId = Object.hasOwn(payload, 'failedResourceId');
   const hasUncertainId = Object.hasOwn(payload, 'uncertainResourceId');
   const claimsUncertainty = payload.error === 'CLAIM_GRANT_UNCERTAIN';
+  const definiteStop = failedAt >= 0 && !hasFailureStage && !claimsUncertainty && !hasUncertainId;
+  const reportsStoppedOrLaterId = payload.linkedResourceIds.some((value) =>
+    typeof value === 'string' && requested.indexOf(value) >= failedAt);
+  const stopConflictsWithConfirmedResource = definiteStop && (
+    reportsStoppedOrLaterId
+    || changes?.some((change) => change.entity === 'resource'
+      && requested.indexOf(change.id) >= failedAt) === true
+  );
   const uncertainStage = claimsUncertainty && response.status === 503 && !hasFailureStage && !hasFailedId
     && !complete && uncertainId === requested[ids.length];
   const stageMatches = claimsUncertainty || hasUncertainId ? uncertainStage
@@ -327,13 +335,18 @@ function claimLinkedPrefix(
       ? !hasFailureStage : payload.failureStage === 'claim-status' && !quotaFailure)
       : !response.ok && !hasFailureStage && failedAt > 0 && ids.length === failedAt;
   const valid = ids.length === payload.linkedResourceIds.length && stageMatches;
+  if (stopConflictsWithConfirmedResource) {
+    // The response itself disputes whether the reported stop resource committed.
+    // Keep only the prefix before that point, and require a fresh read before
+    // presenting any later ID as pending or inviting another grant attempt.
+    return { ids: ids.slice(0, failedAt), valid: false, remainingUnconfirmed: true };
+  }
   if (response.ok || valid) return { ids, valid, ...(valid && uncertainStage ? { uncertainResourceId: uncertainId } : {}) };
 
   // If the stop is later than the delivered prefix, the response omitted one
   // or more attempted resources. Do not expose that gap as pending or safe to
   // replay; the whole selected result remains unconfirmed. A coherent
   // overclaim still retains the trustworthy prefix below.
-  const definiteStop = failedAt >= 0 && !hasFailureStage && !claimsUncertainty && !hasUncertainId;
   if (definiteStop && ids.length < failedAt) {
     return { ids: [], valid: false, remainingUnconfirmed: true };
   }

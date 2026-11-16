@@ -6,6 +6,7 @@ import CreatorPublicProfile from '../../components/CreatorPublicProfile.astro';
 import CreatorPublicSeries from '../../components/CreatorPublicSeries.astro';
 import '../../styles/creators.css';
 import { getCreatorRuntime } from '../../lib/creator-runtime.mjs';
+import { canonicalCreatorPath, canonicalCreatorSeriesPath } from '../../lib/creator-public.mjs';
 import type {
   CreatorProfileDTO,
   CreatorPublicLinkDTO,
@@ -98,8 +99,8 @@ if (malformedSlug || malformedSeriesSlug || unsupportedSuffix) {
 Astro.response.status = status;
 const canonical = profile
   ? pageSeries
-    ? `${siteOrigin}/c/${encodeURIComponent(profile.slug)}/series/${encodeURIComponent(pageSeries.slug)}/`
-    : `${siteOrigin}/c/${encodeURIComponent(profile.slug)}/`
+    ? `${siteOrigin}${canonicalCreatorSeriesPath(profile.slug, pageSeries.slug)}`
+    : `${siteOrigin}${canonicalCreatorPath(profile.slug)}`
   : undefined;
 const title = profile && pageSeries
   ? `${pageSeries.name} | ${profile.displayName} | Serie de AWS`

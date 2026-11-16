@@ -18,9 +18,9 @@ import {
   type CreatorSessionResponse,
 } from '../../lib/creator-session-response';
 import { parseCreatorStatisticsReady } from '../../lib/creator-statistics-response';
-import { CREATOR_CONTRACT_HEADER, CREATOR_CONTRACT_VERSION, CREATOR_FIELD_LIMITS, CREATOR_PHOTO_MAX_UPLOAD_BYTES, CREATOR_PHOTO_MIME_TYPES } from '../../lib/creator-values.mjs';
+import { CREATOR_CONTRACT_HEADER, CREATOR_CONTRACT_VERSION, CREATOR_FIELD_LIMITS, CREATOR_PHOTO_MAX_UPLOAD_BYTES, CREATOR_PHOTO_MIME_TYPES, CREATOR_SOCIALS } from '../../lib/creator-values.mjs';
 import { creatorOwnerNavigationLists } from '../../lib/creator-owner-presentation';
-import { isSafeCatalogUrl } from '../../lib/catalog-url-safety.mjs';
+import { safeCreatorSocialUrl } from '../../lib/creator-public.mjs';
 import type { CreatorOwnerSeriesMembership } from '../../lib/creator-owner-series';
 import { resolveOwnerDestination, type OwnerDestination } from '../../lib/creator-owner-navigation';
 import { creatorOwnerLinksHref, type CreatorOwnerLinksQuery } from '../../lib/creator-owner-links';
@@ -38,6 +38,7 @@ import {
   type CreatorOwnerSessionPolicyAction,
   type CreatorOwnerSessionPolicyState,
   type CreatorOwnerEditorDraft,
+  type CreatorOwnerSocialsDraft,
   type CreatorOwnerIntent,
   type CreatorOwnerOperation,
   type CreatorOwnerLocation,
@@ -204,7 +205,7 @@ function acknowledgedActionLabel(intent?: CreatorOwnerIntent): string {
 }
 
 function acknowledgedReadFailureLabel(intent?: CreatorOwnerIntent): string {
-  if (intent?.action === 'add-chapter' || intent?.action === 'remove-chapter') return 'No pudimos actualizar la lista';
+  if (intent?.action === 'add-chapter' || intent?.action === 'remove-chapter' || intent?.action === 'move-chapter') return 'No pudimos actualizar la lista';
   if (intent?.action === 'create-claim') return 'No pudimos actualizar Solicitudes';
   if (intent?.action === 'photo-finalize') return 'No pudimos actualizar la foto';
   return 'No pudimos actualizar la vista';
@@ -613,16 +614,34 @@ export default function CreatorOwnerApp(props: Props) {
     if (previousEditorKeyRef.current && !editorKey && !state.location.transition && state.location.prompt === 'none'
       && !state.location.focusAfterRender) {
       const requested = returnFocusRef.current;
-      const fallback = stateRef.current.location.view === 'enlaces'
-        ? rootRef.current?.querySelector<HTMLElement>('#owner-link-search') ?? rootRef.current?.querySelector<HTMLElement>('#owner-links-title')
-        : stateRef.current.location.view === 'series'
-          ? rootRef.current?.querySelector<HTMLElement>('#owner-series-search') ?? rootRef.current?.querySelector<HTMLElement>('#owner-series-title')
-          : stateRef.current.location.view === 'solicitudes'
-            ? rootRef.current?.querySelector<HTMLElement>('[data-claim-section-open]')
-            : rootRef.current?.querySelector<HTMLElement>('#owner-activity-title')
-              ?? rootRef.current?.querySelector<HTMLElement>('#owner-profile-name, #owner-create-name');
-      const destination = requested?.isConnected ? requested : fallback;
-      destination?.focus({ preventScroll: true });
+      const root = rootRef.current;
+      const usable = (target: HTMLElement | null | undefined): target is HTMLElement => Boolean(target?.isConnected
+        && target.getClientRects().length && !target.matches(':disabled, [aria-disabled="true"]')
+        && !target.closest('[hidden], [inert]'));
+      const view = stateRef.current.location.view;
+      const query = stateRef.current.location.query;
+      const fallback = view === 'enlaces'
+        ? root?.querySelector<HTMLElement>('#owner-link-search') ?? root?.querySelector<HTMLElement>('#owner-links-title')
+        : view === 'series'
+          ? (query.serie ? root?.querySelector<HTMLElement>('#owner-chapter-search') : root?.querySelector<HTMLElement>('#owner-series-search'))
+            ?? root?.querySelector<HTMLElement>('#owner-series-title')
+          : view === 'solicitudes'
+            ? root?.querySelector<HTMLElement>('[data-claim-section-open]')
+            : root?.querySelector<HTMLElement>('#owner-activity-title, #owner-profile-name, #owner-create-name');
+      const active = document.activeElement;
+      const focusReturnedFromEditor = active === document.body || active === requested
+        || !(active instanceof HTMLElement) || !active.isConnected;
+      if (focusReturnedFromEditor) {
+        const destination = usable(requested) ? requested : usable(fallback) ? fallback : undefined;
+        if (destination) {
+          destination.focus({ preventScroll: true });
+          if (destination === fallback && destination.matches('#owner-chapter-search, #owner-series-search, #owner-link-search')) {
+            destination.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+          } else if (destination === fallback && destination.matches('#owner-series-title, #owner-links-title, #owner-activity-title')) {
+            destination.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+          }
+        }
+      }
       returnFocusRef.current = null;
     }
     previousEditorKeyRef.current = editorKey;
@@ -778,9 +797,9 @@ export default function CreatorOwnerApp(props: Props) {
         displayName: profile.displayName, slug: profile.slug, city: profile.city ?? '', country: profile.country ?? '', programs: [...profile.programs], bio: profile.bio ?? '',
       } } });
     } else {
+      const draft = Object.fromEntries(CREATOR_SOCIALS.map((key) => [key, profile.socials[key] ?? ''])) as CreatorOwnerSocialsDraft;
       dispatch({ type: 'open-editor', editor: { kind: 'profile', section, key: `profile:redes:${profile.id}`, touchedFields: [], draft: {
-        instagram: profile.socials.instagram ?? '', x: profile.socials.x ?? '', linkedin: profile.socials.linkedin ?? '',
-        awsBuilder: profile.socials.awsBuilder ?? '', website: profile.socials.website ?? '',
+        ...draft,
       } } });
     }
   }
@@ -950,9 +969,9 @@ export default function CreatorOwnerApp(props: Props) {
   }
 
   function validateSocialUrls(editor: Extract<CreatorOwnerEditorDraft, { kind: 'profile'; section: 'redes' }>): boolean {
-    for (const key of ['instagram', 'x', 'linkedin', 'awsBuilder', 'website'] as const) {
+    for (const key of CREATOR_SOCIALS) {
       const value = editor.draft[key];
-      const valid = !value || value.length <= CREATOR_FIELD_LIMITS.social && isSafeCatalogUrl(value);
+      const valid = !value || value.length <= CREATOR_FIELD_LIMITS.social && safeCreatorSocialUrl(value) !== undefined;
       const input = document.querySelector<HTMLInputElement>(`#owner-social-${key}`);
       input?.setCustomValidity(valid ? '' : 'Ingresa una URL HTTP o HTTPS completa sin usuario ni contraseña.');
       if (!valid) { input?.reportValidity(); return false; }
@@ -999,12 +1018,14 @@ export default function CreatorOwnerApp(props: Props) {
     const accountEmail = latest.accountEmail;
     const isAdmin = latest.isAdmin;
     const profileId = latest.observed.profile?.id ?? null;
+    const previousOperation = latest.operation;
     const root = rootRef.current;
     const ownerDocument = document;
     const generation = ++operationGenerationRef.current;
     const operationId = nextSessionOperationId();
     const recoveryFocusElement = document.activeElement instanceof HTMLElement
-      && document.activeElement.matches('[data-owner-refresh-retry]') ? document.activeElement : undefined;
+      && document.activeElement.matches('[data-owner-refresh-retry], [data-owner-check], [data-owner-compare], [data-owner-publish-check]')
+      ? document.activeElement : undefined;
     const readMessage = fact === 'claims' ? 'Actualizando Solicitudes con una lectura completa…'
       : fact === 'acknowledged' ? `${acknowledgedActionLabel(intent)}. Actualizando el estado guardado…`
           : fact === 'conflict' ? intent?.targetMissing ? 'El destino ya no está disponible. Leyendo el estado actual y conservando el borrador…'
@@ -1017,9 +1038,17 @@ export default function CreatorOwnerApp(props: Props) {
       const detail = fact === 'acknowledged' && !sessionFailure ? `${acknowledgedReadFailureLabel(intent)}. ${message}` : message;
       const feedback = fact === 'acknowledged' ? `${acknowledgedActionLabel(intent)}. ${detail}`
         : fact === 'conflict' && intent?.targetMissing ? `El destino ya no está disponible. ${message}` : message;
-      const chapterRefresh = fact === 'acknowledged' && (intent?.action === 'add-chapter' || intent?.action === 'remove-chapter');
+      const unknownPublication = fact === 'unknown' && intent?.action === 'publish-profile'
+        ? previousOperation.status === 'unknown' && previousOperation.intent.id === intent.id
+          ? `La respuesta de publicación se perdió. ${previousOperation.message}`
+          : 'El resultado de la publicación sigue sin confirmarse.'
+        : undefined;
+      const recoveryFeedback = unknownPublication ? `${unknownPublication} ${message}` : feedback;
+      const chapterRefresh = fact === 'acknowledged'
+        && ['add-chapter', 'remove-chapter', 'move-chapter'].includes(intent?.action ?? '');
       const staleFeedback = fact === 'acknowledged' && sessionFailure
-        ? `${feedback} La vista sigue desactualizada; comprueba la sesión y luego actualiza.` : feedback;
+        ? `${acknowledgedActionLabel(intent)}. ${acknowledgedReadFailureLabel(intent)}. La escritura sí quedó confirmada; la vista sigue desactualizada. Reintenta la lectura antes de guardar otra acción. No repetiremos la escritura.`
+        : recoveryFeedback;
       const suppressGlobalMessage = chapterRefresh || intent?.action === 'publish-profile';
       const activeElement = document.activeElement;
       const shouldRestoreRecoveryFocus = Boolean(recoveryFocusElement && (
@@ -1089,7 +1118,13 @@ export default function CreatorOwnerApp(props: Props) {
           : fact === 'conflict' ? intent?.targetMissing
             ? 'El destino ya no está disponible. Conservamos el borrador; revisa el estado actual antes de continuar.'
             : 'Esta acción no se guardó. Compara el estado actual y elige cómo continuar.'
-            : 'La lectura no confirma si la acción anterior se guardó. Elige cómo continuar.';
+            : fact === 'unknown' && intent?.action === 'publish-profile'
+              ? snapshot.profile?.published
+                ? snapshot.profile.hidden
+                  ? 'La publicación está guardada, pero la página ahora está oculta. No sabemos si fue esta acción la que la publicó; puedes usar lo guardado sin repetir el envío.'
+                  : 'La página aparece publicada. No sabemos si fue esta acción la que la publicó; puedes usar lo guardado sin repetir el envío.'
+                : 'La página sigue en borrador. No sabemos si se publicó; puedes usar lo guardado sin repetir el envío.'
+              : 'La lectura no confirma si la acción anterior se guardó. Elige cómo continuar.';
       const active = document.activeElement;
       const currentState = stateRef.current;
       const currentLocation = currentState.location;
@@ -1102,8 +1137,14 @@ export default function CreatorOwnerApp(props: Props) {
         && Boolean(active?.closest('[data-owner-dialog]'));
       pendingDetailFocusRef.current = active instanceof HTMLElement && active.closest('[data-owner-series-chapters]') ? active : null;
       const focusWasLost = active === document.body || active?.matches('[data-owner-refresh-retry]')
+        || !(active instanceof HTMLElement) || !active.isConnected
         || chapterDetailWillDisappear || editorWillCloseWithMissingSeries;
       let focusAfterRender: string | undefined;
+      const recoveryChoiceFocusWasLost = Boolean(recoveryFocusElement && (
+        active === recoveryFocusElement || active === document.body
+        || !(active instanceof HTMLElement) || !active.isConnected
+      ));
+      if (fact === 'unknown' && recoveryChoiceFocusWasLost) focusAfterRender = '[data-owner-use-saved]';
       if (focusWasLost && selectedSeriesWillDisappear) focusAfterRender = '#owner-series-title';
       if (fact === 'acknowledged') {
         if (listAction === 'add-chapter' || listAction === 'remove-chapter') {
@@ -1572,7 +1613,7 @@ export default function CreatorOwnerApp(props: Props) {
       const returningFromExitPrompt = choice === 'draft' && latest.location.prompt === 'exit';
       if (returningFromExitPrompt) dispatch({ type: 'clear-transition' });
       dispatch({ type: 'resolve-operation', choice });
-      if (choice === 'saved') returnFocusRef.current?.focus({ preventScroll: true });
+      if (choice === 'saved' && operation.intent.action !== 'publish-profile') returnFocusRef.current?.focus({ preventScroll: true });
       else if (editor && (returningFromExitPrompt || editor.kind === 'move-chapter' || editor.kind === 'move-link')) {
         window.requestAnimationFrame(() => {
           const current = stateRef.current;
