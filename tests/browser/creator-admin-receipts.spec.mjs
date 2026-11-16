@@ -635,6 +635,13 @@ const unreadablePartialClaimDeliveries = [
     mutate(body) { delete body.linkedResourceIds; },
   },
   {
+    label: 'a version step for the unlinked resource',
+    mutate(body) {
+      body.versionChanges = [...body.versionChanges,
+        { entity: 'resource', id: body.failedResourceId, before: 1, after: 2 }];
+    },
+  },
+  {
     label: 'missing failedResourceId',
     stopLost: true,
     mutate(body) { delete body.failedResourceId; },
@@ -1714,6 +1721,7 @@ test('valid multi-resource grants accept chained profile receipts and keep unrel
   const form = claimForm(page, claim.id);
   await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
   const draftCategory = row(page, ids[2]).getByLabel('Categoría');
+  const linkedCategory = row(page, ids[0]).getByLabel('Categoría');
   const route = await interceptAdminWrite(page,
     (request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/reclamaciones/vincular/',
     async (currentRoute, response, actual) => {
@@ -1721,6 +1729,8 @@ test('valid multi-resource grants accept chained profile receipts and keep unrel
       await expect(form).toHaveAttribute('aria-busy', 'true');
       for (const id of ids.slice(0, 2)) await expect(claimSelection(form, id)).toBeDisabled();
       await expect(draftCategory).toBeEditable();
+      await expect(linkedCategory).toBeEditable();
+      await linkedCategory.fill('Clasificación de la ficha vinculada');
       await draftCategory.fill('Edición durante la vinculación');
       await currentRoute.fulfill({ response });
     });
@@ -1748,6 +1758,17 @@ test('valid multi-resource grants accept chained profile receipts and keep unrel
     await expect(profileRow(page, otherOwner.profile.id).getByRole('button', { name: 'Ocultar perfil' })).toBeEnabled();
     await expect(saveButton(page, ids[2])).toBeEnabled();
     await expect(draftCategory).toHaveValue('Edición durante la vinculación');
+    await expect(linkedCategory).toHaveValue('Clasificación de la ficha vinculada');
+
+    const linkedResponse = page.waitForResponse((response) => response.request().method() === 'PATCH'
+      && adminResourceCommandMatches(response.url(), ids[0]));
+    await saveButton(page, ids[0]).click();
+    const linkedSave = await linkedResponse;
+    assert.equal(linkedSave.status(), 200);
+    const linkedBody = JSON.parse(linkedSave.request().postData());
+    assert.equal(linkedBody.version, 2, 'the selected resource draft uses the valid grant receipt version');
+    assert.equal(linkedBody.category, 'Clasificación de la ficha vinculada');
+    assert.equal((await fixture.rawResource(ids[0])).category, linkedBody.category);
 
     const profileAction = page.waitForResponse((candidate) => candidate.request().method() === 'POST'
       && new URL(candidate.url()).pathname === `/api/admin/perfiles/${owner.profile.id}/ocultar/`);
@@ -1836,6 +1857,10 @@ test(partial
   assert.deepEqual((await externalUpdate.json()).versionChanges, [
     { entity: 'resource', id: ids[0], before: 1, after: 2 },
   ]);
+  const affectedDraft = row(page, ids[0]).getByLabel('Categoría');
+  const observedCategory = await affectedDraft.inputValue();
+  const unsubmittedCategory = 'Edición local de una fila desactualizada';
+  if (!partial) await affectedDraft.fill(unsubmittedCategory);
   const unrelatedDraft = row(page, ids[3]).getByLabel('Categoría');
   await unrelatedDraft.fill('Certificaciones');
   await row(page, ids[4]).getByLabel('Categoría').fill('Later draft survives recovery');
@@ -1884,6 +1909,7 @@ test(partial
     await expect(form).toHaveAttribute('aria-busy', 'false');
     await expect(saveButton(page, ids[0])).toBeDisabled();
     await expect(moderateResource(page, ids[0])).toBeDisabled();
+    if (!partial) await expect(affectedDraft).toHaveValue(unsubmittedCategory);
     await expect(saveButton(page, ids[1])).toBeEnabled();
     await expect(moderateResource(page, ids[3])).toBeEnabled();
     const resourceResponse = await submitClassification(page, ids[1], 'Comunidad');
@@ -1912,6 +1938,7 @@ test(partial
     assert.equal((await checkPromise).status(), 200);
     await expect(saveButton(page, ids[0])).toBeDisabled();
     await expect(saveButton(page, ids[1])).toBeEnabled();
+    if (!partial) await expect(affectedDraft).toHaveValue(unsubmittedCategory);
     assert.equal(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin,
       'renewing the same account preserves the receipt and document');
 
@@ -1926,6 +1953,10 @@ test(partial
     assert.equal((await fixture.rawResource(ids[3])).category, 'Certificaciones');
     await expect(row(page, ids[4]).getByLabel('Categoría')).toHaveValue('Later draft survives recovery');
     await expect(root(page).locator('[data-refresh-view]')).toBeVisible();
+    if (!partial) {
+      await expect(affectedDraft).toHaveValue(unsubmittedCategory);
+      await affectedDraft.fill(observedCategory);
+    }
     const reload = page.waitForNavigation({ waitUntil: 'load' });
     const lastDraft = await submitClassification(page, ids[4], 'Seguridad');
     assert.equal(lastDraft.status(), 200);
@@ -1933,6 +1964,7 @@ test(partial
     assert.notEqual(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin,
       'saving the last independent draft allows the actual refresh');
     assert.equal((await fixture.rawResource(ids[4])).category, 'Seguridad');
+    assert.equal((await fixture.rawResource(ids[0])).category, 'Seguridad', 'the stale unsubmitted edit did not overwrite the acknowledged row');
     await expect(row(page, ids[0]).getByLabel('Categoría')).toHaveValue('Seguridad');
     await expect(row(page, ids[1]).getByLabel('Categoría')).toHaveValue('Comunidad');
     await expect(row(page, ids[3]).getByLabel('Categoría')).toHaveValue('Certificaciones');
