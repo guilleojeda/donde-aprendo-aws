@@ -611,7 +611,7 @@ test(`a legacy claim without profileId does not guess the account profile as a p
     assert.equal((await fixture.rawResource(ids[0])).directoryControl, 'creator');
     assert.equal((await fixture.creatorStore.get(`profile:${owner.profile.id}`)).version, 2);
 
-    await waitForAdminWriteToSettle(page, ids[2]);
+    await waitForAdminWriteToSettle(page, ids[3]);
     await expect(form).toHaveAttribute('aria-busy', 'false');
     await expect(saveButton(page, ids[0])).toBeDisabled();
     await expect(moderateResource(page, ids[0])).toBeDisabled();
@@ -1087,9 +1087,57 @@ test(`a ${deliveryFailure} after a completed grant pauses the submitted scope`, 
 });
 }
 
+test('a first-grant quota rejection explains capacity and leaves the entire claim editable', async ({ fixture, page }) => {
+  const [existing, selected] = ['admin-quota-before-existing', 'admin-quota-before-selected'];
+  await prepareAdmin(fixture, page, [existing, selected]);
+  const owner = await createOwnerProfile(fixture, 'admin-quota-before-owner', 'admin-quota-before@example.invalid');
+  await seedProfileAtGrantBoundary(fixture, owner.profile.id, [existing, selected], { includeFirstPlacement: true });
+  const claim = await createClaim(fixture, owner.cookie, [selected]);
+  const profileKey = `profile:${owner.profile.id}`;
+  const claimKey = `claim:${claim.id}`;
+  const [beforeProfile, beforeResource, beforeClaim] = await Promise.all([
+    fixture.creatorStore.get(profileKey), fixture.rawResource(selected), fixture.creatorStore.get(claimKey),
+  ]);
+  await openAdmin(fixture, page);
+  const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
+  const form = claimForm(page, claim.id);
+  const review = form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' });
+  const grant = form.getByRole('button', { name: 'Vincular recursos seleccionados' });
+  await review.check();
+  const route = await interceptAdminWrite(page,
+    (request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/reclamaciones/vincular/',
+    async (currentRoute, response, actual) => {
+      assert.equal(actual.status, 422);
+      assert.equal(actual.body.error, 'CREATOR_CONTENT_TOO_LARGE');
+      assert.equal(actual.body.failureStage, 'before-grant-write');
+      assert.equal(Object.hasOwn(actual.body, 'linkedResourceIds'), false);
+      assert.deepEqual(actual.requestBody.resourceIds, [selected]);
+      await fulfillActual(currentRoute, response, actual.body);
+    });
+  try {
+    await grant.click();
+    const message = form.locator('[data-item-status]');
+    await expect(message).toHaveText('La página alcanzó su capacidad. Libera espacio en ella antes de volver a vincular recursos.');
+    await expect(message).toHaveAttribute('data-kind', 'error');
+    await expect(claimSelection(form, selected)).toBeChecked();
+    await expect(claimSelection(form, selected)).toBeEnabled();
+    await expect(review).toBeEnabled();
+    await expect(grant).toBeEnabled();
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin);
+    assert.equal(route.observed.length, 1, 'the definitive rejection does not replay the grant');
+    assert.deepEqual(await fixture.creatorStore.get(profileKey), beforeProfile);
+    assert.deepEqual(await fixture.rawResource(selected), beforeResource);
+    assert.deepEqual(await fixture.creatorStore.get(claimKey), beforeClaim);
+    assert.equal(await fixture.creatorStore.get(`editor:${owner.profile.id}:${selected}`), null);
+  } finally {
+    await route.stop();
+  }
+});
+
 const quotaPartialClaimScenarios = [
   { suffix: 'append', label: 'a confirmed committed prefix' },
   { suffix: 'resource-only', label: 'profileChanged false without linked IDs', includeFirstPlacement: true, mutation: 'omit-ids' },
+  { suffix: 'profile-flag', label: 'an exact prefix without profileChanged', mutation: 'omit-profile-flag' },
   { suffix: 'versions-only', label: 'nonempty versions without IDs or flag', mutation: 'omit-ids-and-flag' },
   { suffix: 'full', label: 'impossible full prefix', mutation: 'full' },
   { suffix: 'extra', label: 'malformed overclaim beyond full prefix', mutation: 'extra' },
@@ -1147,6 +1195,7 @@ test(`a real quota 422 reports its cause and protects the committed prefix (${sc
       }
       const delivered = { ...actual.body };
       if (scenario.mutation?.startsWith('omit-ids')) delete delivered.linkedResourceIds;
+      if (scenario.mutation === 'omit-profile-flag') delete delivered.profileChanged;
       if (scenario.mutation === 'omit-ids-and-flag') {
         delete delivered.profileChanged;
         delete delivered.failedResourceId;
@@ -1689,6 +1738,8 @@ test('valid multi-resource grants accept chained profile receipts and keep unrel
     await waitForAdminWriteToSettle(page, ids[2]);
     await expect(form).toHaveAttribute('aria-busy', 'false');
     await expect(form.locator('[data-item-status]')).not.toContainText(/recibo no coincide/i);
+    for (const id of ids.slice(0, 2)) await expect(claimSelection(form, id)).toBeDisabled();
+    await expect(row(page, ids[2]).getByLabel('Categoría')).toBeEnabled();
     await expect(moderateResource(page, ids[2])).toBeEnabled();
     await expect(profileRow(page, otherOwner.profile.id).getByRole('button', { name: 'Ocultar perfil' })).toBeEnabled();
     await expect(saveButton(page, ids[2])).toBeEnabled();
@@ -1757,11 +1808,17 @@ test('a real already-linked claim with linkedResourceIds and [] remains a valid 
   }
 });
 
-test('a genuine version gap pauses one row while the valid receipt chain for another resource remains usable', async ({ fixture, page }) => {
-  const ids = ['admin-gap-resource-a', 'admin-gap-resource-b', 'admin-gap-draft'];
+for (const partial of [false, true]) {
+test(partial
+  ? 'a genuine partial claim version gap preserves B through session recovery and refresh'
+  : 'a genuine full claim version gap preserves B through session recovery and refresh', async ({ fixture, page }) => {
+  const suffix = partial ? 'partial' : 'full';
+  const ids = [`admin-gap-${suffix}-resource-a`, `admin-gap-${suffix}-resource-b`,
+    `admin-gap-${suffix}-resource-c`, `admin-gap-${suffix}-draft`, `admin-gap-${suffix}-later-draft`];
   const adminCookie = await prepareAdmin(fixture, page, ids);
-  const owner = await createOwnerProfile(fixture, 'admin-gap-owner', 'admin-gap-owner@example.invalid');
-  const claim = await createClaim(fixture, owner.cookie, ids.slice(0, 2));
+  const owner = await createOwnerProfile(fixture, `admin-gap-${suffix}-owner`, `admin-gap-${suffix}@example.invalid`);
+  const claimIds = partial ? [ids[0], ids[2]] : [ids[0], ids[1]];
+  const claim = await createClaim(fixture, owner.cookie, claimIds);
   await openAdmin(fixture, page);
 
   const externalUpdate = await fixture.request(adminCookie, `/api/admin/recursos/?id=${encodeURIComponent(ids[0])}`, {
@@ -1772,9 +1829,19 @@ test('a genuine version gap pauses one row while the valid receipt chain for ano
   assert.deepEqual((await externalUpdate.json()).versionChanges, [
     { entity: 'resource', id: ids[0], before: 1, after: 2 },
   ]);
-  await row(page, ids[2]).getByLabel('Categoría').fill('Draft survives a receipt gap');
+  await row(page, ids[3]).getByLabel('Categoría').fill('Draft survives a receipt gap');
+  await row(page, ids[4]).getByLabel('Categoría').fill('Later draft survives recovery');
   const form = claimForm(page, claim.id);
   await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
+  const originalGet = fixture.creatorStore.get.bind(fixture.creatorStore);
+  if (partial) {
+    fixture.creatorStore.get = async (key) => {
+      if (key === `editor:${owner.profile.id}:${ids[2]}`) {
+        throw new Error('controlled failure before resource C grant transaction');
+      }
+      return originalGet(key);
+    };
+  }
 
   const route = await interceptAdminWrite(page,
     (request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/reclamaciones/vincular/',
@@ -1783,30 +1850,81 @@ test('a genuine version gap pauses one row while the valid receipt chain for ano
     const responsePromise = page.waitForResponse((candidate) => candidate.request().method() === 'POST'
       && new URL(candidate.url()).pathname === '/api/admin/reclamaciones/vincular/');
     await form.getByRole('button', { name: 'Vincular recursos seleccionados' }).click();
-    assert.equal((await responsePromise).status(), 200);
+    const grantResponse = await responsePromise;
+    assert.equal(grantResponse.status(), partial ? 503 : 200);
+    assert.deepEqual(JSON.parse(grantResponse.request().postData()).resourceIds, claimIds);
     const changes = route.observed[0].body.versionChanges;
     assert.ok(changes.some(({ entity, id, before, after }) => entity === 'resource' && id === ids[0] && before === 2 && after === 3));
-    assert.ok(changes.some(({ entity, id, before, after }) => entity === 'resource' && id === ids[1] && before === 1 && after === 2));
-    assert.deepEqual(changes.filter(({ entity }) => entity === 'profile').map(({ before, after }) => [before, after]), [[1, 2], [2, 3]]);
-    assert.equal((await fixture.creatorStore.get(`profile:${owner.profile.id}`)).version, 3);
+    if (partial) {
+      assert.equal(route.observed[0].body.error, 'PARTIAL_CLAIM_WRITE');
+      assert.equal(changes.some(({ entity, id }) => entity === 'resource' && id === ids[2]), false);
+      assert.equal(route.observed[0].body.failedResourceId, ids[2]);
+      assert.deepEqual(changes.filter(({ entity }) => entity === 'profile').map(({ before, after }) => [before, after]), [[1, 2]]);
+    } else {
+      assert.ok(changes.some(({ entity, id, before, after }) => entity === 'resource' && id === ids[1] && before === 1 && after === 2));
+      assert.deepEqual(changes.filter(({ entity }) => entity === 'profile').map(({ before, after }) => [before, after]), [[1, 2], [2, 3]]);
+    }
+    assert.equal((await fixture.creatorStore.get(`profile:${owner.profile.id}`)).version, partial ? 2 : 3);
     assert.equal((await fixture.rawResource(ids[0])).version, 3);
-    assert.equal((await fixture.rawResource(ids[1])).version, 2);
+    assert.equal((await fixture.rawResource(ids[1])).version, partial ? 1 : 2);
+    assert.equal((await fixture.rawResource(ids[2])).version, partial ? 1 : 1);
 
-    await waitForAdminWriteToSettle(page, ids[2]);
+    await waitForAdminWriteToSettle(page, ids[3]);
     await expect(form).toHaveAttribute('aria-busy', 'false');
     await expect(saveButton(page, ids[0])).toBeDisabled();
     await expect(moderateResource(page, ids[0])).toBeDisabled();
     await expect(saveButton(page, ids[1])).toBeEnabled();
-    await expect(moderateResource(page, ids[2])).toBeEnabled();
+    await expect(moderateResource(page, ids[3])).toBeEnabled();
     const resourceResponse = await submitClassification(page, ids[1], 'Comunidad');
     assert.equal(resourceResponse.status(), 200, 'the independently valid resource receipt was applied');
-    assert.deepEqual(JSON.parse(resourceResponse.request().postData()).version, 2);
+    assert.deepEqual(JSON.parse(resourceResponse.request().postData()).version, partial ? 1 : 2);
     assert.equal((await fixture.rawResource(ids[1])).category, 'Comunidad');
-    await expect(row(page, ids[2]).getByLabel('Categoría')).toHaveValue('Draft survives a receipt gap');
+    await expect(row(page, ids[3]).getByLabel('Categoría')).toHaveValue('Draft survives a receipt gap');
+
+    const documentMarker = await page.evaluate(() => {
+      window.__creatorAdminGapDocument = `${performance.timeOrigin}`;
+      return window.__creatorAdminGapDocument;
+    });
+    const originalPrincipal = await fixture.principal(adminCookie);
+    fixture.accountStore.sessions.clear();
+    const expiredWrite = page.waitForResponse((response) => response.request().method() === 'PATCH'
+      && adminResourceCommandMatches(response.url(), ids[3]));
+    await saveButton(page, ids[3]).click();
+    assert.equal((await expiredWrite).status(), 401, 'the real session store rejects the independent draft after expiry');
+    await expect(root(page).locator('[data-session-recovery-check]')).toBeVisible();
+
+    const renewedCookie = await fixture.login();
+    const renewedPrincipal = await fixture.principal(renewedCookie);
+    assert.equal(renewedPrincipal.accountId, originalPrincipal.accountId);
+    await addCookie(page.context(), fixture, renewedCookie);
+    const checkPromise = page.waitForResponse((response) => response.request().method() === 'GET'
+      && new URL(response.url()).pathname === '/api/creador/sesion/');
+    await root(page).locator('[data-session-recovery-check]').click();
+    assert.equal((await checkPromise).status(), 200);
+    await expect(saveButton(page, ids[0])).toBeDisabled();
+    await expect(saveButton(page, ids[1])).toBeEnabled();
+    assert.equal(await page.evaluate(() => window.__creatorAdminGapDocument), documentMarker,
+      'renewing the same account preserves the valid partial receipt and document');
+
+    const retriedDraft = await submitClassification(page, ids[3], 'Certificaciones');
+    assert.equal(retriedDraft.status(), 200, 'the independent draft saves after explicit session renewal');
+    assert.equal((await fixture.rawResource(ids[3])).category, 'Certificaciones');
+    await row(page, ids[4]).getByLabel('Categoría').fill('Serverless');
+    await expect(root(page).locator('[data-refresh-view]')).toBeVisible();
+    const reload = page.waitForLoadState('load');
+    await root(page).locator('[data-refresh-view]').click();
+    await reload;
+    await expect(row(page, ids[0]).getByLabel('Categoría')).toHaveValue('Seguridad');
+    await expect(row(page, ids[1]).getByLabel('Categoría')).toHaveValue('Comunidad');
+    await expect(row(page, ids[3]).getByLabel('Categoría')).toHaveValue('Certificaciones');
+    await expect(row(page, ids[4]).getByLabel('Categoría')).toHaveValue('Serverless');
+    assert.equal(route.observed.length, 1, 'session recovery and safe refresh never replay the claim grant');
   } finally {
     await route.stop();
+    fixture.creatorStore.get = originalGet;
   }
 });
+}
 
 test('a bad receipt remains stale through same-account session recovery, unrelated save, and safe refresh', async ({ fixture, page }) => {
   const ids = ['admin-recovery-target', 'admin-recovery-save', 'admin-recovery-later-draft'];
