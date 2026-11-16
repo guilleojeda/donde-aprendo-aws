@@ -240,6 +240,28 @@ function hasNativeSkipFocus(): boolean {
   return window.location.hash === '#contenido' && document.activeElement?.id === 'contenido';
 }
 
+function usableOwnerFocusTarget(target: HTMLElement | null | undefined): target is HTMLElement {
+  return Boolean(target?.isConnected
+    && target.getClientRects().length > 0
+    && !target.matches(':disabled, [aria-disabled="true"]')
+    && !target.closest('[hidden], [inert]'));
+}
+
+const sessionRecoveryFocus = '[data-session-recovery-check]';
+const retryReadFocus = '[data-owner-refresh-retry]';
+const recoveryDecisionFocus = '[data-owner-conflict-save], [data-owner-use-saved], [data-owner-return-to-draft]';
+
+function hasUsableOwnerActiveFocus(): boolean {
+  const active = document.activeElement;
+  return active instanceof HTMLElement && active !== document.body && usableOwnerFocusTarget(active);
+}
+
+function visibleOwnerFocusTarget(root: ParentNode | null | undefined, selector: string): HTMLElement | undefined {
+  const dialog = root?.querySelector('[data-owner-dialog][open]');
+  return Array.from(dialog?.querySelectorAll<HTMLElement>(selector) ?? []).find(usableOwnerFocusTarget)
+    ?? Array.from(root?.querySelectorAll<HTMLElement>(selector) ?? []).find(usableOwnerFocusTarget);
+}
+
 function ownerQueryWasValid(state: unknown, view: 'enlaces' | 'series'): boolean {
   if (typeof state !== 'object' || state === null) return false;
   const key = view === 'series' ? 'creatorOwnerSeriesQueryValid' : 'creatorOwnerLinksQueryValid';
@@ -547,29 +569,33 @@ export default function CreatorOwnerApp(props: Props) {
   }, [state.observed]);
 
   useEffect(() => {
-    const selector = state.location.focusAfterRender;
-    if (!selector) return;
-    if (stateRef.current.location.focusAfterRender !== selector) return;
+    const requested = state.location.focusAfterRender;
+    const sessionNeedsFocus = state.session.state === 'recovery-required' && !hasUsableOwnerActiveFocus();
+    const selector = requested ?? (sessionNeedsFocus ? sessionRecoveryFocus : undefined);
+    if (!selector || stateRef.current.location.focusAfterRender !== requested) return;
     const root = rootRef.current;
-    const target = root?.querySelector<HTMLElement>(selector);
+    const target = visibleOwnerFocusTarget(root, selector);
+    const clearRequestedFocus = () => {
+      if (requested) dispatch({ type: 'clear-focus', selector: requested });
+    };
     if (!root || !target) {
-      if (stateRef.current.location.focusAfterRender !== selector) return;
-      dispatch({ type: 'clear-focus', selector });
+      clearRequestedFocus();
       return;
     }
     const focusTarget = () => {
-      const latestTarget = rootRef.current?.querySelector<HTMLElement>(selector);
-      if (!latestTarget) return;
-      const insideOwnerDialog = Boolean(latestTarget.closest('[data-owner-dialog]'));
-      if (hasNativeSkipFocus() && ['enlaces', 'series'].includes(stateRef.current.location.view)) {
-        dispatch({ type: 'clear-focus', selector });
+      const latestTarget = visibleOwnerFocusTarget(rootRef.current, selector);
+      if (!latestTarget) {
+        clearRequestedFocus();
         return;
       }
-      const recoveryFocusTarget = latestTarget.matches('[data-owner-refresh-retry], [data-session-recovery-check]');
-      if (recoveryFocusTarget && (latestTarget.matches(':disabled')
-        || (document.activeElement instanceof Element && document.activeElement !== latestTarget
-          && document.activeElement !== document.body && document.activeElement.isConnected))) {
-        dispatch({ type: 'clear-focus', selector });
+      const insideOwnerDialog = Boolean(latestTarget.closest('[data-owner-dialog]'));
+      if (hasNativeSkipFocus() && ['enlaces', 'series'].includes(stateRef.current.location.view)) {
+        clearRequestedFocus();
+        return;
+      }
+      const recoveryFocusTarget = latestTarget.matches(`${retryReadFocus}, ${sessionRecoveryFocus}, ${recoveryDecisionFocus}`);
+      if (recoveryFocusTarget && document.activeElement !== latestTarget && hasUsableOwnerActiveFocus()) {
+        clearRequestedFocus();
         return;
       }
       latestTarget.focus({ preventScroll: true });
@@ -580,23 +606,29 @@ export default function CreatorOwnerApp(props: Props) {
       const bounds = latestTarget.getBoundingClientRect();
       const outsideViewport = bounds.top < 0 || bounds.bottom > window.innerHeight
         || bounds.left < 0 || bounds.right > window.innerWidth;
-      if (outsideViewport) {
-        latestTarget.scrollIntoView({ block: insideOwnerDialog || revealPagerFocus || revealContextFocus ? 'center' : 'nearest',
-          inline: 'nearest', behavior: 'instant' });
+      // Recovery takes over an in-flight smooth scroll from the previous control.
+      if (recoveryFocusTarget || outsideViewport) {
+        latestTarget.scrollIntoView({
+          block: recoveryFocusTarget || insideOwnerDialog || revealPagerFocus || revealContextFocus ? 'center' : 'nearest',
+          inline: 'nearest',
+          behavior: 'instant',
+        });
       }
-      dispatch({ type: 'clear-focus', selector });
+      clearRequestedFocus();
     };
     const openDialog = root.querySelector<HTMLDialogElement>('[data-owner-dialog][open]');
     if (openDialog && !openDialog.contains(target)) {
       const onClose = () => {
-        if (stateRef.current.location.focusAfterRender !== selector || stateRef.current.location.prompt !== 'none') return;
+        const current = stateRef.current;
+        if (current.location.focusAfterRender !== requested || current.location.prompt !== 'none'
+          || (!requested && current.session.state !== 'recovery-required')) return;
         focusTarget();
       };
       openDialog.addEventListener('close', onClose, { once: true });
       return () => openDialog.removeEventListener('close', onClose);
     }
     focusTarget();
-  }, [state.location.focusAfterRender, state.operation, state.location.prompt]);
+  }, [state.location.focusAfterRender, state.operation, state.location.prompt, state.session.state]);
 
   useEffect(() => {
     const previous = pendingDetailFocusRef.current;
@@ -616,9 +648,6 @@ export default function CreatorOwnerApp(props: Props) {
       && !state.location.focusAfterRender) {
       const requested = returnFocusRef.current;
       const root = rootRef.current;
-      const usable = (target: HTMLElement | null | undefined): target is HTMLElement => Boolean(target?.isConnected
-        && target.getClientRects().length && !target.matches(':disabled, [aria-disabled="true"]')
-        && !target.closest('[hidden], [inert]'));
       const view = stateRef.current.location.view;
       const query = stateRef.current.location.query;
       const fallback = view === 'enlaces'
@@ -633,7 +662,7 @@ export default function CreatorOwnerApp(props: Props) {
       const focusReturnedFromEditor = active === document.body || active === requested
         || !(active instanceof HTMLElement) || !active.isConnected;
       if (focusReturnedFromEditor) {
-        const destination = usable(requested) ? requested : usable(fallback) ? fallback : undefined;
+          const destination = usableOwnerFocusTarget(requested) ? requested : usableOwnerFocusTarget(fallback) ? fallback : undefined;
         if (destination) {
           destination.focus({ preventScroll: true });
           if (destination === fallback && destination.matches('#owner-chapter-search, #owner-series-search, #owner-link-search')) {
@@ -840,8 +869,7 @@ export default function CreatorOwnerApp(props: Props) {
   function openRetainedEditor(resourceId: string) {
     const latest = stateRef.current;
     const resource = ownerResource(latest.observed, resourceId);
-    if (!resource?.metadataEditable || Object.values(latest.observed.placements).some(({ resourceId: id }) => id === resourceId)
-      || latest.session.state !== 'ready') return;
+    if (!resource?.reincludeAllowed || latest.session.state !== 'ready') return;
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dispatch({ type: 'open-editor', editor: { kind: 'link-resource', key: `resource:${resource.id}`, resourceId, touchedFields: [],
       draft: { title: resource.title, url: resource.url, description: resource.description ?? '' } } });
@@ -912,7 +940,7 @@ export default function CreatorOwnerApp(props: Props) {
 
   function reincludeResource(resourceId: string) {
     const resource = ownerResource(stateRef.current.observed, resourceId);
-    if (!resource?.reincludeAllowed || Object.values(stateRef.current.observed.placements).some(({ resourceId: id }) => id === resourceId)) return;
+    if (!resource?.reincludeAllowed) return;
     void startCommand(makeIntent('reinclude-link', {}, { target: { resourceId }, resourceVersion: resource.version }));
   }
 
@@ -1051,18 +1079,9 @@ export default function CreatorOwnerApp(props: Props) {
         ? `${acknowledgedActionLabel(intent)}. ${acknowledgedReadFailureLabel(intent)}. La escritura sí quedó confirmada; la vista sigue desactualizada. Reintenta la lectura antes de guardar otra acción. No repetiremos la escritura.`
         : feedback;
       const suppressGlobalMessage = chapterRefresh || intent?.action === 'publish-profile';
-      const activeElement = document.activeElement;
-      const shouldRestoreRecoveryFocus = Boolean(recoveryFocusElement && (
-        activeElement === recoveryFocusElement
-        || activeElement === document.body
-        || !(activeElement instanceof HTMLElement)
-        || !activeElement.isConnected
-      ));
-      const sessionCheckFocusSelector = root?.querySelector('[data-owner-dialog][open]')
-        ? '[data-owner-dialog][open] [data-session-recovery-check]'
-        : '[data-session-recovery-shell]:not([hidden]) [data-session-recovery-check]';
+      const shouldRestoreRecoveryFocus = !hasUsableOwnerActiveFocus() || document.activeElement === recoveryFocusElement;
       dispatch({ type: 'operation-read-failed', ...(intent ? { intent } : {}), fact, message: staleFeedback,
-        ...(shouldRestoreRecoveryFocus ? { focusAfterRender: sessionFailure ? sessionCheckFocusSelector : '[data-owner-refresh-retry]' } : {}),
+        ...(shouldRestoreRecoveryFocus && !sessionFailure ? { focusAfterRender: retryReadFocus } : {}),
         ...(suppressGlobalMessage ? { suppressGlobalMessage: true } : {}) });
     };
     try {
@@ -1140,16 +1159,13 @@ export default function CreatorOwnerApp(props: Props) {
       const editorWillCloseWithMissingSeries = selectedSeriesWillDisappear
         && Boolean(active?.closest('[data-owner-dialog]'));
       pendingDetailFocusRef.current = active instanceof HTMLElement && active.closest('[data-owner-series-chapters]') ? active : null;
-      const focusWasLost = active === document.body || active?.matches('[data-owner-refresh-retry]')
-        || !(active instanceof HTMLElement) || !active.isConnected
+      const focusWasLost = !hasUsableOwnerActiveFocus() || active === recoveryFocusElement
         || chapterDetailWillDisappear || editorWillCloseWithMissingSeries;
       let focusAfterRender: string | undefined;
-      const recoveryChoiceFocusWasLost = Boolean(recoveryFocusElement && (
-        active === recoveryFocusElement || active === document.body
-        || !(active instanceof HTMLElement) || !active.isConnected
-      ));
-      if (fact === 'unknown' && recoveryChoiceFocusWasLost) focusAfterRender = '[data-owner-use-saved]';
-      if (focusWasLost && selectedSeriesWillDisappear) focusAfterRender = '#owner-series-title';
+      if ((fact === 'unknown' || fact === 'conflict') && focusWasLost) {
+        focusAfterRender = recoveryDecisionFocus;
+      }
+      if (!focusAfterRender && focusWasLost && selectedSeriesWillDisappear) focusAfterRender = '#owner-series-title';
       if (fact === 'acknowledged') {
         if (listAction === 'add-chapter' || listAction === 'remove-chapter') {
           const matchingDetail = creatorOwnerChapterRecoveryIsVisibleInDetail({ ...currentState, observed: snapshot });

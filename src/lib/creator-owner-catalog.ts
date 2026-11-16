@@ -52,5 +52,9 @@ export function pageCreatorOwnerCatalog(
 
 export function parseCreatorOwnerClaimUrls(value: string): string[] | undefined {
   const urls = value.split(/\r?\n/).filter((line) => line.trim() !== '');
-  return urls.every((url) => url.length <= CREATOR_FIELD_LIMITS.url && isSafeCatalogUrl(url.trim())) ? urls : undefined;
+  const valid = urls.every((rawUrl) => {
+    const url = rawUrl.trim();
+    return url.length <= CREATOR_FIELD_LIMITS.url && isSafeCatalogUrl(url);
+  });
+  return valid ? urls : undefined;
 }
