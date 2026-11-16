@@ -274,6 +274,17 @@ test('un 401 tras confirmar un capítulo exige sesión, conserva stale y permite
     const response = await route.fetch();
     const body = await response.body();
     assert.equal(response.status(), 401);
+    // The 401 arrives while the browser is still scrolling toward the chapter.
+    await page.evaluate(() => new Promise((resolve) => {
+      function onScroll() {
+        if (window.scrollY === 0) return;
+        window.removeEventListener('scroll', onScroll);
+        window.addEventListener('scrollend', () => { window.recoveryScrollEnded = true; }, { once: true });
+        resolve();
+      }
+      window.addEventListener('scroll', onScroll);
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+    }));
     await route.fulfill({ status: response.status(), headers: response.headers(), body });
     failedRead.resolve();
   };
@@ -283,7 +294,10 @@ test('un 401 tras confirmar un capítulo exige sesión, conserva stale y permite
     const addTrigger = page.locator(`[data-chapter-row="${chapter.placementId}"] [data-chapter-add]`);
     await page.waitForLoadState('networkidle');
     await expect(page.locator('astro-island[ssr]').filter({ has: addTrigger })).toHaveCount(0);
-    await addTrigger.focus();
+    await addTrigger.evaluate((button) => {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      button.focus({ preventScroll: true });
+    });
     await page.keyboard.press('Enter');
     await failedRead.promise;
     await expect.poll(() => capture.writes().find(({ method, path }) => method === 'PUT'
@@ -301,6 +315,7 @@ test('un 401 tras confirmar un capítulo exige sesión, conserva stale y permite
     await expect(staleRetry).toBeDisabled();
     const sessionCheck = page.locator('[data-session-recovery-check]:visible').first();
     await expect(sessionCheck).toBeEnabled();
+    await expect.poll(() => page.evaluate(() => window.recoveryScrollEnded)).toBe(true);
     await expect(sessionCheck).toBeFocused();
     await assertWithinViewport(page, sessionCheck, 'the session check after the automatic chapter read');
 

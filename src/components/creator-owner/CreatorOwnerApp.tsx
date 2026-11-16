@@ -606,9 +606,13 @@ export default function CreatorOwnerApp(props: Props) {
       const bounds = latestTarget.getBoundingClientRect();
       const outsideViewport = bounds.top < 0 || bounds.bottom > window.innerHeight
         || bounds.left < 0 || bounds.right > window.innerWidth;
-      if (outsideViewport) {
-        latestTarget.scrollIntoView({ block: insideOwnerDialog || revealPagerFocus || revealContextFocus ? 'center' : 'nearest',
-          inline: 'nearest', behavior: 'instant' });
+      // Recovery takes over an in-flight smooth scroll from the previous control.
+      if (recoveryFocusTarget || outsideViewport) {
+        latestTarget.scrollIntoView({
+          block: recoveryFocusTarget || insideOwnerDialog || revealPagerFocus || revealContextFocus ? 'center' : 'nearest',
+          inline: 'nearest',
+          behavior: 'instant',
+        });
       }
       clearRequestedFocus();
     };
