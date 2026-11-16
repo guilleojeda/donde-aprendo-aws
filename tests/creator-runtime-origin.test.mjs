@@ -17,6 +17,7 @@ import {
 import { createDocumentStore, seedResource } from './fixtures/creator-pages.mjs';
 import { createPhotoObjects, rasterPhotoFixtures } from './fixtures/creator-photos.mjs';
 import { creatorPageSessionBinding } from '../src/lib/creator-session-context.mjs';
+import { isConfirmedTransactionRejection } from '../src/lib/creator-store.mjs';
 
 const STATE_KEY = '__creatorRuntimeOriginAcceptance';
 const CONFIG_KEYS = [
@@ -71,7 +72,10 @@ function runtimeTestPlugin() {
       if (!store) throw new Error('missing account-store test adapter');
       return store;
     }`],
-    ['creator-store.mjs', `export function createCreatorStore() {
+    ['creator-store.mjs', `export function isConfirmedTransactionRejection(error) {
+      return globalThis[${JSON.stringify(STATE_KEY)}].isConfirmedTransactionRejection(error);
+    }
+    export function createCreatorStore() {
       const store = globalThis[${JSON.stringify(STATE_KEY)}]?.creatorStore;
       if (!store) throw new Error('missing creator-store test adapter');
       return store;
@@ -168,7 +172,7 @@ test('accepted configured origins reach real account, creator, admin, and photo 
             fields: { key, policy: `origin-test-${index}` },
           }),
         };
-        globalThis[STATE_KEY] = { accountStore, creatorStore, photoS3 };
+        globalThis[STATE_KEY] = { accountStore, creatorStore, photoS3, isConfirmedTransactionRejection };
 
         const runtimeModule = await import(`${runtimeUrl}?origin-case=${index}`);
         const runtime = runtimeModule.getCreatorRuntime();
