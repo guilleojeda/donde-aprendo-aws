@@ -250,6 +250,7 @@ export default function CreatorOwnerApp(props: Props) {
   stateRef.current = state;
   const rootRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const pendingDetailFocusRef = useRef<HTMLElement | null>(null);
   const historyIndexRef = useRef<number | undefined>(undefined);
   const historyHrefRef = useRef(typeof window === 'undefined' ? '' : window.location.href);
   const nativeSkipActivationHrefRef = useRef<string | undefined>(undefined);
@@ -558,8 +559,8 @@ export default function CreatorOwnerApp(props: Props) {
       const latestTarget = rootRef.current?.querySelector<HTMLElement>(selector);
       if (!latestTarget) return;
       const insideOwnerDialog = Boolean(latestTarget.closest('[data-owner-dialog]'));
-      const retainActiveSearchFocus = (selector === '#owner-link-search' || selector === '#owner-series-search'
-        || selector === '#owner-chapter-search') && document.activeElement === latestTarget;
+      const revealSearchFocus = selector === '#owner-chapter-search'
+        || ((selector === '#owner-link-search' || selector === '#owner-series-search') && document.activeElement === latestTarget);
       if (hasNativeSkipFocus() && ['enlaces', 'series'].includes(stateRef.current.location.view)) {
         dispatch({ type: 'clear-focus', selector });
         return;
@@ -570,7 +571,7 @@ export default function CreatorOwnerApp(props: Props) {
         || selector === '[data-series-chapter-page]:last-of-type';
       if (insideOwnerDialog || revealPagerFocus) {
         latestTarget.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
-      } else if (retainActiveSearchFocus) {
+      } else if (revealSearchFocus) {
         latestTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
       }
       dispatch({ type: 'clear-focus', selector });
@@ -586,6 +587,18 @@ export default function CreatorOwnerApp(props: Props) {
     }
     focusTarget();
   }, [state.location.focusAfterRender, state.operation, state.location.prompt]);
+
+  useEffect(() => {
+    const previous = pendingDetailFocusRef.current;
+    if (!previous) return;
+    pendingDetailFocusRef.current = null;
+    if (state.location.view !== 'series' || !state.location.query.serie || !state.observed.series[state.location.query.serie]) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && active !== previous) return;
+    if (previous.isConnected && previous.getClientRects().length > 0 && !previous.matches(':disabled')) return;
+    const search = rootRef.current?.querySelector<HTMLElement>('#owner-chapter-search');
+    if (search?.getClientRects().length) search.focus();
+  }, [state.observed]);
 
   useEffect(() => {
     const editorKey = state.editor?.key;
@@ -1062,6 +1075,7 @@ export default function CreatorOwnerApp(props: Props) {
       const chapterDetailWillDisappear = currentLocation.view === 'series' && Boolean(currentLocation.query.serie)
         && !snapshot.series[currentLocation.query.serie]
         && Boolean(active?.closest('[data-owner-series-chapters]'));
+      pendingDetailFocusRef.current = active instanceof HTMLElement && active.closest('[data-owner-series-chapters]') ? active : null;
       const focusWasLost = active === document.body || active?.matches('[data-owner-refresh-retry]') || chapterDetailWillDisappear;
       let focusAfterRender: string | undefined;
       if (focusWasLost && currentLocation.view === 'series' && currentLocation.query.serie

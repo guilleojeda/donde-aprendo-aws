@@ -27,6 +27,8 @@ interface AdminCompletion {
   payload: Record<string, unknown> | null;
   linkedIds: string[];
   claimReviewRequired: boolean;
+  uncertainResourceId?: string;
+  remainingUnconfirmed?: boolean;
   receiptProblem: boolean;
   gaps: CreatorVersionChange[];
 }
@@ -35,6 +37,7 @@ const root = document.querySelector<HTMLElement>('[data-creator-admin]');
 const initial = document.querySelector<HTMLScriptElement>('#creator-admin-data');
 const MAX_REQUEST_BYTES = 32 * 1024;
 const REQUEST_TOO_LARGE = 'creator-request-too-large';
+const CLAIM_RESOLUTION_CONTROLS = '[data-claim-resolution] button, [data-claim-resolution] input[type="checkbox"]';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -298,7 +301,7 @@ function claimLinkedPrefix(
   context: AdminCommandContext,
   response: Response,
   changes: CreatorVersionChange[] | null,
-): { ids: string[]; valid: boolean } {
+): { ids: string[]; valid: boolean; uncertainResourceId?: string; remainingUnconfirmed?: boolean } {
   if (context.kind !== 'claim' || !Array.isArray(payload?.linkedResourceIds)) return { ids: [], valid: false };
   const requested = context.targets.filter(({ entity }) => entity === 'resource').map(({ id }) => id);
   if (new Set(requested).size !== requested.length) return { ids: [], valid: false };
@@ -311,31 +314,49 @@ function claimLinkedPrefix(
   const complete = ids.length === requested.length;
   const quotaFailure = response.status === 422 && payload.error === 'CREATOR_CONTENT_TOO_LARGE';
   const failedAt = typeof payload.failedResourceId === 'string' ? requested.indexOf(payload.failedResourceId) : -1;
-  const stageMatches = complete
-    ? !Object.hasOwn(payload, 'failedResourceId') && !quotaFailure
-    : !response.ok && failedAt > 0 && ids.length === failedAt;
+  const uncertainId = typeof payload.uncertainResourceId === 'string' ? payload.uncertainResourceId : undefined;
+  const hasFailureStage = Object.hasOwn(payload, 'failureStage');
+  const hasFailedId = Object.hasOwn(payload, 'failedResourceId');
+  const hasUncertainId = Object.hasOwn(payload, 'uncertainResourceId');
+  const claimsUncertainty = payload.error === 'CLAIM_GRANT_UNCERTAIN';
+  const uncertainStage = claimsUncertainty && response.status === 503 && !hasFailureStage && !hasFailedId
+    && !complete && uncertainId === requested[ids.length];
+  const stageMatches = claimsUncertainty || hasUncertainId ? uncertainStage
+    : complete ? !hasFailedId && (response.ok
+      ? !hasFailureStage : payload.failureStage === 'claim-status' && !quotaFailure)
+      : !response.ok && !hasFailureStage && failedAt > 0 && ids.length === failedAt;
   const valid = ids.length === payload.linkedResourceIds.length && stageMatches;
-  if (response.ok || valid) return { ids, valid };
+  if (response.ok || valid) return { ids, valid, ...(valid && uncertainStage ? { uncertainResourceId: uncertainId } : {}) };
 
-  // The server stops at failedResourceId. Without a known stop, only a coherent
-  // chain of resource steps can corroborate IDs, and a full prefix is unsafe.
-  if (failedAt >= 0) return { ids: ids.slice(0, failedAt), valid: false };
-  const earlierIds = ids.slice(0, requested.length - 1);
+  // A definite stop can only corroborate a prefix if the outcome does not
+  // also claim uncertainty. In that case, require a coherent version chain.
+  if (failedAt >= 0 && !hasFailureStage && !claimsUncertainty && !hasUncertainId) {
+    return { ids: ids.slice(0, failedAt), valid: false };
+  }
+  const uncertainAt = uncertainId === undefined ? -1 : requested.indexOf(uncertainId);
+  const earlierIds = ids.slice(0, uncertainAt >= 0 ? uncertainAt : requested.length - 1);
   if (!changes || !receiptScopeIsValid(changes, context) || !receiptChainIsValid(changes, context, earlierIds)) {
-    return { ids: [], valid: false };
+    return { ids: [], valid: false, remainingUnconfirmed: true };
   }
   const changedResources = new Set(changes.filter(({ entity }) => entity === 'resource').map(({ id }) => id));
   const unsupported = earlierIds.findIndex((id) => !changedResources.has(id));
-  return { ids: unsupported < 0 ? earlierIds : earlierIds.slice(0, unsupported), valid: false };
+  return { ids: unsupported < 0 ? earlierIds : earlierIds.slice(0, unsupported), valid: false, remainingUnconfirmed: true };
 }
 
 async function completeAdminWrite(response: Response, context: AdminCommandContext): Promise<AdminCompletion> {
   const payload = await responsePayload(response);
-  const claimReviewRequired = context.kind === 'claim' && !response.ok
+  const beforeGrantWrite = payload?.failureStage === 'before-grant-write' && typeof payload.error === 'string'
+    && payload.error !== 'PARTIAL_CLAIM_WRITE' && payload.error !== 'CLAIM_GRANT_UNCERTAIN'
+    && !['linkedResourceIds', 'versionChanges', 'profileChanged', 'failedResourceId', 'uncertainResourceId']
+      .some((field) => Object.hasOwn(payload, field));
+  const claimReviewRequired = context.kind === 'claim' && !response.ok && !beforeGrantWrite
     && (Array.isArray(payload?.linkedResourceIds)
+      || response.status >= 500 || response.status === 409 || response.status === 422
       || payload?.error === 'PARTIAL_CLAIM_WRITE'
+      || payload?.error === 'CLAIM_GRANT_UNCERTAIN'
       || typeof payload?.profileChanged === 'boolean'
       || typeof payload?.failedResourceId === 'string'
+      || Boolean(payload && (Object.hasOwn(payload, 'failureStage') || Object.hasOwn(payload, 'uncertainResourceId')))
       || (Array.isArray(payload?.versionChanges) && payload.versionChanges.length > 0));
   if (!response.ok && !claimReviewRequired) {
     return { payload, linkedIds: [], claimReviewRequired: false, receiptProblem: false, gaps: [] };
@@ -356,21 +377,28 @@ async function completeAdminWrite(response: Response, context: AdminCommandConte
     && singleTargetCanonicalIsValid(payload, changes ?? [], context);
   if (!usable) {
     pauseAdminRows(context.targets);
+    if (context.kind === 'claim') pauseRelatedClaims(context.targets);
     return {
       payload,
       linkedIds,
       claimReviewRequired,
+      remainingUnconfirmed: linkedReceipt.remainingUnconfirmed,
       receiptProblem: true,
       gaps: [],
     };
   }
 
   const gaps = applyVersionChanges(changes);
-  pauseAdminRows(gaps);
+  const uncertainResourceId = linkedReceipt.uncertainResourceId;
+  const uncertainTargets = uncertainResourceId === undefined ? [] : context.targets.filter(({ entity, id }) =>
+    entity === 'profile' || (entity === 'resource' && id === uncertainResourceId));
+  pauseAdminRows([...gaps, ...uncertainTargets]);
+  if (context.kind === 'claim') pauseRelatedClaims([...gaps, ...uncertainTargets]);
   return {
     payload,
     linkedIds,
     claimReviewRequired,
+    uncertainResourceId,
     receiptProblem: false,
     gaps,
   };
@@ -432,6 +460,23 @@ function pauseAdminRows(records: readonly Pick<CreatorVersionChange, 'entity' | 
       .find((candidate) => candidate.dataset[datasetKey] === expectedValue);
     if (row) markAdminActionsStale('button', row);
   }
+}
+
+function pauseRelatedClaims(records: readonly Pick<CreatorVersionChange, 'entity' | 'id'>[]) {
+  if (!root || !state || records.length === 0) return;
+  const resourceIds = new Set(records.filter(({ entity }) => entity === 'resource').map(({ id }) => id));
+  const profileIds = new Set(records.filter(({ entity }) => entity === 'profile').map(({ id }) => id));
+  const claims = state.claims.filter((claim) =>
+    (typeof claim.profileId === 'string' && profileIds.has(claim.profileId))
+    || (Array.isArray(claim.resourceIds) && claim.resourceIds.some((id) => resourceIds.has(id))));
+  const claimIds = new Set(claims.map((claim) => claim.id ?? claim.claimId));
+  root.querySelectorAll<HTMLElement>('[data-admin-claim]').forEach((row) => {
+    if (!claimIds.has(row.dataset.adminClaim)) return;
+    markAdminActionsStale(CLAIM_RESOLUTION_CONTROLS, row);
+    const form = row.querySelector<HTMLFormElement>('[data-claim-resolution]');
+    // Frozen selections remain visible but can't be saved or reverted here.
+    if (form) formState?.commit(formState.capture(form));
+  });
 }
 
 function showViewTransition(message: string) {
@@ -661,6 +706,7 @@ if (root && state && csrfToken) {
       };
       selectionControls.forEach((control) => { control.disabled = true; });
       busy(form, true);
+      const pauseResolution = () => markAdminActionsStale(CLAIM_RESOLUTION_CONTROLS, item ?? form);
       try {
         const response = await api('/api/admin/reclamaciones/vincular/', 'POST', {
           accountId: claim.accountId,
@@ -668,22 +714,35 @@ if (root && state && csrfToken) {
           resourceIds: selectedIds,
         });
         const completion = await completeAdminWrite(response, context);
-        if (response.ok || completion.claimReviewRequired) {
-          markAdminActionsStale('[data-claim-resolution] button, [data-claim-resolution] input[name="resourceIds"]', item ?? form);
-        }
+        if (response.ok || completion.claimReviewRequired) pauseResolution();
         if (!response.ok) {
           const linkedIds = completion.linkedIds;
           if (completion.claimReviewRequired) {
             formState?.commit(formState.capture(form));
             syncBeforeUnload();
+            if (completion.payload?.error === 'CLAIM_GRANT_UNCERTAIN'
+              || (completion.payload && Object.hasOwn(completion.payload, 'uncertainResourceId'))) {
+              const confirmed = linkedIds.length > 0 ? `Ya vinculados: ${linkedIds.join(', ')}. ` : '';
+              const uncertain = completion.uncertainResourceId
+                ? `No pudimos confirmar si se vinculó ${completion.uncertainResourceId}.`
+                : 'No pudimos confirmar el resultado de la vinculación.';
+              const message = `${confirmed}${uncertain} Actualiza la vista para revisar esta solicitud.`;
+              showViewTransition(message);
+              announce(itemStatus(item), message, 'error');
+              return;
+            }
             const remainingIds = selectedIds.slice(linkedIds.length);
             showViewTransition(linkedIds.length === 0
               ? 'No pudimos confirmar el resultado de la vinculación. Actualiza la vista para revisar esta solicitud.'
+              : completion.remainingUnconfirmed
+                ? 'Solo pudimos confirmar parte del resultado. Actualiza la vista para comprobar qué recursos se vincularon.'
               : remainingIds.length === 0
                 ? 'Los recursos seleccionados están vinculados. Actualiza la vista para comprobar el estado de la solicitud.'
                 : 'La vinculación se completó parcialmente. Actualiza la vista antes de resolver otra vez esta solicitud.');
             let partialMessage = linkedIds.length === 0
               ? 'No pudimos confirmar qué recursos se vincularon. Conservamos tus checks y bloqueamos esta solicitud hasta que actualices la vista.'
+              : completion.remainingUnconfirmed
+                ? `Ya vinculados: ${linkedIds.join(', ')}. Sin confirmar: ${remainingIds.join(', ')}. Actualiza la vista para revisar el resultado.`
               : remainingIds.length > 0
                 ? `Vinculación parcial. Ya vinculados: ${linkedIds.join(', ')}. Pendientes: ${remainingIds.join(', ')}. Los checks de los pendientes se conservaron; recarga para actualizar el estado y reintenta sólo esos IDs.`
                 : `Los recursos ya vinculados son: ${linkedIds.join(', ')}. Recarga para actualizar el estado de la solicitud.`;
@@ -703,7 +762,18 @@ if (root && state && csrfToken) {
           structural: true,
         });
       } catch (error) {
-        announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
+        if (error instanceof Error && error.message === REQUEST_TOO_LARGE) {
+          announce(itemStatus(item), requestFailureMessage(error, ''), 'error');
+        } else {
+          pauseResolution();
+          pauseAdminRows(context.targets);
+          pauseRelatedClaims(context.targets);
+          formState?.commit(submittedValues);
+          syncBeforeUnload();
+          const message = 'No pudimos confirmar el resultado de la vinculación. Actualiza la vista para revisar esta solicitud.';
+          showViewTransition(message);
+          announce(itemStatus(item), message, 'error');
+        }
       } finally {
         selectionControls.forEach((control, index) => {
           if (!control.hasAttribute('data-creator-stale')) control.disabled = selectionDisabled[index] ?? false;

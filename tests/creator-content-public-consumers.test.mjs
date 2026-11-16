@@ -386,7 +386,7 @@ test('catalog loading rejects an aggregate whose sequence references a missing p
     'the build catalog loader must reject malformed aggregate data rather than silently omit creator content');
 });
 
-test('private placement IDs cannot block a catalog scan, and the public ID rule applies when a record becomes eligible', async () => {
+test('legacy creator IDs stay out of the directory after the other eligibility conditions are met', async () => {
   const pendingId = 'private\rresource';
   const hiddenId = 'private\0resource';
   const state = creatorState();
@@ -410,11 +410,13 @@ test('private placement IDs cannot block a catalog scan, and the public ID rule 
   ], 'Series keeps its chapter order when a hidden chapter is omitted');
 
   putItem(harness.rows, TABLES.catalog, contentResource(pendingId));
-  await assert.rejects(() => harness.readCatalog(), /invalid id/u,
-    'an eligible record still has to pass the public ID rule');
+  assert.deepEqual(await harness.readCatalog(), catalog,
+    'the approved legacy ID remains absent without disturbing ordinary public catalog rows');
   const retainedPublicProfile = await harness.service.readPublicProfile(PROFILE_SLUG);
   assert.equal(retainedPublicProfile.links.find(({ placementId }) => placementId === 'pending-private').resourceId, pendingId,
     'catalog identity admission does not hide an existing creator-page link');
+  const retainedPublicSeries = await harness.service.readPublicSeries(PROFILE_SLUG, SERIES_SLUG);
+  assert.equal(retainedPublicSeries.links.find(({ placementId }) => placementId === 'pending-private').resourceId, pendingId);
 });
 
 test('hidden published profiles stay private publicly while their owner statistics remain ID-scoped', async () => {

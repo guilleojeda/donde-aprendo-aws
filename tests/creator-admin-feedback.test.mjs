@@ -214,7 +214,7 @@ class TestElement {
     if (selector === 'input[name="resourceIds"]' || selector === '[data-claim-resolution] input[name="resourceIds"]') {
       return this.controls.filter((control) => control.tagName === 'INPUT' && control.name === 'resourceIds');
     }
-    if (selector === '[data-claim-resolution] button, [data-claim-resolution] input[name="resourceIds"]') return this.controls;
+    if (selector === '[data-claim-resolution] button, [data-claim-resolution] input[type="checkbox"]') return this.controls;
     if (selector === '[data-creator-stale]') return this.controls.filter((control) => control.hasAttribute('data-creator-stale'));
     return [];
   }
@@ -523,7 +523,9 @@ test('la moderación de eventos muestra fallos recuperables y conserva los formu
     assert.ok(status.textContent.length > 0, `${action} conserva el mensaje de éxito`);
   }
 
-  page.responses.push(503, { status: 200, body: {
+  page.responses.push({ status: 503, body: {
+    error: 'SERVICE_UNAVAILABLE', failureStage: 'before-grant-write',
+  } }, { status: 200, body: {
     linkedResourceIds: ['resource-feedback'], profileChanged: false, versionChanges: [],
   } });
   await claimForm.dispatch('submit');
@@ -543,7 +545,7 @@ test('a claim blocked by creator content capacity explains the failure and retai
   const page = await executeAdminScript(await renderAdminPage());
   const form = page.claimForms[0];
   assert.ok(form);
-  page.responses.push({ status: 422, body: { error: 'CREATOR_CONTENT_TOO_LARGE' } });
+  page.responses.push({ status: 422, body: { error: 'CREATOR_CONTENT_TOO_LARGE', failureStage: 'before-grant-write' } });
 
   await form.dispatch('submit');
 
@@ -719,12 +721,12 @@ test('R11 partial claim with one receipt gap pauses only stale records and recov
   });
   assert.equal(changedElsewhere.status, 200);
 
-  const transact = harness.store.transact.bind(harness.store);
-  harness.store.transact = async (operation) => {
-    if (operation.puts?.some(({ key }) => key === 'resource:resource-r11-c')) {
-      throw new Error('controlled failure after resource A committed');
+  const get = harness.store.get.bind(harness.store);
+  harness.store.get = async (key) => {
+    if (key === `editor:${createdProfileId}:resource-r11-c`) {
+      throw new Error('controlled failure before writing C, after resource A committed');
     }
-    return transact(operation);
+    return get(key);
   };
   const actualPartial = await callApi(harness, '/api/admin/reclamaciones/vincular', {
     method: 'POST', session: 'admin', csrf: 'csrf-feedback',

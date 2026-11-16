@@ -50,9 +50,8 @@ function record(value: unknown): Record<string, unknown> | undefined {
 }
 
 function listFrom(value: unknown, property: string): Record<string, unknown>[] {
-  const direct = Array.isArray(value) ? value : record(value)?.[property];
-  if (!Array.isArray(direct)) throw new TypeError(`La lista de ${property} recibida no tiene un formato válido.`);
-  return direct.map((item) => {
+  if (!Array.isArray(value)) throw new TypeError(`La lista de ${property} recibida no tiene un formato válido.`);
+  return value.map((item) => {
     const parsed = record(item);
     if (!parsed) throw new TypeError(`Un elemento de ${property} no tiene un formato válido.`);
     return parsed;
@@ -91,9 +90,12 @@ function readAdminProfiles(value: unknown): CreatorAdminData['profiles'] {
 
 function readAdminClaims(value: unknown): CreatorAdminData['claims'] {
   return listFrom(value, 'claims').map((item) => {
+    if (typeof item.id !== 'string' || item.id.length === 0) {
+      throw new TypeError('Una solicitud recibida no tiene un ID válido.');
+    }
     const resources = readCreatorClaimResources(item.resources, item.resourceIds);
     return {
-      id: item.id ?? item.claimId,
+      id: item.id,
       accountId: item.accountId,
       ...(typeof item.profileId === 'string' && item.profileId.length > 0 ? { profileId: item.profileId } : {}),
       resourceIds: item.resourceIds,

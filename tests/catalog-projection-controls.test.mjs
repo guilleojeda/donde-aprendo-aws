@@ -35,6 +35,23 @@ const aggregate = (overrides = {}) => ({
   ...overrides,
 });
 
+test('creator placement admission still rejects other malformed active catalog rows', () => {
+  for (const [row, error] of [
+    [record({ id: ' outer' }), /invalid id/],
+    [record({ id: 'legacy\rprivate', hidden: 1 }), /malformed hidden flag/],
+    [record({ id: 'legacy\0private', recordType: 'unknown' }), /invalid record type/],
+    [record({
+      id: 'event\ridentity', recordType: 'event', startsAt: '2099-01-01T10:00:00Z', endsAt: '2099-01-01T11:00:00Z',
+      timeZone: 'UTC', organizer: 'Comunidad AWS', mode: 'online', registrationUrl: 'https://example.test/evento',
+    }), /invalid id/],
+    [record({ id: 'referencer', sourceId: 'legacy\0private' }), /invalid sourceId/],
+    [record({ id: 'ordinary', order: 'first' }), /invalid order/],
+  ]) {
+    const creator = aggregate({ placements: { placement1: { resourceId: row.id, selectedForDirectory: true } } });
+    assert.throws(() => projectPublishedCatalog([{ ...row, directoryControl: 'creator' }], [creator]), error);
+  }
+});
+
 test('legacy placement rows are ignored and malformed v2 selection cannot use legacy fields', () => {
   assert.deepEqual(normalizeCreatorRows([{
     pk: 'PROFILE#profile-a', sk: 'PLACEMENT#placement1', recordType: 'placement',

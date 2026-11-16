@@ -14,6 +14,7 @@ import {
   normalizeCreatorText,
 } from './creator-values.mjs';
 import { CreatorStateError, prepareCreatorStateWrite, readCreatorState } from './creator-state.mjs';
+import { isConfirmedTransactionRejection } from './creator-store.mjs';
 import {
   creatorPageSessionBindingFailureForRequest,
 } from './creator-session-context.mjs';
@@ -1870,6 +1871,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const confirmedIds = [];
     const committedVersionChanges = [];
     let grantWrote = false;
+    let uncertainResourceId;
     const linkResult = () => ({
       linkedResourceIds: confirmedIds,
       versionChanges: committedVersionChanges,
@@ -1904,8 +1906,17 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
           checks.push({ key: editKey, version: null });
           puts.push({ key: editKey, value: { recordType: 'editorReference', profileId: profile.id, resourceId, version: 1 } });
         }
-        await commitCreatorState(profile, candidate, { checks, puts, code: 'CLAIM_CONFLICT' });
-        grantWrote ||= candidate !== null || puts.length > 0;
+        const writes = candidate !== null || puts.length > 0;
+        try {
+          await commitCreatorState(profile, candidate, { checks, puts, code: 'CLAIM_CONFLICT' });
+        } catch (error) {
+          // Unknown storage failures can arrive after a write committed.
+          if (writes && !(error instanceof ApiError) && !isConfirmedTransactionRejection(error)) {
+            uncertainResourceId = resourceId;
+          }
+          throw error;
+        }
+        grantWrote ||= writes;
 
         if (candidate) {
           committedVersionChanges.push(versionChange('profile', profile.id, profile.version, candidate.version));
@@ -1946,10 +1957,15 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       // No-op confirmations alone are not partial writes. If every grant was confirmed,
       // the failure belongs to the separate claim-status reconciliation.
       const allGrantsConfirmed = confirmedIds.length === requestedIds.length;
+      if (uncertainResourceId !== undefined) {
+        const uncertain = new ApiError(503, 'CLAIM_GRANT_UNCERTAIN', 'the resource grant could not be confirmed');
+        uncertain.details = { ...linkResult(), uncertainResourceId };
+        throw uncertain;
+      }
       if (grantWrote || allGrantsConfirmed) {
         const details = {
           ...linkResult(),
-          ...(!allGrantsConfirmed ? { failedResourceId: requestedIds[confirmedIds.length] } : {}),
+          ...(allGrantsConfirmed ? { failureStage: 'claim-status' } : { failedResourceId: requestedIds[confirmedIds.length] }),
         };
         if (error instanceof ApiError) {
           error.details = details;
@@ -2254,7 +2270,18 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       requireMethod(request, 'POST');
       requireAdmin(principal);
       requireWriteRequest(request, principal);
-      return writeJsonResponse(await linkClaim(await parseRequestBody(request)));
+      let result;
+      try {
+        result = await linkClaim(await parseRequestBody(request));
+      } catch (error) {
+        // An error without an outcome here is a definitive no-write result.
+        // Its status alone cannot distinguish it from a partially committed grant.
+        const failure = error instanceof ApiError ? error
+          : new ApiError(503, 'SERVICE_UNAVAILABLE', 'service is temporarily unavailable');
+        if (!failure.details) failure.details = { failureStage: 'before-grant-write' };
+        throw failure;
+      }
+      return writeJsonResponse(result);
     }
     const adminResourceMatch = path.match(/^\/api\/admin\/recursos\/([^/]+)(?:\/(aprobar|revocar|ocultar|restaurar))?$/);
     if (adminResourceMatch) {

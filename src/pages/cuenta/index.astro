@@ -135,8 +135,18 @@ Astro.response.status = pageState === 'acceso-invalido' || pageState === 'cancel
 if (ownerLinksQueryError && ownerView === 'enlaces' && ownerIsReady) Astro.response.status = 400;
 if (ownerSeriesQueryError && ownerView === 'series' && ownerIsReady) Astro.response.status = 400;
 
-if (ownerView === 'estadisticas' && owner) {
+if (ownerView === 'estadisticas' && owner && requestContext) {
   statistics = await loadCreatorStatisticsPage(Astro.request, owner, requestContext);
+  Astro.response.status = statistics.status;
+} else if (ownerView === 'estadisticas' && owner) {
+  statistics = {
+    principal: owner.principal,
+    status: 503,
+    state: 'unavailable',
+    period: 7,
+    page: 1,
+    ...(owner.data ? { editor: owner.data } : {}),
+  };
   Astro.response.status = statistics.status;
 }
 

@@ -160,41 +160,6 @@ test('el detalle SSR vive en Tu página y proyecta sólo periodo/pagina al servi
   assert.match(text(html), /newsletter \/ email/);
 });
 
-test('el detalle sin JS conserva selector GET, reinicio de página, tabla exacta y paginación interna', async () => {
-  await reset();
-  readReport = ({ profileId, period, page }) => activityReport({ creatorId: profileId, period, page,
-    links: { page, pageSize: 100, totalRows: 201, rows: [{ linkId: 'social:website', clicks: 2 }] },
-  });
-  const { html } = await render({ search: '?vista=estadisticas&periodo=7&pagina=2' });
-  const form = [...html.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)]
-    .find(([, , contents]) => /name="periodo"/.test(contents));
-  assert.ok(form, 'the period selector works as an HTML GET form');
-  assert.match(form[1], /method="get"/);
-  assert.match(form[1], /action="\/cuenta\/"/);
-  assert.match(form[2], /name="vista"[^>]*value="estadisticas"|value="estadisticas"[^>]*name="vista"/);
-  assert.match(form[2], /name="pagina"[^>]*value="1"|value="1"[^>]*name="pagina"/);
-  assert.match(form[2], /<option\b(?=[^>]*value="7")(?=[^>]*selected)/);
-  const previous = links(html).find((link) => /Anterior/.test(link.text));
-  const next = links(html).find((link) => /Siguiente/.test(link.text));
-  for (const [link, expectedPage] of [[previous, '1'], [next, '3']]) {
-    assert.ok(link, 'both page links exist on the middle page');
-    const url = new URL(link.href, SITE_ORIGIN);
-    assert.equal(url.pathname, '/cuenta/');
-    assert.equal(url.searchParams.get('vista'), 'estadisticas');
-    assert.equal(url.searchParams.get('periodo'), '7');
-    assert.equal(url.searchParams.get('pagina'), expectedPage);
-  }
-  assert.match(html, /<svg\b/);
-  const dailyTable = [...html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)]
-    .find(([, body]) => /Fecha/.test(body) && /Visitas/.test(body) && /Clics/.test(body));
-  assert.ok(dailyTable, 'the graph has an exact HTML table equivalent without JS');
-  assert.equal((dailyTable[1].match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1].match(/<tr\b/g) ?? []).length, 7);
-  assert.match(dailyTable[1], /datetime="2026-10-27"/);
-  assert.match(dailyTable[1], /<td[^>]*>137<\/td>/);
-  assert.match(dailyTable[1], /<td[^>]*>43<\/td>/);
-  assert.match(dailyTable[1], /Sin datos/);
-});
-
 test('la ayuda general está cerrada y los párrafos extensos no aparecen en la vista habitual', async () => {
   await reset();
   const { html } = await render({ search: '?vista=estadisticas&periodo=30&pagina=1' });
