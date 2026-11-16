@@ -6,6 +6,7 @@ import type {
   CreatorSocial,
 } from '../types/creators';
 import type { CreatorOwnerSeriesMembership, CreatorOwnerSeriesQuery } from './creator-owner-series';
+import { CREATOR_SOCIALS } from './creator-values.mjs';
 import { DEFAULT_CREATOR_OWNER_LINKS_QUERY, type CreatorOwnerLinksQuery } from './creator-owner-links';
 import { normalizeOwnerLinksQuery, normalizeOwnerSeriesQuery } from './creator-owner-navigation';
 
@@ -393,7 +394,7 @@ export function creatorOwnerDraftIsDirty(editor: CreatorOwnerEditorDraft | undef
     case 'create-profile': return Boolean(editor.draft.displayName || editor.draft.slug);
     case 'profile': {
       if (!profile) return true;
-      if (editor.section === 'redes') return (['instagram', 'x', 'linkedin', 'awsBuilder', 'website'] as const)
+      if (editor.section === 'redes') return CREATOR_SOCIALS
         .some((key) => editor.draft[key] !== (profile.socials[key] ?? ''));
       return editor.draft.displayName !== profile.displayName || editor.draft.slug !== profile.slug
         || editor.draft.city !== (profile.city ?? '') || editor.draft.country !== (profile.country ?? '')
@@ -592,7 +593,9 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
     }
     case 'resolve-operation': {
       if ((state.operation.status !== 'unknown' && state.operation.status !== 'conflict') || !state.operation.readCompleted) return state;
+      const publicationAdopted = action.choice === 'saved' && state.operation.intent.action === 'publish-profile';
       return { ...state, operation: { status: 'idle' }, ...(action.choice === 'saved' ? { editor: undefined } : {}),
+        location: { ...state.location, focusAfterRender: publicationAdopted ? '#owner-profile-name' : state.location.focusAfterRender },
         message: { text: action.choice === 'saved' ? 'Usaste el estado guardado. No repetimos la acción anterior.' : 'Conservamos el borrador. Guardarlo ahora será una acción nueva.', kind: 'info' } };
     }
     case 'set-message': return { ...state, message: { text: action.text, kind: action.kind ?? 'info' } };

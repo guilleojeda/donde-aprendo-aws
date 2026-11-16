@@ -102,15 +102,6 @@ async function createSeriesModel(harness, options = {}) {
   return ack;
 }
 
-async function listSeries(harness, session = 'creator-a') {
-  const response = await api(harness, '/api/creador/series', session);
-  assert.equal(response.status, 200, 'list owned series');
-  const result = await responseJson(response);
-  assert.equal(result.schemaVersion, 2);
-  assert.equal(result.profileId, (await editor(harness, session)).profile.id);
-  return result;
-}
-
 async function profileVersion(harness, session = 'creator-a') {
   return (await editor(harness, session)).creatorVersion;
 }
@@ -182,7 +173,10 @@ test('Series commands keep stable identities and aliases while full reads supply
   snapshot = await editor(harness);
   assert.deepEqual(seriesValue(snapshot, createdAck.seriesId).chapters, [first.placementId]);
 
-  const listing = await listSeries(harness);
+  const listing = await editor(harness);
+  assert.equal(listing.profile.id, snapshot.profile.id);
+  assert.ok(Array.isArray(listing.resources));
+  assert.ok(listing.placements && listing.order);
   assert.equal(listing.creatorVersion, snapshot.creatorVersion);
   assert.deepEqual(listing.series, snapshot.series);
   assert.equal(Object.hasOwn(snapshot, 'profileVersion'), false);
@@ -276,14 +270,17 @@ test('Series and placements stay owner-scoped while identical slugs remain valid
   assert.equal(foreignSeriesDelete.status, 404);
   const foreignPlacement = await assignChapter(harness, seriesA.seriesId, linkB.placementId, { session: 'creator-a' });
   assert.equal(foreignPlacement.status, 404);
-  assert.deepEqual(Object.keys((await listSeries(harness, 'creator-a')).series), [seriesA.seriesId]);
-  assert.deepEqual(Object.keys((await listSeries(harness, 'creator-b')).series), [seriesB.seriesId]);
+  assert.deepEqual(Object.keys((await editor(harness, 'creator-a')).series), [seriesA.seriesId]);
+  assert.deepEqual(Object.keys((await editor(harness, 'creator-b')).series), [seriesB.seriesId]);
   assert.deepEqual((await publicSeries(harness, PROFILE_SLUGS['creator-a'], 'misma-serie')).links.map((link) => link.placementId), [linkA.placementId]);
   assert.deepEqual((await publicSeries(harness, PROFILE_SLUGS['creator-b'], 'misma-serie')).links.map((link) => link.placementId), [linkB.placementId]);
   assert.equal(currentA.placements[linkA.placementId].resourceId, linkA.resourceId);
 
-  const anonymous = await callApi(harness, '/api/creador/series');
-  assert.equal(anonymous.status, 401);
+  const anonymousOwnerRead = await callApi(harness, '/api/creador/perfil');
+  assert.equal(anonymousOwnerRead.status, 401, 'the canonical full owner read still requires authentication');
+  const retiredSeriesList = await api(harness, '/api/creador/series');
+  assert.equal(retiredSeriesList.status, 405, 'the incomplete Series-only owner read is retired');
+  assert.equal((await responseJson(retiredSeriesList)).error, 'METHOD_NOT_ALLOWED');
   const noCsrf = await api(harness, '/api/creador/series', 'creator-a', {
     method: 'POST', csrf: '', body: { creatorVersion: currentA.creatorVersion, name: 'Nueva', slug: 'nueva-serie' },
   });
@@ -488,7 +485,7 @@ test('concurrent creation of one Series slug leaves exactly one aggregate entry'
     }),
   ]);
   assert.deepEqual(creations.map((response) => response.status).sort(), [201, 409]);
-  const listing = await listSeries(harness);
+  const listing = await editor(harness);
   assert.equal(Object.keys(listing.series).length, 1);
   const [seriesId] = Object.keys(listing.series);
   assert.equal(listing.series[seriesId].slug, 'slug-concurrente');

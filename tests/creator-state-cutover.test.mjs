@@ -81,6 +81,17 @@ function legacyExport({
     createdAt: 80,
     updatedAt: 90,
   });
+  for (const [seriesId, slug] of [['course', 'curso'], ['hidden-check', 'serie-oculto']]) {
+    rows.push({
+      pk: PK,
+      sk: `SERIES_SLUG#${slug}`,
+      recordType: 'seriesAlias',
+      profileId: PROFILE_ID,
+      seriesId,
+      slug,
+      version: 1,
+    });
+  }
   if (includeDeletedAlias) {
     rows.push({
       pk: PK,
@@ -104,6 +115,16 @@ function legacyExport({
         name: `Serie ${index}`,
         slug: `serie-${String(index).padStart(3, '0')}`,
         description: 'x'.repeat(2000),
+      });
+      const slug = `serie-${String(index).padStart(3, '0')}`;
+      rows.push({
+        pk: PK,
+        sk: `SERIES_SLUG#${slug}`,
+        recordType: 'seriesAlias',
+        profileId: PROFILE_ID,
+        seriesId: id,
+        slug,
+        version: 1,
       });
     }
   }
@@ -186,6 +207,44 @@ test('apply rejects a stale plan that would replace a visible corrupt profile be
     },
   }), (error) => error.code === 'INVALID_EXPORT');
   assert.deepEqual({ reads, writes }, { reads: 0, writes: 0 });
+});
+
+test('every live Series owns its exact current slug through one retained alias', async (context) => {
+  const missing = legacyExport();
+  missing.rows = missing.rows.filter(({ sk }) => sk !== 'SERIES_SLUG#curso');
+
+  const wrongOwner = legacyExport();
+  wrongOwner.rows.find(({ sk }) => sk === 'SERIES_SLUG#curso').seriesId = 'hidden-check';
+
+  const duplicateClaim = legacyExport();
+  duplicateClaim.rows.find(({ sk }) => sk === 'SERIES#hidden-check').slug = 'curso';
+
+  for (const [label, invalid] of [
+    ['missing canonical alias', missing],
+    ['alias points to another live Series', wrongOwner],
+    ['two live Series claim one canonical slug', duplicateClaim],
+  ]) {
+    await context.test(label, async () => {
+      assertCutoverError(() => createCreatorStateConversionPlan(invalid), 'SERIES_CANONICAL_ALIAS_MISMATCH');
+
+      let reads = 0;
+      let writes = 0;
+      await assert.rejects(() => applyCreatorStateConversion({
+        format: 'creator-state-cutover-v1',
+        profileId: invalid.profileId,
+        backup: {
+          profileRows: invalid.rows,
+          resourceRows: invalid.resourceRows,
+          preservedRows: invalid.preservedRows,
+        },
+      }, {
+        tableName: 'profiles-test',
+        async readPhysical() { reads += 1; },
+        async transact() { writes += 1; },
+      }), (error) => error.code === 'SERIES_CANONICAL_ALIAS_MISMATCH');
+      assert.deepEqual({ reads, writes }, { reads: 0, writes: 0 }, 'invalid alias ownership stops before provider access or mutation');
+    });
+  }
 });
 
 test('a deleted-Series membership is omitted only with its exact retained alias', () => {

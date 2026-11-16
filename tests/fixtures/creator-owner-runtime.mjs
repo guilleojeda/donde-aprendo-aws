@@ -29,7 +29,7 @@ export async function createCreatorOwnerRuntime({ statistics } = {}) {
   const pages = await createCreatorPagesHarness({ authenticate: getRequestContext, statistics });
 
   const queryMethods = new Set([
-    'readCreatorEditor', 'readCreatorSeries', 'readAdminResources', 'readAdminProfiles',
+    'readCreatorEditor', 'readAdminResources', 'readAdminProfiles',
     'readAdminClaims', 'readCreatorStatistics',
   ]);
   const service = new Proxy(pages.service, {

@@ -1,6 +1,7 @@
 import { creatorOwnerLinksCountLabel, creatorOwnerLinksHref, selectCreatorOwnerLinks, type CreatorOwnerLinksQuery } from '../../lib/creator-owner-links';
 import { creatorOwnerNavigationLists } from '../../lib/creator-owner-presentation';
 import type { CreatorOwnerState } from '../../lib/creator-owner-state';
+import { isPublicCreator } from '../../lib/creator-public.mjs';
 
 interface Props {
   state: CreatorOwnerState;
@@ -106,7 +107,7 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
             let domain = link.url;
             try { domain = new URL(link.url).host; } catch { /* DTO validation owns link URL shape. */ }
             const visibility = snapshot.profile?.hidden ? 'Página oculta por administración'
-              : !snapshot.profile?.published ? 'Página no pública hasta publicar'
+              : !isPublicCreator(snapshot.profile) ? 'Página no pública hasta publicar'
                 : link.hidden ? 'Ficha oculta en la página pública' : 'Visible en la página pública';
             return <tr data-link-row={link.placementId} data-placement-id={link.placementId} key={link.placementId}>
               <th scope="row"><span class="creator-owner__link-title" data-link-title>{link.title}</span><span class="creator-owner__link-url">{domain}</span></th>

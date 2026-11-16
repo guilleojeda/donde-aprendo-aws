@@ -7,6 +7,7 @@ import type {
 import { isCatalogResourceIdWithinLimit } from './catalog-identity.mjs';
 import { CREATOR_PROGRAMS, CREATOR_SOCIALS, isCreatorStateId } from './creator-values.mjs';
 import { isSafeCatalogUrl } from './catalog-url-safety.mjs';
+import { safeCreatorSocialUrl } from './creator-public.mjs';
 
 const PROGRAMS: ReadonlySet<string> = new Set(CREATOR_PROGRAMS);
 const SOCIALS: ReadonlySet<string> = new Set(CREATOR_SOCIALS);
@@ -53,7 +54,7 @@ function isProfile(value: unknown): boolean {
     || (Object.hasOwn(value, 'country') && !text(value.country))
     || (Object.hasOwn(value, 'bio') && !text(value.bio))) return false;
   if (Object.entries(value.socials).some(([key, social]) => !SOCIALS.has(key)
-    || !text(social) || (social !== '' && !isSafeCatalogUrl(social)))) return false;
+    || !text(social) || (social !== '' && !safeCreatorSocialUrl(social)))) return false;
   if (Object.hasOwn(value, 'photo')) {
     const photo = value.photo;
     if (!record(photo) || !hasOnlyKeys(photo, ['version'], ['url'])

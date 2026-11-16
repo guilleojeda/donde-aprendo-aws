@@ -4,6 +4,7 @@ import { classifyLegacyResource, validateTaxonomy } from './resource-taxonomy.mj
 import { DISCOVERY_FIELDS, validateDiscoveryMetadata } from './resource-discovery.mjs';
 import { projectPublicEvent } from './events.mjs';
 import { CREATOR_FIELD_LIMITS, hasCreatorPublicIdentity, isCreatorSlug, isCreatorStateId } from './creator-values.mjs';
+import { canonicalCreatorSeriesPath, isPublicCreator } from './creator-public.mjs';
 import {
   containsCarriageReturnOrNul,
   isCatalogResourceIdWithinLimit,
@@ -274,7 +275,7 @@ export function normalizeCreatorRows(rows) {
         || typeof row.published !== 'boolean' || typeof row.hidden !== 'boolean') {
       throw new Error(`Creator-state aggregate ${index + 1} has malformed public profile fields`);
     }
-    if (row.published && !row.hidden && !hasCreatorPublicIdentity(row.displayName, row.slug)) {
+    if (isPublicCreator(row) && !hasCreatorPublicIdentity(row.displayName, row.slug)) {
       throw new Error(`Creator-state aggregate ${index + 1} has malformed public identity`);
     }
     validateCreatorSequences({ placements: row.placements, order: row.order, series: row.series });
@@ -320,7 +321,7 @@ export function projectPublishedCatalog(items, creatorState) {
       list.push({ creator, placement });
       placementsByResource.set(placement.resourceId, list);
     }
-    if (!creator.published || creator.hidden) continue;
+    if (!isPublicCreator(creator)) continue;
     for (const [seriesId, series] of Object.entries(creator.series)) {
       for (const placementId of series.chapters) {
         const placement = creator.placements[placementId];
@@ -330,7 +331,7 @@ export function projectPublishedCatalog(items, creatorState) {
           seriesId,
           name: series.name,
           creatorName: creator.displayName,
-          href: `/c/${creator.slug}/series/${series.slug}/`,
+          href: canonicalCreatorSeriesPath(creator.slug, series.slug),
         });
         seriesByResource.set(placement.resourceId, associations);
       }
@@ -366,7 +367,7 @@ export function projectPublishedCatalog(items, creatorState) {
         continue;
       }
       const eligible = placements.some(({ creator, placement }) => {
-        return placement.selectedForDirectory && creator.published && !creator.hidden;
+        return placement.selectedForDirectory && isPublicCreator(creator);
       });
       if (!eligible) continue;
     }
@@ -397,7 +398,7 @@ function normalizeCreatorState(state) {
         || typeof creator.published !== 'boolean' || typeof creator.hidden !== 'boolean') {
       throw new Error(`Creator directory aggregate ${index + 1} is malformed`);
     }
-    if (creator.published && !creator.hidden && !hasCreatorPublicIdentity(creator.displayName, creator.slug)) {
+    if (isPublicCreator(creator) && !hasCreatorPublicIdentity(creator.displayName, creator.slug)) {
       throw new Error(`Creator directory aggregate ${index + 1} has malformed public identity`);
     }
     if (creatorIds.has(creator.id)) throw new Error(`Creator directory aggregate ${index + 1} is duplicated`);

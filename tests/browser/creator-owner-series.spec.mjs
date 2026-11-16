@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-  test, expect, api, createSeries, addLink, addChapter, captureCreatorApi,
+  test, expect, api, readOwnerSnapshot, createSeries, addLink, addChapter, captureCreatorApi,
   seriesForm, seriesRow, openSeriesView, loggedInOwner,
 } from '../fixtures/creator-browser-test.mjs';
 import process from 'node:process';
@@ -16,6 +16,58 @@ function defer() {
 function writesFor(capture, method, path) {
   return capture.writes().filter((write) => write.method === method && write.path === path);
 }
+
+test('Series: el conteo conserva capítulos visibles y el enlace público sigue la elegibilidad canónica', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const link = await addLink(fixture, cookie, { title: 'Capítulo público de prueba', url: 'https://links.example/serie-publica' });
+  const series = await createSeries(fixture, cookie, { name: 'Serie pública de prueba', slug: 'serie-publica-prueba' });
+  await addChapter(fixture, cookie, series.id, link.placementId);
+
+  await openSeriesView(page, fixture);
+  let row = seriesRow(page, series.id);
+  await expect(row).toContainText('1 capítulo visible');
+  await expect(row.getByRole('link', { name: 'Abrir serie pública' })).toHaveCount(0,
+    'a draft profile keeps its visible chapter count but has no public destination');
+
+  let snapshot = await readOwnerSnapshot(fixture, cookie);
+  const publication = await api(fixture, cookie, '/api/creador/perfil/publicar', {
+    method: 'POST', body: { creatorVersion: snapshot.creatorVersion },
+  });
+  assert.equal(publication.response.status, 200, JSON.stringify(publication.body));
+  await page.reload();
+  row = seriesRow(page, series.id);
+  const publicLink = row.getByRole('link', { name: 'Abrir serie pública' });
+  await expect(publicLink).toHaveAttribute('href', '/c/ana-browser/series/serie-publica-prueba/');
+  const publicPagePromise = page.context().waitForEvent('page');
+  await publicLink.click();
+  const publicPage = await publicPagePromise;
+  await expect(publicPage.getByRole('heading', { name: 'Serie pública de prueba' })).toBeVisible();
+  await publicPage.close();
+
+  snapshot = await readOwnerSnapshot(fixture, cookie);
+  const profileKey = `profile:${snapshot.profile.id}`;
+  const setHidden = async (key, hidden) => {
+    const stored = await fixture.creatorStore.get(key);
+    assert.equal(await fixture.creatorStore.transact({
+      checks: [{ key, version: stored.version }],
+      puts: [{ key, value: { ...stored, hidden, version: stored.version + 1 } }],
+    }), true, `${key} visibility changes at its observed version`);
+  };
+  await setHidden(profileKey, true);
+  await page.reload();
+  row = seriesRow(page, series.id);
+  await expect(row).toContainText('1 capítulo visible');
+  await expect(row.getByRole('link', { name: 'Abrir serie pública' })).toHaveCount(0,
+    'hiding the profile removes the public path without changing its owner-visible chapter count');
+
+  await setHidden(profileKey, false);
+  await setHidden(`resource:${link.resourceId}`, true);
+  await page.reload();
+  row = seriesRow(page, series.id);
+  await expect(row).toContainText('0 capítulos visibles');
+  await expect(row.getByRole('link', { name: 'Abrir serie pública' })).toHaveCount(0,
+    'hidden chapters do not make the public Series route eligible');
+});
 
 async function holdOneSuccessfulWrite(page, { method, path }) {
   const reached = defer();
