@@ -832,8 +832,12 @@ test(lateStatus
   const differentAccount = await createClaim(fixture, otherOwner.cookie, [ids[0]]);
   await openAdmin(fixture, page);
   const mainForm = claimForm(page, main.id);
+  const disjointForm = claimForm(page, disjoint.id);
+  const reviewName = 'Confirmo que revisé la referencia y los recursos seleccionados.';
   await claimSelection(mainForm, ids[2]).uncheck();
-  await mainForm.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
+  await mainForm.getByRole('checkbox', { name: reviewName }).check();
+  await claimSelection(disjointForm, ids[2]).uncheck();
+  await disjointForm.getByRole('checkbox', { name: reviewName }).check();
   await row(page, ids[3]).getByLabel('Categoría').fill('Borrador ajeno al vínculo');
 
   const originalTransact = fixture.creatorStore.transact.bind(fixture.creatorStore);
@@ -852,8 +856,13 @@ test(lateStatus
   const route = lateStatus ? await interceptAdminWrite(page,
     (request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/reclamaciones/vincular/',
     async (currentRoute, response, actual) => {
-      assert.equal(actual.status, 409);
-      assert.equal(actual.body.failureStage, 'claim-status');
+      if (route.observed.length === 1) {
+        assert.equal(actual.status, 409);
+        assert.equal(actual.body.failureStage, 'claim-status');
+      } else {
+        assert.equal(actual.status, 200, 'the independent grant also works after a late status error');
+        assert.deepEqual(actual.requestBody.resourceIds, [ids[1]]);
+      }
       await fulfillActual(currentRoute, response, actual.body);
     }) : null;
   try {
@@ -877,12 +886,14 @@ test(lateStatus
     }
 
     const overlapForm = claimForm(page, overlap.id);
-    const disjointForm = claimForm(page, disjoint.id);
     const differentForm = claimForm(page, differentAccount.id);
     await expect(mainForm.getByRole('button', { name: 'Vincular recursos seleccionados' })).toBeDisabled();
     await expect(claimSelection(mainForm, ids[2])).not.toBeChecked();
     await expect(overlapForm.getByRole('button', { name: 'Vincular recursos seleccionados' })).toBeDisabled();
     await expect(claimSelection(overlapForm, ids[0])).toBeDisabled();
+    await expect(claimSelection(disjointForm, ids[1])).toBeChecked();
+    await expect(claimSelection(disjointForm, ids[2])).not.toBeChecked();
+    await expect(disjointForm.getByRole('checkbox', { name: reviewName })).toBeChecked();
     await expect(disjointForm.getByRole('button', { name: 'Vincular recursos seleccionados' })).toBeEnabled();
     await expect(differentForm.getByRole('button', { name: 'Vincular recursos seleccionados' })).toBeEnabled();
 
@@ -906,24 +917,20 @@ test(lateStatus
     page.off('request', onRequest);
     assert.equal(stalePosts, 0, 'the stale resolved form cannot grant again after the owner removed the placement');
 
-    if (!lateStatus) {
-
-      await claimSelection(disjointForm, ids[2]).uncheck();
-      await disjointForm.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
-      const disjointGrant = page.waitForResponse((candidate) => candidate.request().method() === 'POST'
-        && new URL(candidate.url()).pathname === '/api/admin/reclamaciones/vincular/');
-      await disjointForm.getByRole('button', { name: 'Vincular recursos seleccionados' }).click();
-      const independentResponse = await disjointGrant;
-      assert.equal(independentResponse.status(), 200);
-      assert.deepEqual(JSON.parse(independentResponse.request().postData()).resourceIds, [ids[1]]);
-      assert.equal((await fixture.creatorStore.get(`claim:${disjoint.id}`)).status, 'partial');
-      assert.deepEqual(Object.values((await fixture.rawOwner(owner.cookie)).profile.placements)
-        .map(({ resourceId }) => resourceId), [ids[1]]);
-    }
+    const disjointGrant = page.waitForResponse((candidate) => candidate.request().method() === 'POST'
+      && new URL(candidate.url()).pathname === '/api/admin/reclamaciones/vincular/');
+    await disjointForm.getByRole('button', { name: 'Vincular recursos seleccionados' }).click();
+    const independentResponse = await disjointGrant;
+    assert.equal(independentResponse.status(), 200);
+    assert.deepEqual(JSON.parse(independentResponse.request().postData()).resourceIds, [ids[1]]);
+    assert.equal((await fixture.creatorStore.get(`claim:${disjoint.id}`)).status, 'partial');
+    assert.deepEqual(Object.values((await fixture.rawOwner(owner.cookie)).profile.placements)
+      .map(({ resourceId }) => resourceId), [ids[1]]);
 
     const savedDraft = await submitClassification(page, ids[3], 'Certificaciones');
     assert.equal(savedDraft.status(), 200, 'the unrelated draft remains saveable');
-    assert.equal(lateStatus ? route?.observed.length : 0, lateStatus ? 1 : 0);
+    assert.equal((await fixture.rawResource(ids[3])).category, 'Certificaciones');
+    if (lateStatus) assert.equal(route.observed.length, 2);
   } finally {
     if (route) await route.stop();
     fixture.creatorStore.transact = originalTransact;
