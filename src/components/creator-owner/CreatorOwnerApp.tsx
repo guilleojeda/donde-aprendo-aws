@@ -565,7 +565,8 @@ export default function CreatorOwnerApp(props: Props) {
         dispatch({ type: 'clear-focus', selector });
         return;
       }
-      if (selector === '[data-owner-refresh-retry]' && (latestTarget.matches(':disabled')
+      const recoveryFocusTarget = latestTarget.matches('[data-owner-refresh-retry], [data-session-recovery-check]');
+      if (recoveryFocusTarget && (latestTarget.matches(':disabled')
         || (document.activeElement instanceof Element && document.activeElement !== latestTarget
           && document.activeElement !== document.body && document.activeElement.isConnected))) {
         dispatch({ type: 'clear-focus', selector });
@@ -1057,8 +1058,11 @@ export default function CreatorOwnerApp(props: Props) {
         || !(activeElement instanceof HTMLElement)
         || !activeElement.isConnected
       ));
+      const sessionCheckFocusSelector = root?.querySelector('[data-owner-dialog][open]')
+        ? '[data-owner-dialog][open] [data-session-recovery-check]'
+        : '[data-session-recovery-shell]:not([hidden]) [data-session-recovery-check]';
       dispatch({ type: 'operation-read-failed', ...(intent ? { intent } : {}), fact, message: staleFeedback,
-        ...(shouldRestoreRecoveryFocus ? { focusAfterRender: '[data-owner-refresh-retry]' } : {}),
+        ...(shouldRestoreRecoveryFocus ? { focusAfterRender: sessionFailure ? sessionCheckFocusSelector : '[data-owner-refresh-retry]' } : {}),
         ...(suppressGlobalMessage ? { suppressGlobalMessage: true } : {}) });
     };
     try {

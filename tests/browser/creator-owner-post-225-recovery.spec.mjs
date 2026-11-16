@@ -475,7 +475,8 @@ async function recoverUnknownPublication(fixture, page, acknowledgementDelivery,
       activeCookie = renewed;
       await addCookie(page.context(), fixture, renewed);
       const sessionCheck = page.locator('[data-session-recovery-check]:visible').first();
-      await sessionCheck.focus();
+      await expect(sessionCheck).toBeFocused();
+      await assertWithinViewport(page, sessionCheck, 'the session check after the failed owner read');
       await page.keyboard.press('Enter');
       await expect(page.locator('[data-session-recovery-shell]:visible')).toHaveCount(0);
       await expect(retry).toBeEnabled();
@@ -487,8 +488,10 @@ async function recoverUnknownPublication(fixture, page, acknowledgementDelivery,
         sessionChecksBefore + 1, 'session recovery uses its dedicated check');
       assert.equal(capture.writes().length, writesBeforeCheck, 'session recovery does not repeat publication');
       assert.deepEqual(ownerReadStatuses, [401]);
-      await retry.focus();
+      await page.keyboard.press('Tab');
       await expect(retry).toBeFocused();
+      await expect(() => assertWithinViewport(page, retry, 'the retry reached by Tab after session recovery'))
+        .toPass({ timeout: 5_000 });
     } else {
       await expect(retry).toBeEnabled();
       await expect(retry).toBeFocused();
@@ -526,7 +529,7 @@ async function recoverUnknownPublication(fixture, page, acknowledgementDelivery,
     assert.ok(capture.records.some(({ method, path, status, responseBody }) => method === 'GET'
       && path === '/api/creador/perfil' && status === 200 && responseBody?.profile?.published === true),
     'the explicit full owner read installed the persisted publication');
-    assert.equal(ownerReadAttempts, 2);
+    assert.equal(ownerReadAttempts, failedReadCount + 1);
     assert.equal(capture.writes().filter(({ method, path }) => method === 'POST'
       && path === '/api/creador/perfil/publicar').length, 1, 'adopting the saved publication never replays the write');
   } finally {
