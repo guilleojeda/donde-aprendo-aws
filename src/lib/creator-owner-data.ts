@@ -152,9 +152,12 @@ export function readCreatorOwnerSnapshot(value: unknown): CreatorOwnerSnapshotDT
   }
   const knownResources = new Set(resourceIds);
   const knownPlacements = new Set(placementIds);
-  if (Object.values(placementRows).some((placement) => !record(placement)
-    || typeof placement.resourceId !== 'string' || !knownResources.has(placement.resourceId))) {
-    throw new TypeError('Un enlace guardado referencia una ficha que no está en la observación.');
+  const placedResourceIds = new Set<string>();
+  for (const placement of Object.values(placementRows)) {
+    if (!record(placement) || typeof placement.resourceId !== 'string' || !knownResources.has(placement.resourceId)) {
+      throw new TypeError('Un enlace guardado referencia una ficha que no está en la observación.');
+    }
+    placedResourceIds.add(placement.resourceId);
   }
 
   const featured = sequence.featured as string[];
@@ -164,11 +167,14 @@ export function readCreatorOwnerSnapshot(value: unknown): CreatorOwnerSnapshotDT
     throw new TypeError('El orden general no contiene cada enlace exactamente una vez.');
   }
 
-  const placedResourceIds = new Set(Object.values(placementRows).flatMap((placement) =>
-    record(placement) && typeof placement.resourceId === 'string' ? [placement.resourceId] : []));
-  if (resourceRows.some((resource) => !placedResourceIds.has(resource.id)
-    && !resource.metadataEditable && !resource.reincludeAllowed)) {
-    throw new TypeError('La observación contiene una ficha retenida sin permiso vigente.');
+  for (const resource of resourceRows) {
+    const placed = placedResourceIds.has(resource.id);
+    if (resource.reincludeAllowed && (placed || !resource.metadataEditable)) {
+      throw new TypeError('La observación contiene un permiso inválido para volver a agregar una ficha.');
+    }
+    if (!placed && !resource.reincludeAllowed) {
+      throw new TypeError('La observación contiene una ficha retenida sin permiso vigente.');
+    }
   }
   if (Object.values(seriesRows).some((item) => !record(item) || !unique(item.chapters as string[])
     || (item.chapters as string[]).some((id) => !knownPlacements.has(id)))) {
@@ -210,9 +216,7 @@ export function joinCreatorOwnerPlacements(snapshot: CreatorOwnerSnapshotDTO): C
         selectedForDirectory: placement.selectedForDirectory,
         hidden: resource.hidden,
         directoryApproval: resource.directoryApproval,
-        resourceVersion: resource.version,
         metadataEditable: resource.metadataEditable,
-        reincludeAllowed: resource.reincludeAllowed,
         series: memberships.get(placementId) ?? [],
       };
     });

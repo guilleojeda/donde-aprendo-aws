@@ -31,7 +31,6 @@ const SERIES_FIELDS = new Set([
 const SERIES_ALIAS_FIELDS = new Set([
   'pk', 'sk', 'recordType', 'seriesId', 'profileId', 'slug', 'version',
 ]);
-const SAFE_KEY_ID = /^[A-Za-z0-9_-]{1,128}$/u;
 
 export class CreatorStateCutoverError extends Error {
   constructor(code, message) {
@@ -170,7 +169,7 @@ function validateAliasRows(aliasRows, profileId) {
     assertKnownFields(row, SERIES_ALIAS_FIELDS, 'Series alias row');
     const slug = row.sk.slice('SERIES_SLUG#'.length);
     if (!slug || !isCreatorSlug(slug) || row.recordType !== 'seriesAlias'
-      || row.profileId !== profileId || row.slug !== slug || !SAFE_KEY_ID.test(row.seriesId)
+      || row.profileId !== profileId || row.slug !== slug || !isCreatorStateId(row.seriesId)
       || !Number.isSafeInteger(row.version) || row.version < 1) {
       fail('INVALID_EXPORT', 'Series alias row is malformed');
     }
@@ -186,7 +185,7 @@ function validateSeriesRows(seriesRows, profileId) {
   for (const row of seriesRows) {
     const id = row.sk.slice('SERIES#'.length);
     assertKnownFields(row, SERIES_FIELDS, 'legacy Series row');
-    if (!SAFE_KEY_ID.test(id) || row.recordType !== 'series' || row.id !== id || row.profileId !== profileId) {
+    if (!isCreatorStateId(id) || row.recordType !== 'series' || row.id !== id || row.profileId !== profileId) {
       fail('INVALID_EXPORT', 'legacy Series identity is malformed');
     }
     if (result.has(id)) fail('INVALID_EXPORT', 'export contains duplicate Series IDs');
@@ -219,7 +218,7 @@ function validatePlacementRows(placementRows, profileId, resourcesById) {
   for (const row of placementRows) {
     const id = row.sk.slice('PLACEMENT#'.length);
     assertKnownFields(row, PLACEMENT_FIELDS, 'legacy placement row');
-    if (!SAFE_KEY_ID.test(id) || row.recordType !== 'placement' || row.id !== id || row.profileId !== profileId) {
+    if (!isCreatorStateId(id) || row.recordType !== 'placement' || row.id !== id || row.profileId !== profileId) {
       fail('INVALID_EXPORT', 'legacy placement identity is malformed');
     }
     if (result.has(id)) fail('INVALID_EXPORT', 'export contains duplicate placement IDs');
@@ -261,7 +260,7 @@ function seriesMemberships(placement, existingSeries, aliasesBySeriesId) {
   if (!isRecord(memberships)) fail('INVALID_EXPORT', `placement ${placement.id} memberships are malformed`);
   const result = [];
   for (const [seriesId, membership] of Object.entries(memberships)) {
-    if (!SAFE_KEY_ID.test(seriesId) || !isRecord(membership) || Object.keys(membership).length !== 1
+    if (!isCreatorStateId(seriesId) || !isRecord(membership) || Object.keys(membership).length !== 1
       || !Number.isSafeInteger(membership.position) || membership.position < 0) {
       fail('INVALID_EXPORT', `placement ${placement.id} membership is malformed`);
     }

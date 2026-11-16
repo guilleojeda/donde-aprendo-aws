@@ -768,8 +768,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
   function validateSeriesAlias(alias, profileId, slug) {
     if (!alias || alias.recordType !== 'seriesAlias' || alias.profileId !== profileId
-      || alias.slug !== slug || typeof alias.seriesId !== 'string'
-      || !/^[A-Za-z0-9_-]{1,128}$/.test(alias.seriesId)
+      || alias.slug !== slug || !isCreatorStateId(alias.seriesId)
       || !Number.isSafeInteger(alias.version) || alias.version < 1) {
       fail(503, 'INVALID_SERIES_ALIAS', 'series alias is malformed');
     }

@@ -26,8 +26,7 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
   const data = creatorOwnerNavigationLists(snapshot);
   const selection = selectCreatorOwnerLinks(data.links, data.series, location.linksQuery);
   const pending = location.pendingLinksQuery;
-  const activeResourceIds = new Set(Object.values(snapshot.placements).map(({ resourceId }) => resourceId));
-  const retained = snapshot.resources.filter((resource) => !activeResourceIds.has(resource.id) && resource.reincludeAllowed);
+  const retained = snapshot.resources.filter((resource) => resource.reincludeAllowed);
   const selectedCount = selection.totalMatches;
   const showFilterNote = selection.query.serie !== 'todos' || selection.query.directorio !== 'todos'
     || selection.query.destacado !== 'todos' || selection.query.orden !== 'pagina';
@@ -143,7 +142,7 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
         return <li data-retained-resource={resource.id} key={resource.id}>
           <span><strong>{resource.title}</strong><span class="creator-owner__link-url">{domain}</span></span>
           <span class="creator-owner__link-actions">
-            {resource.metadataEditable && <button class="button button--outline" type="button" data-retained-edit data-resource-id={resource.id} disabled={disabled} onClick={() => onEditRetained(resource.id)}>Editar ficha</button>}
+            <button class="button button--outline" type="button" data-retained-edit data-resource-id={resource.id} disabled={disabled} onClick={() => onEditRetained(resource.id)}>Editar ficha</button>
             <button class="button button--outline" type="button" data-resource-reinclude data-resource-id={resource.id} disabled={disabled} onClick={() => onReinclude(resource.id)}>Volver a agregar</button>
           </span>
         </li>;

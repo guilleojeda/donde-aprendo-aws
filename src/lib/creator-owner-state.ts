@@ -477,8 +477,7 @@ export function creatorOwnerCanSubmitEditor(state: CreatorOwnerState): boolean {
     const resource = snapshot.resources.find(({ id }) => id === placement.resourceId);
     return Boolean(resource && (!editor.editable || resource.metadataEditable));
   }
-  if (editor.kind === 'link-resource') return snapshot.resources.some(({ id, metadataEditable }) => id === editor.resourceId && metadataEditable)
-    && !Object.values(snapshot.placements).some(({ resourceId }) => resourceId === editor.resourceId);
+  if (editor.kind === 'link-resource') return snapshot.resources.some(({ id, reincludeAllowed }) => id === editor.resourceId && reincludeAllowed);
   if (editor.kind === 'add-link') return true;
   if (editor.kind === 'move-link') return [...snapshot.order.featured, ...snapshot.order.ordinary].includes(editor.placementId);
   if (editor.kind === 'reference') return creatorOwnerReferenceSubmissionStatus(state, editor.selected) === 'ready';

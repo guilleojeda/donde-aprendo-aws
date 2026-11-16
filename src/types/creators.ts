@@ -100,6 +100,7 @@ export interface CreatorOwnerResourceDTO {
   hidden: boolean;
   directoryApproval: string;
   metadataEditable: boolean;
+  /** The owner's retained reference, with edit authority and no placement on the page. */
   reincludeAllowed: boolean;
 }
 
@@ -143,8 +144,6 @@ export interface CreatorOwnerPlacementViewDTO {
   selectedForDirectory: boolean;
   hidden: boolean;
   directoryApproval: string;
-  resourceVersion: number;
   metadataEditable: boolean;
-  reincludeAllowed: boolean;
   series: CreatorSeriesMembershipDTO[];
 }

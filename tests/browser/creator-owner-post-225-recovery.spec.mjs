@@ -280,7 +280,11 @@ test('un 401 tras confirmar un capítulo exige sesión, conserva stale y permite
   await page.route('**/api/creador/**', firstRead);
   try {
     await page.goto(`${fixture.origin}/cuenta/?vista=series&buscarSeries=sesion&serie=${encodeURIComponent(series.id)}`);
-    await page.locator(`[data-chapter-row="${chapter.placementId}"] [data-chapter-add]`).click();
+    const addTrigger = page.locator(`[data-chapter-row="${chapter.placementId}"] [data-chapter-add]`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('astro-island[ssr]').filter({ has: addTrigger })).toHaveCount(0);
+    await addTrigger.focus();
+    await page.keyboard.press('Enter');
     await failedRead.promise;
     await expect.poll(() => capture.writes().find(({ method, path }) => method === 'PUT'
       && path === `/api/creador/series/${series.id}/capitulos/${chapter.placementId}`)?.status).toBe(200);
@@ -297,13 +301,15 @@ test('un 401 tras confirmar un capítulo exige sesión, conserva stale y permite
     await expect(staleRetry).toBeDisabled();
     const sessionCheck = page.locator('[data-session-recovery-check]:visible').first();
     await expect(sessionCheck).toBeEnabled();
+    await expect(sessionCheck).toBeFocused();
+    await assertWithinViewport(page, sessionCheck, 'the session check after the automatic chapter read');
 
     const renewed = await fixture.login();
     await addCookie(page.context(), fixture, renewed);
     const profileReadsBeforeCheck = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length;
     const sessionChecksBefore = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/sesion').length;
     const writesBeforeCheck = capture.writes().length;
-    await sessionCheck.click();
+    await page.keyboard.press('Enter');
     await expect(page.locator('[data-session-recovery-shell]:visible')).toHaveCount(0);
     await expect(staleRetry).toBeEnabled();
     await expect(staleFeedback).toContainText(/capítulo agregado/iu);
@@ -373,6 +379,182 @@ test('un 401 tras confirmar un capítulo exige sesión, conserva stale y permite
   } finally {
     await page.unroute('**/api/creador/**', firstRead).catch(() => {});
     await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('un 401 en la escritura enfoca la comprobación y permite publicar con otra acción manual', async ({ fixture, page }) => {
+  await page.setViewportSize({ width: 390, height: 450 });
+  await loggedInOwner(fixture, page);
+  const expiredSession = sessionKey(fixture);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const publicationPath = '/api/creador/perfil/publicar';
+  const attempts = () => capture.writes().filter(({ method, path }) => method === 'POST' && path === publicationPath);
+  let expired = false;
+  const expireFirstPublish = async (route) => {
+    if (expired || route.request().method() !== 'POST' || ownerPath(route.request()) !== publicationPath) {
+      await route.fallback();
+      return;
+    }
+    expired = true;
+    await fixture.accountStore.deleteSession(expiredSession);
+    const response = await route.fetch();
+    assert.equal(response.status(), 401);
+    await route.fulfill({ response });
+  };
+  await page.route('**/api/creador/**', expireFirstPublish);
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+    const publish = page.getByRole('button', { name: 'Publicar página', exact: true });
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('astro-island[ssr]').filter({ has: publish })).toHaveCount(0);
+    await publish.focus();
+    await page.keyboard.press('Enter');
+    const check = page.getByRole('button', { name: 'Comprobar sesión', exact: true });
+    await expect(check).toBeFocused();
+    await assertWithinViewport(page, check, 'the session check after the rejected publish');
+    assert.deepEqual(attempts().map(({ status }) => status), [401]);
+    const readsBeforeCheck = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length;
+    const renewed = await fixture.login();
+    await addCookie(page.context(), fixture, renewed);
+    await page.keyboard.press('Enter');
+    await expect(publish).toBeEnabled();
+    assert.deepEqual(attempts().map(({ status }) => status), [401]);
+    assert.equal(capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length, readsBeforeCheck);
+    assert.equal((await readOwnerSnapshot(fixture, renewed)).profile.published, false);
+    await publish.click();
+    await expect(page.locator('[data-owner-public-copy]')).toContainText('publicada y visible');
+    assert.deepEqual(attempts().map(({ status }) => status), [401, 200]);
+    assert.equal((await readOwnerSnapshot(fixture, renewed)).profile.published, true);
+  } finally {
+    await page.unroute('**/api/creador/**', expireFirstPublish);
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('un reintento de lectura desde la salida usa el control visible y permite completar con teclado', async ({ fixture, page }) => {
+  await page.setViewportSize({ width: 390, height: 450 });
+  const cookie = await loggedInOwner(fixture, page);
+  const series = await createSeries(fixture, cookie, { name: 'Serie de reintento visible', slug: 'serie-reintento-visible' });
+  const first = await addLink(fixture, cookie, { title: 'Primer capítulo visible', url: 'https://links.example/retry-visible-first' });
+  const second = await addLink(fixture, cookie, { title: 'Segundo capítulo visible', url: 'https://links.example/retry-visible-second' });
+  await addChapter(fixture, cookie, series.id, first.placementId);
+  await addChapter(fixture, cookie, series.id, second.placementId);
+  await page.goto(`${fixture.origin}/cuenta/?vista=series&serie=${encodeURIComponent(series.id)}&pertenencia=incluidos`);
+  const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  let readCount = 0;
+  const routeRead = async (route) => {
+    const request = route.request();
+    if (request.method() !== 'GET' || ownerPath(request) !== '/api/creador/perfil') {
+      await route.fallback();
+      return;
+    }
+    readCount += 1;
+    const response = await route.fetch();
+    assert.equal(response.status(), 200);
+    await route.fulfill({ status: readCount <= 2 ? 503 : 200, headers: response.headers(), body: await response.body() });
+  };
+  await page.route('**/api/creador/**', routeRead);
+  try {
+    await page.locator(`[data-chapter-row="${second.placementId}"] [data-chapter-move]`).click();
+    const dialog = page.locator('[data-owner-dialog][open]');
+    const form = dialog.locator('[data-chapter-move-form]');
+    await form.getByLabel('Posición en esta serie').fill('1');
+    await form.getByRole('button', { name: 'Guardar posición', exact: true }).click();
+    await expect(form.locator('[data-owner-refresh-retry]')).toBeVisible();
+    await expect(form.locator('[data-owner-refresh-retry]')).toBeFocused();
+    await page.keyboard.press('Escape');
+    const prompt = dialog.locator('[data-owner-exit-prompt]');
+    await expect(prompt).toBeVisible();
+    const retry = prompt.locator('[data-owner-refresh-retry]');
+    const continueEditing = prompt.locator('[data-owner-exit-continue]');
+    await expect(continueEditing).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Shift+Tab');
+    await expect(retry).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect.poll(() => readCount).toBe(2);
+    await expect(retry).toBeEnabled();
+    await expect(retry).toBeVisible();
+    await expect(retry).toBeFocused();
+    await assertWithinViewport(page, retry, 'the retry inside the guarded exit prompt');
+    await page.keyboard.press('Enter');
+    await expect.poll(() => readCount).toBe(3);
+    await expect(dialog).toHaveCount(0);
+    await expect(page.locator(`[data-chapter-row="${second.placementId}"]`)).toContainText('Incluido en la posición 1 de 2');
+    await expect(page.locator(`[data-chapter-row="${first.placementId}"]`)).toContainText('Incluido en la posición 2 de 2');
+    const persisted = await readOwnerSnapshot(fixture, cookie);
+    assert.deepEqual(persisted.series[series.id].chapters, [second.placementId, first.placementId]);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin);
+    assert.equal(capture.writes().filter(({ method, path }) => method === 'POST' && path.endsWith('/mover')).length, 1);
+  } finally {
+    await page.unroute('**/api/creador/**', routeRead);
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('la adopción de publicación conserva el CTA visible cuando desaparece la serie seleccionada', async ({ fixture, page }) => {
+  await page.setViewportSize({ width: 390, height: 450 });
+  const cookie = await loggedInOwner(fixture, page);
+  const target = await createSeries(fixture, cookie, { name: 'Serie seleccionada para publicar', slug: 'serie-seleccionada-publicar' });
+  const capture = await captureCreatorApi(page);
+  let writes = 0;
+  const actualReads = [];
+  await page.route('**/api/creador/**', async (route) => {
+    const request = route.request();
+    const path = ownerPath(request);
+    if (request.method() === 'POST' && path === '/api/creador/perfil/publicar') {
+      writes += 1;
+      assert.equal(writes, 1);
+      const response = await route.fetch();
+      assert.equal(response.status(), 200);
+      const body = await response.json();
+      await route.fulfill({ status: 200, json: { ...body, operation: 'save-profile' } });
+      return;
+    }
+    if (request.method() !== 'GET' || path !== '/api/creador/perfil') {
+      await route.fallback();
+      return;
+    }
+    const attempt = actualReads.length + 1;
+    if (attempt === 2) {
+      const current = await readOwnerSnapshot(fixture, cookie);
+      const deletion = await api(fixture, cookie, `/api/creador/series/${encodeURIComponent(target.id)}`, {
+        method: 'DELETE', body: { creatorVersion: current.creatorVersion },
+      });
+      assert.equal(deletion.response.status, 200, JSON.stringify(deletion.body));
+    }
+    const response = await route.fetch();
+    actualReads.push(response.status());
+    await route.fulfill({ response, status: attempt === 1 ? 503 : response.status() });
+  });
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=series&buscarSeries=seleccionada&serie=${encodeURIComponent(target.id)}`);
+    await page.getByRole('button', { name: 'Publicar página', exact: true }).click();
+    const compare = page.getByRole('button', { name: /Comprobar(?: el)? estado guardado/iu });
+    await compare.scrollIntoViewIfNeeded();
+    await compare.focus();
+    await expect(compare).toBeFocused();
+    await page.keyboard.press('Enter');
+    const recovery = page.locator('[data-owner-recovery]');
+    const retry = recovery.getByRole('button', { name: 'Reintentar actualización', exact: true });
+    await expect(retry).toBeFocused();
+    await page.keyboard.press('Enter');
+    const useSaved = page.getByRole('button', { name: 'Usar lo guardado', exact: true });
+    await expect(useSaved).toBeFocused();
+    await assertWithinViewport(page, useSaved, 'the saved-state continuation');
+    await expect(page).toHaveURL((url) => url.searchParams.get('buscarSeries') === 'seleccionada' && !url.searchParams.has('serie'));
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-owner-recovery]')).toHaveCount(0);
+    await expect(page.locator('#owner-profile-name')).toBeFocused();
+    assert.deepEqual(actualReads, [200, 200]);
+    assert.equal(writes, 1);
+    assert.equal(capture.writes().filter(({ method, path }) => method === 'POST' && path === '/api/creador/perfil/publicar').length, 1);
+    const saved = await readOwnerSnapshot(fixture, cookie);
+    assert.equal(saved.profile.published, true);
+  } finally {
+    await page.unroute('**/api/creador/**').catch(() => {});
+    await capture.stop();
   }
 });
 

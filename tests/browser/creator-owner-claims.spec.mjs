@@ -234,15 +234,19 @@ test('una solicitud selecciona contenido y URLs, valida antes de escribir, dedup
   await capture.stop();
 });
 
-test('Solicitudes acepta URLs conocidas aunque falle el índice público', async ({ fixture, page }) => {
+test('Solicitudes acepta una URL conocida al límite con padding aunque falle el índice público', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const ownerBefore = (await api(fixture, cookie, '/api/creador/perfil')).body;
+  const knownUrlPrefix = 'https://catalog.example.invalid/known-during-index-error/';
+  const knownUrl = `${knownUrlPrefix}${'a'.repeat(2048 - knownUrlPrefix.length)}`;
+  assert.equal(knownUrl.length, 2048, 'the canonical URL reaches the frontend field limit before padding');
   const known = catalogEntry({
     id: 'phase5-claim-known-url-index-failure',
     title: 'Contenido identificado por la URL conocida',
-    url: 'https://catalog.example.invalid/known-during-index-error',
+    url: knownUrl,
   });
   const paddedKnownUrl = `  ${known.url}  `;
+  assert.equal(paddedKnownUrl.length, 2052, 'the raw padded URL exceeds the limit only because of outer spaces');
   await seedCatalogRecord(fixture, known);
   await serveSelectionIndex(page, [], { firstStatus: 503, alwaysFail: true });
   const capture = await captureCreatorApi(page);

@@ -11,6 +11,7 @@ import {
   buildCreatorStateCleanupTransactions,
   buildCreatorStateConversionTransaction,
   createCreatorStateConversionPlan,
+  creatorStateCutoverInternals,
 } from '../scripts/lib/creator-state-cutover.mjs';
 
 const PROFILE_ID = 'creator-cutover';
@@ -151,6 +152,25 @@ function assertCutoverError(fn, code) {
   });
 }
 
+function malformedHistoricalAliasPlan(input) {
+  const validPlan = createCreatorStateConversionPlan(input);
+  const rows = structuredClone(input.rows);
+  rows.find(({ sk }) => sk === 'SERIES_SLUG#curso-anterior').seriesId = 17;
+  const conversionSourceRows = rows
+    .filter(({ sk }) => sk === 'META' || sk.startsWith('PLACEMENT#') || sk.startsWith('SERIES#') || sk.startsWith('SERIES_SLUG#'))
+    .sort((left, right) => left.sk.localeCompare(right.sk));
+  const malformed = structuredClone(validPlan);
+  malformed.backup.profileRows = rows;
+  malformed.conversionSourceRows = structuredClone(conversionSourceRows);
+  malformed.sourceFingerprint = creatorStateCutoverInternals.fingerprint(conversionSourceRows);
+  malformed.backupFingerprint = creatorStateCutoverInternals.fingerprint({
+    rows: [...rows].sort((left, right) => left.sk.localeCompare(right.sk)),
+    resourceRows: input.resourceRows,
+    preservedRows: input.preservedRows,
+  });
+  return malformed;
+}
+
 test('legacy conversion preserves exact IDs and independently sorts general and tied chapter sequences', () => {
   const plan = createCreatorStateConversionPlan(legacyExport());
   assert.deepEqual(plan.convertedState.order, {
@@ -252,6 +272,39 @@ test('a deleted-Series membership is omitted only with its exact retained alias'
   assert.deepEqual(valid.convertedState.series.course.chapters, ['a', 'z']);
   assertCutoverError(() => createCreatorStateConversionPlan(legacyExport({ includeDeletedAlias: false })),
     'UNEXPLAINED_SERIES_REFERENCE');
+});
+
+test('apply rejects a typed-malformed historical Series alias before its replacement write', async () => {
+  const input = legacyExport({ count: 2 });
+  const malformedPlan = malformedHistoricalAliasPlan(input);
+  const physical = new Map(malformedPlan.backup.profileRows.map((row) => [
+    `${row.pk}\u0000${row.sk}`,
+    structuredClone(row),
+  ]));
+  let reads = 0;
+  let writes = 0;
+  let failure;
+  try {
+    await applyCreatorStateConversion(malformedPlan, {
+      tableName: 'profiles-test',
+      async readPhysical(_table, key) {
+        reads += 1;
+        return structuredClone(physical.get(`${key.pk}\u0000${key.sk}`));
+      },
+      async transact(actions) {
+        writes += 1;
+        for (const action of actions) {
+          if (action.Put) physical.set(`${action.Put.Item.pk}\u0000${action.Put.Item.sk}`, structuredClone(action.Put.Item));
+        }
+      },
+    });
+  } catch (error) {
+    failure = error;
+  }
+  assert.deepEqual({ reads, writes }, { reads: 0, writes: 0 },
+    'a malformed historical alias fails before provider reads or replacement writes');
+  assert.ok(failure, 'the malformed alias must be rejected');
+  assert.equal(failure.code, 'INVALID_EXPORT');
 });
 
 test('conversion rejects an oversized candidate before creating write actions', () => {
