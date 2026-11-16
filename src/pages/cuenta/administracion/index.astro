@@ -90,6 +90,7 @@ const message = result.status === 401
           <ul class="creator-admin__list">
             {result.data.resources.map((resource) => {
               const id = String(resource.id ?? '');
+              const domId = encodeURIComponent(id);
               const title = String(resource.title ?? 'Recurso sin título');
               const url = typeof resource.url === 'string' ? resource.url : '';
               const hidden = resource.hidden === true;
@@ -98,7 +99,7 @@ const message = result.status === 401
                 : resource.published === true ? 'approved' : 'pending';
               const topics = Array.isArray(resource.topics) ? resource.topics.filter((topic): topic is string => typeof topic === 'string') : [];
               return (
-                <li class="creator-admin__item" data-admin-resource={id}>
+                <li class="creator-admin__item" data-admin-resource={domId}>
                   <h3>{title}</h3>
                   <p><a href={url} target="_blank" rel="noopener noreferrer">{url}</a></p>
                   <p>Estado: {hidden ? 'oculto' : approval === 'approved' ? 'aprobado' : approval === 'revoked' ? 'aprobación revocada' : 'pendiente'}{resource.directoryControl === 'creator' ? ' · selección por creador' : ' · control editorial'}</p>
@@ -120,8 +121,8 @@ const message = result.status === 401
                         </select>
                       </label>
                       <label>Temas (hasta 3, separados por coma)
-                        <input name="topics" list={`creator-topics-${id}`} value={topics.join(', ')} />
-                        <datalist id={`creator-topics-${id}`}>
+                        <input name="topics" list={`creator-topics-${domId}`} value={topics.join(', ')} />
+                        <datalist id={`creator-topics-${domId}`}>
                           {TOPICS.map((topic) => <option value={topic} />)}
                         </datalist>
                       </label>
@@ -208,7 +209,7 @@ const message = result.status === 401
                       <legend>Selecciona los IDs exactos que verificaste</legend>
                       {resourceIds.map((resourceId) => (
                         <label>
-                          <input type="checkbox" name="resourceIds" value={resourceId} checked />
+                          <input type="checkbox" name="resourceIds" value={encodeURIComponent(resourceId)} checked />
                           <span>{resourceId}{observedUrls.has(resourceId) && <><br /><small>{observedUrls.get(resourceId)}</small></>}</span>
                         </label>
                       ))}

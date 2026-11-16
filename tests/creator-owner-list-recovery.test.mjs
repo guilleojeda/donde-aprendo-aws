@@ -51,6 +51,32 @@ function ownerSnapshot({ linkCount = 26, seriesCount = 0 } = {}) {
   };
 }
 
+test('canonical link groups stay in their stored sequence through filtering while title modes sort', () => {
+  const snapshot = ownerSnapshot({ linkCount: 4, seriesCount: 0 });
+  const ids = Object.keys(snapshot.placements);
+  snapshot.placements[ids[3]].selectedForDirectory = false;
+  snapshot.order = { featured: [ids[2], ids[0]], ordinary: [ids[3], ids[1]] };
+  const lists = presentation.creatorOwnerNavigationLists(snapshot);
+
+  assert.deepEqual(lists.links.map(({ placementId }) => placementId), [ids[2], ids[0], ids[3], ids[1]],
+    'the joined view traverses featured then ordinary canonical sequences');
+  assert.deepEqual(links.selectCreatorOwnerLinks(lists.links, lists.series,
+    links.DEFAULT_CREATOR_OWNER_LINKS_QUERY).matches.map(({ placementId }) => placementId),
+  [ids[2], ids[0], ids[3], ids[1]], 'the default list preserves that sequence without sorting ordinals');
+
+  const filtered = links.selectCreatorOwnerLinks(lists.links, lists.series, {
+    ...links.DEFAULT_CREATOR_OWNER_LINKS_QUERY, directorio: 'no-propuestos',
+  });
+  assert.deepEqual(filtered.matches.map(({ placementId }) => placementId), [ids[3], ids[1]],
+    'filtering preserves the relative order of the selected placements');
+
+  const titleSorted = links.selectCreatorOwnerLinks(lists.links, lists.series, {
+    ...links.DEFAULT_CREATOR_OWNER_LINKS_QUERY, orden: 'titulo-asc',
+  });
+  assert.deepEqual(titleSorted.matches.map(({ placementId }) => placementId), ids,
+    'title ordering remains an explicit display mode');
+});
+
 test('link filters, title sorting, and 26-to-25 page clamping use the canonical placement view', () => {
   const snapshot = ownerSnapshot({ linkCount: 26, seriesCount: 1 });
   const lists = presentation.creatorOwnerNavigationLists(snapshot);

@@ -648,7 +648,7 @@ test('one admin grant command preserves the first grant in the aggregate while g
   assert.ok(after.resources.every(({ metadataEditable }) => metadataEditable === true));
   assert.equal(after.claims.find(({ id }) => id === 'grant-claim').status, 'resolved');
 
-  const transactionsBeforeNoop = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+  const callsBeforeNoop = harness.store.calls.length;
   const repeated = await creatorRequest(harness, '/api/admin/reclamaciones/vincular', {
     session: 'admin',
     method: 'POST',
@@ -660,9 +660,131 @@ test('one admin grant command preserves the first grant in the aggregate while g
   assert.deepEqual(repeatedBody.linkedResourceIds, ['grant-a', 'grant-b']);
   assert.equal(repeatedBody.profileChanged, false);
   assert.deepEqual(repeatedBody.versionChanges, []);
-  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length,
-    transactionsBeforeNoop, 'a fully linked no-op performs no transaction checks or writes');
+  const noOpTransactions = harness.store.calls.slice(callsBeforeNoop)
+    .filter(({ operation }) => operation === 'transact').map(({ input }) => input);
+  assert.equal(noOpTransactions.length, 2, 'each fully linked resource is confirmed against three observed records');
+  for (const [index, id] of ['grant-a', 'grant-b'].entries()) {
+    assert.deepEqual(noOpTransactions[index].checks, [
+      { key: `profile:${PROFILE_ID}`, version: after.creatorVersion },
+      { key: `resource:${id}`, version: 2 },
+      { key: `editor:${PROFILE_ID}:${id}`, version: 1 },
+    ]);
+    assert.deepEqual(noOpTransactions[index].puts, []);
+    assert.deepEqual(noOpTransactions[index].deletes, []);
+  }
 });
+
+function grantResources(harness, resourceIds) {
+  return command(harness, '/api/admin/reclamaciones/vincular/', 'POST', {
+    accountId: 'private-account-a', resourceIds,
+  }, { session: 'admin', creatorContract: null });
+}
+
+test('an already linked admin grant rejects a concurrent real owner removal and succeeds on an explicit retry', async () => {
+  const id = 'grant-owner-removes';
+  const harness = await createCreatorContentHarness({
+    resources: [resource(id, `https://catalog.example/${id}`)],
+  });
+  const initialGrant = await grantResources(harness, [id]);
+  assert.equal(initialGrant.response.status, 200);
+  const beforeRemoval = await requireSnapshot(harness);
+  const placementId = beforeRemoval.order.ordinary[0];
+  const resourceBefore = await harness.store.get(`resource:${id}`);
+  const editorBefore = await harness.store.get(`editor:${PROFILE_ID}:${id}`);
+
+  const get = harness.store.get.bind(harness.store);
+  let deletion;
+  harness.store.get = async (key) => {
+    const value = await get(key);
+    if (key === `editor:${PROFILE_ID}:${id}` && !deletion) {
+      deletion = await command(harness, `/api/creador/enlaces/${placementId}`, 'DELETE', {
+        creatorVersion: beforeRemoval.creatorVersion,
+      });
+    }
+    return value;
+  };
+  let grant;
+  try {
+    grant = await grantResources(harness, [id]);
+  } finally {
+    harness.store.get = get;
+  }
+  assert.equal(deletion.response.status, 200);
+  assert.equal(deletion.body.operation, 'remove-link');
+  assert.equal(grant.response.status, 409, 'the stale no-op cannot acknowledge the removed placement');
+  assert.equal(grant.body.error, 'CLAIM_CONFLICT');
+  assert.equal(Object.hasOwn(grant.body, 'linkedResourceIds'), false);
+  const afterRemoval = await requireSnapshot(harness);
+  assert.equal(afterRemoval.creatorVersion, beforeRemoval.creatorVersion + 1);
+  assert.deepEqual(afterRemoval.order.ordinary, []);
+  assert.deepEqual(await harness.store.get(`resource:${id}`), resourceBefore);
+  assert.deepEqual(await harness.store.get(`editor:${PROFILE_ID}:${id}`), editorBefore);
+
+  const retry = await grantResources(harness, [id]);
+  assert.equal(retry.response.status, 200);
+  assert.deepEqual(retry.body.linkedResourceIds, [id]);
+  assert.deepEqual(retry.body.versionChanges, [{
+    entity: 'profile', id: PROFILE_ID, before: afterRemoval.creatorVersion, after: afterRemoval.creatorVersion + 1,
+  }]);
+  assert.deepEqual((await requireSnapshot(harness)).order.ordinary, [placementId]);
+});
+
+for (const editorMissing of [false, true]) {
+  test(`a real conflicting moderation after ${editorMissing ? 'an editor-only write' : 'a confirmed no-op'} reports only real partial progress`, async () => {
+    const [a, b] = ['grant-already-linked-a', 'grant-moderated-b'];
+    const state = defaultState({
+      placements: { 'already-linked': { resourceId: a, selectedForDirectory: true } },
+      order: { featured: [], ordinary: ['already-linked'] },
+    });
+    const resourceA = resource(a, `https://catalog.example/${a}`, {
+      directoryControl: 'creator', editorProfileId: PROFILE_ID, autoSync: false,
+    });
+    const harness = await createCreatorContentHarness({
+      state,
+      resources: [resourceA, resource(b, `https://catalog.example/${b}`)],
+      editorReferences: editorMissing ? [] : [{ resourceId: a }],
+    });
+    const get = harness.store.get.bind(harness.store);
+    const transact = harness.store.transact.bind(harness.store);
+    let interposed = false;
+    let moderation;
+    harness.store.transact = async (transaction) => {
+      if (!interposed && transaction.puts?.some(({ key }) => key === `resource:${b}`)) {
+        interposed = true;
+        moderation = await command(harness, `/api/admin/recursos/ocultar/?id=${b}`, 'POST', { version: 1 }, {
+          session: 'admin', creatorContract: null,
+        });
+      }
+      return transact(transaction);
+    };
+    let grant;
+    try {
+      grant = await grantResources(harness, [a, b]);
+    } finally {
+      harness.store.transact = transact;
+    }
+    assert.equal(moderation.response.status, 200);
+    assert.equal(grant.response.status, 409);
+    assert.equal(grant.body.error, 'CLAIM_CONFLICT');
+    assert.deepEqual(grant.body.linkedResourceIds, editorMissing ? [a] : undefined,
+      'checking A is not a commit; creating its missing editor reference is');
+    assert.deepEqual(grant.body.versionChanges, editorMissing ? [] : undefined);
+    assert.equal(grant.body.profileChanged, editorMissing ? false : undefined);
+    assert.equal(grant.body.failedResourceId, editorMissing ? b : undefined);
+    assert.deepEqual(await get(`profile:${PROFILE_ID}`), state);
+    assert.deepEqual(await get(`resource:${a}`), resourceA);
+    assert.equal((await get(`editor:${PROFILE_ID}:${a}`)).version, 1);
+    assert.equal((await get(`resource:${b}`)).hidden, true);
+    assert.equal((await get(`resource:${b}`)).directoryControl, 'editorial');
+    assert.equal(await get(`editor:${PROFILE_ID}:${b}`), null);
+
+    const retry = await grantResources(harness, [b]);
+    assert.equal(retry.response.status, 200);
+    assert.deepEqual(retry.body.linkedResourceIds, [b]);
+    assert.equal((await get(`resource:${b}`)).hidden, true, 'explicit grant preserves the intervening moderation');
+    assert.equal((await get(`resource:${b}`)).directoryControl, 'creator');
+  });
+}
 
 test('a rejected conditional admin grant keeps the already committed prefix without attempting a stale overwrite', async () => {
   const state = defaultState({ creatorVersion: 70 });

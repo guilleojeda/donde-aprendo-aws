@@ -27,6 +27,184 @@ async function classify(harness, resourceId, version, fields) {
   });
 }
 
+async function creatorApi(harness, path, { method = 'GET', body } = {}) {
+  return harness.service.handle(apiRequest(path, {
+    session: 'creator-a', csrf: 'csrf-a', creatorContract: '2', method, body,
+  }));
+}
+
+function adminActionPath(resourceId, action) {
+  return `/api/admin/recursos/${action}/?id=${encodeURIComponent(resourceId)}`;
+}
+
+test('private invalid-public IDs retain classification rules without being published', async () => {
+  const harness = await createCreatorPagesHarness();
+  const carriageId = 'legacy\rprivate';
+  const nulId = 'legacy\0private';
+  const lfTabId = 'legacy\n\tprivate';
+  for (const [id, url] of [
+    [carriageId, 'https://example.com/private-carriage'],
+    [nulId, 'https://example.com/private-nul'],
+    [lfTabId, 'https://example.com/private-lf-tab'],
+  ]) {
+    await seedResource(harness.store, {
+      id, title: `Legacy ${id.length}`, url, description: '', category: 'Otros', order: 1, featured: false,
+      published: false, hidden: false, version: 1, directoryControl: 'editorial',
+    });
+  }
+
+  const beforeInvalidTaxonomy = await harness.store.get(`resource:${nulId}`);
+  const writesBeforeInvalidTaxonomy = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+  const invalidTaxonomy = await classify(harness, nulId, beforeInvalidTaxonomy.version, {
+    category: 'Blog', kind: 'source', format: 'Blog', topics: ['Not a catalog topic'],
+  });
+  assert.equal(invalidTaxonomy.status, 422);
+  assert.equal((await responseJson(invalidTaxonomy)).error, 'INVALID_CLASSIFICATION');
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length, writesBeforeInvalidTaxonomy);
+  assert.deepEqual(await harness.store.get(`resource:${nulId}`), beforeInvalidTaxonomy);
+
+  const classified = await classify(harness, carriageId, 1, { category: 'Blog' });
+  assert.equal(classified.status, 200, 'legacy category-only classification derives and checks its taxonomy');
+  const savedPrivate = await harness.store.get(`resource:${carriageId}`);
+  assert.equal(savedPrivate.id, carriageId, 'private identity remains byte-for-byte exact');
+  assert.equal(savedPrivate.published, false, 'classification does not admit the resource');
+  assert.equal(savedPrivate.category, 'Blog');
+
+  const validControl = await classify(harness, lfTabId, 1, { category: 'Blog' });
+  assert.equal(validControl.status, 200, 'internal LF and TAB remain valid public identities');
+});
+
+test('approval and approved restores enforce catalog admission without blocking private restore', async () => {
+  const harness = await createCreatorPagesHarness();
+  const pendingId = 'pending\0approval';
+  const pending = {
+    id: pendingId, title: 'Contenido pendiente', url: 'https://example.com/pending-nul', description: '',
+    category: 'Blog', order: 1, featured: false, kind: 'source', format: 'Blog', topics: [], published: false,
+    hidden: false, version: 1, directoryControl: 'editorial',
+  };
+  await seedResource(harness.store, pending);
+  const pendingBefore = await harness.store.get(`resource:${pendingId}`);
+  const writesBeforeApproval = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+  const approval = await documentApi(harness, adminActionPath(pendingId, 'aprobar'), 'admin', {
+    method: 'POST', body: { version: pendingBefore.version },
+  });
+  assert.equal(approval.status, 422);
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length, writesBeforeApproval);
+  assert.deepEqual(await harness.store.get(`resource:${pendingId}`), pendingBefore,
+    'rejected approval does not change publication, visibility, version, or metadata');
+
+  const hiddenApprovedId = 'approved\rhidden';
+  await seedResource(harness.store, {
+    ...pending, id: hiddenApprovedId, url: 'https://example.com/approved-carriage',
+    category: 'Otros', published: true, hidden: true, version: 1,
+  });
+  const hiddenApprovedBefore = await harness.store.get(`resource:${hiddenApprovedId}`);
+  const classified = await classify(harness, hiddenApprovedId, hiddenApprovedBefore.version, { category: 'Podcast' });
+  assert.equal(classified.status, 200, 'hidden approved content remains private while classification is saved');
+  const classifiedHidden = await harness.store.get(`resource:${hiddenApprovedId}`);
+  assert.equal(classifiedHidden.published, true);
+  assert.equal(classifiedHidden.hidden, true);
+  assert.equal(classifiedHidden.version, hiddenApprovedBefore.version + 1);
+
+  const writesBeforeRestore = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+  const restore = await documentApi(harness, adminActionPath(hiddenApprovedId, 'restaurar'), 'admin', {
+    method: 'POST', body: { version: classifiedHidden.version },
+  });
+  assert.equal(restore.status, 422);
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length, writesBeforeRestore);
+  assert.deepEqual(await harness.store.get(`resource:${hiddenApprovedId}`), classifiedHidden,
+    'rejected restoration leaves the classified row hidden and at its observed version');
+
+  const privateId = 'unpublished\0hidden';
+  await seedResource(harness.store, {
+    ...pending, id: privateId, url: 'https://example.com/unpublished-hidden', hidden: true,
+  });
+  const privateBefore = await harness.store.get(`resource:${privateId}`);
+  const privateRestore = await documentApi(harness, adminActionPath(privateId, 'restaurar'), 'admin', {
+    method: 'POST', body: { version: privateBefore.version },
+  });
+  assert.equal(privateRestore.status, 200, 'an unapproved private row can be restored without publication');
+  const privateSaved = await harness.store.get(`resource:${privateId}`);
+  assert.equal(privateSaved.id, privateId);
+  assert.equal(privateSaved.hidden, false);
+  assert.equal(privateSaved.published, false);
+  assert.equal(privateSaved.version, privateBefore.version + 1);
+
+  const revokedId = 'revoked\rhidden';
+  await seedResource(harness.store, {
+    ...pending, id: revokedId, url: 'https://example.com/revoked-hidden',
+    published: false, approvalRevoked: true, hidden: true,
+  });
+  const revokedBefore = await harness.store.get(`resource:${revokedId}`);
+  const revokedRestore = await documentApi(harness, adminActionPath(revokedId, 'restaurar'), 'admin', {
+    method: 'POST', body: { version: revokedBefore.version },
+  });
+  assert.equal(revokedRestore.status, 200, 'revoked private content remains restorable without reapproval');
+  const revokedSaved = await harness.store.get(`resource:${revokedId}`);
+  assert.equal(revokedSaved.hidden, false);
+  assert.equal(revokedSaved.published, false);
+  assert.equal(revokedSaved.approvalRevoked, true);
+
+  const validId = 'approved-hidden-control';
+  await seedResource(harness.store, {
+    ...pending, id: validId, url: 'https://example.com/approved-hidden-control',
+    published: true, hidden: true, version: 1,
+  });
+  const validBefore = await harness.store.get(`resource:${validId}`);
+  const validRestore = await documentApi(harness, adminActionPath(validId, 'restaurar'), 'admin', {
+    method: 'POST', body: { version: validBefore.version },
+  });
+  assert.equal(validRestore.status, 200, 'valid approved content still restores');
+  assert.equal((await harness.store.get(`resource:${validId}`)).hidden, false);
+});
+
+test('restoring an approved creator resource checks its selected public directory identity', async () => {
+  const harness = await createCreatorPagesHarness();
+  const draft = await creatorApi(harness, '/api/creador/perfil', {
+    method: 'PUT', body: { creatorVersion: null, displayName: 'Ana', slug: 'ana-identidad' },
+  });
+  assert.equal(draft.status, 200);
+  const draftReceipt = await responseJson(draft);
+  const published = await creatorApi(harness, '/api/creador/perfil/publicar', {
+    method: 'POST', body: { creatorVersion: draftReceipt.creatorVersion },
+  });
+  assert.equal(published.status, 200);
+  const publishReceipt = await responseJson(published);
+
+  const resourceId = 'creator-approved\0hidden';
+  const url = 'https://example.com/creator-approved-hidden';
+  await seedResource(harness.store, {
+    id: resourceId, title: 'Contenido de creador', url, description: '', category: 'Blog',
+    order: 1, featured: false, kind: 'content', format: 'Artículo', topics: [], published: true, hidden: true,
+    approvalRevoked: false, directoryControl: 'creator', editorProfileId: draftReceipt.profileId,
+    version: 1,
+  });
+  const linked = await creatorApi(harness, '/api/creador/referencias/', {
+    method: 'POST', body: {
+      resourceId, url, selectedForDirectory: true, creatorVersion: publishReceipt.creatorVersion,
+    },
+  });
+  assert.equal(linked.status, 201, 'a hidden resource can retain its selected placement privately');
+
+  const profileRow = await harness.store.get(`profile:${draftReceipt.profileId}`);
+  const publicState = [{ ...profileRow, pk: `PROFILE#${profileRow.id}`, sk: 'META' }];
+  const beforeRestore = await harness.store.get(`resource:${resourceId}`);
+  assert.deepEqual(projectPublishedCatalog([beforeRestore], publicState), [], 'hidden resources are not public');
+  const publicProfile = await harness.service.readPublicProfile('ana-identidad');
+  assert.equal(publicProfile.status, 200);
+  assert.equal(publicProfile.links.length, 0);
+
+  const writesBeforeRestore = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+  const restore = await documentApi(harness, adminActionPath(resourceId, 'restaurar'), 'admin', {
+    method: 'POST', body: { version: beforeRestore.version },
+  });
+  assert.equal(restore.status, 422);
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length, writesBeforeRestore);
+  assert.deepEqual(await harness.store.get(`resource:${resourceId}`), beforeRestore,
+    'the selected creator resource remains hidden with no version or timestamp write');
+  assert.deepEqual(projectPublishedCatalog([await harness.store.get(`resource:${resourceId}`)], publicState), []);
+});
+
 test('admin classification rejects records that would break the published catalog before writing', async () => {
   const harness = await createCreatorPagesHarness();
   await seedResource(harness.store, {

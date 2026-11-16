@@ -99,12 +99,6 @@ export function normalizeCreatorOwnerLinkSearch(value: string): string {
   return value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es');
 }
 
-function comparePlacement(left: CreatorOwnerPlacementViewDTO, right: CreatorOwnerPlacementViewDTO): number {
-  return Number(right.featured) - Number(left.featured)
-    || left.position - right.position
-    || left.placementId.localeCompare(right.placementId);
-}
-
 function compareTitle(left: CreatorOwnerPlacementViewDTO, right: CreatorOwnerPlacementViewDTO, direction: 1 | -1): number {
   const titleOrder = left.title.localeCompare(right.title, 'es', { sensitivity: 'base' });
   return titleOrder === 0
@@ -119,6 +113,7 @@ export function selectCreatorOwnerLinks(
 ): CreatorOwnerLinksSelection {
   const seriesNames = new Map(series.map(({ id, name }) => [id, normalizeCreatorOwnerLinkSearch(name)]));
   const search = normalizeCreatorOwnerLinkSearch(query.buscar);
+  // Joined rows already follow the saved group sequences, so filtering retains their relative order.
   let matches = links.filter((link) => {
     if (query.serie !== 'todos' && !link.series.some(({ seriesId }) => seriesId === query.serie)) return false;
     if (query.directorio === 'propuestos' && !link.selectedForDirectory) return false;
@@ -138,7 +133,6 @@ export function selectCreatorOwnerLinks(
 
   if (query.orden === 'titulo-asc') matches = [...matches].sort((left, right) => compareTitle(left, right, 1));
   else if (query.orden === 'titulo-desc') matches = [...matches].sort((left, right) => compareTitle(left, right, -1));
-  else matches = [...matches].sort(comparePlacement);
 
   const totalMatches = matches.length;
   const totalLinks = links.length;

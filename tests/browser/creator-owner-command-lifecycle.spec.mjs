@@ -418,7 +418,21 @@ async function reconcileChapterChangeWithFailedRead({ fixture, page, operation }
 
   const retry = page.getByRole('button', { name: 'Reintentar actualización', exact: true });
   await expect(retry).toBeVisible();
-  await retry.click();
+  const chapterSearch = page.locator('[data-chapter-search]');
+  const heldRetry = await holdNextOwnerRead(page);
+  try {
+    await retry.click();
+    await heldRetry.entered;
+    assert.equal(heldRetry.actual.status, 200, 'the explicit retry receives a real complete owner snapshot');
+    assert.equal(Object.hasOwn(heldRetry.actual.body.series, target.id), false,
+      'the second session removed the selected Series before this GET');
+    await chapterSearch.fill('Búsqueda mientras se actualiza');
+    await expect(chapterSearch).toBeFocused();
+    heldRetry.release();
+    await heldRetry.finished;
+  } finally {
+    await heldRetry.remove();
+  }
   await expect(page.locator('[data-owner-series-list-view]')).toBeVisible();
   await expect(seriesRow(page, survivor.id)).toBeVisible();
   await expect(page).toHaveURL((url) => url.searchParams.get('buscarSeries') === 'conservar'
@@ -442,6 +456,43 @@ async function reconcileChapterChangeWithFailedRead({ fixture, page, operation }
   assert.equal(nextSeriesWrite?.status, 201, 'the later operation reaches the real command service');
   await capture.stop({ skipErrorBodies: true });
 }
+
+test('el foco permanece en el buscador de capítulos si la lectura conserva la serie', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const series = await createSeries(fixture, cookie, { name: 'Ruta que sigue vigente', slug: 'ruta-sigue-vigente' });
+  const chapter = await addLink(fixture, cookie, { title: 'Capítulo con foco', url: 'https://links.example/foco-capitulo' });
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  let read;
+  try {
+    await openSeriesView(page, fixture, `&buscarSeries=vigente&serie=${encodeURIComponent(series.id)}&buscarCapitulos=Cap%C3%ADtulo`);
+    const search = page.locator('[data-chapter-search]');
+    await expect(search).toBeVisible();
+    read = await holdNextOwnerRead(page);
+    const add = page.locator(`[data-chapter-row="${chapter.placementId}"] [data-chapter-add]`).click();
+    await read.entered;
+    assert.equal(read.actual.status, 200, 'the full read follows the committed chapter command');
+    assert.deepEqual(read.actual.body.series[series.id].chapters, [chapter.placementId]);
+    await search.focus();
+    await expect(search).toBeFocused();
+    read.release();
+    await add;
+    await read.finished;
+    await expect(search).toBeVisible();
+    await expect(search).toHaveValue('Capítulo');
+    await expect(search).toBeFocused();
+    await expect(page).toHaveURL((url) => url.searchParams.get('serie') === series.id
+      && url.searchParams.get('buscarSeries') === 'vigente'
+      && url.searchParams.get('buscarCapitulos') === 'Capítulo');
+    await expect(page.locator(`[data-chapter-row="${chapter.placementId}"] [data-chapter-remove]`)).toBeVisible();
+    assert.deepEqual(capture.writes().map(({ method, path, status }) => [method, path, status]), [
+      ['PUT', `/api/creador/series/${series.id}/capitulos/${chapter.placementId}`, 200],
+    ], 'installing the full snapshot does not replay the confirmed chapter command');
+  } finally {
+    read?.release();
+    await read?.remove();
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
 
 async function recoverChapterAfterBack({ fixture, page, operation, malformedBack = false }) {
   const cookie = await loggedInOwner(fixture, page);
@@ -570,7 +621,7 @@ async function recoverChapterAfterBack({ fixture, page, operation, malformedBack
   }
 }
 
-async function recoverMoveAfterRangeShrinks({ fixture, page, kind }) {
+async function recoverMoveAfterRangeShrinks({ fixture, page, kind, exitPrompt = false }) {
   const cookie = await loggedInOwner(fixture, page);
   const target = await addLink(fixture, cookie, { title: `Elemento objetivo ${kind}`, url: `https://links.example/move-target-${kind}` });
   const middle = await addLink(fixture, cookie, { title: `Elemento medio ${kind}`, url: `https://links.example/move-middle-${kind}` });
@@ -592,7 +643,18 @@ async function recoverMoveAfterRangeShrinks({ fixture, page, kind }) {
     if (kind === 'link') {
       assert.deepEqual(before.order.ordinary, [target.placementId, middle.placementId, removed.placementId]);
     } else assert.deepEqual(before.series[series.id].chapters, [target.placementId, middle.placementId, removed.placementId]);
-    await page.goto(pageUrl);
+    if (exitPrompt && kind === 'chapter') {
+      await openSeriesView(page, fixture);
+      await seriesRow(page, series.id).locator('[data-series-chapters]').click();
+      await expect(page).toHaveURL((url) => url.searchParams.get('serie') === series.id);
+    } else if (exitPrompt) {
+      await page.goto(pageUrl);
+      await page.locator('#owner-link-order').selectOption('titulo-asc');
+      await expect(page).toHaveURL(/orden=titulo-asc/u);
+      await page.locator('#owner-link-order').selectOption('pagina');
+      await expect(page).toHaveURL((url) => url.searchParams.get('orden') !== 'titulo-asc');
+    } else await page.goto(pageUrl);
+    const editorUrl = page.url();
     const targetRow = kind === 'link' ? page.locator(`[data-link-row="${target.placementId}"]`)
       : page.locator(`[data-chapter-row="${target.placementId}"]`);
     await targetRow.locator(kind === 'link' ? '[data-link-move]' : '[data-chapter-move]').click();
@@ -610,9 +672,18 @@ async function recoverMoveAfterRangeShrinks({ fixture, page, kind }) {
     await form.getByRole('button', { name: 'Guardar posición', exact: true }).click();
     await expect.poll(() => capture.writes().find(({ method, path }) => method === 'POST' && path === movePath)?.status).toBe(409);
     await expect.poll(() => ownerReads(capture).filter(({ status }) => status === 200).length).toBe(1);
-    const correction = form.locator('[data-owner-move-draft-correction]');
+    let correction;
+    if (exitPrompt) {
+      const back = page.goBack();
+      const exit = page.locator('[data-owner-exit-prompt]');
+      await expect(exit).toBeVisible();
+      await expect(page).toHaveURL(editorUrl, 'the blocked Back returns to the active move editor');
+      await back;
+      correction = exit.locator('[data-owner-move-draft-correction]');
+    } else correction = form.locator('[data-owner-move-draft-correction]');
     await expect(correction).toBeVisible();
-    await expect(form.locator('[data-owner-use-saved]')).toBeVisible();
+    const recoverySurface = exitPrompt ? page.locator('[data-owner-exit-prompt]') : form;
+    await expect(recoverySurface.locator('[data-owner-use-saved]')).toBeVisible();
     await expect(form.locator('[data-owner-conflict-save]')).toHaveCount(0,
       'an out-of-range retained move cannot be submitted until its draft is corrected');
     await expect(position).toHaveAttribute('readonly', '');
@@ -620,6 +691,11 @@ async function recoverMoveAfterRangeShrinks({ fixture, page, kind }) {
     assert.deepEqual(capture.writes().map(({ status }) => status), [409], 'the stale out-of-range move is the only browser write so far');
 
     await correction.click();
+    if (exitPrompt) {
+      await expect(page.locator('[data-owner-exit-prompt]')).toHaveCount(0,
+        'choosing to correct the draft cancels the pending Back transition');
+      await expect(page).toHaveURL(editorUrl);
+    }
     await expect(position).not.toHaveAttribute('readonly', '');
     await expect(position, 'the original draft remains available for correction').toHaveValue('3');
     await expect(position).toBeFocused();
@@ -1164,7 +1240,56 @@ for (const kind of ['link', 'chapter']) {
   test(`un conflicto de movimiento ${kind === 'link' ? 'de enlace' : 'de capítulo'} conserva el borrador y permite corregir la posición`, async ({ fixture, page }) => {
     await recoverMoveAfterRangeShrinks({ fixture, page, kind });
   });
+
+  test(`Corregir posición desde la salida cancela Back y conserva el borrador de ${kind === 'link' ? 'enlace' : 'capítulo'}`, async ({ fixture, page }) => {
+    await recoverMoveAfterRangeShrinks({ fixture, page, kind, exitPrompt: true });
+  });
 }
+
+test('Volver al borrador desde el aviso de salida cancela Back y devuelve el foco al formulario', async ({ fixture, page }) => {
+  await loggedInOwner(fixture, page);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  let lost;
+  let save;
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+    await page.locator('#owner-link-order').selectOption('titulo-asc');
+    await page.locator('#owner-link-order').selectOption('pagina');
+    const editorUrl = page.url();
+    await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
+    const form = page.locator('[data-owner-dialog] form[data-owner-form="datos"]');
+    const displayName = form.getByLabel('Nombre visible');
+    await displayName.fill('Borrador conservado tras salir');
+
+    lost = await holdProfileWriteAndLoseAcknowledgement(page);
+    save = form.getByRole('button', { name: 'Guardar datos', exact: true }).click();
+    await lost.entered;
+    assert.equal(lost.actual.status, 200, 'the server commits the original request before its acknowledgement is lost');
+    lost.release();
+    await lost.finished;
+    await save;
+    await form.getByRole('button', { name: 'Comprobar estado guardado', exact: true }).click();
+    await expect(form.locator('[data-owner-return-to-draft]')).toBeVisible();
+    assert.equal(capture.writes().length, 1, 'the unknown operation is not automatically replayed');
+
+    const back = page.goBack();
+    const exit = page.locator('[data-owner-exit-prompt]');
+    await expect(exit).toBeVisible();
+    await expect(page).toHaveURL(editorUrl, 'the blocked Back returns to the active editor');
+    await back;
+    await exit.locator('[data-owner-return-to-draft]').click();
+    await expect(exit).toHaveCount(0, 'returning to the draft cancels the pending history transition');
+    await expect(page).toHaveURL(editorUrl);
+    await expect(displayName).toHaveValue('Borrador conservado tras salir');
+    await expect(displayName).toBeFocused();
+    assert.equal(capture.writes().length, 1, 'returning to the draft sends no second write');
+  } finally {
+    lost?.release();
+    await save?.catch(() => {});
+    await lost?.remove();
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
 
 for (const conflictStage of ['authorization', 'finalization']) {
   test(`un conflicto de versión en ${conflictStage === 'authorization' ? 'autorizar' : 'finalizar'} permite una carga nueva con el mismo archivo`, async ({ fixture, page }) => {

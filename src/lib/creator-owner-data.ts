@@ -185,8 +185,6 @@ export function readCreatorOwnerSnapshot(value: unknown): CreatorOwnerSnapshotDT
 /** Display join: resource metadata is read once; group and positions come from explicit sequences. */
 export function joinCreatorOwnerPlacements(snapshot: CreatorOwnerSnapshotDTO): CreatorOwnerPlacementViewDTO[] {
   const resources = new Map(snapshot.resources.map((resource) => [resource.id, resource]));
-  const featuredPositions = new Map(snapshot.order.featured.map((id, index) => [id, index + 1]));
-  const ordinaryPositions = new Map(snapshot.order.ordinary.map((id, index) => [id, index + 1]));
   const memberships = new Map<string, CreatorOwnerPlacementViewDTO['series']>();
   for (const [seriesId, item] of Object.entries(snapshot.series)) {
     item.chapters.forEach((placementId, index) => {
@@ -195,27 +193,31 @@ export function joinCreatorOwnerPlacements(snapshot: CreatorOwnerSnapshotDTO): C
       memberships.set(placementId, values);
     });
   }
-  return Object.entries(snapshot.placements).map(([placementId, placement]) => {
-    const resource = resources.get(placement.resourceId);
-    if (!resource) throw new TypeError('Un enlace guardado referencia una ficha que no está en la observación.');
-    const featured = featuredPositions.has(placementId);
-    const position = featured ? featuredPositions.get(placementId) : ordinaryPositions.get(placementId);
-    if (position === undefined) throw new TypeError('El orden general no contiene el enlace guardado.');
-    return {
-      placementId,
-      resourceId: placement.resourceId,
-      title: resource.title,
-      url: resource.url,
-      ...(Object.hasOwn(resource, 'description') ? { description: resource.description } : {}),
-      featured,
-      position,
-      selectedForDirectory: placement.selectedForDirectory,
-      hidden: resource.hidden,
-      directoryApproval: resource.directoryApproval,
-      resourceVersion: resource.version,
-      metadataEditable: resource.metadataEditable,
-      reincludeAllowed: resource.reincludeAllowed,
-      series: memberships.get(placementId) ?? [],
-    };
-  });
+  function joinSequence(placementIds: readonly string[], featured: boolean): CreatorOwnerPlacementViewDTO[] {
+    return placementIds.map((placementId, index) => {
+      const placement = Object.hasOwn(snapshot.placements, placementId) ? snapshot.placements[placementId] : undefined;
+      const resource = placement && resources.get(placement.resourceId);
+      if (!placement || !resource) throw new TypeError('Un enlace guardado referencia una ficha que no está en la observación.');
+      return {
+        placementId,
+        resourceId: placement.resourceId,
+        title: resource.title,
+        url: resource.url,
+        ...(Object.hasOwn(resource, 'description') ? { description: resource.description } : {}),
+        featured,
+        position: index + 1,
+        selectedForDirectory: placement.selectedForDirectory,
+        hidden: resource.hidden,
+        directoryApproval: resource.directoryApproval,
+        resourceVersion: resource.version,
+        metadataEditable: resource.metadataEditable,
+        reincludeAllowed: resource.reincludeAllowed,
+        series: memberships.get(placementId) ?? [],
+      };
+    });
+  }
+  return [
+    ...joinSequence(snapshot.order.featured, true),
+    ...joinSequence(snapshot.order.ordinary, false),
+  ];
 }

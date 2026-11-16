@@ -320,6 +320,9 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
             || typeof key.id !== 'string' || !requested.has(key.id) || seenKeys.has(key.id)) {
             throw new Error('DynamoDB batch read returned an invalid unprocessed key');
           }
+          if (resources.has(key.id)) {
+            throw new Error('DynamoDB batch read resource was both returned and unprocessed');
+          }
           seenKeys.add(key.id);
         }
         if (retries >= MAX_UNPROCESSED_RETRIES) throw new Error('DynamoDB batch read exceeded unprocessed key retries');

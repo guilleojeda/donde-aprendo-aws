@@ -237,6 +237,8 @@ test('getResources retries UnprocessedKeys within a bounded budget and returns a
   const resources = await store.getResources(['ready', 'retry']);
   assert.equal(calls.length, 2);
   assert.deepEqual(calls[1].input.RequestItems['catalog-test'].Keys, [{ id: 'retry' }]);
+  assert.equal(calls[1].input.RequestItems['catalog-test'].ConsistentRead, true,
+    'retry reads retain the strong-consistency setting');
   assert.equal(resources.get('retry').title, 'Retried');
 
   const { client: stuckClient, calls: stuckCalls } = fakeClient(async (command) => {
@@ -246,6 +248,25 @@ test('getResources retries UnprocessedKeys within a bounded budget and returns a
   const stuckStore = createCreatorStore({ ...TABLES, client: stuckClient });
   await assert.rejects(stuckStore.getResources(['stuck']), /exceeded unprocessed key retries/);
   assert.equal(stuckCalls.length, 4, 'one initial request and at most three retries');
+});
+
+test('getResources rejects a resource reported as both returned and unprocessed', async () => {
+  let callCount = 0;
+  const { client, calls } = fakeClient(async (command) => {
+    callCount += 1;
+    const table = Object.keys(command.input.RequestItems)[0];
+    if (callCount === 1) {
+      return {
+        Responses: { [table]: [{ id: 'contradictory', title: 'Returned' }] },
+        UnprocessedKeys: { [table]: { Keys: [{ id: 'contradictory' }] } },
+      };
+    }
+    return { Responses: { [table]: [] } };
+  });
+  const store = createCreatorStore({ ...TABLES, client });
+
+  await assert.rejects(store.getResources(['contradictory']), /both returned and unprocessed/);
+  assert.equal(calls.length, 1, 'contradictory provider data is rejected before a retry can turn it into absence');
 });
 
 test('getResources returns found rows and omits legitimately absent resources', async () => {

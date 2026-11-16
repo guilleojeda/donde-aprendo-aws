@@ -88,6 +88,11 @@ test('F8: la comparación usa la secuencia de capítulos migrada aunque el orden
   assert.equal(initialRead.body.resources.find(({ id }) => id === 'resource-a').hidden, true,
     'the hidden chapter remains part of the owner order');
 
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  await expect(page.locator('[data-link-row]')).toHaveCount(2);
+  assert.deepEqual(await page.locator('[data-link-row]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-link-row'))),
+    ['z', 'a'], 'the owner link table traverses the canonical general sequence instead of rebuilding its order');
+
   await openSeriesView(page, fixture, `&serie=${encodeURIComponent(PRIMARY_SERIES)}`);
   const hiddenChapter = chapterRow(page, 'a');
   const targetChapter = chapterRow(page, 'z');

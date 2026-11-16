@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
-import { isCatalogResourceIdWithinLimit } from './catalog-identity.mjs';
+import { isCatalogResourceIdWithinLimit, isPublicCatalogResourceId } from './catalog-identity.mjs';
 import { projectPublicRecord, validateCatalogUrl } from './catalog.mjs';
+import { classifyLegacyResource, validateTaxonomy } from './resource-taxonomy.mjs';
 import { currentUrlCollision, currentUrlKey, currentUrlReservation, currentUrlReservationId } from './catalog-url.mjs';
 import {
   CREATOR_CONTRACT_VERSION,
@@ -824,13 +825,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     };
   }
 
-  function projectCreatorLink(profile, placementIdValue, resource, {
-    includeHiddenResources = false,
-    publicTags = false,
-    profileSlug = profile.slug,
-  } = {}) {
+  function projectCreatorLink(profile, placementIdValue, resource) {
     const facts = resourceProjectionFacts(resource);
-    if (resource.hidden === true && !includeHiddenResources) return null;
+    if (resource.hidden === true) return null;
     const placement = creatorPlacement(profile, placementIdValue);
     if (!placement) fail(503, 'INVALID_CREATOR_STATE', 'order references a missing placement');
     const featured = profile.order.featured.includes(placementIdValue);
@@ -839,9 +836,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     for (const [seriesId, series] of Object.entries(profile.series)) {
       const index = series.chapters.indexOf(placementIdValue);
       if (index < 0) continue;
-      tags.push(publicTags
-        ? { seriesId, position: index + 1, name: series.name, href: `/c/${encodeURIComponent(profileSlug)}/series/${encodeURIComponent(series.slug)}/` }
-        : { seriesId, position: index + 1 });
+      tags.push({
+        seriesId,
+        position: index + 1,
+        name: series.name,
+        href: `/c/${encodeURIComponent(profile.slug)}/series/${encodeURIComponent(series.slug)}/`,
+      });
     }
     return {
       placementId: placementIdValue,
@@ -852,26 +852,19 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       featured,
       position: sequence.indexOf(placementIdValue) + 1,
       selectedForDirectory: placement.selectedForDirectory,
-      ...(includeHiddenResources ? { hidden: resource.hidden === true } : {}),
       series: tags,
       directoryApproval: facts.directoryApproval,
       resourceVersion: facts.version,
     };
   }
 
-  async function profileLinks(profile, {
-    includeHiddenResources = false,
-    publicTags = false,
-    profileSlug = profile.slug,
-  } = {}) {
+  async function profileLinks(profile) {
     const ids = orderedPlacementIds(profile);
     const resources = await resourcesById(ids.map((id) => profile.placements[id].resourceId));
     const links = [];
     for (const id of ids) {
       const placement = profile.placements[id];
-      const link = projectCreatorLink(profile, id, resources.get(placement.resourceId), {
-        includeHiddenResources, publicTags, profileSlug,
-      });
+      const link = projectCreatorLink(profile, id, resources.get(placement.resourceId));
       if (link) links.push(link);
     }
     return links;
@@ -1635,7 +1628,14 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
     if (!Object.keys(body).some((field) => ADMIN_RESOURCE_FIELDS.has(field))) fail(422, 'EMPTY_UPDATE', 'classification fields are required');
     try {
-      projectPublicRecord(updated);
+      if (resource.recordType === 'event' || isPublicCatalogResourceId(resource.id)) {
+        projectPublicRecord(updated);
+      } else {
+        // Private classification changes metadata but does not admit the row to public output.
+        const taxonomy = ['kind', 'format', 'topics'].some((field) => Object.hasOwn(updated, field))
+          ? updated : classifyLegacyResource(updated);
+        validateTaxonomy(taxonomy);
+      }
     } catch {
       fail(422, 'INVALID_CLASSIFICATION', 'resource classification is incomplete or invalid');
     }
@@ -1678,7 +1678,14 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       updated.published = false;
       updated.approvalRevoked = true;
     } else if (action === 'ocultar') updated.hidden = true;
-    else if (action === 'restaurar') updated.hidden = false;
+    else if (action === 'restaurar') {
+      if (resource.hidden === true && resource.published === true && resource.approvalRevoked !== true) {
+        try { projectPublicRecord(resource); } catch {
+          fail(422, 'INVALID_CLASSIFICATION', 'resource is not valid for public directory admission');
+        }
+      }
+      updated.hidden = false;
+    }
     else fail(404, 'ACTION_NOT_FOUND', 'action does not exist');
     if (['published', 'approvalRevoked', 'hidden'].every((field) => updated[field] === resource[field])) {
       if (!await store.transact({ checks: [{ key, version: observedVersion }] })) {
@@ -1860,10 +1867,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       observedResources.set(resourceId, resource);
     }
 
-    const didLink = [];
+    const confirmedIds = [];
     const committedVersionChanges = [];
+    let grantWrote = false;
     const linkResult = () => ({
-      linkedResourceIds: didLink,
+      linkedResourceIds: confirmedIds,
       versionChanges: committedVersionChanges,
       profileChanged: profile.version !== startingProfileVersion,
     });
@@ -1880,18 +1888,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         }
         const hasAuthority = resource.directoryControl === 'creator' && resource.editorProfileId === profile.id;
         const hasPlacement = activePlacementId(profile, resourceId) !== null;
-        const hasEditor = Boolean(currentEditor);
-        const alreadyLinked = hasAuthority && hasPlacement && hasEditor;
-        if (alreadyLinked) {
-          didLink.push(resourceId);
-          continue;
-        }
-
-        let candidate = null;
-        if (!hasPlacement) {
-          const appended = appendPlacement(profile, resourceId, true);
-          candidate = appended.candidate;
-        }
+        const candidate = hasPlacement ? null : appendPlacement(profile, resourceId, true).candidate;
         const checks = [{ key: resourceKey, version: resourceVersion }];
         const puts = [];
         let updatedResource = null;
@@ -1908,6 +1905,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
           puts.push({ key: editKey, value: { recordType: 'editorReference', profileId: profile.id, resourceId, version: 1 } });
         }
         await commitCreatorState(profile, candidate, { checks, puts, code: 'CLAIM_CONFLICT' });
+        grantWrote ||= candidate !== null || puts.length > 0;
 
         if (candidate) {
           committedVersionChanges.push(versionChange('profile', profile.id, profile.version, candidate.version));
@@ -1915,9 +1913,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         }
         if (updatedResource) {
           committedVersionChanges.push(versionChange('resource', resourceId, resourceVersion, updatedResource.version));
-          observedResources.set(resourceId, updatedResource);
         }
-        didLink.push(resourceId);
+        confirmedIds.push(resourceId);
       }
 
       const claims = await store.list('claim:');
@@ -1946,13 +1943,22 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         if (!await store.transact({ checks, puts })) fail(409, 'CLAIM_CONFLICT', 'claim state changed while resolving');
       }
     } catch (error) {
-      if (didLink.length > 0) {
+      // No-op confirmations alone are not partial writes. If every grant was confirmed,
+      // the failure belongs to the separate claim-status reconciliation.
+      const allGrantsConfirmed = confirmedIds.length === requestedIds.length;
+      if (grantWrote || allGrantsConfirmed) {
+        const details = {
+          ...linkResult(),
+          ...(!allGrantsConfirmed ? { failedResourceId: requestedIds[confirmedIds.length] } : {}),
+        };
         if (error instanceof ApiError) {
-          error.details = linkResult();
+          error.details = details;
           throw error;
         }
-        const partial = new ApiError(503, 'PARTIAL_CLAIM_WRITE', 'some resources were linked before storage became unavailable');
-        partial.details = linkResult();
+        const partial = new ApiError(503, 'PARTIAL_CLAIM_WRITE', allGrantsConfirmed
+          ? 'the selected resources were confirmed, but the claim status could not be updated'
+          : 'some resources were linked before storage became unavailable');
+        partial.details = details;
         throw partial;
       }
       throw error;
@@ -1996,7 +2002,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         return { status: 308, redirectTo: `/c/${encodeURIComponent(profile.slug)}${suffix || '/'}${search}` };
       }
       const series = seriesFromState(profile);
-      const links = await profileLinks(profile, { publicTags: true, profileSlug: profile.slug });
+      const links = await profileLinks(profile);
       return { status: 200, profile: publicProfile, links, series: publicSeriesSummaries(profile, series, links) };
     } catch {
       return { status: 503 };
@@ -2039,7 +2045,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       for (const id of seriesState.chapters) {
         const placement = profile.placements[id];
         const resource = resources.get(placement.resourceId);
-        const link = projectCreatorLink(profile, id, resource, { publicTags: true, profileSlug: profile.slug });
+        const link = projectCreatorLink(profile, id, resource);
         if (link) links.push(link);
       }
       if (links.length === 0) return { status: 404 };
