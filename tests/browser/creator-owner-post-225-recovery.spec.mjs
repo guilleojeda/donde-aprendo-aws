@@ -376,9 +376,20 @@ test('un 401 tras confirmar un capítulo exige sesión, conserva stale y permite
   }
 });
 
-async function recoverUnknownPublication(fixture, page, acknowledgementDelivery) {
+async function assertWithinViewport(page, target, description) {
+  const box = await target.boundingBox();
+  const viewport = page.viewportSize();
+  assert.ok(box && viewport && box.x >= 0 && box.y >= 0
+    && box.x + box.width <= viewport.width && box.y + box.height <= viewport.height,
+  `${description} stays in the viewport: ${JSON.stringify({ box, viewport })}`);
+}
+
+async function recoverUnknownPublication(fixture, page, acknowledgementDelivery, readFailureStatus = 503) {
   await page.setViewportSize({ width: 390, height: 450 });
   const cookie = await loggedInOwner(fixture, page);
+  let activeCookie = cookie;
+  const failedReadCount = readFailureStatus === 503 && acknowledgementDelivery === 'lost' ? 2 : 1;
+  const expiredSessionKey = readFailureStatus === 401 ? sessionKey(fixture) : undefined;
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
   let publicationRequests = 0;
   let upstreamPublication;
@@ -405,10 +416,11 @@ async function recoverUnknownPublication(fixture, page, acknowledgementDelivery)
     }
     if (publicationRequests > 0 && request.method() === 'GET' && ownerPath(request) === '/api/creador/perfil') {
       ownerReadAttempts += 1;
+      if (ownerReadAttempts === 1 && expiredSessionKey) await fixture.accountStore.deleteSession(expiredSessionKey);
       const response = await route.fetch();
       const body = await response.body();
       ownerReadStatuses.push(response.status());
-      await route.fulfill({ status: ownerReadAttempts === 1 ? 503 : response.status(), headers: response.headers(), body });
+      await route.fulfill({ status: ownerReadAttempts <= failedReadCount ? readFailureStatus : response.status(), headers: response.headers(), body });
       return;
     }
     await route.fallback();
@@ -436,7 +448,11 @@ async function recoverUnknownPublication(fixture, page, acknowledgementDelivery)
     await expect(page.locator('[data-owner-status]')).toHaveCount(0);
     const compare = page.getByRole('button', { name: /Comprobar(?: el)? estado guardado/iu });
     await expect(compare).toHaveCount(1);
-    await compare.click();
+    await compare.scrollIntoViewIfNeeded();
+    await compare.focus();
+    await expect(compare).toBeFocused();
+    await assertWithinViewport(page, compare, 'the keyboard recovery comparison');
+    await page.keyboard.press('Enter');
     const recovery = page.locator('[data-owner-recovery]');
     await expect(recovery).toHaveCount(1);
     await expect(recovery).toHaveAttribute('data-recovery-kind', 'unknown');
@@ -445,18 +461,58 @@ async function recoverUnknownPublication(fixture, page, acknowledgementDelivery)
     await expect(recovery).not.toContainText(/respuesta de publicación se perdió/iu);
     await expect(page.locator('[data-owner-status]')).toHaveCount(0);
     const retry = recovery.getByRole('button', { name: 'Reintentar actualización', exact: true });
-    await expect(retry).toBeEnabled();
-    await expect(retry).toBeFocused();
-    assert.deepEqual(ownerReadStatuses, [200], 'the first failed response followed a real full owner GET');
-    await retry.click();
+    if (readFailureStatus === 401) {
+      await expect(recovery).toHaveAttribute('data-owner-stale', 'true');
+      await expect(retry).toBeDisabled();
+      await expect(recovery).not.toContainText(/ingresa con la misma cuenta|comprueba la sesión/iu);
+      const sessionGuidance = page.locator('[data-session-recovery-status]:visible');
+      await expect(sessionGuidance).toHaveCount(1);
+      await expect(sessionGuidance).toContainText(/misma cuenta|comprueba la sesión/iu);
+      const ownerReadsBeforeCheck = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length;
+      const sessionChecksBefore = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/sesion').length;
+      const writesBeforeCheck = capture.writes().length;
+      const renewed = await fixture.login();
+      activeCookie = renewed;
+      await addCookie(page.context(), fixture, renewed);
+      const sessionCheck = page.locator('[data-session-recovery-check]:visible').first();
+      await sessionCheck.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.locator('[data-session-recovery-shell]:visible')).toHaveCount(0);
+      await expect(retry).toBeEnabled();
+      await expect(recovery).not.toContainText(/ingresa con la misma cuenta|comprueba la sesión/iu);
+      await expect(page.locator('[data-owner-status]')).toContainText(/sesión comprobada/iu);
+      assert.equal(capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length,
+        ownerReadsBeforeCheck, 'session recovery does not read owner content');
+      assert.equal(capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/sesion').length,
+        sessionChecksBefore + 1, 'session recovery uses its dedicated check');
+      assert.equal(capture.writes().length, writesBeforeCheck, 'session recovery does not repeat publication');
+      assert.deepEqual(ownerReadStatuses, [401]);
+      await retry.focus();
+      await expect(retry).toBeFocused();
+    } else {
+      await expect(retry).toBeEnabled();
+      await expect(retry).toBeFocused();
+      assert.deepEqual(ownerReadStatuses, [200], 'the failed delivery followed a real full owner GET');
+    }
+    if (failedReadCount === 2) {
+      const initialMessage = await recovery.locator('p').innerText();
+      await assertWithinViewport(page, retry, 'the retry after the initial failed owner read');
+      await page.keyboard.press('Enter');
+      await expect.poll(() => ownerReadStatuses.length).toBe(2);
+      await expect(retry).toBeFocused();
+      await expect(recovery.locator('p')).toHaveText(initialMessage);
+    }
+    await assertWithinViewport(page, retry, 'the retry after the failed owner read');
+    await page.keyboard.press('Enter');
     const useSaved = page.getByRole('button', { name: 'Usar lo guardado', exact: true });
     await expect(useSaved).toHaveCount(1);
     await expect(page.locator('[data-owner-recovery]')).toHaveCount(1);
     await expect(useSaved).toBeFocused();
+    await assertWithinViewport(page, useSaved, 'the saved-state continuation after the successful owner read');
     await expect(page.locator('[data-owner-recovery]')).toContainText(/no sabemos si fue esta acción la que la publicó/iu);
     await expect(page.locator('[data-owner-status]')).toHaveCount(0);
-    assert.deepEqual(ownerReadStatuses, [200, 200]);
-    await useSaved.click();
+    assert.deepEqual(ownerReadStatuses, [...Array(failedReadCount).fill(readFailureStatus === 401 ? 401 : 200), 200]);
+    await page.keyboard.press('Enter');
     await expect(page.locator('[data-owner-recovery]')).toHaveCount(0);
     await expect(page.locator('[data-owner-public-copy]')).toContainText('publicada y visible');
     await expect(page.locator('[data-owner-status]')).toHaveCount(1);
@@ -464,12 +520,8 @@ async function recoverUnknownPublication(fixture, page, acknowledgementDelivery)
     await expect(page.locator('[data-series-write-status]')).toHaveCount(0);
     const heading = page.locator('#owner-profile-name');
     await expect(heading).toBeFocused();
-    const box = await heading.boundingBox();
-    const viewport = page.viewportSize();
-    assert.ok(box && viewport && box.x >= 0 && box.y >= 0
-      && box.x + box.width <= viewport.width && box.y + box.height <= viewport.height,
-    `the adopted profile heading is visible with focus: ${JSON.stringify({ box, viewport })}`);
-    const persisted = await readOwnerSnapshot(fixture, cookie);
+    await assertWithinViewport(page, heading, 'the adopted profile heading with focus');
+    const persisted = await readOwnerSnapshot(fixture, activeCookie);
     assert.equal(persisted.profile.published, true);
     assert.ok(capture.records.some(({ method, path, status, responseBody }) => method === 'GET'
       && path === '/api/creador/perfil' && status === 200 && responseBody?.profile?.published === true),
@@ -483,12 +535,13 @@ async function recoverUnknownPublication(fixture, page, acknowledgementDelivery)
   }
 }
 
-for (const { acknowledgementDelivery, description } of [
-  { acknowledgementDelivery: 'lost', description: 'una confirmación perdida' },
-  { acknowledgementDelivery: 'unusable', description: 'una confirmación incompatible recibida' },
+for (const { acknowledgementDelivery, readFailureStatus, description } of [
+  { acknowledgementDelivery: 'lost', readFailureStatus: 503, description: 'una confirmación perdida' },
+  { acknowledgementDelivery: 'unusable', readFailureStatus: 503, description: 'una confirmación incompatible recibida' },
+  { acknowledgementDelivery: 'lost', readFailureStatus: 401, description: 'una confirmación perdida con recuperación de sesión' },
 ]) {
   test(`la publicación con ${description} conserva la incertidumbre tras GET fallido y se adopta sin repetir`,
-    async ({ fixture, page }) => recoverUnknownPublication(fixture, page, acknowledgementDelivery));
+    async ({ fixture, page }) => recoverUnknownPublication(fixture, page, acknowledgementDelivery, readFailureStatus));
 }
 
 test('una publicación confirmada conserva una única recuperación cuando falla su lectura', async ({ fixture, page }) => {

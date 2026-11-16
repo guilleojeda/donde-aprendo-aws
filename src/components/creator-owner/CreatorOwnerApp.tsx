@@ -561,8 +561,6 @@ export default function CreatorOwnerApp(props: Props) {
       const latestTarget = rootRef.current?.querySelector<HTMLElement>(selector);
       if (!latestTarget) return;
       const insideOwnerDialog = Boolean(latestTarget.closest('[data-owner-dialog]'));
-      const revealSearchFocus = selector === '#owner-chapter-search'
-        || ((selector === '#owner-link-search' || selector === '#owner-series-search') && document.activeElement === latestTarget);
       if (hasNativeSkipFocus() && ['enlaces', 'series'].includes(stateRef.current.location.view)) {
         dispatch({ type: 'clear-focus', selector });
         return;
@@ -578,15 +576,12 @@ export default function CreatorOwnerApp(props: Props) {
         || selector === '[data-series-page]:last-of-type'
         || selector === '[data-series-chapter-page]:last-of-type';
       const revealContextFocus = selector === '#owner-series-title' || selector === '#owner-series-chapters-title';
-      if (insideOwnerDialog || revealPagerFocus || revealContextFocus) {
-        latestTarget.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
-      } else if (revealSearchFocus) {
-        latestTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
-      } else if (selector === '#owner-profile-name') {
-        const bounds = latestTarget.getBoundingClientRect();
-        if (bounds.top < 0 || bounds.bottom > window.innerHeight || bounds.left < 0 || bounds.right > window.innerWidth) {
-          latestTarget.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
-        }
+      const bounds = latestTarget.getBoundingClientRect();
+      const outsideViewport = bounds.top < 0 || bounds.bottom > window.innerHeight
+        || bounds.left < 0 || bounds.right > window.innerWidth;
+      if (outsideViewport) {
+        latestTarget.scrollIntoView({ block: insideOwnerDialog || revealPagerFocus || revealContextFocus ? 'center' : 'nearest',
+          inline: 'nearest', behavior: 'instant' });
       }
       dispatch({ type: 'clear-focus', selector });
     };
@@ -1023,7 +1018,6 @@ export default function CreatorOwnerApp(props: Props) {
     const accountEmail = latest.accountEmail;
     const isAdmin = latest.isAdmin;
     const profileId = latest.observed.profile?.id ?? null;
-    const previousOperation = latest.operation;
     const root = rootRef.current;
     const ownerDocument = document;
     const generation = ++operationGenerationRef.current;
@@ -1040,20 +1034,21 @@ export default function CreatorOwnerApp(props: Props) {
     const current = () => operationIsCurrent(generation, binding, accountEmail, isAdmin, profileId, root, ownerDocument);
     const fail = (message: string, sessionFailure = false) => {
       if (!current()) return;
-      const detail = fact === 'acknowledged' && !sessionFailure ? `${acknowledgedReadFailureLabel(intent)}. ${message}` : message;
+      const readFailure = sessionFailure ? 'No pudimos leer el estado completo.' : message;
+      const detail = fact === 'acknowledged' && !sessionFailure
+        ? `${acknowledgedReadFailureLabel(intent)}. ${readFailure}` : readFailure;
+      const unknownOutcome = intent?.action === 'publish-profile'
+        ? 'El resultado de la publicación sigue sin confirmarse.' : 'El resultado de la acción sigue sin confirmarse.';
       const feedback = fact === 'acknowledged' ? `${acknowledgedActionLabel(intent)}. ${detail}`
-        : fact === 'conflict' && intent?.targetMissing ? `El destino ya no está disponible. ${message}` : message;
-      const unknownPublication = fact === 'unknown' && intent?.action === 'publish-profile'
-        ? previousOperation.status === 'unknown' && previousOperation.intent.id === intent.id
-          ? previousOperation.message
-          : 'El resultado de la publicación sigue sin confirmarse.'
-        : undefined;
-      const recoveryFeedback = unknownPublication ? `${unknownPublication} ${message}` : feedback;
+        : fact === 'conflict' ? intent?.targetMissing
+          ? `El destino ya no está disponible. ${readFailure}`
+          : `Esta acción no se guardó. No pudimos comparar el estado actual. ${readFailure}`
+          : fact === 'unknown' ? `${unknownOutcome} ${readFailure}` : readFailure;
       const chapterRefresh = fact === 'acknowledged'
         && ['add-chapter', 'remove-chapter', 'move-chapter'].includes(intent?.action ?? '');
       const staleFeedback = fact === 'acknowledged' && sessionFailure
         ? `${acknowledgedActionLabel(intent)}. ${acknowledgedReadFailureLabel(intent)}. La escritura sí quedó confirmada; la vista sigue desactualizada. Reintenta la lectura antes de guardar otra acción. No repetiremos la escritura.`
-        : recoveryFeedback;
+        : feedback;
       const suppressGlobalMessage = chapterRefresh || intent?.action === 'publish-profile';
       const activeElement = document.activeElement;
       const shouldRestoreRecoveryFocus = Boolean(recoveryFocusElement && (
