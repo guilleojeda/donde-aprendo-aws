@@ -494,6 +494,134 @@ test('el foco permanece en el buscador de capítulos si la lectura conserva la s
   }
 });
 
+test('el foco vuelve al buscador cuando desaparece el enlace público de una serie que sigue abierta', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const series = await createSeries(fixture, cookie, { name: 'Ruta pública que queda vacía', slug: 'ruta-publica-vacia' });
+  const chapter = await addLink(fixture, cookie, { title: 'Capítulo público', url: 'https://links.example/publico-vacio' });
+  await addChapter(fixture, cookie, series.id, chapter.placementId);
+  const beforePublish = await readOwnerSnapshot(fixture, cookie);
+  const published = await api(fixture, cookie, '/api/creador/perfil/publicar', {
+    method: 'POST', body: { creatorVersion: beforePublish.creatorVersion },
+  });
+  assert.equal(published.response.status, 200, JSON.stringify(published.body));
+
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  let read;
+  try {
+    await openSeriesView(page, fixture, `&serie=${encodeURIComponent(series.id)}`);
+    const publicLink = page.locator('[data-series-public]');
+    await expect(publicLink).toBeVisible();
+    const remove = chapterRow(page, chapter.placementId).getByRole('button', { name: 'Quitar capítulo', exact: true });
+    read = await holdNextOwnerRead(page);
+    const removeCommand = remove.click();
+    await read.entered;
+    assert.equal(read.actual.status, 200, 'the full read follows the real chapter removal');
+    await publicLink.focus();
+    await expect(publicLink).toBeFocused();
+    read.release();
+    await removeCommand;
+    await read.finished;
+    await expect(page.locator('[data-owner-series-chapters]')).toBeVisible();
+    await expect(page.locator('[data-series-public]')).toBeHidden();
+    await expect(page.locator('[data-chapter-search]')).toBeFocused();
+    assert.equal(capture.writes().filter(({ method, path }) => method === 'DELETE'
+      && path === `/api/creador/series/${series.id}/capitulos/${chapter.placementId}`).length, 1,
+    'the focus recovery does not replay the confirmed chapter removal');
+  } finally {
+    read?.release();
+    await read?.remove();
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('el foco vuelve al buscador cuando el perfil se oculta durante la reconciliación de una serie', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const series = await createSeries(fixture, cookie, { name: 'Ruta que se oculta', slug: 'ruta-que-se-oculta' });
+  const first = await addLink(fixture, cookie, { title: 'Primer capítulo', url: 'https://links.example/primer-capitulo' });
+  const second = await addLink(fixture, cookie, { title: 'Segundo capítulo', url: 'https://links.example/segundo-capitulo' });
+  await addChapter(fixture, cookie, series.id, first.placementId);
+  await addChapter(fixture, cookie, series.id, second.placementId);
+  const beforePublish = await readOwnerSnapshot(fixture, cookie);
+  const published = await api(fixture, cookie, '/api/creador/perfil/publicar', {
+    method: 'POST', body: { creatorVersion: beforePublish.creatorVersion },
+  });
+  assert.equal(published.response.status, 200, JSON.stringify(published.body));
+
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  let read;
+  try {
+    await openSeriesView(page, fixture, `&serie=${encodeURIComponent(series.id)}`);
+    const publicLink = page.locator('[data-series-public]');
+    await expect(publicLink).toBeVisible();
+    const remove = chapterRow(page, first.placementId).getByRole('button', { name: 'Quitar capítulo', exact: true });
+    read = await pauseNextOwnerReadBeforeFetch(page);
+    const removeCommand = remove.click();
+    await read.entered;
+    const profileKey = `profile:${published.body.profileId}`;
+    const currentProfile = await fixture.creatorStore.get(profileKey);
+    assert.ok(currentProfile, 'the profile remains available while reconciliation is paused');
+    await fixture.creatorStore.transact({
+      checks: [{ key: profileKey, version: currentProfile.version }],
+      puts: [{ key: profileKey, value: { ...currentProfile, hidden: true, version: currentProfile.version + 1 } }],
+    });
+    await publicLink.focus();
+    await expect(publicLink).toBeFocused();
+    read.release();
+    await removeCommand;
+    await read.finished;
+    await expect(page.locator('[data-owner-series-chapters]')).toBeVisible();
+    await expect(page.locator('[data-series-public]')).toBeHidden();
+    await expect(page.locator('[data-chapter-search]')).toBeFocused();
+    assert.equal(read.actual.body.profile.hidden, true, 'the real reconciled snapshot includes the concurrent profile hide');
+  } finally {
+    read?.release();
+    await read?.remove();
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('el foco recuperado del detalle de una serie queda dentro del viewport móvil', async ({ fixture, page }) => {
+  await page.setViewportSize({ width: 390, height: 650 });
+  const cookie = await loggedInOwner(fixture, page);
+  const series = await createSeries(fixture, cookie, { name: 'Ruta larga para foco', slug: 'ruta-larga-para-foco' });
+  const chapters = [];
+  for (let index = 0; index < 20; index += 1) {
+    const link = await addLink(fixture, cookie, {
+      title: `Capítulo largo ${index + 1}`,
+      url: `https://links.example/largo-${index + 1}`,
+    });
+    await addChapter(fixture, cookie, series.id, link.placementId);
+    chapters.push(link);
+  }
+
+  let read;
+  try {
+    await openSeriesView(page, fixture, `&serie=${encodeURIComponent(series.id)}`);
+    const target = chapterRow(page, chapters.at(-1).placementId);
+    const remove = target.getByRole('button', { name: 'Quitar capítulo', exact: true });
+    await remove.scrollIntoViewIfNeeded();
+    await remove.focus();
+    await expect(remove).toBeFocused();
+
+    read = await holdNextOwnerRead(page);
+    const removal = remove.click();
+    await read.entered;
+    read.release();
+    await removal;
+    await read.finished;
+
+    const search = page.locator('[data-chapter-search]');
+    await expect(search).toBeFocused();
+    const box = await search.boundingBox();
+    const viewport = page.viewportSize();
+    assert.ok(box && viewport && box.y >= 0 && box.y + box.height <= viewport.height,
+      `the recovered focus target is visible in the viewport: ${JSON.stringify({ box, viewport })}`);
+  } finally {
+    read?.release();
+    await read?.remove();
+  }
+});
+
 async function recoverChapterAfterBack({ fixture, page, operation, malformedBack = false }) {
   const cookie = await loggedInOwner(fixture, page);
   const target = await createSeries(fixture, cookie, { name: 'Ruta de recuperación', slug: 'ruta-de-recuperacion' });

@@ -3,6 +3,7 @@ import {
   test,
   expect,
   api,
+  addCookie,
   readOwnerSnapshot,
   loggedInOwner,
   captureCreatorApi,
@@ -28,6 +29,61 @@ async function publishOwner(fixture, cookie) {
   return api(fixture, cookie, '/api/creador/perfil/publicar', {
     method: 'POST', body: { creatorVersion: owner.creatorVersion },
   });
+}
+
+function statisticsReport(request, rows, metricNames = request.metrics.map(({ name }) => name)) {
+  const dimensions = request.dimensions?.map(({ name }) => name) ?? [];
+  return {
+    dimensionHeaders: dimensions.map((name) => ({ name })),
+    metricHeaders: metricNames.map((name) => ({ name, type: 'TYPE_INTEGER' })),
+    rows: rows.map(({ dimensions: values, metrics }) => ({
+      dimensionValues: values.map((value) => ({ value })),
+      metricValues: metrics.map((value) => ({ value: String(value) })),
+    })),
+    rowCount: rows.length,
+    metadata: { timeZone: 'America/Los_Angeles' },
+    propertyQuota: { tokensPerHour: { consumed: 1, remaining: 39_999 } },
+  };
+}
+
+function expandedStatisticsResponse(body) {
+  const reportFor = (request) => {
+    const dimensions = request.dimensions?.map(({ name }) => name) ?? [];
+    const startDate = request.dateRanges?.[0]?.startDate;
+    const period = startDate === '29daysAgo' ? 30 : 7;
+    if (dimensions.includes('date')) {
+      const start = new Date(Date.UTC(2026, period === 30 ? 8 : 9, period === 30 ? 24 : 17));
+      const rows = [];
+      for (let index = 0; index < period; index += 1) {
+        const date = new Date(start);
+        date.setUTCDate(date.getUTCDate() + index);
+        const value = date.toISOString().slice(0, 10).replaceAll('-', '');
+        rows.push({ dimensions: [value, 'creator_view'], metrics: [2] });
+        rows.push({ dimensions: [value, 'creator_link_click'], metrics: [3] });
+      }
+      return statisticsReport(request, rows);
+    }
+    if (dimensions.includes('customEvent:link_id')) {
+      const offset = Number(request.offset ?? 0);
+      const totalRows = 101;
+      const count = Math.min(100, totalRows - offset);
+      const rows = Array.from({ length: count }, (_, index) => ({
+        dimensions: ['content-' + (offset + index)],
+        metrics: [index + 1],
+      }));
+      const report = statisticsReport(request, rows);
+      return { ...report, rowCount: totalRows };
+    }
+    if (dimensions.includes('sessionSourceMedium')) {
+      return statisticsReport(request, [{ dimensions: ['example / referral'], metrics: [4] }]);
+    }
+    if (request.metrics.some(({ name }) => name === 'totalUsers')) {
+      return statisticsReport(request, [{ dimensions: [], metrics: [12, 6] }]);
+    }
+    return statisticsReport(request, [{ dimensions: [], metrics: [20] }]);
+  };
+  if (Array.isArray(body.requests)) return { reports: body.requests.map(reportFor) };
+  return reportFor(body);
 }
 
 test('el resumen real de 7 y 30 días abre cada informe privado con los mismos datos GA4', async ({ fixture, page }) => {
@@ -121,6 +177,53 @@ test('el resumen real de 7 y 30 días abre cada informe privado con los mismos d
   assert.ok(providerPeriods.includes('29daysAgo'), 'the real GA4 reader fetched the 30-day period');
   assert.deepEqual(summaryCaptureFailures, [], 'the route observer captures each real response before returning it unchanged');
   await page.unroute('**/api/creador/estadisticas/**', captureSummaryResponse);
+});
+
+test('el formulario y la paginación del informe funcionan sin JavaScript', async ({ fixture, page, browser }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const published = await publishOwner(fixture, cookie);
+  assert.equal(published.response.status, 200);
+
+  const noJsContext = await browser.newContext({ javaScriptEnabled: false, ignoreHTTPSErrors: true });
+  try {
+    await addCookie(noJsContext, fixture, cookie);
+    fixture.statistics.setProviderResponder(({ body }) => expandedStatisticsResponse(body));
+    const noJsPage = await noJsContext.newPage();
+    const reportPage = (pageNumber) => (url) => url.pathname === '/cuenta/'
+      && url.searchParams.get('vista') === 'estadisticas'
+      && url.searchParams.get('periodo') === '30'
+      && url.searchParams.get('pagina') === String(pageNumber);
+    await noJsPage.goto(fixture.origin + '/cuenta/?vista=estadisticas&periodo=30&pagina=2');
+    const detail = noJsPage.locator('[data-owner-statistics]');
+    await expect(detail).toBeVisible();
+    await expect(detail.locator('select[name="periodo"]')).toHaveValue('30');
+    const savedDate = noJsPage.locator('tr').filter({ has: noJsPage.locator('time[datetime="2026-10-23"]') });
+    await expect(savedDate.locator('td').nth(0)).toHaveText('2');
+    await expect(savedDate.locator('td').nth(1)).toHaveText('3');
+    await expect(detail.getByRole('link', { name: 'Anterior', exact: true })).toBeVisible();
+    await expect(detail.getByRole('link', { name: 'Siguiente', exact: true })).toHaveCount(0);
+    await detail.getByRole('link', { name: 'Anterior', exact: true }).click();
+    await expect(noJsPage).toHaveURL(reportPage(1));
+    await expect(detail.getByText('content-0', { exact: true })).toBeVisible();
+    await expect(detail.getByText('content-100', { exact: true })).toHaveCount(0);
+    await expect(noJsPage.getByRole('link', { name: 'Siguiente', exact: true })).toBeVisible();
+    await noJsPage.getByRole('link', { name: 'Siguiente', exact: true }).click();
+    await expect(noJsPage).toHaveURL(reportPage(2));
+    await expect(detail.getByText('content-100', { exact: true })).toBeVisible();
+    await expect(detail.getByText('content-0', { exact: true })).toHaveCount(0);
+    await noJsPage.goto(fixture.origin + '/cuenta/?vista=estadisticas&periodo=7&pagina=2');
+    await expect(noJsPage.locator('[data-owner-statistics] select[name="periodo"]')).toHaveValue('7');
+    await noJsPage.locator('[data-owner-statistics] select[name="periodo"]').selectOption('30');
+    await noJsPage.getByRole('button', { name: 'Ver período', exact: true }).click();
+    await expect(noJsPage).toHaveURL(reportPage(1));
+    await expect(noJsPage.locator('[data-owner-statistics] select[name="periodo"]')).toHaveValue('30');
+    await expect(noJsPage.locator('[data-owner-activity-total="views"]')).toHaveText('12');
+    const dailyRows = noJsPage.locator('table').filter({ hasText: 'Fecha' }).locator('tbody tr');
+    await expect(dailyRows).toHaveCount(30);
+  } finally {
+    fixture.statistics.setProviderResponder(undefined);
+    await noJsContext.close();
+  }
 });
 
 test('la respuesta anterior no reemplaza el período elegido aunque su JSON termine de leerse después', async ({ fixture, page }) => {

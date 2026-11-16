@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { createCreatorStore } from '../src/lib/creator-store.mjs';
 import { createCreatorPagesService } from '../src/lib/creator-pages.mjs';
 import { currentUrlKey, currentUrlReservationId } from '../src/lib/catalog-url.mjs';
-import { projectPublishedCatalog } from '../src/lib/catalog.mjs';
+import { loadCatalog, projectPublishedCatalog } from '../src/lib/catalog.mjs';
 import {
   apiRequest,
   createCreatorPagesHarness,
@@ -204,6 +204,133 @@ test('restoring an approved creator resource checks its selected public director
     'the selected creator resource remains hidden with no version or timestamp write');
   assert.deepEqual(projectPublishedCatalog([await harness.store.get(`resource:${resourceId}`)], publicState), []);
 });
+
+const ordinaryId = 'ordinary-directory-control';
+const admissionSlug = 'ana-admision';
+
+async function creatorAdmissionFixture(legacyId, { editorial = false } = {}) {
+  const harness = await createCreatorPagesHarness();
+  let creatorVersion = null;
+  async function ownerCommand(path, method, body, status = 200) {
+    const response = await creatorApi(harness, `/api/creador/${path}`, {
+      method, body: { ...body, creatorVersion },
+    });
+    const result = await responseJson(response);
+    assert.equal(response.status, status, JSON.stringify(result));
+    creatorVersion = result.creatorVersion;
+    return result;
+  }
+  async function adminCommand(path, body) {
+    const response = await documentApi(harness, `/api/admin/${path}`, 'admin', { method: 'POST', body });
+    const result = await responseJson(response);
+    assert.equal(response.status, 200, JSON.stringify(result));
+    const profile = await harness.store.get(`profile:${profileId}`);
+    creatorVersion = profile.version;
+    return result;
+  }
+  const { profileId } = await ownerCommand('perfil', 'PUT', { displayName: 'Ana', slug: admissionSlug });
+  const legacy = {
+    id: legacyId, title: 'Contenido histórico', url: 'https://example.com/historico', description: '',
+    category: 'Otros', order: 1, featured: false, kind: 'content', format: 'Artículo', topics: [],
+    published: true, version: 1, directoryControl: editorial ? 'editorial' : 'creator',
+    ...(editorial ? {} : { editorProfileId: profileId }),
+  };
+  const ordinary = {
+    ...legacy, id: ordinaryId, title: 'Contenido válido', url: 'https://example.com/valido',
+    directoryControl: 'creator', editorProfileId: profileId,
+  };
+  await seedResource(harness.store, legacy);
+  await seedResource(harness.store, ordinary);
+  const reference = (resource, selectedForDirectory = true) => ownerCommand('referencias', 'POST', {
+    resourceId: resource.id, url: resource.url, selectedForDirectory,
+  }, 201);
+  await reference(ordinary);
+
+  return {
+    legacy, profileId, ownerCommand, adminCommand,
+    referenceLegacy: (selected) => reference(legacy, selected),
+    publish: () => ownerCommand('perfil/publicar', 'POST', {}),
+    async projectIds() {
+      const result = await loadCatalog({
+        fixturePath: '', tableName: 'catalog', creatorTableName: 'creators',
+        scanPage: async () => ({ Items: await Promise.all([legacyId, ordinaryId]
+          .map((id) => harness.store.get(`resource:${id}`))) }),
+        scanCreatorPage: async () => ({ Items: [{
+          ...await harness.store.get(`profile:${profileId}`), pk: `PROFILE#${profileId}`, sk: 'META',
+        }] }),
+      });
+      return result.map(({ id }) => id);
+    },
+    async assertVisibleExactLink() {
+      const owner = await responseJson(await creatorApi(harness, '/api/creador/perfil'));
+      const [placementId, placement] = Object.entries(owner.placements)
+        .find(([, placement]) => placement.resourceId === legacyId) ?? [];
+      assert.equal(placement?.selectedForDirectory, true);
+      assert.equal(owner.resources.find(({ id }) => id === legacyId)?.url, legacy.url);
+      const publicProfile = await harness.service.readPublicProfile(admissionSlug);
+      assert.equal(publicProfile.status, 200);
+      const publicLink = publicProfile.links.find((link) => link.placementId === placementId);
+      assert.equal(publicLink?.resourceId, legacyId);
+      assert.equal(publicLink?.url, legacy.url);
+    },
+  };
+}
+
+for (const [label, legacyId] of [['CR', 'legacy\rcreator'], ['NUL', 'legacy\0creator']]) {
+  test(`publishing a profile keeps its exact ${label} link without admitting it to the directory`, async () => {
+    const fixture = await creatorAdmissionFixture(legacyId);
+    await fixture.referenceLegacy();
+    assert.deepEqual(await fixture.projectIds(), []);
+    await fixture.publish();
+    await fixture.assertVisibleExactLink();
+    assert.deepEqual(await fixture.projectIds(), [ordinaryId]);
+  });
+
+  test(`restoring a profile keeps its exact ${label} link without admitting it to the directory`, async () => {
+    const fixture = await creatorAdmissionFixture(legacyId);
+    const { creatorVersion } = await fixture.publish();
+    const { versionChanges } = await fixture.adminCommand(`perfiles/${fixture.profileId}/ocultar`, { version: creatorVersion });
+    const { creatorVersion: hiddenVersion } = await fixture.referenceLegacy();
+    assert.equal(versionChanges.length, 1);
+    assert.deepEqual(await fixture.projectIds(), []);
+    await fixture.adminCommand(`perfiles/${fixture.profileId}/restaurar`, { version: hiddenVersion });
+    await fixture.assertVisibleExactLink();
+    assert.deepEqual(await fixture.projectIds(), [ordinaryId]);
+  });
+
+  test(`selecting an exact ${label} link keeps it on the profile and out of the directory`, async () => {
+    const fixture = await creatorAdmissionFixture(legacyId);
+    await fixture.publish();
+    const { placementId } = await fixture.referenceLegacy(false);
+    assert.deepEqual(await fixture.projectIds(), [ordinaryId]);
+    await fixture.ownerCommand(`enlaces/${placementId}`, 'PATCH', { selectedForDirectory: true });
+    await fixture.assertVisibleExactLink();
+    assert.deepEqual(await fixture.projectIds(), [ordinaryId]);
+  });
+
+  test(`adding an exact ${label} link to a visible profile succeeds without admitting it to the directory`, async () => {
+    const fixture = await creatorAdmissionFixture(legacyId);
+    await fixture.publish();
+    assert.deepEqual(await fixture.projectIds(), [ordinaryId]);
+    const { resourceId } = await fixture.ownerCommand('enlaces', 'POST', {
+      title: fixture.legacy.title, url: fixture.legacy.url,
+    }, 201);
+    assert.equal(resourceId, legacyId);
+    await fixture.assertVisibleExactLink();
+    assert.deepEqual(await fixture.projectIds(), [ordinaryId]);
+  });
+
+  test(`granting an approved ${label} resource retains its ID and leaves the directory usable`, async () => {
+    const fixture = await creatorAdmissionFixture(legacyId, { editorial: true });
+    await fixture.publish();
+    const { linkedResourceIds } = await fixture.adminCommand('reclamaciones/vincular', {
+      accountId: 'private-account-a', resourceIds: [legacyId],
+    });
+    assert.deepEqual(linkedResourceIds, [legacyId]);
+    await fixture.assertVisibleExactLink();
+    assert.deepEqual(await fixture.projectIds(), [ordinaryId]);
+  });
+}
 
 test('admin classification rejects records that would break the published catalog before writing', async () => {
   const harness = await createCreatorPagesHarness();

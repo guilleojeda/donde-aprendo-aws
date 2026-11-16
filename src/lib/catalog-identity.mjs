@@ -9,12 +9,15 @@ export function isCatalogResourceIdWithinLimit(id) {
     && utf8Encoder.encode(id).byteLength <= MAX_CATALOG_RESOURCE_ID_BYTES;
 }
 
+export function containsCarriageReturnOrNul(id) {
+  return id.includes('\r') || id.includes('\0');
+}
+
 /** Public resource IDs reject CR, NUL, and outer whitespace; accepted text stays exact. */
 export function isPublicCatalogResourceId(id) {
   return isCatalogResourceIdWithinLimit(id)
     && id.trim() === id
-    && !id.includes('\r')
-    && !id.includes('\0');
+    && !containsCarriageReturnOrNul(id);
 }
 
 /** Event IDs and content eventId references retain their narrow ASCII format. */

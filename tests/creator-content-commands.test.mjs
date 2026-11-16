@@ -9,6 +9,7 @@ import {
   readCreatorSnapshot,
 } from './fixtures/creator-content.mjs';
 import { SITE_ORIGIN } from './fixtures/creator-pages.mjs';
+import { createDynamoMoveHarness, seedMoveProfile, seedMoveResource } from './fixtures/creator-link-move.mjs';
 
 const PROFILE_ID = CREATOR_PROFILE_ID;
 // Existing deterministic identity for this profile/resource pair. Removal and
@@ -841,6 +842,69 @@ test('a rejected conditional admin grant keeps the already committed prefix with
     entity: 'profile', id: PROFILE_ID, before: state.version, after: state.version + 1,
   }]);
 });
+
+test('a storage failure before any grant write carries a definitive retryable result', async () => {
+  const id = 'grant-preflight-unavailable';
+  const harness = await createCreatorContentHarness({ resources: [resource(id, `https://catalog.example/${id}`)] });
+  const read = harness.store.get.bind(harness.store);
+  const before = (await requireSnapshot(harness)).creatorVersion;
+  const callOffset = harness.store.calls.length;
+  harness.store.get = async (key) => {
+    if (key === `editor:${PROFILE_ID}:${id}`) throw new Error('unavailable before writing the first grant');
+    return read(key);
+  };
+  const failure = await grantResources(harness, [id]);
+  harness.store.get = read;
+  assert.equal(failure.response.status, 503);
+  assert.equal(failure.body.failureStage, 'before-grant-write');
+  assert.equal(Object.hasOwn(failure.body, 'linkedResourceIds'), false);
+  assert.equal(harness.store.calls.slice(callOffset).some(({ operation }) => operation === 'transact'), false);
+  assert.equal((await requireSnapshot(harness)).creatorVersion, before);
+  assert.equal((await grantResources(harness, [id])).response.status, 200);
+  assert.equal((await requireSnapshot(harness)).creatorVersion, before + 1);
+});
+
+for (const stop of [0, 1]) {
+  test(`grant ${stop + 1} stays uncertain when its transaction commits and its acknowledgement is lost`, async () => {
+    const harness = await createDynamoMoveHarness();
+    const profileId = 'physical-grant-owner';
+    const ids = ['physical-grant-a', 'physical-grant-b', 'physical-grant-c'];
+    seedMoveProfile(harness.mock, { profileId, version: 7 });
+    for (const id of ids) seedMoveResource(harness.mock, { id, url: `https://catalog.example/${id}` });
+
+    function loseAcknowledgement() {
+      throw Object.assign(new Error('controlled acknowledgement loss'), { name: 'TimeoutError' });
+    }
+    harness.mock.mutateAfterNextTransaction(stop === 0 ? loseAcknowledgement : () => {
+      harness.mock.mutateAfterNextTransaction(loseAcknowledgement);
+    });
+
+    const grant = await grantResources(harness, ids);
+    assert.equal(grant.response.status, 503);
+    assert.equal(grant.body.error, 'CLAIM_GRANT_UNCERTAIN');
+    assert.equal(grant.body.uncertainResourceId, ids[stop]);
+    assert.equal(Object.hasOwn(grant.body, 'failedResourceId'), false);
+    assert.equal(Object.hasOwn(grant.body, 'failureStage'), false);
+    assert.deepEqual(grant.body.linkedResourceIds, ids.slice(0, stop));
+    assert.equal(grant.body.profileChanged, stop > 0);
+    assert.deepEqual(grant.body.versionChanges, stop === 0 ? [] : [
+      { entity: 'profile', id: profileId, before: 7, after: 8 },
+      { entity: 'resource', id: ids[0], before: 1, after: 2 },
+    ]);
+    assert.equal(harness.mock.transactions.length, stop + 1, 'the service neither retries nor starts a later grant');
+
+    const profile = await harness.store.get(`profile:${profileId}`);
+    assert.equal(profile.version, 8 + stop);
+    assert.deepEqual(Object.values(profile.placements).map(({ resourceId }) => resourceId), ids.slice(0, stop + 1));
+    for (const [index, id] of ids.entries()) {
+      const committed = index <= stop;
+      const stored = await harness.store.get(`resource:${id}`);
+      assert.equal(stored.directoryControl, committed ? 'creator' : 'editorial');
+      assert.equal(stored.version, committed ? 2 : 1);
+      assert.equal(Boolean(await harness.store.get(`editor:${profileId}:${id}`)), committed);
+    }
+  });
+}
 
 test('explicit general and chapter sequences preserve hidden members through feature moves, removal, reinclude, and alias 404', async () => {
   const placements = {

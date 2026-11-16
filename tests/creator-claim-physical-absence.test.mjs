@@ -180,3 +180,17 @@ test('a resource found on a valid retry remains distinct from a genuinely absent
   assert.equal((await missing.json()).error, 'RESOURCE_NOT_FOUND');
   assert.deepEqual(absent.writeAttempts, [], 'a true absence does not create either claim record');
 });
+
+test('a malformed null batch result is unavailable and cannot create a claim', async () => {
+  const resourceId = 'phase7-malformed-null-resource';
+  const malformed = createPhysicalClaimService({
+    batchResourceId: resourceId,
+    batchResponses: [{ Responses: { [TABLES.catalogTableName]: null } }],
+  });
+
+  const response = await submitClaim(malformed.service, resourceId);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, 'SERVICE_UNAVAILABLE');
+  assert.equal(malformed.calls.filter((command) => command.constructor.name === 'BatchGetCommand').length, 1);
+  assert.deepEqual(malformed.writeAttempts, [], 'malformed provider data never reaches claim persistence');
+});

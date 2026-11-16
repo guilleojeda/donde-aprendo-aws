@@ -288,7 +288,12 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
         if (rawResponses && Object.keys(rawResponses).some((table) => table !== tables.catalog)) {
           throw new Error('DynamoDB batch read returned an unexpected table');
         }
-        const items = rawResponses?.[tables.catalog] ?? [];
+        // DynamoDB may omit the table key when no rows were found. An explicit
+        // value for that key must still satisfy the response contract. In
+        // particular, `null` is malformed provider data, not an empty result.
+        const items = rawResponses && Object.hasOwn(rawResponses, tables.catalog)
+          ? rawResponses[tables.catalog]
+          : [];
         if (!Array.isArray(items)) throw new Error('DynamoDB batch read items are malformed');
         const requested = new Set(pendingKeys.map(({ id }) => id));
         for (const item of items) {

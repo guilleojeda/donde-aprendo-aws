@@ -636,7 +636,16 @@ const unreadablePartialClaimDeliveries = [
   },
   {
     label: 'missing failedResourceId',
+    stopLost: true,
     mutate(body) { delete body.failedResourceId; },
+  },
+  {
+    label: 'the full selection without evidence of a late status failure',
+    stopLost: true,
+    mutate(body) {
+      body.linkedResourceIds = [...body.linkedResourceIds, body.failedResourceId];
+      delete body.failedResourceId;
+    },
   },
 ];
 
@@ -656,14 +665,14 @@ test(`a real partial claim with ${delivery.label} pauses submitted targets and k
   await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
   await row(page, ids[4]).getByLabel('Categoría').fill('Otro borrador permanece editable');
 
-  const transact = fixture.creatorStore.transact.bind(fixture.creatorStore);
+  const get = fixture.creatorStore.get.bind(fixture.creatorStore);
   let secondResourceFailed = false;
-  fixture.creatorStore.transact = async (operation) => {
-    if (!secondResourceFailed && operation.puts?.some(({ key }) => key === `resource:${ids[1]}`)) {
+  fixture.creatorStore.get = async (key) => {
+    if (!secondResourceFailed && key === `editor:${owner.profile.id}:${ids[1]}`) {
       secondResourceFailed = true;
-      throw new Error('controlled storage failure after the first selected resource committed');
+      throw new Error('the second grant was stopped by its editor-reference read before the write');
     }
-    return transact(operation);
+    return get(key);
   };
   const route = await interceptAdminWrite(page,
     (request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/reclamaciones/vincular/',
@@ -701,7 +710,7 @@ test(`a real partial claim with ${delivery.label} pauses submitted targets and k
       await expect(status).not.toContainText(ids[0]);
     } else {
       await expect(status).toContainText(`Ya vinculados: ${ids[0]}`);
-      await expect(status).toContainText(`Pendientes: ${ids[1]}`);
+      await expect(status).toContainText(`${delivery.stopLost ? 'Sin confirmar' : 'Pendientes'}: ${ids[1]}`);
     }
     await expect(status).toContainText(/recibo no coincide/i);
 
@@ -721,7 +730,156 @@ test(`a real partial claim with ${delivery.label} pauses submitted targets and k
     assert.equal(route.observed.length, 1, 'saving the draft does not replay the partial grant');
   } finally {
     await route.stop();
-    fixture.creatorStore.transact = transact;
+    fixture.creatorStore.get = get;
+  }
+});
+}
+
+for (const { stop, contradictory } of [{ stop: 0 }, { stop: 1 }, { stop: 1, contradictory: true }]) {
+  test(contradictory ? 'conflicting grant stops never present the uncertain resource as linked'
+    : `a lost acknowledgement on grant ${stop + 1} pauses the affected rows until refresh`, async ({ fixture, page }) => {
+    const ids = ['admin-unknown-grant-a', 'admin-unknown-grant-b', 'admin-unknown-grant-c'];
+    const draftId = 'admin-unknown-grant-draft';
+    const separateId = 'admin-unknown-disjoint';
+    await prepareAdmin(fixture, page, [...ids, draftId, separateId]);
+    const owner = await createOwnerProfile(fixture, 'admin-unknown-grant', 'admin-unknown-grant@example.invalid');
+    const claim = await createClaim(fixture, owner.cookie, ids);
+    const otherOwner = await createOwnerProfile(fixture, 'admin-unknown-disjoint', 'admin-unknown-disjoint@example.invalid');
+    const sameResource = await createClaim(fixture, otherOwner.cookie, [ids[stop]]);
+    const sameProfile = await createClaim(fixture, owner.cookie, [ids[2], draftId]);
+    const disjoint = await createClaim(fixture, otherOwner.cookie, [separateId]);
+    await openAdmin(fixture, page);
+    const form = claimForm(page, claim.id);
+    await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
+    await claimSelection(claimForm(page, sameProfile.id), draftId).uncheck();
+    await row(page, draftId).getByLabel('Categoría').fill('Otro borrador durante la revisión');
+
+    const transact = fixture.creatorStore.transact.bind(fixture.creatorStore);
+    let lost = 0;
+    fixture.creatorStore.transact = async (operation) => {
+      const result = await transact(operation);
+      if (result && lost === 0 && operation.puts?.some(({ key }) => key === `editor:${owner.profile.id}:${ids[stop]}`)) {
+        lost += 1;
+        throw new Error('controlled loss of an acknowledgement after commit');
+      }
+      return result;
+    };
+
+    const route = await interceptAdminWrite(page,
+      (request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/reclamaciones/vincular/',
+      async (currentRoute, response, actual) => {
+        if (contradictory) {
+          await fulfillActual(currentRoute, response, {
+            ...actual.body, linkedResourceIds: ids.slice(0, 2), failedResourceId: ids[2],
+          });
+        } else await currentRoute.fulfill({ response });
+      });
+    try {
+      const button = form.getByRole('button', { name: 'Vincular recursos seleccionados' });
+      await button.click();
+      const status = form.locator('[data-item-status]');
+      await expect(status).toContainText(contradictory
+        ? 'No pudimos confirmar el resultado de la vinculación.'
+        : `No pudimos confirmar si se vinculó ${ids[stop]}.`);
+      await expect(status).not.toContainText('Pendientes:');
+      if (stop > 0) await expect(status).toContainText(`Ya vinculados: ${ids[0]}.`);
+      await waitForAdminWriteToSettle(page, draftId);
+      assert.equal(lost, 1);
+      assert.equal(route.observed[0].status, 503);
+      assert.equal(route.observed[0].body.uncertainResourceId, ids[stop]);
+      await expect(button).toBeDisabled();
+      for (const [otherClaim, id] of [[sameResource, ids[stop]], [sameProfile, ids[2]]]) {
+        const otherForm = claimForm(page, otherClaim.id);
+        await expect(claimSelection(otherForm, id)).toBeDisabled();
+        await expect(otherForm.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' })).toBeDisabled();
+        await expect(otherForm.getByRole('button', { name: 'Vincular recursos seleccionados' })).toBeDisabled();
+      }
+      await expect(claimSelection(claimForm(page, sameProfile.id), draftId)).not.toBeChecked();
+      await expect(claimSelection(claimForm(page, sameProfile.id), draftId)).toBeDisabled();
+      await expect(claimSelection(claimForm(page, disjoint.id), separateId)).toBeEnabled();
+      await expect(claimForm(page, disjoint.id).getByRole('button', { name: 'Vincular recursos seleccionados' })).toBeEnabled();
+      await expect(saveButton(page, ids[stop])).toBeDisabled();
+      await expect(moderateResource(page, ids[stop])).toBeDisabled();
+      await expect(profileRow(page, owner.profile.id).getByRole('button', { name: 'Ocultar perfil' })).toBeDisabled();
+      if (!contradictory) {
+        await expect(saveButton(page, ids[stop + 1])).toBeEnabled();
+        if (stop > 0) await expect(saveButton(page, ids[0])).toBeEnabled();
+      }
+
+      const stored = (await fixture.rawOwner(owner.cookie)).profile;
+      assert.deepEqual(Object.values(stored.placements).map(({ resourceId }) => resourceId), ids.slice(0, stop + 1));
+      assert.equal((await fixture.rawResource(ids[stop])).directoryControl, 'creator');
+      assert.equal((await fixture.rawResource(ids[stop + 1])).directoryControl, 'editorial');
+      assert.equal((await fixture.creatorStore.get(`claim:${claim.id}`)).status, 'pending');
+
+      const other = await submitClassification(page, draftId, 'Certificaciones');
+      assert.equal(other.status(), 200);
+      assert.equal((await fixture.rawResource(draftId)).category, 'Certificaciones');
+      assert.equal(route.observed.length, 1, 'completing the unrelated draft never replays a grant');
+      await expect(saveButton(page, ids[stop])).toBeEnabled();
+      const afterRefresh = await submitClassification(page, ids[stop], 'Certificaciones');
+      assert.equal(afterRefresh.status(), 200);
+      assert.equal(JSON.parse(afterRefresh.request().postData()).version, 2);
+      assert.equal((await fixture.rawResource(ids[stop])).category, 'Certificaciones');
+      if (stop === 1 && !contradictory) {
+        const refreshedClaim = claimForm(page, claim.id);
+        const committedVersions = await Promise.all(ids.slice(0, 2).map(async (id) => (await fixture.rawResource(id)).version));
+        for (const id of ids.slice(0, 2)) await claimSelection(refreshedClaim, id).uncheck();
+        await refreshedClaim.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
+        const continuation = page.waitForResponse((response) => response.request().method() === 'POST'
+          && new URL(response.url()).pathname === '/api/admin/reclamaciones/vincular/');
+        await refreshedClaim.getByRole('button', { name: 'Vincular recursos seleccionados' }).click();
+        assert.equal((await continuation).status(), 200);
+        assert.equal(route.observed.length, 2);
+        assert.deepEqual(route.observed[1].requestBody.resourceIds, [ids[2]]);
+        assert.deepEqual(route.observed[1].body.linkedResourceIds, [ids[2]]);
+        assert.deepEqual(await Promise.all(ids.slice(0, 2).map(async (id) => (await fixture.rawResource(id)).version)), committedVersions);
+        assert.equal((await fixture.rawResource(ids[2])).editorProfileId, owner.profile.id);
+        assert.equal((await fixture.creatorStore.get(`claim:${claim.id}`)).status, 'resolved');
+      }
+    } finally {
+      await route.stop();
+      fixture.creatorStore.transact = transact;
+    }
+  });
+}
+
+for (const deliveryFailure of ['lost response', 'gateway JSON error']) {
+test(`a ${deliveryFailure} after a completed grant pauses the submitted scope`, async ({ fixture, page }) => {
+  const [id, draftId] = ['admin-grant-response-lost', 'admin-grant-response-draft'];
+  await prepareAdmin(fixture, page, [id, draftId]);
+  const owner = await createOwnerProfile(fixture, 'admin-grant-response', 'admin-grant-response@example.invalid');
+  const claim = await createClaim(fixture, owner.cookie, [id]);
+  await openAdmin(fixture, page);
+  const form = claimForm(page, claim.id);
+  await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
+  await row(page, draftId).getByLabel('Categoría').fill('Borrador que se puede guardar');
+  const route = await interceptAdminWrite(page,
+    (request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/reclamaciones/vincular/',
+    async (currentRoute, _response, actual) => {
+      assert.equal(actual.status, 200);
+      assert.deepEqual(actual.body.linkedResourceIds, [id]);
+      if (deliveryFailure === 'lost response') await currentRoute.abort();
+      else await currentRoute.fulfill({ status: 502, json: { error: 'upstream unavailable' } });
+    });
+  try {
+    const button = form.getByRole('button', { name: 'Vincular recursos seleccionados' });
+    await button.click();
+    await expect(form.locator('[data-item-status]')).toContainText(/No pudimos confirmar (el resultado|qué recursos)/);
+    await waitForAdminWriteToSettle(page, draftId);
+    await expect(button).toBeDisabled();
+    await expect(saveButton(page, id)).toBeDisabled();
+    await expect(profileRow(page, owner.profile.id).getByRole('button', { name: 'Ocultar perfil' })).toBeDisabled();
+    assert.equal((await fixture.rawResource(id)).directoryControl, 'creator');
+    assert.equal((await fixture.creatorStore.get(`claim:${claim.id}`)).status, 'resolved');
+
+    const saved = await submitClassification(page, draftId, 'Certificaciones');
+    assert.equal(saved.status(), 200);
+    assert.equal((await fixture.rawResource(draftId)).category, 'Certificaciones');
+    await expect(saveButton(page, id)).toBeEnabled();
+    assert.equal(route.observed.length, 1, 'the refresh never replayed the grant');
+  } finally {
+    await route.stop();
   }
 });
 }
@@ -737,6 +895,7 @@ const quotaPartialClaimScenarios = [
   { suffix: 'stop-dupe', label: 'untrustworthy steps after losing the stop ID', mutation: 'omit-stop-duplicate', selectThird: true },
   { suffix: 'extra-three', label: 'malformed overclaim of a proper prefix', mutation: 'extra', selectThird: true },
   { suffix: 'editor-only', label: 'a confirmed editor-only prefix with no version changes', includeFirstPlacement: true, editorOnly: true },
+  { suffix: 'body-lost', label: 'response body lost after a real partial commit', mutation: 'body-lost' },
 ];
 
 for (const scenario of quotaPartialClaimScenarios) {
@@ -779,6 +938,10 @@ test(`a real quota 422 reports its cause and protects the committed prefix (${sc
         entity === 'profile' && id === owner.profile.id && before === 1 && after === 2), !scenario.includeFirstPlacement);
       assert.equal(actual.body.versionChanges.some(({ entity, id }) => entity === 'resource' && id === ids[1]), false,
         'the failed B attempt contributes no resource version receipt');
+      if (scenario.mutation === 'body-lost') {
+        await currentRoute.fulfill({ status: 422, contentType: 'application/json', body: '' });
+        return;
+      }
       const delivered = { ...actual.body };
       if (scenario.mutation?.startsWith('omit-ids')) delete delivered.linkedResourceIds;
       if (scenario.mutation === 'omit-ids-and-flag') {
@@ -825,16 +988,19 @@ test(`a real quota 422 reports its cause and protects the committed prefix (${sc
       await expect(claimSelection(form, id)).toBeChecked();
       await expect(claimSelection(form, id)).toBeDisabled();
     }
-    await expect(form.locator('[data-item-status]')).toContainText(/La página alcanzó su capacidad\. Libera espacio/i);
+    if (scenario.mutation !== 'body-lost') {
+      await expect(form.locator('[data-item-status]')).toContainText(/La página alcanzó su capacidad\. Libera espacio/i);
+    }
     await expect(row(page, draftId).getByLabel('Categoría')).toHaveValue('El borrador sigue editable');
     await expect(saveButton(page, draftId)).toBeEnabled();
 
-    if (scenario.mutation?.startsWith('omit-ids') || scenario.mutation === 'omit-stop-duplicate') {
+    if (scenario.mutation?.startsWith('omit-ids') || ['omit-stop-duplicate', 'body-lost'].includes(scenario.mutation)) {
       await expect(form.locator('[data-item-status]')).toContainText(/No pudimos confirmar qué recursos se vincularon/i);
       await expect(form.locator('[data-item-status]')).not.toContainText(ids[0]);
     } else {
       await expect(form.locator('[data-item-status]')).toContainText(`Ya vinculados: ${ids[0]}`);
-      await expect(form.locator('[data-item-status]')).toContainText(`Pendientes: ${ids.slice(1).join(', ')}`);
+      const label = scenario.mutation === 'omit-stop' ? 'Sin confirmar' : 'Pendientes';
+      await expect(form.locator('[data-item-status]')).toContainText(`${label}: ${ids.slice(1).join(', ')}`);
     }
     if (scenario.mutation) {
       for (const id of ids) await expect(saveButton(page, id)).toBeDisabled();
@@ -867,16 +1033,20 @@ test(`a real quota 422 reports its cause and protects the committed prefix (${sc
 });
 }
 
-test('a late claim-status conflict keeps the full confirmed selection even when its grants were no-ops', async ({ fixture, page }) => {
+for (const loseStage of [false, true]) {
+test(loseStage ? 'a late conflict with the stage missing never labels committed resources pending'
+  : 'a late claim-status conflict keeps the full confirmed selection even when its grants were no-ops', async ({ fixture, page }) => {
   const ids = ['admin-late-status-a', 'admin-late-status-b', 'admin-late-status-draft'];
   const adminCookie = await prepareAdmin(fixture, page, ids);
   const owner = await createOwnerProfile(fixture, 'admin-late-status-owner', 'admin-late-status@example.invalid');
   const grantBody = { accountId: owner.principal.accountId, resourceIds: ids.slice(0, 2) };
-  const initialGrant = await fixture.request(adminCookie, '/api/admin/reclamaciones/vincular/', {
-    method: 'POST', body: grantBody,
-  });
-  assert.equal(initialGrant.status, 200);
-  assert.deepEqual((await initialGrant.json()).linkedResourceIds, grantBody.resourceIds);
+  if (!loseStage) {
+    const initialGrant = await fixture.request(adminCookie, '/api/admin/reclamaciones/vincular/', {
+      method: 'POST', body: grantBody,
+    });
+    assert.equal(initialGrant.status, 200);
+    assert.deepEqual((await initialGrant.json()).linkedResourceIds, grantBody.resourceIds);
+  }
   const claim = await createClaim(fixture, owner.cookie, ids.slice(0, 2));
   await openAdmin(fixture, page);
   const form = claimForm(page, claim.id);
@@ -893,7 +1063,15 @@ test('a late claim-status conflict keeps the full confirmed selection even when 
   };
   const route = await interceptAdminWrite(page,
     (request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/reclamaciones/vincular/',
-    async (currentRoute, response) => currentRoute.fulfill({ response }));
+    async (currentRoute, response, actual) => {
+      if (!loseStage) await currentRoute.fulfill({ response });
+      else {
+        const delivered = { ...actual.body };
+        delete delivered.failureStage;
+        delivered.versionChanges = delivered.versionChanges.slice(0, 2);
+        await fulfillActual(currentRoute, response, delivered);
+      }
+    });
   try {
     const responsePromise = page.waitForResponse((candidate) => candidate.request().method() === 'POST'
       && new URL(candidate.url()).pathname === '/api/admin/reclamaciones/vincular/');
@@ -903,17 +1081,21 @@ test('a late claim-status conflict keeps the full confirmed selection even when 
     const receipt = route.observed[0].body;
     assert.equal(receipt.error, 'CLAIM_CONFLICT');
     assert.deepEqual(receipt.linkedResourceIds, grantBody.resourceIds);
-    assert.deepEqual(receipt.versionChanges, []);
-    assert.equal(receipt.profileChanged, false);
+    assert.equal(receipt.versionChanges.length, loseStage ? 4 : 0);
+    assert.equal(receipt.profileChanged, loseStage);
+    assert.equal(receipt.failureStage, 'claim-status');
     assert.equal(Object.hasOwn(receipt, 'failedResourceId'), false);
     assert.equal((await fixture.creatorStore.get(`claim:${claim.id}`)).status, 'pending');
     assert.equal((await fixture.rawOwner(owner.cookie)).profile.version, 3);
     for (const id of grantBody.resourceIds) {
       assert.equal((await fixture.rawResource(id)).version, 2);
       await expect(claimSelection(form, id)).toBeDisabled();
-      await expect(saveButton(page, id)).toBeEnabled();
+      if (loseStage) await expect(saveButton(page, id)).toBeDisabled();
+      else await expect(saveButton(page, id)).toBeEnabled();
     }
-    await expect(form.locator('[data-item-status]')).toContainText(`Los recursos ya vinculados son: ${ids[0]}, ${ids[1]}`);
+    const expected = loseStage ? `Ya vinculados: ${ids[0]}. Sin confirmar: ${ids[1]}.`
+      : `Los recursos ya vinculados son: ${ids[0]}, ${ids[1]}`;
+    await expect(form.locator('[data-item-status]')).toContainText(expected);
     await expect(form.locator('[data-item-status]')).not.toContainText('Pendientes:');
     await expect(row(page, ids[2]).getByLabel('Categoría')).toHaveValue('Borrador durante el conflicto de estado');
     const savedDraft = await submitClassification(page, ids[2], 'Certificaciones');
@@ -933,6 +1115,7 @@ test('a late claim-status conflict keeps the full confirmed selection even when 
     fixture.creatorStore.transact = transact;
   }
 });
+}
 
 for (const phantomProfile of [false, true]) {
 test(phantomProfile ? 'an authority-only single grant rejects an appended phantom profile change'
@@ -1153,6 +1336,7 @@ test('a genuine no-write claim rejection stays editable and allows another real 
     async (currentRoute, response, actual) => {
       assert.equal(actual.status, 409);
       assert.equal(actual.body.error, 'RESOURCE_ALREADY_CLAIMED');
+      assert.equal(actual.body.failureStage, 'before-grant-write');
       assert.equal(Object.hasOwn(actual.body, 'linkedResourceIds'), false,
         'the service rejected the request during preflight before committing A');
       await currentRoute.fulfill({ response });

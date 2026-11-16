@@ -5,6 +5,7 @@ import { DISCOVERY_FIELDS, validateDiscoveryMetadata } from './resource-discover
 import { projectPublicEvent } from './events.mjs';
 import { CREATOR_FIELD_LIMITS, isCreatorSlug, isCreatorStateId } from './creator-values.mjs';
 import {
+  containsCarriageReturnOrNul,
   isCatalogResourceIdWithinLimit,
   isPublicCatalogResourceId,
   MAX_CATALOG_RESOURCE_ID_BYTES,
@@ -361,6 +362,10 @@ export function projectPublishedCatalog(items, creatorState) {
     if (item.hidden === true) continue;
     const placements = placementsByResource.get(item.id) ?? [];
     if (item.directoryControl === 'creator') {
+      // Legacy creator links use exact private IDs. CR and NUL cannot survive in directory card fragments.
+      if (item.recordType === undefined && isCatalogResourceIdWithinLimit(item.id) && containsCarriageReturnOrNul(item.id)) {
+        continue;
+      }
       const eligible = placements.some(({ creator, placement }) => {
         return placement.selectedForDirectory && creator.published && !creator.hidden;
       });

@@ -295,6 +295,7 @@ test('getResources rejects malformed, unexpected, duplicate, and provider-error 
     null,
     { Responses: { 'catalog-test': 'not-an-item-list' } },
     { UnprocessedKeys: { 'catalog-test': { Keys: 'not-a-key-list' } } },
+    { Responses: { 'catalog-test': null } },
     { Responses: { 'other-table': [] } },
     { Responses: { 'catalog-test': [{ id: 'unexpected' }] } },
     { Responses: { 'catalog-test': [{ id: 'expected' }, { id: 'expected' }] } },
