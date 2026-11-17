@@ -81,7 +81,7 @@ test('password-reset Lambda archive is reproducible, content addressed, and its 
 
   const envKeys = [
     'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SESSION_TOKEN', 'AWS_REGION',
-    'AWS_ENDPOINT_URL_DYNAMODB', 'AWS_IGNORE_CONFIGURED_ENDPOINT_URLS', 'ACCOUNTS_TABLE',
+    'AWS_ENDPOINT_URL_DYNAMODB', 'AWS_IGNORE_CONFIGURED_ENDPOINT_URLS', 'ACCOUNTS_TABLE', 'COGNITO_ISSUER',
   ];
   const previousEnv = new Map(envKeys.map((key) => [key, process.env[key]]));
   let verifier;
@@ -95,6 +95,7 @@ test('password-reset Lambda archive is reproducible, content addressed, and its 
     process.env.AWS_ENDPOINT_URL_DYNAMODB = endpoint;
     process.env.AWS_IGNORE_CONFIGURED_ENDPOINT_URLS = 'false';
     process.env.ACCOUNTS_TABLE = 'archive-accounts';
+    process.env.COGNITO_ISSUER = 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_TESTPOOL';
 
     const extractedDirectory = join(temporaryDirectory, 'extracted');
     await run('unzip', ['-q', join(repositoryRoot, first.path), '-d', extractedDirectory]);
