@@ -3,6 +3,19 @@ import { projectPublicRecord } from './catalog.mjs';
 
 const COMMUNITY_TYPES = new Set(['User Group', 'Student Builder Group']);
 
+export function canonicalMeetupSourceUrl(value) {
+  if (typeof value !== 'string') return null;
+  let url;
+  try { url = new URL(value); } catch { return null; }
+  if (url.protocol !== 'https:' || url.hostname !== 'www.meetup.com'
+    || url.username || url.password || url.port || url.search || url.hash
+    || !/^\/[a-z0-9_-]+\/$/iu.test(url.pathname)) {
+    return null;
+  }
+  const locator = url.origin + url.pathname;
+  return url.href === locator ? locator : null;
+}
+
 /** Turn a manually reviewed Meetup directory snapshot into approved catalog items. */
 export function mapMeetupCommunities(directory) {
   if (!Array.isArray(directory?.groups) || directory.groups.length === 0) {
@@ -21,14 +34,12 @@ export function mapMeetupCommunities(directory) {
     if (typeof group.name !== 'string' || !group.name.trim() || group.name.trim() !== group.name) {
       throw new Error(`Meetup group ${group.id} has an invalid name`);
     }
-    let url;
-    try { url = new URL(group.url); } catch { throw new Error(`Meetup group ${group.id} has an invalid URL`); }
-    if (url.protocol !== 'https:' || url.hostname !== 'www.meetup.com' || !/^\/[a-z0-9_-]+\/$/iu.test(url.pathname)
-      || url.search || url.hash || urls.has(url.href)) {
+    const url = canonicalMeetupSourceUrl(group.url);
+    if (!url || urls.has(url)) {
       throw new Error(`Meetup group ${group.id} has an invalid or duplicate URL`);
     }
     ids.add(group.id);
-    urls.add(url.href);
+    urls.add(url);
 
     const country = COUNTRY_LABELS[group.country];
     const description = group.type === 'User Group'
@@ -37,7 +48,8 @@ export function mapMeetupCommunities(directory) {
     const record = {
       id: `meetup-${group.id}`,
       title: group.name,
-      url: url.href,
+      url,
+      meetupSourceUrl: url,
       description,
       category: 'Comunidad',
       order: -100 - index,

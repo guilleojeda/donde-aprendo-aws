@@ -41,6 +41,27 @@ test('rejects DEL control characters in reviewed community cities', () => {
   assert.throws(() => mapMeetupCommunities({ groups: [group({ city: 'Lima\u007f' })] }), /invalid city/);
 });
 
+test('new Meetup enrollments store a canonical source URL and reject a mismatched pre-mapped locator', async () => {
+  const [mapped] = mapMeetupCommunities({ groups: [group({
+    url: 'https://WWW.Meetup.com:443/aws-bogota/',
+  })] });
+  assert.equal(mapped.meetupSourceUrl, 'https://www.meetup.com/aws-bogota/');
+  for (const url of [
+    'https://www.meetup.com:8443/aws-bogota/',
+    'https://www.meetup.com/aws-bogota/?',
+    'https://www.meetup.com/aws-bogota/#',
+  ]) {
+    assert.throws(() => mapMeetupCommunities({ groups: [group({ url })] }), /invalid or duplicate URL/);
+  }
+
+  await assert.rejects(importMeetupCommunities([{
+    ...mapped, meetupSourceUrl: 'https://www.meetup.com/another-group/',
+  }], {
+    tableName: 'test-catalog',
+    getIdentity: async () => assert.fail('unverified enrollment reached AWS identity'),
+  }), /invalid source URL/);
+});
+
 test('Meetup numeric community IDs retain the prefix within the 256-byte catalog limit', () => {
   const boundary = mapMeetupCommunities({ groups: [group({ id: '9'.repeat(249) })] })[0];
   assert.equal(boundary.id, `meetup-${'9'.repeat(249)}`);

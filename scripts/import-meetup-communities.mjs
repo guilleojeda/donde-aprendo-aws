@@ -4,18 +4,24 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { isMainThread } from 'node:worker_threads';
 import { createDynamoCatalogAccess, putCatalogResourceOnce } from '../src/lib/catalog-resource-writer.mjs';
-import { mapMeetupCommunities } from '../src/lib/meetup-communities.mjs';
+import { canonicalMeetupSourceUrl, mapMeetupCommunities } from '../src/lib/meetup-communities.mjs';
 import { isPublicCatalogResourceId } from '../src/lib/catalog-identity.mjs';
 import { TARGET_ACCOUNT_ID } from '../src/lib/catalog-import.mjs';
 
 export async function importMeetupCommunities(records, options = {}) {
   if (!Array.isArray(records) || records.length === 0) throw new Error('No Meetup communities to import');
   if (!options.tableName) throw new Error('DynamoDB table name is required');
-  for (const [index, record] of records.entries()) {
+  const reviewedRecords = records.map((record, index) => {
     if (!isPublicCatalogResourceId(record?.id)) {
       throw new Error(`Meetup community ${index + 1} has an invalid public ID`);
     }
-  }
+    if (!/^meetup-[0-9]+$/u.test(record.id)) return record;
+    const locator = canonicalMeetupSourceUrl(record.url);
+    if (!locator || (record.meetupSourceUrl !== undefined && record.meetupSourceUrl !== locator)) {
+      throw new Error(`Meetup community ${index + 1} has an invalid source URL`);
+    }
+    return { ...record, meetupSourceUrl: locator };
+  });
 
   const getIdentity = options.getIdentity ?? (async () => {
     const { STSClient, GetCallerIdentityCommand } = await import('@aws-sdk/client-sts');
@@ -33,7 +39,7 @@ export async function importMeetupCommunities(records, options = {}) {
   let created = 0;
   let skipped = 0;
   const conflicts = [];
-  for (const record of records) {
+  for (const record of reviewedRecords) {
     try {
       const result = await putCatalogResourceOnce({ tableName: options.tableName, item: record, ...access });
       if (result.status === 'created') created += 1;
