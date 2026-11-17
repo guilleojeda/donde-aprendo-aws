@@ -263,6 +263,14 @@ def get_text(url, budget=None):
     opener = build_opener(MeetupRedirectHandler(request_deadline, observation_path))
     with opener.open(request, timeout=timeout) as response:
         validate_meetup_transport_url(response.url, observation_path)
+        if response.status != 200 or 'Content-Range' in response.headers:
+            raise ValueError(f'Meetup response is not a complete HTTP 200: {url}')
+        lengths = response.headers.get_all('Content-Length', [])
+        encodings = response.headers.get_all('Transfer-Encoding', [])
+        if (encodings and ([encoding.strip().lower() for encoding in encodings] != ['chunked'] or lengths)
+                or lengths and (len(lengths) != 1 or not re.fullmatch(r'[0-9]+', lengths[0].strip()))):
+            raise ValueError(f'Invalid Meetup response framing: {url}')
+        expected_length = response.length
         contents = bytearray()
         while True:
             remaining_time = request_deadline - monotonic()
@@ -281,6 +289,8 @@ def get_text(url, budget=None):
                 raise RequestTimedOut(f'Meetup request budget exhausted while reading {url}')
             if not chunk:
                 break
+        if expected_length is not None and len(contents) != expected_length:
+            raise ValueError(f'Incomplete Meetup response body: {url}')
         return bytes(contents).decode('utf-8')
 
 
@@ -599,22 +609,30 @@ def is_supported_schema_context(context):
     )
 
 
-def structured_nodes(data):
+def structured_nodes(data, *, node_required=True):
     if isinstance(data, list):
         for node in data:
-            yield from structured_nodes(node)
+            yield from structured_nodes(node, node_required=node_required)
         return
     if not isinstance(data, dict):
-        raise ValueError('Invalid structured data node')
-    supported_keywords = {'@context', '@type', '@id', '@graph', '@included', '@set', '@index'}
+        if node_required:
+            raise ValueError('Invalid structured data node')
+        return
+    if '@value' in data:
+        literal_keys = {'@value', '@type', '@language', '@direction', '@index'}
+        if node_required or data.keys() - literal_keys:
+            raise ValueError('Invalid structured data literal')
+        return
+    supported_keywords = {'@context', '@type', '@id', '@graph', '@included', '@set', '@list', '@index'}
     if any(key.startswith('@') and key not in supported_keywords for key in data):
         raise ValueError('Unsupported structured data keyword')
     if '@context' in data and not is_supported_schema_context(data['@context']):
         raise ValueError('Unsupported structured data context')
     if '@index' in data and not isinstance(data['@index'], str):
         raise ValueError('Invalid structured data index')
-    if '@set' in data and data.keys() - {'@context', '@index', '@set'}:
-        raise ValueError('Invalid structured data set')
+    for collection in ('@set', '@list'):
+        if collection in data and data.keys() - {'@context', '@index', collection}:
+            raise ValueError('Invalid structured data collection')
     types = data.get('@type', [])
     if isinstance(types, str):
         types = [types]
@@ -626,9 +644,11 @@ def structured_nodes(data):
         if not isinstance(identity, str) or not identity or re.search(r'[\s\x00-\x1f\x7f]', identity):
             raise ValueError('Invalid structured data identity')
     yield data, types
-    for key in ('@graph', '@included', '@set'):
-        if key in data:
-            yield from structured_nodes(data[key])
+    for key, value in data.items():
+        if key in {'@graph', '@included'}:
+            yield from structured_nodes(value)
+        elif key in {'@set', '@list'} or not key.startswith('@'):
+            yield from structured_nodes(value, node_required=False)
 
 
 def parse_event_page(text, expected_url):
@@ -647,8 +667,9 @@ def parse_event_page(text, expected_url):
     details = ('eventStatus', 'name', 'description', 'startDate', 'endDate', 'eventAttendanceMode', 'location')
     # The observer reads Meetup's literal schema.org fields. Reject alternate
     # declarations rather than interpreting an incomplete JSON-LD expansion.
-    aliases = {prefix + field for prefix in ('schema:', 'http://schema.org/', 'https://schema.org/')
-               for field in ('url', *details)}
+    prefixes = ('schema:', 'http://schema.org/', 'https://schema.org/')
+    aliases = {prefix + field for prefix in prefixes for field in ('url', *details)}
+    status_fields = {'eventStatus', *(prefix + 'eventStatus' for prefix in prefixes)}
     for script in parser.scripts:
         try:
             data = json.loads(script, object_pairs_hook=unambiguous_json_object,
@@ -657,6 +678,8 @@ def parse_event_page(text, expected_url):
             raise ValueError(f'Invalid structured data for {expected_url}: {error}') from error
         for node, types in structured_nodes(data):
             if not any(kind in event_types for kind in types):
+                if status_fields.intersection(node):
+                    raise ValueError(f'Structured Event status has no Event identity: {expected_url}')
                 continue
             if aliases.intersection(node):
                 raise ValueError(f'Unsupported alternate structured Event fields: {expected_url}')

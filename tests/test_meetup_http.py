@@ -42,9 +42,10 @@ def load_importer():
     return subject
 
 
-def send(request, body, status=200, location=None):
+def send(request, body, status=200, location=None, content_length=None):
     request.send_response(status)
-    request.send_header('Content-Length', str(len(body)))
+    length = len(body) if content_length is None else content_length
+    request.send_header('Content-Length', str(length))
     if location:
         request.send_header('Location', location)
     request.end_headers()
@@ -179,6 +180,65 @@ class MeetupHttpTests(unittest.TestCase):
                         self.assertEqual(table.existing[event['id']], event)
                         self.assertEqual(invocations, [])
 
+
+
+    def test_partial_http_transport_cannot_prove_an_empty_calendar(self):
+        path = '/aws-bogota/events/ical/'
+        source = {
+            'id': 'meetup-123', 'title': support.GROUP['name'], 'meetupSourceUrl': support.GROUP['url'],
+            'country': 'CO', 'kind': 'community', 'published': True,
+        }
+        start, end = support.EVENT_DATES['future']
+        event = support.existing_event(starts_at=start, ends_at=end)
+        body = support.EMPTY_ICAL.encode()
+        for status_code, declared_length, complete in (
+                (200, len(body), True), (200, len(body) + 200, False), (206, len(body), False),
+                (200, 'invalid', False)):
+            with self.subTest(status=status_code, length=declared_length):
+                requests, invocations = [], []
+                table = support.FakeTable([source, event])
+                boto3 = support.fake_boto3(table, invocations)
+
+                def route(request):
+                    requests.append(request.path)
+                    send(request, body, status=status_code, content_length=declared_length)
+
+                with LocalMeetup(route), patch.dict(sys.modules, support.fake_aws_modules(boto3)), \
+                        patch.dict(os.environ, {
+                            'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication',
+                        }):
+                    if complete:
+                        result = support.meetup.lambda_handler({}, support.lambda_context())
+                        self.assertEqual((result['changed'], result['failures']), (1, []))
+                        self.assertFalse(table.existing[event['id']]['published'])
+                        self.assertEqual(len(invocations), 1)
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, 'Meetup sources failed'):
+                            support.meetup.lambda_handler({}, support.lambda_context())
+                        self.assertEqual(table.existing[event['id']], event)
+                        self.assertEqual(table.updates, [])
+                        self.assertEqual(invocations, [])
+                self.assertEqual(requests, [path])
+
+    def test_chunked_transport_requires_the_final_chunk(self):
+        body = support.EMPTY_ICAL.encode()
+        for complete in (True, False):
+            with self.subTest(complete=complete):
+                def route(request):
+                    request.send_response(200)
+                    request.send_header('Transfer-Encoding', 'chunked')
+                    request.end_headers()
+                    request.wfile.write(f'{len(body):x}\r\n'.encode() + body + b'\r\n')
+                    if complete:
+                        request.wfile.write(b'0\r\n\r\n')
+
+                with LocalMeetup(route):
+                    url = support.GROUP['url'] + 'events/ical/'
+                    if complete:
+                        self.assertEqual(support.meetup.get_text(url), support.EMPTY_ICAL)
+                    else:
+                        with self.assertRaises(http.client.IncompleteRead):
+                            support.meetup.get_text(url)
 
     def test_only_same_event_redirect_can_supply_structured_detail(self):
         path = '/aws-bogota/events/456/'

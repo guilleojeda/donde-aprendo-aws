@@ -100,6 +100,17 @@ class MeetupEventObservationTests(unittest.TestCase):
                 '@id': '#event',
                 '@nest': {'eventStatus': support.PAGE['eventStatus']},
             })), False),
+            ('same-id fragment declares a conflicting status',
+             script(dict(cancelled, **{'@id': '#event'})) + script({
+                 '@id': '#event', 'eventStatus': support.PAGE['eventStatus'],
+             }), False),
+            ('conflicting Event in structured page mainEntity',
+             script(cancelled) + script({'@type': 'WebPage', 'mainEntity': support.PAGE}), False),
+            ('typed and untyped status fragments inside structured graph',
+             script({'@graph': [dict(cancelled, **{'@id': '#event'}), {
+                 '@id': '#event', 'https://schema.org/eventStatus': support.PAGE['eventStatus'],
+             }]}), False),
+
 
 
             ('equivalent graph serialization', script(cancelled) + script({
