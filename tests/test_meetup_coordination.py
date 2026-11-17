@@ -36,7 +36,8 @@ def make_group(number):
 def community_row(group, published=True):
     return {
         'id': f'meetup-{group["id"]}', 'title': group['name'], 'url': group['url'],
-        'country': group['country'], 'kind': 'community', 'published': published,
+        'meetupSourceUrl': group['url'], 'country': group['country'],
+        'kind': 'community', 'published': published,
     }
 
 
@@ -499,6 +500,65 @@ class MeetupCoordinationTests(unittest.TestCase):
         self.assertEqual(result['failures'], [])
         self.assertEqual(table.existing, before)
         self.assertEqual(table.updates, [])
+
+    def test_peer_feed_hit_protects_another_owner_when_peer_detail_fails(self):
+        current_owner = make_group(243)
+        reporting_source = make_group(244)
+        fully_observed_owner = make_group(247)
+        prior = mapped_prior(current_owner, '456', 'Original owner title')
+        other_absent = mapped_prior(fully_observed_owner, '789', 'Still published before read')
+        table = RecordingTable([
+            community_row(reporting_source), community_row(fully_observed_owner),
+            prior, other_absent,
+        ])
+
+        def get_text(url):
+            if url.endswith('/events/ical/'):
+                if '/aws-247/' in url:
+                    return 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nTZID:America/Bogota\r\nEND:VCALENDAR\r\n'
+                return calendar_for(reporting_source, '456')
+            raise RuntimeError('peer detail is unavailable')
+
+        with patch.object(support.meetup, 'get_text', side_effect=get_text):
+            result = support.meetup.synchronize(table=table)
+
+        self.assertEqual(result['changed'], 1)
+        self.assertEqual(len(result['failures']), 1)
+        self.assertIn('Event 456 in group 244', result['failures'][0])
+        self.assertEqual(table.existing[prior['id']], prior)
+        self.assertFalse(table.existing[other_absent['id']]['published'])
+        self.assertEqual(table.existing[other_absent['id']]['version'], other_absent['version'] + 1)
+        self.assertEqual(len(table.updates), 1)
+
+    def test_malformed_peer_feed_hit_does_not_block_fully_observed_owner_absence(self):
+        current_owner = make_group(245)
+        reporting_source = make_group(246)
+        prior = mapped_prior(current_owner, '456', 'Original owner title')
+        table = RecordingTable([
+            community_row(current_owner), community_row(reporting_source), prior,
+        ])
+        malformed_peer_feed = calendar_for(reporting_source, '456').replace(
+            'END:VCALENDAR\r\n',
+            'BEGIN:VEVENT\r\nUID:event_999@meetup.com\r\nSUMMARY:Bad peer event\r\n'
+            'URL;VALUE=URI:https://www.meetup.com/another-group/events/999/\r\n'
+            'STATUS:CONFIRMED\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n',
+        )
+
+        def get_text(url):
+            if '/aws-245/events/ical/' in url:
+                return 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nTZID:America/Bogota\r\nEND:VCALENDAR\r\n'
+            if '/aws-246/events/ical/' in url:
+                return malformed_peer_feed
+            raise AssertionError(f'unexpected page request after invalid feed: {url}')
+
+        with patch.object(support.meetup, 'get_text', side_effect=get_text):
+            result = support.meetup.synchronize(table=table)
+
+        self.assertEqual(result['changed'], 1)
+        self.assertEqual(len(result['failures']), 1)
+        self.assertIn('Feed 246', result['failures'][0])
+        self.assertFalse(table.existing[prior['id']]['published'])
+        self.assertEqual(table.existing[prior['id']]['version'], prior['version'] + 1)
 
     def test_deadline_notifies_known_change_before_draining_and_keeps_late_sources_unobserved(self):
         healthy = make_group(301)

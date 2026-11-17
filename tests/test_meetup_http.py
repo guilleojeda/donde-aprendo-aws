@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 from threading import Event, Lock, Thread
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 IMPORTER = Path(__file__).resolve().parents[1] / 'scripts/import-meetup-events.py'
@@ -136,16 +136,39 @@ class MeetupHttpTests(unittest.TestCase):
         with LocalMeetup(route):
             self.assertEqual(load_importer().get_text('https://www.meetup.com/redirect'), 'Encuentro AWS')
 
-    def test_redirect_to_another_host_cannot_return_content(self):
-        def route(request):
-            if request.path == '/redirect':
-                send(request, b'unused', 302, 'https://elsewhere.invalid/final')
-            else:
-                send(request, b'Not an accepted Meetup response')
+    def test_initial_disallowed_url_is_rejected_before_transport_open(self):
+        subject = load_importer()
+        opener = Mock()
 
-        with LocalMeetup(route):
-            with self.assertRaises(ValueError):
-                load_importer().get_text('https://www.meetup.com/redirect')
+        with patch.object(subject, 'build_opener', return_value=opener):
+            error = None
+            try:
+                subject.get_text('https://events.example.invalid/feed')
+            except Exception as caught:
+                error = caught
+
+        opener.open.assert_not_called()
+        self.assertIsInstance(error, ValueError)
+
+    def test_disallowed_redirect_is_rejected_before_transport_admission(self):
+        subject = load_importer()
+        request = subject.Request('https://www.meetup.com/redirect')
+        handler = subject.MeetupRedirectHandler(subject.monotonic() + 20)
+        targets = (
+            'https://events.example.invalid/final',
+            'http://www.meetup.com/final',
+            'https://www.meetup.com.attacker.invalid/final',
+        )
+
+        for target in targets:
+            with self.subTest(target=target):
+                response = Mock()
+                with patch.object(subject.HTTPRedirectHandler, 'redirect_request') as admit_redirect:
+                    with self.assertRaises(ValueError):
+                        handler.redirect_request(request, response, 302, 'Found', {}, target)
+
+                admit_redirect.assert_not_called()
+                response.close.assert_called()
 
     def test_standard_redirect_loop_protection_still_stops_requests(self):
         def route(request):

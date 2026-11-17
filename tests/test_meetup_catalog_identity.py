@@ -135,12 +135,28 @@ class MeetupCatalogIdentityTests(unittest.TestCase):
             'id': 'aws:bogota', 'title': 'AWS Bogotá', 'url': fixtures.GROUP['url'],
             'country': 'CO', 'kind': 'community', 'published': True,
         }
-        meetup_source = dict(ordinary, id='meetup-123')
+        meetup_source = dict(ordinary, id='meetup-123', meetupSourceUrl=fixtures.GROUP['url'])
         wrong_kind = dict(meetup_source, id='meetup-not-a-community', kind='content')
 
         groups = meetup.load_groups_from_dynamodb(fixtures.FakeTable([ordinary, meetup_source, wrong_kind]))
         self.assertEqual([group['id'] for group in groups], ['123'])
         self.assertEqual(groups[0]['url'], fixtures.GROUP['url'])
+
+    def test_typed_meetup_event_without_kind_is_not_a_malformed_community_candidate(self):
+        source = {
+            'id': 'meetup-123', 'title': fixtures.GROUP['name'],
+            'url': fixtures.GROUP['url'], 'meetupSourceUrl': fixtures.GROUP['url'],
+            'country': 'CO', 'kind': 'community', 'published': True,
+        }
+        entry = event_entry()
+        event = meetup.map_event(fixtures.GROUP, entry, event_page(entry))
+        self.assertEqual(event['recordType'], 'event')
+        self.assertNotIn('kind', event)
+
+        table = fixtures.FakeTable([source, event])
+
+        self.assertEqual(meetup.load_groups_from_dynamodb(table)[0]['id'], '123')
+        self.assertEqual(meetup.load_existing_events(table)[event['id']]['id'], event['id'])
 
     def test_invalid_community_keys_and_references_are_rejected(self):
         invalid_group_ids = (None, 12, 'a' * 250, 'aws ', 'aws\ufeff')
@@ -191,7 +207,7 @@ class MeetupCatalogIdentityTests(unittest.TestCase):
 
             source_item = {
                 'id': f'meetup-aws{control}bogota', 'title': 'Invalid source',
-                'url': fixtures.GROUP['url'], 'country': 'CO',
+                'url': fixtures.GROUP['url'], 'meetupSourceUrl': fixtures.GROUP['url'], 'country': 'CO',
                 'kind': 'community', 'published': True,
             }
             with self.subTest(boundary='approved source admission', control=repr(control)):
