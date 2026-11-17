@@ -650,6 +650,47 @@ test('grant reconciliation reports claim-status uncertainty after the resource g
   assert.ok(owner.claims.some(({ id, status }) => id === claim.id && status === 'resolved'));
 });
 
+test('grant reconciliation preserves a claim changed between its projected and full reads', async () => {
+  const { mock, store } = createDynamoMoveStore({ projectionAware: true });
+  const profileId = 'phase4-grant-reconciliation-race';
+  const resourceId = 'grant-reconciliation-race-target';
+  seedMoveProfile(mock, { profileId, accountId: 'private-account-a', published: false });
+  seedMoveResource(mock, { id: resourceId, url: `https://claims.example/${resourceId}` });
+  const claim = seedClaim(mock, {
+    id: 'grant-reconciliation-race-claim', resourceIds: [resourceId], version: 4,
+  });
+  const key = `claim:${claim.id}`;
+  const { pk, sk, ...claimValue } = claim;
+  const intervening = { ...claimValue, evidence: 'Newer evidence', version: 5 };
+  let observedChange = false;
+  const send = mock.client.send.bind(mock.client);
+  mock.client.send = async (command) => {
+    const result = await send(command);
+    if (command.constructor.name === 'QueryCommand' && result.Items?.some((item) => item.id === claim.id)) {
+      assert.equal(await store.transact({
+        checks: [{ key, version: claim.version }], puts: [{ key, value: intervening }],
+      }), true);
+      observedChange = true;
+    }
+    return result;
+  };
+
+  const harness = await createCreatorPagesHarness({ store });
+  const response = await adminGrant(harness, { accountId: 'private-account-a', resourceIds: [resourceId] });
+  assert.equal(observedChange, true);
+  assert.equal(response.status, 409, await response.clone().text());
+  const body = await responseJson(response);
+  assert.equal(body.error, 'CLAIM_CONFLICT');
+  assert.equal(body.failureStage, 'claim-status');
+  assert.deepEqual(body.linkedResourceIds, [resourceId]);
+  assert.equal(body.profileChanged, true);
+  assert.deepEqual(mock.read(TABLES.profiles, { pk, sk }), { ...intervening, pk, sk });
+  assert.equal(mock.read(TABLES.profiles, { pk: `PROFILE#${profileId}`, sk }), undefined);
+  const owner = await ownerView(harness);
+  assert.equal(owner.status, 200);
+  assert.ok((await responseJson(owner)).resources.some(({ id, metadataEditable }) => id === resourceId && metadataEditable));
+});
+
 test('grant reconciliation handles a versionless legacy claim with an absence-aware condition and preserves its history', async () => {
   const { mock, store } = createDynamoMoveStore({ projectionAware: true });
   const profileId = 'phase4-versionless-owner';

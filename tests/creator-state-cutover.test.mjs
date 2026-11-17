@@ -647,7 +647,15 @@ test('converter plans no more than 99 row deletes alongside the META guard', () 
       pk: PK, sk: `PLACEMENT#${id}`, recordType: 'placement', id, profileId: PROFILE_ID,
       resourceId, position: index, featured: false, selectedForDirectory: true,
     });
-    resources.push({ id: resourceId, title: `resource ${index}` });
+    resources.push({
+      id: resourceId,
+      title: `resource ${index}`,
+      url: `https://catalog.example/${resourceId}`,
+      description: `Description ${index}`,
+      version: 1,
+      published: false,
+      hidden: false,
+    });
   }
   input.resourceRows = resources;
   const plan = createCreatorStateConversionPlan(input);
@@ -665,7 +673,15 @@ test('cleanup can safely resume after one conditional delete batch committed', a
       pk: PK, sk: `PLACEMENT#${id}`, recordType: 'placement', id, profileId: PROFILE_ID,
       resourceId, position: index, featured: false, selectedForDirectory: true,
     });
-    input.resourceRows.push({ id: resourceId });
+    input.resourceRows.push({
+      id: resourceId,
+      title: `resource ${index}`,
+      url: `https://catalog.example/${resourceId}`,
+      description: `Description ${index}`,
+      version: 1,
+      published: false,
+      hidden: false,
+    });
   }
   const plan = createCreatorStateConversionPlan(input);
   const rows = new Map(plan.backup.profileRows.map((row) => [`${row.pk}\u0000${row.sk}`, structuredClone(row)]));

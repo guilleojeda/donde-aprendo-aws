@@ -136,6 +136,8 @@ Creators manage series in the existing editor using links already on their profi
 
 The public build and publication checker read the same narrow projection of the creator aggregate. Apply both reviewed scan-policy updates before deploying readers that request the new top-level attributes. Deploy the matching packaged publication Lambda so it hashes the same data as the site build.
 
+Apply the accounts stack update granting `dynamodb:BatchGetItem` on the creator profiles table before releasing the creator claim history reader. Preserve the current stack parameters, including the password-reset artifact key, and verify the changed policy on the Amplify main compute role before merging the application release.
+
 A release from legacy profile, placement and Series rows requires a finite maintenance cutover. Pause creator writes, manual and scheduled publication, and automatic build starts. Make a private, consistent export of each profile partition and its related rows. Run `node scripts/creator-state-cutover.mjs plan --input EXPORT.json --output PLAN.json` for each creator, and compare the output with the captured identities and orders. Under the pause, use `apply --plan PLAN.json --phase convert --table TABLE --region REGION` to replace the META row conditionally. Restore automatic builds for the compatible main release. Once that release and both readers are verified, use `--phase cleanup` to remove the unchanged legacy placement and Series rows. Reopen creator writes and restore the publication triggers after verification.
 
 Keep the private backup through the cutover. Under the pause, `--phase restore` can restore the exact legacy rows for rollback with the prior compatible code. After writes reopen, repair forward to preserve accepted changes.

@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { isCatalogResourceIdWithinLimit } from '../../src/lib/catalog-identity.mjs';
+import { assertCreatorRecordIdentity } from '../../src/lib/creator-record-identity.mjs';
+import { creatorResourceFacts } from '../../src/lib/creator-resource-facts.mjs';
 import { assertCreatorStateFits, isCreatorStateId } from '../../src/lib/creator-state.mjs';
 import { dynamoDbCreatorStateSizes } from '../../src/lib/creator-dynamodb-size.mjs';
 import {
@@ -71,6 +73,14 @@ function assertKnownFields(value, fields, label) {
   if (Object.keys(value).some((field) => !fields.has(field))) fail('INVALID_EXPORT', `${label} has unsupported fields`);
 }
 
+function assertStoredIdentity(row, expected, label) {
+  try {
+    assertCreatorRecordIdentity(row, expected);
+  } catch (error) {
+    fail('INVALID_EXPORT', `${label} identity is malformed${error?.message ? `: ${error.message}` : ''}`);
+  }
+}
+
 function physicalKey(row) {
   return `${row.pk}\u0000${row.sk}`;
 }
@@ -121,6 +131,25 @@ function validateExportRows(profileId, rows) {
     else if (row.sk.startsWith('PLACEMENT#')) placements.push(row);
     else if (row.sk.startsWith('SERIES#')) series.push(row);
     else if (row.sk.startsWith('SERIES_SLUG#')) aliases.push(row);
+    else if (row.sk.startsWith('EDITOR#')) {
+      if (typeof row.resourceId !== 'string' || row.resourceId.length === 0) {
+        fail('INVALID_EXPORT', 'editor reference identity is malformed');
+      }
+      assertStoredIdentity(row, {
+        type: 'editor',
+        pk: expectedPk,
+        sk: `EDITOR#${row.resourceId}`,
+      }, 'editor reference');
+    } else if (row.sk.startsWith('CLAIM#')) {
+      if (typeof row.id !== 'string' || row.id.length === 0) {
+        fail('INVALID_EXPORT', 'claim reference identity is malformed');
+      }
+      assertStoredIdentity(row, {
+        type: 'claimRef',
+        pk: expectedPk,
+        sk: `CLAIM#${row.id}`,
+      }, 'claim reference');
+    }
   }
   if (profiles.length !== 1) fail('INVALID_EXPORT', 'export must contain exactly one META profile row');
   return { profile: profiles[0], placements, series, aliases, rows };
@@ -250,8 +279,36 @@ function validateResources(resourceRows, placements) {
   }
   for (const row of placements) {
     if (!byId.has(row.resourceId)) fail('MISSING_RESOURCE', `placement ${row.id} does not resolve to an exported resource`);
+    try {
+      creatorResourceFacts(byId.get(row.resourceId), row.resourceId);
+    } catch (error) {
+      fail('INVALID_EXPORT', `resource ${row.resourceId} has malformed durable facts${error?.message ? `: ${error.message}` : ''}`);
+    }
   }
   return byId;
+}
+
+function validatePreservedRows(preservedRows) {
+  for (const preserved of preservedRows) {
+    const { key, item } = preserved;
+    requireString(preserved.table, 'preserved row table');
+    requireString(key.pk, 'preserved row key pk');
+    if (Object.hasOwn(key, 'sk')) requireString(key.sk, 'preserved row key sk');
+    if (item.pk !== key.pk || Object.hasOwn(key, 'sk') !== Object.hasOwn(item, 'sk')
+      || (Object.hasOwn(key, 'sk') && item.sk !== key.sk)) {
+      fail('INVALID_EXPORT', 'preserved row identity is malformed');
+    }
+    if (key.pk === 'ADMIN#CLAIMS' || key.sk?.startsWith('CLAIM#') || item.recordType === 'claim') {
+      if (typeof item.id !== 'string' || item.id.length === 0) {
+        fail('INVALID_EXPORT', 'administrative claim identity is malformed');
+      }
+      assertStoredIdentity(item, {
+        type: 'claim',
+        pk: 'ADMIN#CLAIMS',
+        sk: `CLAIM#${item.id}`,
+      }, 'administrative claim');
+    }
+  }
 }
 
 function seriesMemberships(placement, existingSeries, aliasesBySeriesId) {
@@ -334,6 +391,7 @@ export function createCreatorStateConversionPlan({ profileId, rows, resourceRows
     || typeof item.table !== 'string' || !isRecord(item.key) || !isRecord(item.item))) {
     fail('INVALID_EXPORT', 'preservedRows must retain table, key and full item');
   }
+  validatePreservedRows(preservedRows);
   const partition = validateExportRows(profileId, rows);
   const resourcesById = validateResources(resourceRows, partition.placements);
   const seriesById = validateSeriesRows(partition.series, profileId);
@@ -515,7 +573,10 @@ export async function applyCreatorStateConversion(plan, {
   }
   const alreadyConverted = await readPhysical(tableName, verified.conversion.key);
   if (isDeepStrictEqual(alreadyConverted, verified.convertedState)) return alreadyConverted;
-  await assertRowsUnchanged(verified.conversionSourceRows, tableName, readPhysical);
+  // The aggregate replacement must not discard a retained editor or claim row
+  // that changed after the export, even though those rows are not folded into
+  // the new META value.
+  await assertRowsUnchanged(verified.backup.profileRows, tableName, readPhysical);
   await transact(buildCreatorStateConversionTransaction(verified, tableName));
   const current = await readPhysical(tableName, verified.conversion.key);
   if (!isDeepStrictEqual(current, verified.convertedState)) {

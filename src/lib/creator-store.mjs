@@ -9,6 +9,7 @@ import {
   TransactWriteCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { dynamoDbItemSize } from './creator-dynamodb-size.mjs';
+import { assertCreatorRecordIdentity } from './creator-record-identity.mjs';
 
 const MAX_TRANSACTION_ACTIONS = 100;
 const MAX_BATCH_GET_KEYS = 100;
@@ -114,9 +115,11 @@ function tableNameFor(descriptor, tables) {
   return tables[descriptor.table];
 }
 
-function cleanItem(item) {
+function cleanItem(item, identity) {
   if (!item) return null;
-  const { pk: _pk, sk: _sk, ttl: _ttl, ...value } = item;
+  if (identity) assertCreatorRecordIdentity(item, identity);
+  const { pk: _pk, sk: _sk, ...value } = item;
+  if (identity?.type !== 'claim') delete value.ttl;
   // Aggregate revisions are mandatory persisted state. Do not turn a malformed
   // creatorState row with a missing revision into an apparent revision zero.
   return value.recordType === 'creatorState' ? value : { ...value, version: value.version ?? 0 };
@@ -217,6 +220,10 @@ function paginationFingerprint(value) {
   return JSON.stringify(value, Object.keys(value ?? {}).sort());
 }
 
+function keyFingerprint(value) {
+  return JSON.stringify(value, Object.keys(value ?? {}).sort());
+}
+
 function addPageCursor(parameters, cursor) {
   if (cursor !== undefined) parameters.ExclusiveStartKey = cursor;
   return parameters;
@@ -235,9 +242,15 @@ function resourceProjection() {
 }
 
 function claimProjection() {
-  const fields = ['pk', 'sk', 'recordType', 'id', 'profileId', 'accountId', 'resourceIds', 'resources', 'sourceId', 'evidence', 'status', 'createdAt', 'updatedAt', 'version'];
+  const fields = ['pk', 'sk', 'recordType', 'id', 'profileId', 'accountId', 'resourceIds', 'resources', 'sourceId', 'evidence', 'status', 'createdAt', 'updatedAt', 'resolvedAt', 'version', 'ttl'];
   const names = Object.fromEntries(fields.map((field, index) => [`#c${index}`, field]));
   return { ProjectionExpression: fields.map((_, index) => `#c${index}`).join(', '), ExpressionAttributeNames: names };
+}
+
+function openClaimProjection() {
+  const fields = ['pk', 'sk', 'recordType', 'id', 'profileId', 'accountId', 'resourceIds', 'status', 'version'];
+  const names = Object.fromEntries(fields.map((field, index) => [`#o${index}`, field]));
+  return { ProjectionExpression: fields.map((_, index) => `#o${index}`).join(', '), ExpressionAttributeNames: names };
 }
 
 export function createCreatorStore({ accountsTableName, profilesTableName, catalogTableName, region, client } = {}) {
@@ -271,25 +284,21 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
     }
   }
 
-  async function getResources(ids) {
-    if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string' || id.length === 0)) {
-      throw new TypeError('resource IDs must be a list of non-empty strings');
-    }
+  async function batchGetRows({ table, ids, keyForId, idForItem, idForKey, cleanForItem, projection, label }) {
+    const rows = new Map();
     const uniqueIds = [...new Set(ids)];
-    const resources = new Map();
-    if (uniqueIds.length === 0) return resources;
+    if (uniqueIds.length === 0) return rows;
 
-    const projection = resourceProjection();
     for (let offset = 0; offset < uniqueIds.length; offset += MAX_BATCH_GET_KEYS) {
       const batchIds = uniqueIds.slice(offset, offset + MAX_BATCH_GET_KEYS);
       const expected = new Set(batchIds);
-      let pendingKeys = batchIds.map((id) => ({ id }));
+      let pendingKeys = batchIds.map(keyForId);
       let retries = 0;
 
       while (pendingKeys.length > 0) {
         const response = await documentClient.send(new BatchGetCommand({
           RequestItems: {
-            [tables.catalog]: {
+            [table]: {
               Keys: pendingKeys,
               ConsistentRead: true,
               ...projection,
@@ -304,34 +313,38 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
         if (rawResponses !== undefined && (!rawResponses || typeof rawResponses !== 'object' || Array.isArray(rawResponses))) {
           throw new Error('DynamoDB batch read Responses is malformed');
         }
-        if (rawResponses && Object.keys(rawResponses).some((table) => table !== tables.catalog)) {
+        if (rawResponses && Object.keys(rawResponses).some((responseTable) => responseTable !== table)) {
           throw new Error('DynamoDB batch read returned an unexpected table');
         }
-        // DynamoDB may omit the table key when no rows were found. An explicit
-        // value for that key must still satisfy the response contract. In
-        // particular, `null` is malformed provider data, not an empty result.
-        const items = rawResponses && Object.hasOwn(rawResponses, tables.catalog)
-          ? rawResponses[tables.catalog]
-          : [];
+        // DynamoDB may omit a table key when no rows were found. That is a
+        // complete absence only when no keys remain unprocessed below.
+        const items = rawResponses && Object.hasOwn(rawResponses, table) ? rawResponses[table] : [];
         if (!Array.isArray(items)) throw new Error('DynamoDB batch read items are malformed');
-        const requested = new Set(pendingKeys.map(({ id }) => id));
+
+        const requested = new Map(pendingKeys.map((key) => [keyFingerprint(key), key]));
         for (const item of items) {
-          if (!item || typeof item !== 'object' || Array.isArray(item)
-            || typeof item.id !== 'string' || !requested.has(item.id) || !expected.has(item.id)
-            || resources.has(item.id)) {
-            throw new Error('DynamoDB batch read returned an unexpected or duplicate resource');
+          if (!item || typeof item !== 'object' || Array.isArray(item)) {
+            throw new Error(`DynamoDB batch read returned an invalid ${label}`);
           }
-          resources.set(item.id, structuredClone(cleanItem(item)));
+          const id = idForItem(item);
+          const itemKey = keyForId(id);
+          const itemFingerprint = keyFingerprint(itemKey);
+          const requestedKey = requested.get(itemFingerprint);
+          if (!requestedKey || !expected.has(id)) {
+            throw new Error(`DynamoDB batch read returned an unexpected ${label}`);
+          }
+          if (rows.has(id)) throw new Error(`DynamoDB batch read returned an unexpected or duplicate ${label}`);
+          rows.set(id, structuredClone(cleanForItem ? cleanForItem(item) : cleanItem(item)));
         }
 
         const rawUnprocessed = response.UnprocessedKeys;
         if (rawUnprocessed !== undefined && (!rawUnprocessed || typeof rawUnprocessed !== 'object' || Array.isArray(rawUnprocessed))) {
           throw new Error('DynamoDB batch read UnprocessedKeys is malformed');
         }
-        if (rawUnprocessed && Object.keys(rawUnprocessed).some((table) => table !== tables.catalog)) {
+        if (rawUnprocessed && Object.keys(rawUnprocessed).some((responseTable) => responseTable !== table)) {
           throw new Error('DynamoDB batch read returned an unexpected unprocessed table');
         }
-        const unprocessed = rawUnprocessed?.[tables.catalog];
+        const unprocessed = rawUnprocessed?.[table];
         if (unprocessed === undefined) break;
         if (!unprocessed || typeof unprocessed !== 'object' || Array.isArray(unprocessed) || !Array.isArray(unprocessed.Keys)) {
           throw new Error('DynamoDB batch read unprocessed keys are malformed');
@@ -340,14 +353,14 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
 
         const seenKeys = new Set();
         for (const key of unprocessed.Keys) {
+          const fingerprint = keyFingerprint(key);
           if (!key || typeof key !== 'object' || Array.isArray(key)
-            || typeof key.id !== 'string' || !requested.has(key.id) || seenKeys.has(key.id)) {
+            || !requested.has(fingerprint) || seenKeys.has(fingerprint)) {
             throw new Error('DynamoDB batch read returned an invalid unprocessed key');
           }
-          if (resources.has(key.id)) {
-            throw new Error('DynamoDB batch read resource was both returned and unprocessed');
-          }
-          seenKeys.add(key.id);
+          const id = idForKey(key);
+          if (rows.has(id)) throw new Error(`DynamoDB batch read ${label} was both returned and unprocessed`);
+          seenKeys.add(fingerprint);
         }
         if (retries >= MAX_UNPROCESSED_RETRIES) throw new Error('DynamoDB batch read exceeded unprocessed key retries');
         await new Promise((resolve) => setTimeout(resolve, BATCH_GET_RETRY_DELAYS_MS[retries]));
@@ -355,8 +368,68 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
         pendingKeys = unprocessed.Keys;
       }
     }
+    return rows;
+  }
 
-    return resources;
+  async function getResources(ids) {
+    if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string' || id.length === 0)) {
+      throw new TypeError('resource IDs must be a list of non-empty strings');
+    }
+    return batchGetRows({
+      table: tables.catalog,
+      ids,
+      keyForId: (id) => ({ id }),
+      projection: resourceProjection(),
+      idForItem: (item) => {
+        if (typeof item.id !== 'string' || item.id.length === 0) {
+          throw new Error('DynamoDB batch read returned an invalid resource');
+        }
+        return item.id;
+      },
+      idForKey: (key) => {
+        if (!key || typeof key !== 'object' || Array.isArray(key)
+          || Object.keys(key).length !== 1 || typeof key.id !== 'string' || key.id.length === 0) {
+          throw new Error('DynamoDB batch read returned an invalid unprocessed key');
+        }
+        return key.id;
+      },
+      label: 'resource',
+    });
+  }
+
+  async function getClaims(ids) {
+    if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string' || id.length === 0)) {
+      throw new TypeError('claim IDs must be a list of non-empty strings');
+    }
+    return batchGetRows({
+      table: tables.profiles,
+      ids,
+      keyForId: (id) => ({ pk: 'ADMIN#CLAIMS', sk: `CLAIM#${id}` }),
+      projection: claimProjection(),
+      idForItem: (item) => {
+        if (typeof item.pk !== 'string' || typeof item.sk !== 'string') {
+          throw new Error('DynamoDB batch read returned an invalid claim');
+        }
+        const identity = assertCreatorRecordIdentity(item, { type: 'claim', pk: 'ADMIN#CLAIMS', sk: item.sk });
+        return identity.id;
+      },
+      cleanForItem: (item) => {
+        const identity = assertCreatorRecordIdentity(item, { type: 'claim', pk: 'ADMIN#CLAIMS', sk: item.sk });
+        return cleanItem(item, identity);
+      },
+      idForKey: (key) => {
+        if (!key || typeof key !== 'object' || Array.isArray(key)
+          || Object.keys(key).length !== 2 || key.pk !== 'ADMIN#CLAIMS' || typeof key.sk !== 'string') {
+          throw new Error('DynamoDB batch read returned an invalid unprocessed key');
+        }
+        const identity = assertCreatorRecordIdentity(
+          { pk: key.pk, sk: key.sk, recordType: 'claim', id: key.sk.slice('CLAIM#'.length) },
+          { type: 'claim', pk: key.pk, sk: key.sk },
+        );
+        return identity.id;
+      },
+      label: 'claim',
+    });
   }
 
   async function list(prefix) {
@@ -372,10 +445,15 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
         ProjectionExpression: '#pk, #sk, #recordType, #profileId, #resourceId, #version',
         ExpressionAttributeNames: { '#pk': 'pk', '#sk': 'sk', '#recordType': 'recordType', '#profileId': 'profileId', '#resourceId': 'resourceId', '#version': 'version' },
       });
-      return rows.filter((row) => row.recordType === 'editorReference').map((row) => ({
-        key: `editor:${row.profileId}:${row.resourceId}`,
-        value: cleanItem(row),
-      }));
+      return rows.map((row) => {
+        const identity = assertCreatorRecordIdentity(row, {
+          type: 'editor', pk: `PROFILE#${profileId}`, sk: row?.sk,
+        });
+        return {
+          key: `editor:${identity.profileId}:${identity.resourceId}`,
+          value: cleanItem(row),
+        };
+      });
     }
     if (prefix.startsWith('claim-ref:') && prefix !== 'claim-ref:') {
       const match = prefix.match(/^claim-ref:([^:]+):$/);
@@ -388,10 +466,15 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
         ProjectionExpression: '#pk, #sk, #id, #version',
         ExpressionAttributeNames: { '#pk': 'pk', '#sk': 'sk', '#id': 'id', '#version': 'version' },
       });
-      return rows.filter((row) => typeof row.id === 'string').map((row) => ({
-        key: `claim-ref:${profileId}:${row.id}`,
-        value: cleanItem(row),
-      }));
+      return rows.map((row) => {
+        const identity = assertCreatorRecordIdentity(row, {
+          type: 'claimRef', pk: `PROFILE#${profileId}`, sk: row?.sk,
+        });
+        return {
+          key: `claim-ref:${identity.profileId}:${identity.id}`,
+          value: cleanItem(row),
+        };
+      });
     }
     if (prefix === 'profile:') {
       const projection = profileProjection();
@@ -414,9 +497,45 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
         ...projection,
         ExpressionAttributeNames: { ...projection.ExpressionAttributeNames, '#pk': 'pk', '#sk': 'sk' },
       });
-      return rows.filter((row) => row.recordType === 'claim').map((row) => ({ key: `claim:${row.id}`, value: cleanItem(row) }));
+      return rows.map((row) => {
+        const identity = assertCreatorRecordIdentity(row, {
+          type: 'claim', pk: 'ADMIN#CLAIMS', sk: row?.sk,
+        });
+        return { key: `claim:${identity.id}`, value: cleanItem(row, identity) };
+      });
     }
     throw new TypeError(`unsupported logical list prefix: ${prefix}`);
+  }
+
+  async function listOpenClaimsForAccount(accountId) {
+    if (typeof accountId !== 'string' || accountId.length === 0) {
+      throw new TypeError('account ID must be a non-empty string');
+    }
+    const projection = openClaimProjection();
+    const rows = await readPages(QueryCommand, tables.profiles, {
+      ConsistentRead: true,
+      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :sk)',
+      FilterExpression: '#accountId = :accountId AND #status IN (:pending, :partial)',
+      ExpressionAttributeValues: {
+        ':pk': 'ADMIN#CLAIMS', ':sk': 'CLAIM#', ':accountId': accountId,
+        ':pending': 'pending', ':partial': 'partial',
+      },
+      ...projection,
+      ExpressionAttributeNames: {
+        ...projection.ExpressionAttributeNames,
+        '#pk': 'pk', '#sk': 'sk', '#accountId': 'accountId', '#status': 'status',
+      },
+    });
+    return rows.flatMap((row) => {
+      const identity = assertCreatorRecordIdentity(row, {
+        type: 'claim', pk: 'ADMIN#CLAIMS', sk: row?.sk,
+      });
+      // Keep the provider filter as the authoritative population boundary,
+      // while retaining a local guard against a malformed or non-Dynamo
+      // adapter that returns an unsolicited row.
+      if (row.accountId !== accountId || !['pending', 'partial'].includes(row.status)) return [];
+      return [{ key: `claim:${identity.id}`, value: cleanItem(row) }];
+    });
   }
 
   function buildPutItem(key, value) {
@@ -424,7 +543,7 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
     return { descriptor, item: withPhysicalKeys(descriptor, value) };
   }
 
-  function buildTransactionEntries({ checks = [], puts = [], deletes = [] } = {}, { enforceActionLimit = false } = {}) {
+  function buildTransactionRequests({ checks = [], puts = [], deletes = [] } = {}, { enforceActionLimit = false } = {}) {
     if (!Array.isArray(checks) || !Array.isArray(puts) || !Array.isArray(deletes)) {
       throw new TypeError('transaction inputs must be arrays');
     }
@@ -466,7 +585,7 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
     if (enforceActionLimit && ids.size > MAX_TRANSACTION_ACTIONS) {
       throw new RangeError(`DynamoDB transaction exceeds ${MAX_TRANSACTION_ACTIONS} physical actions`);
     }
-    const entries = [];
+    const requests = [];
     for (const id of ids) {
       const action = actions.get(id);
       const condition = conditions.get(id);
@@ -475,31 +594,14 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
       const TableName = tableNameFor(descriptor, tables);
       if (action?.kind === 'put') {
         const { item } = buildPutItem(action.key, action.value);
-        entries.push({
-          id,
-          key: action.key,
-          kind: 'put',
-          request: { Put: { TableName, Item: item, ...(condition?.expression ?? {}) } },
-        });
+        requests.push({ Put: { TableName, Item: item, ...(condition?.expression ?? {}) } });
       } else if (action?.kind === 'delete') {
-        entries.push({
-          id,
-          key: action.key,
-          kind: 'delete',
-          conditionVersion: condition?.version,
-          request: { Delete: { TableName, Key: descriptor.key, ...(condition?.expression ?? {}) } },
-        });
+        requests.push({ Delete: { TableName, Key: descriptor.key, ...(condition?.expression ?? {}) } });
       } else if (condition) {
-        entries.push({
-          id,
-          key: condition.key,
-          kind: 'condition',
-          conditionVersion: condition.version,
-          request: { ConditionCheck: { TableName, Key: descriptor.key, ...condition.expression } },
-        });
+        requests.push({ ConditionCheck: { TableName, Key: descriptor.key, ...condition.expression } });
       }
     }
-    return entries;
+    return requests;
   }
 
   async function sendTransaction(transactItems) {
@@ -522,11 +624,20 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
         Key: descriptor.key,
         ConsistentRead: true,
       }));
-      return cleanItem(result?.Item);
+      const identityType = descriptor.type === 'editor' || descriptor.type === 'claimRef' || descriptor.type === 'claim'
+        ? descriptor.type
+        : undefined;
+      return cleanItem(result?.Item, identityType ? {
+        type: identityType,
+        pk: descriptor.key.pk,
+        sk: descriptor.key.sk,
+      } : undefined);
     },
 
     list,
     getResources,
+    getClaims,
+    listOpenClaimsForAccount,
 
     measurePut(key, value) {
       const descriptor = logicalKey(key);
@@ -535,8 +646,7 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
     },
 
     async transact(transaction = {}) {
-      const entries = buildTransactionEntries(transaction, { enforceActionLimit: true });
-      return sendTransaction(entries.map(({ request }) => request));
+      return sendTransaction(buildTransactionRequests(transaction, { enforceActionLimit: true }));
     },
   };
 }

@@ -25,6 +25,31 @@ function fakeClient(handler = async () => ({})) {
   };
 }
 
+function pointReadFixture(command) {
+  const key = command.input.Key;
+  if (key?.pk?.startsWith('PROFILE#') && key.sk?.startsWith('EDITOR#')) {
+    return {
+      ...key,
+      recordType: 'editorReference',
+      profileId: key.pk.slice('PROFILE#'.length),
+      resourceId: key.sk.slice('EDITOR#'.length),
+      version: 3,
+    };
+  }
+  if (key?.pk?.startsWith('PROFILE#') && key.sk?.startsWith('CLAIM#')) {
+    return { ...key, id: key.sk.slice('CLAIM#'.length), version: 3 };
+  }
+  if (key?.pk === 'ADMIN#CLAIMS' && key.sk?.startsWith('CLAIM#')) {
+    return {
+      ...key,
+      recordType: 'claim',
+      id: key.sk.slice('CLAIM#'.length),
+      version: 3,
+    };
+  }
+  return { ...key, recordType: 'test', id: 'logical-id', version: 3 };
+}
+
 function modeledCancellation(message, reasons, attempts = 1) {
   const error = new DynamoDBServiceException({
     name: 'TransactionCanceledException',
@@ -69,7 +94,7 @@ function sha(value) {
 
 test('logical point reads map to the approved tables and always use strongly consistent gets', async () => {
   const { client, calls } = fakeClient(async (command) => ({
-    Item: { ...command.input.Key, recordType: 'test', id: 'logical-id', version: 3 },
+    Item: pointReadFixture(command),
   }));
   const store = createCreatorStore({ ...TABLES, client });
   const url = 'https://example.com/path?q=a%2Fb';
@@ -321,6 +346,37 @@ test('getResources rejects malformed, unexpected, duplicate, and provider-error 
   const { client } = fakeClient(async () => { throw providerFailure; });
   const store = createCreatorStore({ ...TABLES, client });
   await assert.rejects(store.getResources(['expected']), (error) => error === providerFailure);
+});
+
+test('getClaims retries an exact composite key when the provider changes key attribute order', async () => {
+  let attempts = 0;
+  const { client, calls } = fakeClient(async (command) => {
+    const table = TABLES.profilesTableName;
+    const request = command.input.RequestItems[table];
+    attempts += 1;
+    assert.deepEqual(request.Keys, attempts === 1
+      ? [{ pk: 'ADMIN#CLAIMS', sk: 'CLAIM#claim-order' }]
+      : [{ sk: 'CLAIM#claim-order', pk: 'ADMIN#CLAIMS' }]);
+    if (attempts === 1) {
+      return {
+        Responses: { [table]: [] },
+        UnprocessedKeys: { [table]: { Keys: [{ sk: 'CLAIM#claim-order', pk: 'ADMIN#CLAIMS' }] } },
+      };
+    }
+    return {
+      Responses: { [table]: [{
+        sk: 'CLAIM#claim-order', pk: 'ADMIN#CLAIMS', recordType: 'claim', id: 'claim-order',
+        accountId: 'account-a', resourceIds: ['resource-a'], status: 'pending',
+      }] },
+    };
+  });
+  const store = createCreatorStore({ ...TABLES, client });
+  const claims = await store.getClaims(['claim-order']);
+  assert.deepEqual(claims.get('claim-order'), {
+    recordType: 'claim', id: 'claim-order', accountId: 'account-a', resourceIds: ['resource-a'], status: 'pending', version: 0,
+  });
+  assert.equal(attempts, 2);
+  assert.equal(calls.length, 2);
 });
 
 test('transactions merge CAS checks with writes and preserve absent, legacy-zero, and version conditions', async () => {
