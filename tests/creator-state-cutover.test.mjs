@@ -56,7 +56,15 @@ function legacyExport({
       selectedForDirectory: placement.selectedForDirectory,
       ...placement,
     });
-    resourceRows.push({ id: placement.resourceId, title: placement.id === 'hidden' || placement.id === 'z' ? 'oculto' : 'visible', hidden: placement.id !== 'a' });
+    resourceRows.push({
+      id: placement.resourceId,
+      title: placement.id === 'hidden' || placement.id === 'z' ? 'oculto' : 'visible',
+      url: `https://catalog.example/${placement.id}`,
+      description: `Descripción de ${placement.id}`,
+      version: 1,
+      published: false,
+      hidden: placement.id !== 'a',
+    });
   }
   rows.push({
     pk: PK,
@@ -137,11 +145,38 @@ function legacyExport({
     resourceId: 'resource:retained',
     version: 1,
   });
+  rows.push({
+    pk: PK,
+    sk: 'CLAIM#claim-retained',
+    id: 'claim-retained',
+    version: 1,
+  });
   return {
     profileId: PROFILE_ID,
     rows,
     resourceRows,
-    preservedRows: [{ table: 'accounts', key: { pk: 'PROFILE_OWNER#account-hash' }, item: { pk: 'PROFILE_OWNER#account-hash', profileId: PROFILE_ID } }],
+    preservedRows: [
+      {
+        table: 'accounts',
+        key: { pk: 'PROFILE_OWNER#account-hash' },
+        item: { pk: 'PROFILE_OWNER#account-hash', profileId: PROFILE_ID },
+      },
+      {
+        table: 'profiles',
+        key: { pk: 'ADMIN#CLAIMS', sk: 'CLAIM#claim-retained' },
+        item: {
+          pk: 'ADMIN#CLAIMS',
+          sk: 'CLAIM#claim-retained',
+          recordType: 'claim',
+          id: 'claim-retained',
+          accountId: 'account-retained',
+          profileId: PROFILE_ID,
+          resourceIds: ['resource:z'],
+          status: 'pending',
+          version: 2,
+        },
+      },
+    ],
   };
 }
 
@@ -171,6 +206,32 @@ function malformedHistoricalAliasPlan(input) {
   return malformed;
 }
 
+function malformedPlanWithBackupMutation(input, mutate) {
+  const plan = createCreatorStateConversionPlan(input);
+  mutate(plan.backup);
+  plan.backupFingerprint = creatorStateCutoverInternals.fingerprint({
+    rows: [...plan.backup.profileRows].sort((left, right) => left.sk.localeCompare(right.sk)),
+    resourceRows: plan.backup.resourceRows,
+    preservedRows: plan.backup.preservedRows,
+  });
+  return plan;
+}
+
+async function assertMalformedPlanStopsBeforeProvider(plan) {
+  let reads = 0;
+  let writes = 0;
+  await assert.rejects(() => applyCreatorStateConversion(plan, {
+    tableName: 'profiles-test',
+    async readPhysical() { reads += 1; },
+    async transact() { writes += 1; },
+  }), (error) => {
+    assert.equal(error.name, 'CreatorStateCutoverError');
+    return true;
+  });
+  assert.deepEqual({ reads, writes }, { reads: 0, writes: 0 },
+    'malformed selected input fails before provider reads or replacement writes');
+}
+
 test('legacy conversion preserves exact IDs and independently sorts general and tied chapter sequences', () => {
   const plan = createCreatorStateConversionPlan(legacyExport());
   assert.deepEqual(plan.convertedState.order, {
@@ -188,6 +249,185 @@ test('legacy conversion preserves exact IDs and independently sorts general and 
   assert.equal(plan.backup.profileRows.some(({ sk }) => sk === 'EDITOR#resource:retained'), true);
   assert.equal(plan.cleanup.rows.some(({ sk }) => sk.startsWith('SERIES_SLUG#')), false, 'aliases remain outside cleanup');
   assert.equal(plan.backup.preservedRows[0].item.profileId, PROFILE_ID);
+});
+
+test('conversion accepts the legacy editor and claim-reference row shapes and retains their exact physical rows', () => {
+  const input = legacyExport({ count: 1 });
+  const plan = createCreatorStateConversionPlan(input);
+
+  assert.deepEqual(
+    plan.backup.profileRows.filter(({ sk }) => sk.startsWith('EDITOR#') || sk.startsWith('CLAIM#')),
+    input.rows.filter(({ sk }) => sk.startsWith('EDITOR#') || sk.startsWith('CLAIM#')),
+  );
+  assert.equal(plan.backup.profileRows.find(({ sk }) => sk === 'EDITOR#resource:retained').resourceId, 'resource:retained');
+  const claimReference = plan.backup.profileRows.find(({ sk }) => sk === 'CLAIM#claim-retained');
+  assert.equal(claimReference.id, 'claim-retained');
+  assert.equal(Object.hasOwn(claimReference, 'recordType'), false, 'legacy claim references intentionally have no discriminator');
+  const preservedClaim = plan.backup.preservedRows.find(({ item }) => item.recordType === 'claim');
+  assert.deepEqual(preservedClaim.key, { pk: 'ADMIN#CLAIMS', sk: 'CLAIM#claim-retained' });
+  assert.equal(preservedClaim.item.id, 'claim-retained');
+});
+
+test('conversion rejects every selected row whose payload identity disagrees with its physical key', async (context) => {
+  const cases = [
+    ['profile META', (backup) => {
+      backup.profileRows.find(({ sk }) => sk === 'META').id = 'creator-other';
+    }],
+    ['placement', (backup) => {
+      backup.profileRows.find(({ sk }) => sk === 'PLACEMENT#z').id = 'placement-other';
+    }],
+    ['Series', (backup) => {
+      backup.profileRows.find(({ sk }) => sk === 'SERIES#course').id = 'series-other';
+    }],
+    ['Series alias', (backup) => {
+      backup.profileRows.find(({ sk }) => sk === 'SERIES_SLUG#curso').slug = 'curso-other';
+    }],
+    ['editor reference', (backup) => {
+      backup.profileRows.find(({ sk }) => sk === 'EDITOR#resource:retained').resourceId = 'resource:other';
+    }],
+    ['editor physical suffix', (backup) => {
+      backup.profileRows.find(({ sk }) => sk === 'EDITOR#resource:retained').sk = 'EDITOR#resource:other';
+    }],
+    ['editor class', (backup) => {
+      backup.profileRows.find(({ sk }) => sk === 'EDITOR#resource:retained').recordType = 'claim';
+    }],
+    ['editor revision', (backup) => {
+      backup.profileRows.find(({ sk }) => sk === 'EDITOR#resource:retained').version = '1';
+    }],
+    ['claim reference', (backup) => {
+      backup.profileRows.find(({ sk }) => sk === 'CLAIM#claim-retained').id = 'claim-other';
+    }],
+    ['claim physical suffix', (backup) => {
+      backup.profileRows.find(({ sk }) => sk === 'CLAIM#claim-retained').sk = 'CLAIM#claim-other';
+    }],
+    ['claim-reference revision', (backup) => {
+      backup.profileRows.find(({ sk }) => sk === 'CLAIM#claim-retained').version = '1';
+    }],
+    ['administrative claim partition', (backup) => {
+      backup.preservedRows.find(({ item }) => item.recordType === 'claim').item.pk = 'ADMIN#OTHER';
+    }],
+    ['administrative claim sort key', (backup) => {
+      backup.preservedRows.find(({ item }) => item.recordType === 'claim').item.sk = 'CLAIM#claim-other';
+    }],
+    ['administrative claim ID', (backup) => {
+      backup.preservedRows.find(({ item }) => item.recordType === 'claim').item.id = 'claim-other';
+    }],
+    ['administrative claim class', (backup) => {
+      backup.preservedRows.find(({ item }) => item.recordType === 'claim').item.recordType = 'claimReference';
+    }],
+    ['administrative claim revision', (backup) => {
+      backup.preservedRows.find(({ item }) => item.recordType === 'claim').item.version = '2';
+    }],
+  ];
+
+  for (const [label, mutate] of cases) {
+    await context.test(label, async () => {
+      const input = legacyExport({ count: 1 });
+      const malformedInput = structuredClone(input);
+      mutate({ profileRows: malformedInput.rows, preservedRows: malformedInput.preservedRows });
+      assert.throws(() => createCreatorStateConversionPlan(malformedInput), (error) => {
+        assert.equal(error.name, 'CreatorStateCutoverError');
+        return true;
+      });
+
+      const malformedPlan = malformedPlanWithBackupMutation(input, mutate);
+      await assertMalformedPlanStopsBeforeProvider(malformedPlan);
+    });
+  }
+});
+
+test('conversion rereads retained editor and claim-reference rows after planning before replacing META', async (context) => {
+  const cases = [
+    ['editor reference', 'EDITOR#resource:retained'],
+    ['claim reference', 'CLAIM#claim-retained'],
+  ];
+
+  for (const [label, sortKey] of cases) {
+    await context.test(label, async () => {
+      const plan = createCreatorStateConversionPlan(legacyExport({ count: 1 }));
+      const physical = new Map(plan.backup.profileRows.map((row) => [
+        `${row.pk}\u0000${row.sk}`,
+        structuredClone(row),
+      ]));
+      const original = physical.get(`${PK}\u0000${sortKey}`);
+      physical.set(`${PK}\u0000${sortKey}`, { ...original, version: original.version + 1 });
+      const reads = [];
+      let writes = 0;
+
+      await assert.rejects(() => applyCreatorStateConversion(plan, {
+        tableName: 'profiles-test',
+        async readPhysical(_table, key) {
+          reads.push(`${key.pk}\u0000${key.sk}`);
+          return structuredClone(physical.get(`${key.pk}\u0000${key.sk}`));
+        },
+        async transact() { writes += 1; },
+      }), (error) => error.code === 'SOURCE_CHANGED');
+      assert.equal(writes, 0, 'a retained-row change stops before the META replacement');
+      assert.equal(reads.includes(`${PK}\u0000${sortKey}`), true,
+        'apply rereads retained rows from the provider after the plan was created');
+    });
+  }
+});
+
+test('conversion admits durable content and event resource facts, including an owner-visible unlisted resource', () => {
+  const input = legacyExport({ count: 0 });
+  input.rows.push({
+    pk: PK,
+    sk: 'PLACEMENT#event',
+    recordType: 'placement',
+    id: 'event',
+    profileId: PROFILE_ID,
+    resourceId: 'event:retained',
+    position: 1,
+    featured: false,
+    selectedForDirectory: true,
+  });
+  input.resourceRows.push({
+    id: 'event:retained',
+    recordType: 'event',
+    title: 'Evento retenido',
+    registrationUrl: 'https://catalog.example/event-retained',
+    version: 4,
+    published: false,
+    hidden: false,
+  });
+
+  const plan = createCreatorStateConversionPlan(input);
+  assert.equal(plan.convertedState.placements.event.resourceId, 'event:retained');
+  assert.equal(plan.backup.resourceRows.find(({ id }) => id === 'event:retained').recordType, 'event');
+});
+
+test('conversion rejects malformed durable facts for placed resources before any provider access or write', async (context) => {
+  const cases = [
+    ['missing title', (resource) => { delete resource.title; }],
+    ['malformed URL', (resource) => { resource.url = 'not-a-url'; }],
+    ['malformed event URL', (resource) => {
+      resource.recordType = 'event';
+      resource.registrationUrl = 'not-a-url';
+      delete resource.url;
+    }],
+    ['malformed description', (resource) => { resource.description = 42; }],
+    ['malformed visibility', (resource) => { resource.hidden = 'false'; }],
+    ['malformed version', (resource) => { resource.version = '1'; }],
+    ['malformed publication state', (resource) => { resource.published = 'false'; }],
+  ];
+
+  for (const [label, mutate] of cases) {
+    await context.test(label, async () => {
+      const input = legacyExport({ count: 1 });
+      const malformedInput = structuredClone(input);
+      mutate(malformedInput.resourceRows.find(({ id }) => id === 'resource:z'));
+      assert.throws(() => createCreatorStateConversionPlan(malformedInput), (error) => {
+        assert.equal(error.name, 'CreatorStateCutoverError');
+        return true;
+      });
+
+      const malformedPlan = malformedPlanWithBackupMutation(input, (backup) => {
+        mutate(backup.resourceRows.find(({ id }) => id === 'resource:z'));
+      });
+      await assertMalformedPlanStopsBeforeProvider(malformedPlan);
+    });
+  }
 });
 
 test('conversion rejects a visible legacy profile with a blank public identity before planning replacement', () => {
