@@ -181,8 +181,7 @@ function evaluateCondition(node, current) {
   return exists && isDeepStrictEqual(current[node.attribute], node.value);
 }
 
-function conditionalMatches(action, current) {
-  const input = action.Put ?? action.Delete ?? action.ConditionCheck;
+export function dynamoConditionMatches(input, current) {
   const expression = input?.ConditionExpression;
   if (expression === undefined) return true;
   if (typeof expression !== 'string' || expression.trim() === '') {
@@ -287,7 +286,7 @@ function createMockClient({ projectionAware = false, queryPageSize } = {}) {
     for (const action of actions) {
       const descriptor = action.Put ?? action.Delete ?? action.ConditionCheck;
       const current = read(descriptor.TableName, descriptor.Key ?? descriptor.Item);
-      if (!conditionalMatches(action, current)) throw conditionalFailure();
+      if (!dynamoConditionMatches(descriptor, current)) throw conditionalFailure();
     }
     for (const action of actions) {
       if (action.Put) write(action.Put.TableName, action.Put.Item);

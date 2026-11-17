@@ -1,8 +1,18 @@
 """Acceptance for generic catalog community IDs in the Meetup importer."""
 import copy
+import itertools
+import json
+import os
 import re
+import shutil
+import string
+import subprocess
+import sys
 import unicodedata
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
+from pathlib import Path
 from unittest.mock import patch
 
 import test_meetup_events as fixtures
@@ -135,12 +145,132 @@ class MeetupCatalogIdentityTests(unittest.TestCase):
             'id': 'aws:bogota', 'title': 'AWS Bogotá', 'url': fixtures.GROUP['url'],
             'country': 'CO', 'kind': 'community', 'published': True,
         }
-        meetup_source = dict(ordinary, id='meetup-123')
+        meetup_source = dict(ordinary, id='meetup-123', meetupSourceUrl=fixtures.GROUP['url'])
         wrong_kind = dict(meetup_source, id='meetup-not-a-community', kind='content')
 
         groups = meetup.load_groups_from_dynamodb(fixtures.FakeTable([ordinary, meetup_source, wrong_kind]))
         self.assertEqual([group['id'] for group in groups], ['123'])
         self.assertEqual(groups[0]['url'], fixtures.GROUP['url'])
+
+    @staticmethod
+    def source_row(group):
+        return {
+            'id': f'meetup-{group["id"]}', 'title': group['name'],
+            'url': group['url'], 'meetupSourceUrl': group['url'],
+            'country': group['country'], 'kind': 'community', 'published': True,
+        }
+
+    def test_lambda_requires_valid_organizer_facts_before_retraction(self):
+        suspect = self.source_row(fixtures.GROUP)
+        healthy = self.source_row(fixtures.GIRLS_GROUP)
+        entry = event_entry()
+        owned = meetup.map_event(fixtures.GROUP, entry, event_page(entry))
+        healthy_absent_url = f'{fixtures.GIRLS_GROUP["url"]}events/789/'
+        healthy_absent = meetup.map_event(
+            fixtures.GIRLS_GROUP,
+            dict(event_entry('789'), url=healthy_absent_url),
+            dict(fixtures.GIRLS_PAGE, url=healthy_absent_url),
+        )
+        healthy_event_id = 'meetup-event-316882965'
+        healthy_feed_url = f'{fixtures.GIRLS_GROUP["url"]}events/ical/'
+        healthy_event_url = fixtures.GIRLS_EVENT_URL
+        suspect_feed_url = f'{fixtures.GROUP["url"]}events/ical/'
+        provider = {
+            # A structurally valid empty feed would authorize absence if the
+            # importer accepted the malformed country or title.
+            suspect_feed_url: fixtures.EMPTY_ICAL,
+            healthy_feed_url: fixtures.GIRLS_ICAL,
+            healthy_event_url: (
+                '<script type="application/ld+json">'
+                + json.dumps(fixtures.GIRLS_PAGE) + '</script>'
+            ),
+        }
+        cases = (
+            ('country', 'BR', True),
+            ('country', 'JM', True),
+            ('country', 'BR ', False),
+            ('country', 'br', False),
+            ('country', 'ZZ', False),
+            ('title', '', False),
+            ('title', ' \ufeff', False),
+            ('title', 'AWS Bogotá ', False),
+        )
+        for field, value, deliberate_exclusion in cases:
+            with self.subTest(field=field, value=value):
+                table = fixtures.FakeTable([
+                    dict(suspect, **{field: value}), healthy, owned, healthy_absent,
+                ])
+                invocations = []
+                boto3 = fixtures.fake_boto3(table, invocations)
+                output = StringIO()
+                error = None
+                with patch.dict(sys.modules, fixtures.fake_aws_modules(boto3)), \
+                        patch.dict(os.environ, {
+                            'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication',
+                        }), \
+                        patch.object(meetup, 'get_text', side_effect=lambda url, **_: provider[url]) as get_text, \
+                        redirect_stdout(output):
+                    try:
+                        meetup.lambda_handler({}, fixtures.lambda_context())
+                    except RuntimeError as exc:
+                        error = exc
+
+                result = json.loads(output.getvalue())
+                self.assertEqual(table.existing[healthy_event_id]['sourceGroupId'], healthy['id'])
+                self.assertTrue(table.existing[healthy_event_id]['published'])
+                self.assertEqual(len(invocations), 1)
+                if deliberate_exclusion:
+                    self.assertIsNone(error)
+                    self.assertEqual((result['changed'], result['failures']), (3, []))
+                    self.assertFalse(table.existing[owned['id']]['published'])
+                    self.assertFalse(table.existing[healthy_absent['id']]['published'])
+                else:
+                    self.assertEqual(table.existing[owned['id']], owned)
+                    self.assertEqual(table.existing[healthy_absent['id']], healthy_absent)
+                    self.assertIsNotNone(error)
+                    self.assertRegex(str(error), 'Meetup sources failed')
+                    self.assertEqual(result['changed'], 1)
+                    self.assertTrue(any(suspect['id'] in failure for failure in result['failures']))
+                self.assertCountEqual([call.args[0] for call in get_text.call_args_list],
+                                      [healthy_feed_url, healthy_event_url])
+
+    def test_organizer_country_admission_matches_public_catalog(self):
+        node = shutil.which('node')
+        if node is None:
+            self.skipTest('Node is needed to read the public catalog country keys')
+        public_countries = set(json.loads(subprocess.check_output(
+            [node, '--input-type=module', '-e',
+             "import { COUNTRY_LABELS } from './src/lib/resource-discovery.mjs'; "
+             'console.log(JSON.stringify(Object.keys(COUNTRY_LABELS)));'],
+            cwd=Path(__file__).resolve().parents[1], text=True,
+        )))
+        two_letter_codes = {''.join(pair) for pair in itertools.product(string.ascii_uppercase, repeat=2)}
+        accepted = set()
+        for code in public_countries | two_letter_codes:
+            try:
+                meetup.validate_meetup_group(dict(fixtures.GROUP, country=code))
+            except ValueError:
+                continue
+            accepted.add(code)
+        unexpected = sorted(accepted - public_countries)
+        self.assertEqual(len(unexpected), 0, f'Unexpected organizer countries include {unexpected[:8]}')
+        self.assertEqual(public_countries - accepted, set())
+
+    def test_typed_meetup_event_without_kind_is_not_a_malformed_community_candidate(self):
+        source = {
+            'id': 'meetup-123', 'title': fixtures.GROUP['name'],
+            'url': fixtures.GROUP['url'], 'meetupSourceUrl': fixtures.GROUP['url'],
+            'country': 'CO', 'kind': 'community', 'published': True,
+        }
+        entry = event_entry()
+        event = meetup.map_event(fixtures.GROUP, entry, event_page(entry))
+        self.assertEqual(event['recordType'], 'event')
+        self.assertNotIn('kind', event)
+
+        table = fixtures.FakeTable([source, event])
+
+        self.assertEqual(meetup.load_groups_from_dynamodb(table)[0]['id'], '123')
+        self.assertEqual(meetup.load_existing_events(table)[event['id']]['id'], event['id'])
 
     def test_invalid_community_keys_and_references_are_rejected(self):
         invalid_group_ids = (None, 12, 'a' * 250, 'aws ', 'aws\ufeff')
@@ -191,7 +321,7 @@ class MeetupCatalogIdentityTests(unittest.TestCase):
 
             source_item = {
                 'id': f'meetup-aws{control}bogota', 'title': 'Invalid source',
-                'url': fixtures.GROUP['url'], 'country': 'CO',
+                'url': fixtures.GROUP['url'], 'meetupSourceUrl': fixtures.GROUP['url'], 'country': 'CO',
                 'kind': 'community', 'published': True,
             }
             with self.subTest(boundary='approved source admission', control=repr(control)):

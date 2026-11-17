@@ -9,10 +9,13 @@ import io
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import importlib.util
 import os
+import sys
 from pathlib import Path
 from threading import Event, Lock, Thread
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+
+import test_meetup_events as support
 
 
 IMPORTER = Path(__file__).resolve().parents[1] / 'scripts/import-meetup-events.py'
@@ -39,9 +42,10 @@ def load_importer():
     return subject
 
 
-def send(request, body, status=200, location=None):
+def send(request, body, status=200, location=None, content_length=None):
     request.send_response(status)
-    request.send_header('Content-Length', str(len(body)))
+    length = len(body) if content_length is None else content_length
+    request.send_header('Content-Length', str(length))
     if location:
         request.send_header('Location', location)
     request.end_headers()
@@ -136,16 +140,224 @@ class MeetupHttpTests(unittest.TestCase):
         with LocalMeetup(route):
             self.assertEqual(load_importer().get_text('https://www.meetup.com/redirect'), 'Encuentro AWS')
 
-    def test_redirect_to_another_host_cannot_return_content(self):
-        def route(request):
-            if request.path == '/redirect':
-                send(request, b'unused', 302, 'https://elsewhere.invalid/final')
-            else:
-                send(request, b'Not an accepted Meetup response')
+    def test_only_same_group_redirect_can_supply_a_valid_empty_feed(self):
+        path = '/aws-bogota/events/ical/'
+        group = {
+            'id': 'meetup-123', 'title': support.GROUP['name'], 'url': support.GROUP['url'],
+            'meetupSourceUrl': support.GROUP['url'], 'country': 'CO', 'kind': 'community',
+            'published': True,
+        }
+        event = support.existing_event(
+            starts_at='2099-01-01T18:00:00-05:00', ends_at='2099-01-01T20:00:00-05:00')
+        for redirect in (path + '?type=calendar', '/another-group/events/ical/?type=calendar'):
+            with self.subTest(redirect=redirect):
+                requests = []
+                invocations = []
+                table = support.FakeTable([group, event])
+                boto3 = support.fake_boto3(table, invocations)
 
-        with LocalMeetup(route):
+                def route(request):
+                    requests.append(request.path)
+                    if request.path == path:
+                        send(request, b'', 302, redirect)
+                    else:
+                        send(request, support.EMPTY_ICAL.encode())
+
+                with LocalMeetup(route), patch.dict(sys.modules, support.fake_aws_modules(boto3)), \
+                        patch.dict(os.environ, {
+                            'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication',
+                        }):
+                    if redirect.startswith(path):
+                        result = support.meetup.lambda_handler({}, support.lambda_context())
+                        self.assertEqual((result['changed'], result['failures']), (1, []))
+                        self.assertEqual(requests, [path, redirect])
+                        self.assertFalse(table.existing[event['id']]['published'])
+                        self.assertEqual(len(invocations), 1)
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, 'Meetup sources failed'):
+                            support.meetup.lambda_handler({}, support.lambda_context())
+                        self.assertEqual(requests, [path])
+                        self.assertEqual(table.existing[event['id']], event)
+                        self.assertEqual(invocations, [])
+
+
+
+    def test_partial_http_transport_cannot_prove_an_empty_calendar(self):
+        path = '/aws-bogota/events/ical/'
+        source = {
+            'id': 'meetup-123', 'title': support.GROUP['name'], 'meetupSourceUrl': support.GROUP['url'],
+            'country': 'CO', 'kind': 'community', 'published': True,
+        }
+        start, end = support.EVENT_DATES['future']
+        event = support.existing_event(starts_at=start, ends_at=end)
+        body = support.EMPTY_ICAL.encode()
+        length_header = f'Content-Length: {len(body)}\r\n'.encode()
+        truncated_header = f'Content-Length: {len(body) + 200}\r\n'.encode()
+        for status_code, header_lines, complete in (
+                (200, length_header, True),
+                (200, b'', True),
+                (200, truncated_header, False),
+                (206, length_header, False),
+                (200, b'Content-Length: invalid\r\n', False),
+                (200, b'Broken Proxy Header\r\n' + truncated_header, False)):
+            with self.subTest(status=status_code, headers=header_lines):
+                requests, invocations = [], []
+                table = support.FakeTable([source, event])
+                boto3 = support.fake_boto3(table, invocations)
+
+                def route(request):
+                    requests.append(request.path)
+                    request.send_response_only(status_code)
+                    request.flush_headers()
+                    request.wfile.write(b'Connection: close\r\n' + header_lines + b'\r\n' + body)
+
+                with LocalMeetup(route), patch.dict(sys.modules, support.fake_aws_modules(boto3)), \
+                        patch.dict(os.environ, {
+                            'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication',
+                        }):
+                    if complete:
+                        result = support.meetup.lambda_handler({}, support.lambda_context())
+                        self.assertEqual((result['changed'], result['failures']), (1, []))
+                        self.assertFalse(table.existing[event['id']]['published'])
+                        self.assertEqual(len(invocations), 1)
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, 'Meetup sources failed'):
+                            support.meetup.lambda_handler({}, support.lambda_context())
+                        self.assertEqual(table.existing[event['id']], event)
+                        self.assertEqual(table.updates, [])
+                        self.assertEqual(invocations, [])
+                self.assertEqual(requests, [path])
+
+    def test_chunked_transport_requires_the_final_chunk(self):
+        body = support.EMPTY_ICAL.encode()
+        for complete in (True, False):
+            with self.subTest(complete=complete):
+                def route(request):
+                    request.send_response(200)
+                    request.send_header('Transfer-Encoding', 'chunked')
+                    request.end_headers()
+                    request.wfile.write(f'{len(body):x}\r\n'.encode() + body + b'\r\n')
+                    if complete:
+                        request.wfile.write(b'0\r\n\r\n')
+
+                with LocalMeetup(route):
+                    url = support.GROUP['url'] + 'events/ical/'
+                    if complete:
+                        self.assertEqual(support.meetup.get_text(url), support.EMPTY_ICAL)
+                    else:
+                        with self.assertRaises(http.client.IncompleteRead):
+                            support.meetup.get_text(url)
+
+    def test_malformed_chunked_calendar_preserves_future_rows(self):
+        source = {
+            'id': 'meetup-123', 'title': support.GROUP['name'], 'meetupSourceUrl': support.GROUP['url'],
+            'country': 'CO', 'kind': 'community', 'published': True,
+        }
+        start, end = support.EVENT_DATES['future']
+        event = support.existing_event(starts_at=start, ends_at=end)
+        body = support.EMPTY_ICAL.encode()
+        for after_chunk, final, complete in (
+                (b'\r\n', b'0\r\n\r\n', True),
+                (b'\r\n', b'0\r\nServer-Timing: app;dur=1\r\n\r\n', True),
+                (b'\r\n', b'0\r\n', False),
+                (b'\r\n', b'0\r\nServer-Timing: app;dur=1\r\n', False),
+                (b'\r\n', b'0\r\nContent-Length: 1\r\n\r\n', False),
+                (b'**', b'0\r\n\r\n', False)):
+            with self.subTest(delimiter=after_chunk, final=final):
+                table = support.FakeTable([source, event])
+                invocations = []
+                boto3 = support.fake_boto3(table, invocations)
+
+                def route(request):
+                    request.send_response(200)
+                    request.send_header('Transfer-Encoding', 'chunked')
+                    request.end_headers()
+                    first, rest = body[:8], body[8:]
+                    request.wfile.write(f'{len(first):x};tag="calendar"\r\n'.encode() + first + b'\r\n')
+                    request.wfile.write(f'{len(rest):x}\r\n'.encode() + rest + after_chunk + final)
+
+                with LocalMeetup(route), patch.dict(sys.modules, support.fake_aws_modules(boto3)), \
+                        patch.dict(os.environ, {
+                            'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication',
+                        }):
+                    if complete:
+                        result = support.meetup.lambda_handler({}, support.lambda_context())
+                        self.assertEqual((result['changed'], result['failures']), (1, []))
+                        self.assertFalse(table.existing[event['id']]['published'])
+                        self.assertEqual(len(invocations), 1)
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, 'Meetup sources failed'):
+                            support.meetup.lambda_handler({}, support.lambda_context())
+                        self.assertEqual(table.existing[event['id']], event)
+                        self.assertEqual(table.updates, [])
+                        self.assertEqual(invocations, [])
+
+    def test_only_same_event_redirect_can_supply_structured_detail(self):
+        path = '/aws-bogota/events/456/'
+        response_text = 'verified event body'
+        for redirect, allowed in ((path + '?source=calendar', True),
+                                  ('/aws-bogota/events/457/', False),
+                                  (path + ';alternate-record', False)):
+            with self.subTest(redirect=redirect):
+                requests = []
+
+                def route(request):
+                    requests.append(request.path)
+                    if request.path == path:
+                        send(request, b'', 302, redirect)
+                    else:
+                        send(request, response_text.encode())
+
+                with LocalMeetup(route):
+                    subject = load_importer()
+                    if allowed:
+                        self.assertEqual(subject.get_text(support.EVENT_URL), response_text)
+                        self.assertEqual(requests, [path, redirect])
+                    else:
+                        with self.assertRaises(ValueError):
+                            subject.get_text(support.EVENT_URL)
+                        self.assertEqual(requests, [path])
+
+    def test_event_authority_rejects_present_empty_userinfo_before_open(self):
+        subject = load_importer()
+        with patch.object(subject, 'build_opener') as build_opener:
             with self.assertRaises(ValueError):
-                load_importer().get_text('https://www.meetup.com/redirect')
+                subject.get_text(support.EVENT_URL.replace('www.', '@www.'))
+        build_opener.assert_not_called()
+
+    def test_initial_disallowed_url_is_rejected_before_transport_open(self):
+        subject = load_importer()
+        opener = Mock()
+
+        with patch.object(subject, 'build_opener', return_value=opener):
+            error = None
+            try:
+                subject.get_text('https://events.example.invalid/feed')
+            except Exception as caught:
+                error = caught
+
+        opener.open.assert_not_called()
+        self.assertIsInstance(error, ValueError)
+
+    def test_disallowed_redirect_is_rejected_before_transport_admission(self):
+        subject = load_importer()
+        request = subject.Request('https://www.meetup.com/redirect')
+        handler = subject.MeetupRedirectHandler(subject.monotonic() + 20)
+        targets = (
+            'https://events.example.invalid/final',
+            'http://www.meetup.com/final',
+            'https://www.meetup.com.attacker.invalid/final',
+        )
+
+        for target in targets:
+            with self.subTest(target=target):
+                response = Mock()
+                with patch.object(subject.HTTPRedirectHandler, 'redirect_request') as admit_redirect:
+                    with self.assertRaises(ValueError):
+                        handler.redirect_request(request, response, 302, 'Found', {}, target)
+
+                admit_redirect.assert_not_called()
+                response.close.assert_called()
 
     def test_standard_redirect_loop_protection_still_stops_requests(self):
         def route(request):

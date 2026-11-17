@@ -257,6 +257,27 @@ test('catalog writers can read and transact only on resource and URL-reservation
   }
 });
 
+test('the Meetup source inventory role admits the private locator in its scan projection', async () => {
+  const meetup = await readTemplate('meetup-events');
+  const [sourceScan] = scanStatements(meetup, 'MeetupEventsRole');
+  assert.ok(scanFields(sourceScan).includes('meetupSourceUrl'), 'the scheduler role can read the verified source locator');
+});
+
+test('public and legacy reference roles keep the private Meetup locator out of their projections', async () => {
+  const [meetup, catalog, publication, submissions] = await Promise.all(
+    ['meetup-events', 'catalog', 'publication', 'submissions'].map(readTemplate),
+  );
+  const field = 'meetupSourceUrl';
+  const roles = [catalog, publication, submissions].flatMap((template) => Object.values(template.Resources)
+    .filter((resource) => resource.Type === 'AWS::IAM::Role'));
+  assert.ok(roles.length >= 3, 'the build, publisher and submission role policies are present');
+  for (const role of roles) {
+    assert.doesNotMatch(JSON.stringify(role.Properties.Policies), /"meetupSourceUrl"/u);
+  }
+  const targetRead = assertProjectedTargetRead(policyStatements(meetup, 'MeetupEventsRole'), 'table/${CatalogTableName}');
+  assert.ok(!targetRead.Condition['ForAllValues:StringEquals']['dynamodb:Attributes'].includes(field));
+});
+
 test('referenced legacy resource validation uses exactly the IAM public URL projection', async () => {
   const requestedUrl = 'https://example.com/legacy';
   const reservationId = currentUrlReservationId(requestedUrl);

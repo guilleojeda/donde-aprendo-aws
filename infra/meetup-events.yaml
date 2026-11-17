@@ -45,6 +45,7 @@ Resources:
                       - startsAt
                       - endsAt
                       - timeZone
+                      - meetupSourceUrl
                       - url
                       - country
                       - kind

@@ -13,6 +13,7 @@ from hashlib import sha256
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime, timezone
 from decimal import Decimal
+from http.client import IncompleteRead
 from html import unescape
 from html.parser import HTMLParser
 import json
@@ -20,17 +21,21 @@ import math
 import re
 import os
 from time import monotonic
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from zoneinfo import ZoneInfo
 
 ACCOUNT_ID = '719535286359'
 TABLE_NAME = 'donde-aprendo-aws-catalog'
 MEETUP_HOST = 'www.meetup.com'
+SCHEDULE_RULE_NAME = 'donde-aprendo-aws-hourly-meetup-events'
+SCHEDULE_RULE_ARN = f'arn:aws:events:us-east-1:{ACCOUNT_ID}:rule/{SCHEDULE_RULE_NAME}'
 MAX_CATALOG_RESOURCE_ID_BYTES = 256
 EVENT_RESOURCE_ID = re.compile(r'^[A-Za-z0-9_-]{1,128}$')
-# Public IDs follow JavaScript String.trim(): BOM is an edge separator, NEL is not.
-PUBLIC_ID_EDGE_WHITESPACE = (
+# Organizer countries use the catalog's exact COUNTRY_LABELS keys.
+ORGANIZER_COUNTRIES = frozenset('AR BO BR CL CO CR DO EC ES GT HN JM MX NI PA PE PR PY UY VE'.split())
+# Match the public reader's JavaScript String.trim() edge whitespace.
+JAVASCRIPT_TRIM_WHITESPACE = (
     '\u0009\u000a\u000b\u000c\u000d\u0020\u00a0\u1680'
     '\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a'
     '\u2028\u2029\u202f\u205f\u3000\ufeff'
@@ -45,6 +50,7 @@ SYNC_OWNED_FIELDS = (
     'published', 'sourceGroupId', 'sourceModifiedAt', 'autoSync', 'place',
     'city', 'venueCountry',
 )
+STORED_EVENT_FIELDS = ('id', 'version', 'approvalRevoked') + SYNC_OWNED_FIELDS
 OPTIONAL_SYNC_FIELDS = ('place', 'city', 'venueCountry')
 PUBLISHABLE_EVENT_STATUSES = frozenset((
     'https://schema.org/EventScheduled',
@@ -58,6 +64,13 @@ NONPUBLISHABLE_EVENT_STATUSES = frozenset((
 MAX_HTTP_REQUEST_SECONDS = 20
 MAX_HTTP_BODY_BYTES = 2_000_000
 HTTP_READ_CHUNK_BYTES = 64 * 1024
+HTTP_TOKEN = rb"[!#$%&'*+.^_`|~0-9A-Za-z-]+"
+CHUNK_SIZE_LINE = re.compile(
+    rb'([0-9A-Fa-f]+)(?:[ \t]*;[ \t]*' + HTTP_TOKEN
+    + rb'(?:[ \t]*=[ \t]*(?:' + HTTP_TOKEN + rb'|"(?:[\t !#-\[\]-~\x80-\xff]'
+    + rb'|\\[\t -~\x80-\xff])*"))?)*'
+)
+HTTP_TRAILER_LINE = re.compile(rb'(' + HTTP_TOKEN + rb'):[\t -~\x80-\xff]*')
 SDK_CALL_SECONDS = 5
 LAMBDA_DRAIN_SECONDS = 20
 NOTIFICATION_SECONDS = 5
@@ -126,7 +139,7 @@ def validate_public_catalog_resource_id(value, field='Catalog resource ID'):
     validate_catalog_resource_id(value)
     if '\x00' in value or '\r' in value:
         raise ValueError(f'{field} must not contain NUL or carriage return')
-    if value[0] in PUBLIC_ID_EDGE_WHITESPACE or value[-1] in PUBLIC_ID_EDGE_WHITESPACE:
+    if value[0] in JAVASCRIPT_TRIM_WHITESPACE or value[-1] in JAVASCRIPT_TRIM_WHITESPACE:
         raise ValueError(f'{field} must not have leading or trailing whitespace')
     return value
 
@@ -144,7 +157,7 @@ def meetup_event_resource_id(event_id):
 
 
 def meetup_community_resource_id(group_id):
-    if not isinstance(group_id, str):
+    if not isinstance(group_id, str) or not group_id:
         raise ValueError('Invalid Meetup community ID')
     return validate_public_catalog_resource_id(f'meetup-{group_id}', 'Meetup community ID')
 
@@ -162,7 +175,8 @@ def validate_catalog_url(value):
             or re.search(r'[\x00-\x1f\x7f]', value):
         raise ValueError('Invalid catalog URL')
     parsed = urlparse(value)
-    if parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username or parsed.password:
+    if (parsed.scheme not in ('http', 'https') or not parsed.hostname
+            or parsed.username is not None or parsed.password is not None):
         raise ValueError('Unsafe catalog URL')
     try:
         _ = parsed.port
@@ -179,7 +193,10 @@ class JsonLdScripts(HTMLParser):
         self.scripts = []
 
     def handle_starttag(self, tag, attrs):
-        if tag == 'script' and dict(attrs).get('type') == 'application/ld+json':
+        if tag != 'script':
+            return
+        content_type = next((value for key, value in attrs if key == 'type'), None)
+        if content_type and content_type.split(';', 1)[0].strip().casefold() == 'application/ld+json':
             self.active = True
             self.buffer = ''
 
@@ -194,12 +211,18 @@ class JsonLdScripts(HTMLParser):
 
 
 class MeetupRedirectHandler(HTTPRedirectHandler):
-    def __init__(self, request_deadline):
+    def __init__(self, request_deadline, observation_path=None):
         super().__init__()
         self.request_deadline = request_deadline
+        self.observation_path = observation_path
 
     def redirect_request(self, request, response, code, message, headers, new_url):
         try:
+            # Validate the next destination before urllib creates a request for
+            # it.  The feed and event URLs are untrusted provider input, so a
+            # redirect must remain on the exact HTTPS Meetup origin too.
+            redirect_url = urljoin(request.full_url, new_url)
+            validate_meetup_transport_url(redirect_url, self.observation_path)
             # urllib's default handler drains the unused redirect response before following it.
             response.close()
             remaining = self.request_deadline - monotonic()
@@ -217,7 +240,72 @@ def set_response_read_timeout(response, timeout):
     response.fp.raw._sock.settimeout(timeout)
 
 
+def meetup_observation_path(url):
+    path = urlsplit(url).path
+    if re.fullmatch(r'/[A-Za-z0-9_-]+/events/(?:ical|[0-9]+)/?', path, re.I | re.ASCII):
+        return path.rstrip('/').casefold()
+    return None
+
+
+def validate_meetup_transport_url(url, observation_path=None):
+    """Validate a URL before urllib is allowed to open it."""
+    validate_catalog_url(url)
+    parsed = urlparse(url)
+    if parsed.scheme != 'https' or parsed.hostname != MEETUP_HOST or parsed.port not in (None, 443):
+        raise ValueError(f'Unsafe Meetup request URL: {url}')
+    if observation_path is not None and meetup_observation_path(url) != observation_path:
+        raise ValueError('Meetup response moved away from its verified feed or event')
+    return url
+
+
+def read_chunked_body(read):
+    """Require the complete HTTP/1.1 framing before using an observation."""
+    pending = bytearray()
+    contents = bytearray()
+
+    def fill():
+        block = read(HTTP_READ_CHUNK_BYTES)
+        if not block:
+            raise IncompleteRead(bytes(contents))
+        pending.extend(block)
+
+    def read_line():
+        while (end := pending.find(b'\n')) == -1:
+            if len(pending) >= HTTP_READ_CHUNK_BYTES:
+                raise ValueError('Meetup chunk framing line too long')
+            fill()
+        if end < 1 or pending[end - 1] != 13 or end >= HTTP_READ_CHUNK_BYTES:
+            raise ValueError('Invalid Meetup chunk line ending')
+        line = bytes(pending[:end - 1])
+        del pending[:end + 1]
+        return line
+
+    while True:
+        match = CHUNK_SIZE_LINE.fullmatch(read_line())
+        if not match:
+            raise ValueError('Invalid Meetup chunk size or extension')
+        size = int(match[1], 16)
+        if size == 0:
+            break
+        if size > MAX_HTTP_BODY_BYTES - len(contents):
+            raise ValueError('Meetup response too large')
+        while len(pending) < size + 2:
+            fill()
+        if pending[size:size + 2] != b'\r\n':
+            raise ValueError('Invalid Meetup chunk data ending')
+        contents.extend(pending[:size])
+        del pending[:size + 2]
+
+    while (line := read_line()):
+        trailer = HTTP_TRAILER_LINE.fullmatch(line)
+        if not trailer or trailer[1].lower() in {b'content-length', b'transfer-encoding'}:
+            raise ValueError('Invalid Meetup chunk trailer')
+    return contents
+
+
 def get_text(url, budget=None):
+    validate_meetup_transport_url(url)
+    observation_path = meetup_observation_path(url)
     request_deadline = monotonic() + MAX_HTTP_REQUEST_SECONDS
     if budget is not None:
         request_deadline = min(request_deadline, budget.request_deadline())
@@ -225,38 +313,67 @@ def get_text(url, budget=None):
     if timeout <= 0:
         raise RequestTimedOut(f'Meetup request budget exhausted before {url}')
     request = Request(url, headers={'User-Agent': 'DondeAprendoAWS/1.0 (+https://dondeaprendoaws.com/)'})
-    opener = build_opener(MeetupRedirectHandler(request_deadline))
+    opener = build_opener(MeetupRedirectHandler(request_deadline, observation_path))
     with opener.open(request, timeout=timeout) as response:
-        final_url = urlparse(response.url)
-        if final_url.scheme != 'https' or final_url.hostname != MEETUP_HOST:
-            raise ValueError(f'Meetup request redirected to another host: {url}')
-        contents = bytearray()
-        while True:
+        validate_meetup_transport_url(response.url, observation_path)
+        if response.headers.defects:
+            raise ValueError(f'Malformed Meetup response headers: {url}')
+        if response.status != 200 or 'Content-Range' in response.headers:
+            raise ValueError(f'Meetup response is not a complete HTTP 200: {url}')
+        lengths = response.headers.get_all('Content-Length', [])
+        encodings = response.headers.get_all('Transfer-Encoding', [])
+        if (encodings and ([encoding.strip().lower() for encoding in encodings] != ['chunked'] or lengths)
+                or lengths and (len(lengths) != 1 or not re.fullmatch(r'[0-9]+', lengths[0].strip()))):
+            raise ValueError(f'Invalid Meetup response framing: {url}')
+        # HTTPResponse.read1() discards chunk delimiters and accepts premature EOF in trailers.
+        read = response.fp.read1 if encodings else response.read1
+
+        def read_within_budget(size):
             remaining_time = request_deadline - monotonic()
             if remaining_time <= 0:
                 raise RequestTimedOut(f'Meetup request budget exhausted while reading {url}')
             if response.isclosed():
-                break
-            remaining_bytes = MAX_HTTP_BODY_BYTES + 1 - len(contents)
+                return b''
             set_response_read_timeout(response, remaining_time)
-            chunk = response.read1(min(HTTP_READ_CHUNK_BYTES, remaining_bytes))
-            if chunk:
-                contents.extend(chunk)
-                if len(contents) > MAX_HTTP_BODY_BYTES:
-                    raise ValueError(f'Meetup response too large: {url}')
+            chunk = read(size)
             if monotonic() >= request_deadline:
                 raise RequestTimedOut(f'Meetup request budget exhausted while reading {url}')
-            if not chunk:
-                break
-        return bytes(contents).decode('utf-8')
+            return chunk
+
+        if encodings:
+            return read_chunked_body(read_within_budget).decode('utf-8')
+        expected_length = response.length
+        contents = bytearray()
+        while (chunk := read_within_budget(min(HTTP_READ_CHUNK_BYTES, MAX_HTTP_BODY_BYTES + 1 - len(contents)))):
+            contents.extend(chunk)
+            if len(contents) > MAX_HTTP_BODY_BYTES:
+                raise ValueError(f'Meetup response too large: {url}')
+        if expected_length is not None and len(contents) != expected_length:
+            raise ValueError(f'Incomplete Meetup response body: {url}')
+        return contents.decode('utf-8')
+
+
+def canonical_meetup_group_url(source_url, group_id):
+    validate_catalog_url(source_url)
+    url = urlparse(source_url)
+    if (url.scheme != 'https' or url.hostname != MEETUP_HOST or url.port not in (None, 443)
+            or url.params or '?' in source_url or '#' in source_url
+            or not re.fullmatch(r'/[A-Za-z0-9_-]+/?', url.path)):
+        raise ValueError(f'Unsafe Meetup group URL: {group_id}')
+    return f'https://{MEETUP_HOST}{url.path.rstrip("/")}/'
 
 
 def group_feed_url(group):
-    validate_catalog_url(group.get('url'))
-    url = urlparse(group['url'])
-    if url.scheme != 'https' or url.hostname != MEETUP_HOST or not re.fullmatch(r'/[A-Za-z0-9_-]+/?', url.path):
-        raise ValueError(f'Unsafe Meetup group URL: {group["id"]}')
-    return f'https://{MEETUP_HOST}{url.path.rstrip("/")}/events/ical/'
+    canonical = canonical_meetup_group_url(group.get('url'), group['id'])
+    return f'{canonical}events/ical/'
+
+
+def valid_group_name(value):
+    return isinstance(value, str) and bool(value) and value == value.strip(JAVASCRIPT_TRIM_WHITESPACE)
+
+
+def valid_group_country(value):
+    return isinstance(value, str) and value in ORGANIZER_COUNTRIES
 
 
 def validate_meetup_group(group):
@@ -264,98 +381,428 @@ def validate_meetup_group(group):
         raise ValueError('Invalid Meetup group record')
     group_id = group.get('id')
     meetup_community_resource_id(group_id)
-    if not isinstance(group.get('name'), str):
+    if not valid_group_name(group.get('name')):
         raise ValueError(f'Invalid Meetup community name: {group_id}')
-    if not isinstance(group.get('country'), str):
+    if not valid_group_country(group.get('country')):
         raise ValueError(f'Invalid Meetup community country: {group_id}')
     group_feed_url(group)
+    # Keep the internal representation canonical so file-driven and
+    # database-backed callers derive identical event paths.  The slug's case
+    # is intentionally preserved; only the fixed origin and trailing slash
+    # are normalized.
+    group['url'] = canonical_meetup_group_url(group['url'], group_id)
     return group
 
 
 def unfold_ical(text):
+    if not isinstance(text, str):
+        raise ValueError('Invalid iCalendar feed')
     lines = []
     for line in text.replace('\r\n', '\n').replace('\r', '\n').split('\n'):
         if line.startswith((' ', '\t')) and lines:
+            if not lines[-1]:
+                raise ValueError('Invalid iCalendar feed')
             lines[-1] += line[1:]
+        elif line.startswith((' ', '\t')):
+            raise ValueError('Invalid iCalendar feed')
         else:
             lines.append(line)
     return lines
 
 
 def parse_feed(text, group):
-    lines = unfold_ical(text)
-    while lines and lines[-1] == '':
-        lines.pop()
-    if not lines or lines[0] != 'BEGIN:VCALENDAR' or lines[-1] != 'END:VCALENDAR':
-        raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
-    events = []
-    components = []
-    calendar_seen = False
-    current = None
-    for line in lines:
-        if line.startswith('BEGIN:'):
-            component = line[len('BEGIN:'):]
-            if not components:
-                if line != 'BEGIN:VCALENDAR' or calendar_seen:
-                    raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
-                calendar_seen = True
-            elif component == 'VCALENDAR':
-                raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
-            elif component == 'VEVENT':
-                if components != ['VCALENDAR']:
-                    raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
-                current = {}
-            components.append(component)
-        elif line.startswith('END:'):
-            component = line[len('END:'):]
-            if not components or components[-1] != component:
-                raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
-            if component == 'VCALENDAR' and (components != ['VCALENDAR'] or current is not None):
-                raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
-            if component == 'VEVENT':
-                if components != ['VCALENDAR', 'VEVENT'] or current is None:
-                    raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
-                uid = current.get('UID', '')
-                match = re.fullmatch(r'event_(\d+)@meetup\.com', uid)
-                url = current.get('URL', '')
-                validate_catalog_url(url)
-                parsed = urlparse(url)
-                expected_slug = urlparse(group['url']).path.strip('/')
-                if not match or parsed.scheme != 'https' or parsed.hostname != MEETUP_HOST \
-                        or not re.fullmatch(rf'/{re.escape(expected_slug)}/events/{match.group(1)}/?', parsed.path, re.I):
-                    raise ValueError(f'Invalid Meetup event in feed of {group["id"]}')
-                modified = current.get('LAST-MODIFIED') or sha256(
-                    json.dumps(current, sort_keys=True).encode('utf-8')).hexdigest()
-                event = {'id': match.group(1), 'url': url, 'modified': modified}
-                if current.get('STATUS') == 'CANCELLED':
-                    event['cancelled'] = True
-                events.append(event)
-                current = None
-            components.pop()
-        elif current is not None and ':' in line:
-            key, value = line.split(':', 1)
-            current[key.split(';', 1)[0]] = value
-    if components or not calendar_seen:
-        raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
+    events, _time_zone = parse_calendar(text, group)
     return events
 
 
+def parse_calendar(text, group):
+    lines = unfold_ical(text)
+    while lines and lines[-1] == '':
+        lines.pop()
+    if not lines:
+        raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
+
+    invalid_message = f'Invalid iCalendar feed for {group["id"]}'
+    token = r'[A-Za-z0-9-]+'
+    quoted = r'"(?:\\[^\r\n\x00-\x08\x0a-\x1f\x7f]|[^"\\\r\n\x00-\x08\x0a-\x1f\x7f])*"'
+    safe = r'[^,:;"\r\n\x00-\x08\x0a-\x1f\x7f]+'
+    parameter_value = rf'(?:{quoted}|{safe})(?:,(?:{quoted}|{safe}))*'
+    content_line = re.compile(
+        rf'(?P<name>{token})(?P<parameters>(?:;{token}={parameter_value})*):'
+        rf'(?P<value>[^\r\n\x00-\x08\x0a-\x1f\x7f]*)\Z')
+    parameter_line = re.compile(
+        rf';(?P<name>{token})=(?P<value>{parameter_value})(?=;|\Z)', re.I)
+    event_properties = frozenset({'UID', 'URL', 'STATUS', 'LAST-MODIFIED'})
+    calendar_metadata = frozenset({'VERSION', 'PRODID', 'TZID', 'UID', 'URL', 'LAST-MODIFIED'})
+    timezone_metadata = frozenset({'TZID', 'LAST-MODIFIED'})
+    event_statuses = frozenset({'TENTATIVE', 'CONFIRMED', 'CANCELLED'})
+    consumed_value_types = {
+        'VERSION': 'TEXT', 'PRODID': 'TEXT', 'TZID': 'TEXT', 'UID': 'TEXT',
+        'URL': 'URI', 'STATUS': 'TEXT', 'LAST-MODIFIED': 'DATE-TIME',
+    }
+    # The properties used here take extension parameters and an explicit
+    # value type matching their default. RFC 5545's other core parameters
+    # have semantics on other properties, such as TZID on local DTSTART.
+    incompatible_core_parameters = frozenset((
+        'ALTREP', 'CN', 'CUTYPE', 'DELEGATED-FROM', 'DELEGATED-TO', 'DIR',
+        'ENCODING', 'FMTTYPE', 'FBTYPE', 'LANGUAGE', 'MEMBER', 'PARTSTAT',
+        'RANGE', 'RELATED', 'RELTYPE', 'ROLE', 'RSVP', 'SENT-BY', 'TZID',
+    ))
+    events = {}
+    components = []
+    calendar_properties = {}
+    time_zone = None
+    timezone_properties = None
+    calendar_seen = False
+    current = None
+
+    def invalid_feed():
+        raise ValueError(invalid_message)
+
+    def validate_consumed_parameters(name, parameters):
+        """Keep consumed values in their supported representation."""
+        expected = consumed_value_types.get(name)
+        if expected is None or not parameters:
+            return
+        declared = None
+        position = 0
+        while position < len(parameters):
+            match = parameter_line.match(parameters, position)
+            if match is None:
+                invalid_feed()
+            parameter_name = match.group('name').upper()
+            if parameter_name in incompatible_core_parameters:
+                invalid_feed()
+            if parameter_name == 'VALUE':
+                if declared is not None:
+                    invalid_feed()
+                raw_value = match.group('value')
+                if raw_value.startswith('"') or ',' in raw_value:
+                    invalid_feed()
+                declared = raw_value.upper()
+            position = match.end()
+        if declared is not None and declared != expected:
+            invalid_feed()
+
+    def validate_modified_timestamp(value):
+        if not re.fullmatch(r'[0-9]{8}T[0-9]{6}Z', value, re.I | re.ASCII):
+            invalid_feed()
+        # iCalendar permits a positive leap second. Validate the other
+        # fields without changing the source marker we compare and store.
+        normalized = value.upper()
+        if normalized.endswith('235960Z'):
+            normalized = normalized[:-3] + '59Z'
+        try:
+            datetime.strptime(normalized, '%Y%m%dT%H%M%SZ')
+        except ValueError:
+            invalid_feed()
+
+    def validate_calendar_text(value):
+        if not re.fullmatch(r'(?:\\[\\;,nN]|[^\\;,])+', value):
+            invalid_feed()
+        visible = re.sub(r'\\[nN]', '\n', value)
+        if not visible.strip(JAVASCRIPT_TRIM_WHITESPACE):
+            invalid_feed()
+
+    def validate_calendar_uri(value):
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9+.-]*:[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+", value) \
+                or re.search(r'%(?![A-Fa-f0-9]{2})', value):
+            invalid_feed()
+        try:
+            uri = urlsplit(value)
+            _ = uri.port
+        except ValueError:
+            invalid_feed()
+        # Delimiters and IP literal brackets are only meaningful in
+        # their own URI components. urlsplit exposes them without rejecting
+        # extra fragment or user-info separators on its own.
+        if (value.count('#') > 1 or uri.netloc.count('@') > 1
+                or any('[' in part or ']' in part for part in (uri.path, uri.query, uri.fragment))
+                or (uri.scheme in {'http', 'https', 'ftp'} and not uri.hostname)):
+            invalid_feed()
+
+    def record_property(target, name, value, parameters, allowed_properties):
+        # Recognized properties have one value and a defined component
+        # scope. Other properties remain extension data for this observer.
+        if name in consumed_value_types:
+            if name not in allowed_properties or name in target:
+                invalid_feed()
+            validate_consumed_parameters(name, parameters)
+            if name == 'LAST-MODIFIED':
+                validate_modified_timestamp(value)
+            elif name in {'PRODID', 'TZID', 'UID'}:
+                validate_calendar_text(value)
+            elif name == 'URL':
+                validate_calendar_uri(value)
+            elif name == 'VERSION' and value != '2.0':
+                invalid_feed()
+            elif name == 'STATUS' and value.upper() not in event_statuses:
+                invalid_feed()
+        # Preserve the fallback fingerprint for repeatable extensions.
+        target[name] = value
+
+    def allowed_component(parent, component):
+        if parent is None:
+            return component == 'VCALENDAR'
+        if component == 'VCALENDAR':
+            return False
+        if component == 'VEVENT':
+            return parent == 'VCALENDAR'
+        if component == 'VALARM':
+            return parent == 'VEVENT'
+        if component == 'VTIMEZONE':
+            return parent == 'VCALENDAR'
+        if component in {'STANDARD', 'DAYLIGHT'}:
+            return parent == 'VTIMEZONE'
+        # IANA and X- extension components may carry properties, but never
+        # become direct VEVENT facts in this observer.
+        return True
+
+    def finish_event():
+        if components != ['VCALENDAR', 'VEVENT'] or current is None:
+            invalid_feed()
+        uid = current.get('UID', '')
+        match = re.fullmatch(r'event_([0-9]+)@meetup\.com', uid, re.I) \
+            if isinstance(uid, str) else None
+        url = current.get('URL', '')
+        try:
+            parsed = urlsplit(validate_meetup_transport_url(url))
+            expected_slug = urlsplit(group['url']).path.strip('/')
+        except (KeyError, TypeError, ValueError):
+            invalid_feed()
+        if not match or not re.fullmatch(rf'/{re.escape(expected_slug)}/events/{match.group(1)}/?',
+                                         parsed.path, re.I):
+            invalid_feed()
+        modified = current.get('LAST-MODIFIED')
+        if modified is None:
+            modified = sha256(json.dumps(current, sort_keys=True).encode('utf-8')).hexdigest()
+        event_id = match.group(1)
+        meetup_event_resource_id(event_id)
+        event = {'id': event_id, 'url': url, 'modified': modified}
+        status = current.get('STATUS', '').upper()
+        if status == 'CANCELLED':
+            event['cancelled'] = True
+        previous = events.get(event_id)
+        if previous is not None and previous != event:
+            invalid_feed()
+        events[event_id] = event
+
+    for line in lines:
+        if not line:
+            invalid_feed()
+        match = content_line.fullmatch(line)
+        if not match:
+            invalid_feed()
+        name = match.group('name').upper()
+        value = match.group('value')
+        parameters = match.group('parameters')
+        has_parameters = bool(parameters)
+        if name in {'BEGIN', 'END'}:
+            if has_parameters or not re.fullmatch(token, value):
+                invalid_feed()
+            component = value.upper()
+            if name == 'BEGIN':
+                parent = components[-1] if components else None
+                if not allowed_component(parent, component) or (parent is None and calendar_seen):
+                    invalid_feed()
+                if component == 'VCALENDAR':
+                    calendar_seen = True
+                elif component == 'VEVENT':
+                    current = {}
+                elif component == 'VTIMEZONE':
+                    timezone_properties = {}
+                components.append(component)
+            else:
+                if not components or components[-1] != component:
+                    invalid_feed()
+                if component == 'VCALENDAR' and (components != ['VCALENDAR'] or current is not None):
+                    invalid_feed()
+                if component == 'VEVENT':
+                    finish_event()
+                    current = None
+                if component == 'VTIMEZONE':
+                    if 'TZID' not in timezone_properties:
+                        invalid_feed()
+                    if time_zone is None:
+                        time_zone = timezone_properties['TZID']
+                components.pop()
+        elif components == ['VCALENDAR', 'VEVENT'] and current is not None:
+            record_property(current, name, value, parameters, event_properties)
+        elif components == ['VCALENDAR']:
+            record_property(calendar_properties, name, value, parameters, calendar_metadata)
+        elif components == ['VCALENDAR', 'VTIMEZONE']:
+            record_property(timezone_properties, name, value, parameters, timezone_metadata)
+        elif components:
+            # Properties nested in VALARM, VTIMEZONE, or extension components
+            # do not affect direct event identity or cancellation authority.
+            pass
+        else:
+            invalid_feed()
+    if components or 'VERSION' not in calendar_properties:
+        invalid_feed()
+    return list(events.values()), calendar_properties.get('TZID', time_zone)
+
+
+def unambiguous_json_object(pairs):
+    record = {}
+    for name, value in pairs:
+        if name in record and (type(record[name]) is not type(value) or record[name] != value):
+            raise ValueError(f'Conflicting structured property: {name}')
+        record[name] = value
+    return record
+
+
+def reject_json_constant(value):
+    raise ValueError(f'Invalid JSON constant: {value}')
+
+
+SCHEMA_NAMESPACES = ('http://schema.org/', 'https://schema.org/')
+SCHEMA_PREFIXES = ('schema:', *SCHEMA_NAMESPACES)
+EVENT_DETAIL_FIELDS = ('eventStatus', 'name', 'description', 'startDate', 'endDate', 'eventAttendanceMode', 'location')
+EVENT_FACT_FIELDS = ('url', *EVENT_DETAIL_FIELDS)
+
+
+def schema_term(name):
+    for prefix in SCHEMA_PREFIXES:
+        if name.startswith(prefix):
+            return name[len(prefix):]
+    return name
+
+
+def schema_context(declaration, inherited):
+    vocabulary, prefix = inherited or (False, False)
+    for part in declaration if isinstance(declaration, list) else [declaration]:
+        if isinstance(part, str) and re.fullmatch(r'https?://schema\.org/?', part):
+            vocabulary = prefix = True
+        elif isinstance(part, dict) and all(
+            key in {'@vocab', 'schema'} and value in SCHEMA_NAMESPACES
+            for key, value in part.items()
+        ):
+            vocabulary = vocabulary or '@vocab' in part
+            prefix = prefix or 'schema' in part
+        else:
+            raise ValueError('Unsupported structured data context')
+    return vocabulary, prefix
+
+
+def structured_nodes(data, *, context=None, node_required=True):
+    if isinstance(data, list):
+        for node in data:
+            yield from structured_nodes(node, context=context, node_required=node_required)
+        return
+    if not isinstance(data, dict):
+        if node_required:
+            raise ValueError('Invalid structured data node')
+        return
+    if '@value' in data:
+        literal_keys = {'@value', '@type', '@language', '@direction', '@index'}
+        if node_required or data.keys() - literal_keys:
+            raise ValueError('Invalid structured data literal')
+        return
+    supported_keywords = {'@context', '@type', '@id', '@graph', '@included', '@set', '@list', '@index'}
+    if any(key.startswith('@') and key not in supported_keywords for key in data):
+        raise ValueError('Unsupported structured data keyword')
+    if '@context' in data:
+        context = schema_context(data['@context'], context)
+    if '@index' in data and not isinstance(data['@index'], str):
+        raise ValueError('Invalid structured data index')
+    for collection in ('@set', '@list'):
+        if collection in data and data.keys() - {'@context', '@index', collection}:
+            raise ValueError('Invalid structured data collection')
+    types = data.get('@type', [])
+    if isinstance(types, str):
+        types = [types]
+    if not isinstance(types, list) or any(
+            not isinstance(kind, str) or not kind or re.search(r'[\s\x00-\x1f\x7f]', kind) for kind in types):
+        raise ValueError('Invalid structured data type declaration')
+    if '@id' in data:
+        identity = data['@id']
+        if not isinstance(identity, str) or not identity or re.search(r'[\s\x00-\x1f\x7f]', identity):
+            raise ValueError('Invalid structured data identity')
+    # Keep accepting Meetup's direct fields on pages without a context.
+    yield data, types, context if context is not None else (True, False)
+    for key, value in data.items():
+        if key in {'@graph', '@included'}:
+            yield from structured_nodes(value, context=context)
+        elif key in {'@set', '@list'} or not key.startswith('@'):
+            yield from structured_nodes(value, context=context, node_required=False)
+
+
+def direct_event_facts(node, vocabulary, expected_url):
+    # Check alternate spellings as well, but only the literal schema fields
+    # are supported at the observation boundary.
+    facts = {}
+    for key, value in node.items():
+        if (field := schema_term(key)) in EVENT_FACT_FIELDS:
+            if key != field or not vocabulary:
+                raise ValueError(f'Unsupported structured Event field {key}: {expected_url}')
+            facts[field] = value
+    return facts
+
+
+def agreeing_event_facts(facts, other):
+    return {field: value for field, value in facts.items()
+            if field in other and type(value) is type(other[field]) and value == other[field]}
+
+
 def parse_event_page(text, expected_url):
+    expected_path = meetup_observation_path(validate_meetup_transport_url(expected_url))
+    if expected_path is None or expected_path.endswith('/ical'):
+        raise ValueError(f'Invalid expected Meetup event path: {expected_url}')
+
     parser = JsonLdScripts()
     parser.feed(text)
+    parser.close()
+    if parser.active:
+        raise ValueError(f'Unclosed structured data block: {expected_url}')
+    event = None
+    observed = None
+    identified_events = {}
+    fragments = []
     for script in parser.scripts:
         try:
-            data = json.loads(script)
-        except json.JSONDecodeError:
-            continue
-        if data.get('@type') == 'Event':
-            actual = urlparse(data.get('url', ''))
-            expected = urlparse(expected_url)
-            if (actual.scheme, actual.hostname, actual.path.rstrip('/')) != \
-                    (expected.scheme, expected.hostname, expected.path.rstrip('/')):
-                raise ValueError(f'Event page URL mismatch: {expected_url}')
-            return data
-    raise ValueError(f'No structured Event found: {expected_url}')
+            data = json.loads(script, object_pairs_hook=unambiguous_json_object,
+                              parse_constant=reject_json_constant)
+        except ValueError as error:
+            raise ValueError(f'Invalid structured data for {expected_url}: {error}') from error
+        for node, types, (vocabulary, prefix) in structured_nodes(data):
+            identity = node.get('@id')
+            if identity and not urlsplit(identity).scheme:
+                identity = urljoin(expected_url, identity)
+            event_types = [kind for kind in types if schema_term(kind) == 'Event']
+            if not event_types:
+                has_status = any(schema_term(key) == 'eventStatus' for key in node)
+                if identity or has_status:
+                    fragments.append((identity, vocabulary, node, has_status))
+                continue
+            if ('Event' in event_types and not vocabulary or 'schema:Event' in event_types and not prefix):
+                raise ValueError(f'Unsupported structured Event type vocabulary: {expected_url}')
+            facts = direct_event_facts(node, vocabulary, expected_url)
+            validate_meetup_transport_url(facts.get('url'), expected_path)
+            if identity:
+                validate_meetup_transport_url(identity, expected_path)
+                # Fragments must agree with every typed description of this identity.
+                earlier = identified_events.get(identity)
+                identified_events[identity] = facts if earlier is None else agreeing_event_facts(earlier, facts)
+            status = facts.get('eventStatus')
+            fields = (('eventStatus',) if isinstance(status, str) and status in NONPUBLISHABLE_EVENT_STATUSES
+                      else EVENT_DETAIL_FIELDS)
+            observation = tuple(facts.get(field) for field in fields)
+            if event is not None and observed != observation:
+                raise ValueError(f'Conflicting structured Events: {expected_url}')
+            if event is None:
+                event, observed = node, observation
+    # Identity references may appear before the typed Event or in another script.
+    for identity, vocabulary, node, has_status in fragments:
+        if identity in identified_events:
+            facts = direct_event_facts(node, vocabulary, expected_url)
+            if len(agreeing_event_facts(facts, identified_events[identity])) != len(facts):
+                raise ValueError(f'Conflicting structured Event facts: {expected_url}')
+        elif has_status:
+            raise ValueError(f'Structured Event status has no Event identity: {expected_url}')
+    if event is None:
+        raise ValueError(f'No structured Event found: {expected_url}')
+    return event
 
 
 def clean_description(value):
@@ -478,6 +925,7 @@ def load_groups_from_file(path):
 
 def scan_items(table, params, budget=None):
     """Yield validated DynamoDB Scan items across every page."""
+    seen_cursors = set()
     while True:
         check_sdk_budget(budget, 'catalog scan page')
         page = table.scan(**params)
@@ -495,41 +943,208 @@ def scan_items(table, params, budget=None):
             raise ValueError('Invalid DynamoDB Scan LastEvaluatedKey')
         if not cursor:
             return
+        cursor_key = cursor.get('id')
+        if len(cursor) != 1 or not isinstance(cursor_key, str) or not cursor_key:
+            raise ValueError('Invalid DynamoDB Scan LastEvaluatedKey')
+        if cursor_key in seen_cursors:
+            raise ValueError('Repeated DynamoDB Scan cursor')
+        seen_cursors.add(cursor_key)
         params['ExclusiveStartKey'] = cursor
 
 
 def load_groups_from_dynamodb(table, budget=None):
+    inventory = read_source_inventory(table, budget)
+    error = inventory.error or inventory.row_error
+    if error is not None:
+        raise error
+    return inventory.groups
+
+
+class SourceInventory:
+    """The source scan result, including local rows that cannot be enrolled."""
+
+    def __init__(self, groups=None, failures=None, unresolved_ids=None, error=None,
+                 withhold_retractions=False, row_error=None):
+        self.groups = groups or []
+        self.failures = failures or []
+        self.unresolved_ids = unresolved_ids or set()
+        self.error = error
+        self.withhold_retractions = withhold_retractions
+        self.row_error = row_error
+
+
+def _source_row_error(item, detail):
+    return f'Meetup source {item.get("id", "unknown")}: {detail}'
+
+
+def read_source_inventory(table, budget=None):
+    """Read and classify every source candidate without using editable URLs.
+
+    A malformed page/response is a shared scan error and is returned for the
+    coordinator to withhold the final absence pass.  A malformed candidate
+    row is source-local when its identity is still known, so unrelated valid
+    groups can continue their positive work.
+    """
     groups = []
-    params = {'ProjectionExpression': '#id,#title,#url,#country,#kind,published',
+    failures = []
+    unresolved_ids = set()
+    withhold_retractions = False
+    row_error = None
+    locator_owners = {}
+    source_rows = {}
+    scan_error = None
+    params = {'ProjectionExpression': '#id,#title,#country,#kind,published,#source,#record,#revoked',
               'Select': 'SPECIFIC_ATTRIBUTES',
               'ConsistentRead': True,
-              'ExpressionAttributeNames': {'#id': 'id', '#title': 'title', '#url': 'url',
-                                           '#country': 'country', '#kind': 'kind'}}
-    for item in scan_items(table, params, budget):
-        if not (item.get('id', '').startswith('meetup-') and item.get('kind') == 'community'):
-            continue
-        if item.get('country') in {'BR', 'JM'}:
-            continue
-        if 'published' in item and not isinstance(item['published'], bool):
-            raise ValueError(f"Invalid published flag for Meetup community {item['id']}")
-        if item.get('published') is True:
-            group = {'id': item['id'][7:], 'url': item['url'], 'name': item['title'],
-                     'country': item['country'], 'timeZone': None}
-            validate_meetup_group(group)
-            groups.append(group)
-    return groups
+              'ExpressionAttributeNames': {'#id': 'id', '#title': 'title',
+                                           '#country': 'country', '#kind': 'kind',
+                                           '#source': 'meetupSourceUrl', '#record': 'recordType',
+                                           '#revoked': 'approvalRevoked'}}
+    try:
+        items = scan_items(table, params, budget)
+        for item in items:
+            item_id = item.get('id')
+            if not isinstance(item_id, str) or not item_id:
+                detail = 'Invalid catalog item ID in the Meetup source scan'
+                failures.append(detail)
+                row_error = row_error or ValueError(detail)
+                withhold_retractions = True
+                continue
+            if not item_id.startswith('meetup-'):
+                continue
+
+            raw_group_id = item_id.removeprefix('meetup-')
+            kind = item.get('kind')
+            is_event_id = item_id.startswith('meetup-event-')
+            locator = item.get('meetupSourceUrl')
+            locator_error = None
+            # First record all identifiable locator claims. A row can make
+            # its locator ambiguous even when its membership is malformed or
+            # a later observation of the same ID contradicts an earlier one.
+            if not is_event_id and (kind == 'community' or re.fullmatch(r'[0-9]+', raw_group_id)):
+                try:
+                    if not isinstance(locator, str):
+                        raise ValueError('missing or invalid meetupSourceUrl')
+                    canonical_locator = canonical_meetup_group_url(locator, raw_group_id)
+                    if locator != canonical_locator:
+                        raise ValueError('meetupSourceUrl is not canonical')
+                except ValueError as error:
+                    locator_error = error
+                else:
+                    locator_owners.setdefault(canonical_locator.casefold(), set()).add(raw_group_id)
+                try:
+                    meetup_community_resource_id(raw_group_id)
+                except ValueError as error:
+                    unresolved_ids.add(raw_group_id)
+                    failures.append(_source_row_error(item, str(error)))
+                    row_error = row_error or error
+                    withhold_retractions = True
+                    continue
+
+            previous = source_rows.get(item_id)
+            if previous is not None:
+                # DynamoDB flags are Boolean facts. Python equality alone
+                # makes a provider Number such as Decimal(1) equal to True.
+                if previous != item or any(type(previous[key]) is not type(value)
+                                           for key, value in item.items()):
+                    unresolved_ids.add(raw_group_id)
+                    failures.append(_source_row_error(item, 'contradictory repeated projected ID'))
+                    withhold_retractions = True
+                continue
+            source_rows[item_id] = item
+            # Event IDs share the meetup- prefix.  A typed event without a
+            # kind is a valid catalog row, not a source candidate.  A row that
+            # claims both identities is unresolved and cannot authorize
+            # removal for that owner.
+            if is_event_id:
+                has_kind = 'kind' in item
+                try:
+                    validate_event_resource_id(item_id)
+                    valid_event_id = bool(item_id.removeprefix('meetup-event-'))
+                except ValueError:
+                    valid_event_id = False
+                if valid_event_id and item.get('recordType') == 'event' and not has_kind:
+                    continue
+                if valid_event_id and item.get('recordType') == 'event' and has_kind:
+                    detail = 'event row has an invalid source classification'
+                else:
+                    detail = 'invalid typed event identity'
+                if item_id:
+                    unresolved_ids.add(item_id.removeprefix('meetup-'))
+                failures.append(_source_row_error(item, detail))
+                withhold_retractions = True
+                continue
+
+            if 'recordType' in item:
+                unresolved_ids.add(item_id.removeprefix('meetup-'))
+                failures.append(_source_row_error(item, 'non-event row has a persisted recordType'))
+                withhold_retractions = True
+                continue
+            if not isinstance(item.get('kind'), str):
+                unresolved_ids.add(item_id.removeprefix('meetup-'))
+                failures.append(_source_row_error(item, 'kind is missing or not a string'))
+                withhold_retractions = True
+                continue
+            if item['kind'] not in {'community', 'content', 'source'}:
+                unresolved_ids.add(item_id.removeprefix('meetup-'))
+                failures.append(_source_row_error(item, f'unknown catalog kind: {item["kind"]!r}'))
+                withhold_retractions = True
+                continue
+
+            is_community = kind == 'community'
+            published = item.get('published') is True
+            if is_community:
+                detail = None
+                if 'published' in item and not isinstance(item['published'], bool):
+                    detail = f'Invalid published flag for Meetup community {item_id}'
+                elif 'approvalRevoked' in item and not isinstance(item['approvalRevoked'], bool):
+                    detail = f'Invalid approvalRevoked flag for Meetup community {item_id}'
+                elif published and item.get('approvalRevoked') is True:
+                    detail = f'Conflicting publication and revocation for Meetup community {item_id}'
+                elif published and not valid_group_name(item.get('title')):
+                    detail = f'Invalid Meetup community name: {item_id}'
+                elif published and not valid_group_country(item.get('country')):
+                    detail = f'Invalid Meetup community country: {item_id}'
+                if detail:
+                    unresolved_ids.add(raw_group_id)
+                    failures.append(detail)
+                    row_error = row_error or ValueError(detail)
+                    withhold_retractions = True
+                    continue
+
+            eligible = is_community and published and item['country'] not in {'BR', 'JM'}
+            if not eligible:
+                continue
+            if locator_error is not None:
+                unresolved_ids.add(raw_group_id)
+                failures.append(_source_row_error(item, str(locator_error)))
+                continue
+            groups.append({'id': raw_group_id, 'url': locator, 'name': item['title'],
+                           'country': item['country'], 'timeZone': None})
+    except Exception as error:
+        scan_error = error
+
+    duplicate_owners = {
+        owner_id
+        for owners in locator_owners.values() if len(owners) > 1
+        for owner_id in owners
+    }
+    if duplicate_owners:
+        unresolved_ids.update(duplicate_owners)
+        withhold_retractions = True
+        failures.append(
+            'Meetup source locator conflict for owners: '
+            + ', '.join(sorted(f'meetup-{owner_id}' for owner_id in duplicate_owners))
+        )
+    groups = [group for group in groups if group['id'] not in unresolved_ids]
+    return SourceInventory(groups, failures, unresolved_ids, scan_error, withhold_retractions, row_error)
 
 
 def timezone_from_feed(group, budget=None):
     feed_url = group_feed_url(group)
     text = get_text(feed_url) if budget is None else get_text(feed_url, budget=budget)
-    events = parse_feed(text, group)
-    match = re.search(r'^TZID:([^\r\n]+)', text, re.M)
-    if any(not event.get('cancelled') for event in events) and not match:
-        raise ValueError(f'Missing timezone in feed of {group["id"]}')
-    group['timeZone'] = match.group(1) if match else None
-    if group['timeZone']:
-        ZoneInfo(group['timeZone'])
+    events, time_zone = parse_calendar(text, group)
+    group['timeZone'] = time_zone
     return events
 
 
@@ -564,21 +1179,59 @@ class SourceProgress:
 
 
 def load_existing_events(table, budget=None):
-    events = {}
-    projection_fields = ('id', 'version', 'approvalRevoked') + SYNC_OWNED_FIELDS
-    params = {
-        'ProjectionExpression': ','.join(f'#{field}' for field in projection_fields),
-        'Select': 'SPECIFIC_ATTRIBUTES',
-        'ExpressionAttributeNames': {f'#{field}': field for field in projection_fields},
-    }
-    for item in scan_items(table, params, budget):
-        if item.get('id', '').startswith('meetup-event-'):
-            validate_meetup_event_record(item)
-            resource_version(item)
-            if 'approvalRevoked' in item and not isinstance(item['approvalRevoked'], bool):
-                raise ValueError(f'Invalid approvalRevoked flag for {item["id"]}')
-            events[item['id']] = item
+    events, error = read_existing_events(table, budget)
+    if error is not None:
+        raise error
     return events
+
+
+def validate_stored_event_row(item, expected_id=None):
+    """Validate the projected event shape used by scans and point reads."""
+    if not isinstance(item, Mapping):
+        raise ValueError('Invalid stored Meetup event row')
+    if expected_id is not None and item.get('id') != expected_id:
+        raise ValueError(f'Unexpected stored Meetup event ID: {item.get("id", "unknown")}')
+    validate_meetup_event_record(item)
+    if item.get('recordType') != 'event' or not item['id'].removeprefix('meetup-event-'):
+        raise ValueError(f'Invalid typed Meetup event: {item.get("id", "unknown")}')
+    resource_version(item)
+    for field in ('published', 'autoSync', 'approvalRevoked'):
+        if field in item and not isinstance(item[field], bool):
+            raise ValueError(f'Invalid {field} flag for {item["id"]}')
+    return item
+
+
+def read_existing_events(table, budget=None):
+    """Keep independently verified rows without treating a failed scan as complete."""
+    events = {}
+    rejected_ids = set()
+    row_error = None
+    params = {
+        'ProjectionExpression': ','.join(f'#{field}' for field in STORED_EVENT_FIELDS),
+        'Select': 'SPECIFIC_ATTRIBUTES',
+        'ExpressionAttributeNames': {f'#{field}': field for field in STORED_EVENT_FIELDS},
+    }
+    try:
+        for item in scan_items(table, params, budget):
+            item_id = item.get('id')
+            if not isinstance(item_id, str) or not item_id:
+                row_error = row_error or ValueError('Invalid stored Meetup event ID')
+                continue
+            if not item_id.startswith('meetup-event-') or item_id in rejected_ids:
+                continue
+            try:
+                validate_stored_event_row(item)
+                previous = events.get(item_id)
+                if previous is not None and previous != item:
+                    raise ValueError(f'Contradictory repeated projected event ID: {item_id}')
+                events[item_id] = item
+            except ValueError as error:
+                row_error = row_error or error
+                rejected_ids.add(item_id)
+                events.pop(item_id, None)
+    except Exception as error:
+        return events, error
+    return events, row_error
 
 
 def event_has_ended(record):
@@ -591,6 +1244,35 @@ def event_has_ended(record):
         return end <= datetime.now(timezone.utc)
     except (TypeError, ValueError):
         return False
+
+
+STORED_EVENT_TIMESTAMP = re.compile(
+    r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,3})?'
+    r'(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])'
+)
+
+
+def parse_observed_end(value):
+    """Parse the timestamp shape accepted by the public event projection.
+
+    ``datetime.fromisoformat`` normalizes offsets such as ``+00:60`` and
+    ``+00:99``. The public JavaScript reader rejects those values, so keep the
+    wire shape and offset bounds explicit before using Python's parser.
+    """
+    if not isinstance(value, str) or not STORED_EVENT_TIMESTAMP.fullmatch(value):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError:
+        return None
+
+
+def observed_end_state(record):
+    """Return ``ended``, ``future`` or ``invalid`` for absence authority."""
+    end = parse_observed_end(record.get('endsAt'))
+    if end is None or end.tzinfo is None:
+        return 'invalid'
+    return 'ended' if end <= datetime.now(timezone.utc) else 'future'
 
 
 def sync_fields_equal(record, existing, preserve_published=False):
@@ -646,8 +1328,10 @@ def is_conditional_write_conflict(error):
 
 
 def read_current_event(table, resource_id, budget=None):
-    fields = tuple(dict.fromkeys(('id', 'version', 'approvalRevoked') + SYNC_OWNED_FIELDS))
-    return read_projected_item(table, resource_id, fields, budget)
+    item = read_projected_item(table, resource_id, STORED_EVENT_FIELDS, budget)
+    if item is None:
+        return None
+    return validate_stored_event_row(item, resource_id)
 
 
 def read_reservation(table, url, budget=None):
@@ -917,6 +1601,8 @@ def unpublish_source_event(table, existing, check_ends_at=False, budget=None):
     revoked = existing.get('approvalRevoked', False)
     if not isinstance(revoked, bool):
         raise ValueError(f'Invalid approvalRevoked flag for {existing["id"]}')
+    if revoked:
+        return False
     version = resource_version(existing)
     names = {'#published': 'published', '#sync': 'autoSync', '#owner': 'sourceGroupId',
              '#version': 'version', '#revoked': 'approvalRevoked'}
@@ -946,10 +1632,22 @@ def unpublish_source_event(table, existing, check_ends_at=False, budget=None):
         raise
 
 
-def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drain=None):
+def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drain=None,
+                invocation_source='unknown'):
     """Coordinate read-only source requests and apply their results on this thread."""
+    inventory_failures = []
+    unresolved_source_ids = set()
+    inventory_error = None
+    inventory_blocks_retractions = False
+    inventory_row_error = None
     if groups is None:
-        groups = load_groups_from_dynamodb(table) if budget is None else load_groups_from_dynamodb(table, budget)
+        inventory = read_source_inventory(table, budget)
+        groups = inventory.groups
+        inventory_failures.extend(inventory.failures)
+        unresolved_source_ids.update(inventory.unresolved_ids)
+        inventory_error = inventory.error
+        inventory_blocks_retractions = inventory.withhold_retractions
+        inventory_row_error = inventory.row_error
     else:
         if not isinstance(groups, list):
             raise ValueError('Meetup groups must be a list of group records')
@@ -963,17 +1661,23 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
                         'dryRun': dry_run}
 
     existing = {}
+    existing_error = None
     if table is not None:
-        existing = load_existing_events(table) if budget is None else load_existing_events(table, budget)
+        existing, existing_error = read_existing_events(table, budget)
 
     sources = [SourceProgress(group) for group in groups]
     active_group_ids = {f'meetup-{group["id"]}' for group in groups}
     source_by_id = {state.group['id']: state for state in sources}
-    failures = []
+    failures = list(inventory_failures)
+    shared_scan_errors = [error for error in (inventory_error, existing_error) if error is not None]
+    for error in shared_scan_errors:
+        failures.append(f'Meetup catalog scan failed: {error}')
     conflicts = []
     globally_seen = set()
     upcoming_event_ids = set()
     feeds_read = 0
+    detail_reads_started = 0
+    detail_reads_completed = 0
     changed = 0
     skipped = 0
     stop_for_budget = False
@@ -1021,7 +1725,7 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
             return None, monotonic(), error
 
     def schedule_one():
-        nonlocal feed_cursor, page_cursor, last_admitted
+        nonlocal feed_cursor, page_cursor, last_admitted, detail_reads_started
         work = next_work()
         if work is None:
             return False
@@ -1039,6 +1743,7 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
         else:
             entry = state.events.popleft()
             state.pages_in_flight += 1
+            detail_reads_started += 1
             page_cursor = (index + 1) % len(sources)
             if budget is None:
                 future = executor.submit(run_read, lambda: read_event_observation(entry))
@@ -1125,8 +1830,8 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
         nonlocal feeds_read, stop_for_budget
         entries, time_zone = observation
         state.feed_done = True
-        state.group['timeZone'] = time_zone
-        feeds_read += 1
+        source_id = f'meetup-{state.group["id"]}'
+        pending = []
         for entry in entries:
             try:
                 record_id = meetup_event_resource_id(entry.get('id'))
@@ -1139,7 +1844,19 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
             state.seen_ids.add(record_id)
             globally_seen.add(record_id)
             prior = existing.get(record_id)
-            source_id = f'meetup-{state.group["id"]}'
+            if prior is None and existing_error is not None:
+                try:
+                    prior = read_current_event(table, record_id, budget)
+                    if prior is not None:
+                        existing[record_id] = prior
+                except BudgetExhausted:
+                    raise
+                except Exception as error:
+                    state.failed = True
+                    failures.append(
+                        f'Event {entry.get("id", "unknown")} in group {state.group["id"]}: '
+                        f'prior observation failed: {error}')
+                    continue
             if entry.get('cancelled'):
                 if prior is not None and prior.get('sourceGroupId') == source_id:
                     try:
@@ -1149,16 +1866,34 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
                         return
                 continue
             upcoming_event_ids.add(record_id)
-            if prior is not None and prior.get('autoSync') is False:
-                continue
-            state.events.append(entry)
+            suppressed = prior is not None and (
+                prior.get('autoSync') is False or prior.get('approvalRevoked') is True)
+            if not suppressed:
+                pending.append(entry)
+
+        if pending:
+            timezone_valid = isinstance(time_zone, str) and bool(time_zone)
+            if timezone_valid:
+                try:
+                    ZoneInfo(time_zone)
+                except (KeyError, TypeError, ValueError):
+                    timezone_valid = False
+            if not timezone_valid:
+                state.failed = True
+                message = 'Missing timezone' if not time_zone else 'Invalid timezone'
+                failures.append(f'{message} in feed of {state.group["id"]}')
+                return
+        state.group['timeZone'] = time_zone
+        feeds_read += 1
+        state.events.extend(pending)
 
     def process_completed(future):
-        nonlocal stop_for_budget, primary_error
+        nonlocal stop_for_budget, primary_error, detail_reads_completed
         kind, state, entry = future_work.pop(future)
         observation, _completed_at, error = future.result()
         if kind == 'page':
             state.pages_in_flight -= 1
+            detail_reads_completed += 1
         if error is not None:
             if isinstance(error, BudgetExhausted):
                 stop_for_budget = True
@@ -1246,19 +1981,30 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
 
         if stop_for_budget or primary_error is not None:
             add_incomplete_failures()
-        elif not dry_run and table is not None:
+        elif (not dry_run and table is not None and not shared_scan_errors
+              and not inventory_blocks_retractions):
             for prior in list(existing.values()):
                 if prior['id'] in globally_seen:
                     continue
                 source = prior.get('sourceGroupId', '')
-                source_removed = source not in active_group_ids
+                if (not isinstance(source, str) or not source.startswith('meetup-')
+                        or source == 'meetup-' or source.startswith('meetup-event-')):
+                    continue
                 group_id = source.removeprefix('meetup-')
+                if group_id in unresolved_source_ids:
+                    continue
+                source_removed = source not in active_group_ids
                 source_state = source_by_id.get(group_id)
                 source_absent = source_state is not None and source_state.complete
                 if not source_removed and not source_absent:
                     continue
-                if not source_removed and event_has_ended(prior):
-                    continue
+                if not source_removed:
+                    end_state = observed_end_state(prior)
+                    if end_state == 'invalid':
+                        failures.append(f'Event {prior["id"]}: invalid or unknown endsAt; absence was retained')
+                        continue
+                    if end_state == 'ended':
+                        continue
                 try:
                     if budget is not None:
                         budget.check_work('Meetup source-removal pass')
@@ -1294,6 +2040,14 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
         executor.shutdown(wait=True, cancel_futures=True)
         raise
 
+    # A malformed or failed shared catalog scan cannot prove absence. Preserve
+    # exact exception identity for a caller with no independent committed work;
+    # if valid work did commit, return the attributable scan failure so the
+    # caller can notify and report it normally.
+    if shared_scan_errors and not changed and notification_error is None:
+        raise shared_scan_errors[0]
+    if inventory_row_error is not None and not changed and notification_error is None:
+        raise inventory_row_error
     if primary_error is not None:
         if notification_error is not None:
             raise RuntimeError(
@@ -1303,10 +2057,31 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
         raise notification_error
 
     result = {'groups': len(groups), 'feedsRead': feeds_read, 'upcomingEvents': len(upcoming_event_ids),
-              'changed': changed, 'skipped': skipped, 'failures': failures, 'dryRun': dry_run}
+              'changed': changed, 'skipped': skipped, 'failures': failures, 'dryRun': dry_run,
+              'invocationSource': invocation_source,
+              'metrics': {
+                  'eligibleSources': len(groups),
+                  'validFeeds': feeds_read,
+                  'detailReadsStarted': detail_reads_started,
+                  'detailReadsCompleted': detail_reads_completed,
+                  'cutoff': stop_for_budget,
+                  'sharedScanComplete': not shared_scan_errors and not inventory_blocks_retractions,
+              }}
     if conflicts:
         result['conflicts'] = conflicts
     return result
+
+
+def invocation_source(event):
+    """Classify invocation provenance without logging the raw event payload."""
+    if isinstance(event, Mapping) and event.get('source') == 'aws.events':
+        resources = event.get('resources')
+        detail_type = event.get('detail-type')
+        if (detail_type == 'Scheduled Event' and isinstance(resources, list)
+                and SCHEDULE_RULE_ARN in resources):
+            return 'scheduled'
+        return 'eventbridge'
+    return 'manual'
 
 
 def lambda_handler(_event, context):
@@ -1330,7 +2105,28 @@ def lambda_handler(_event, context):
         publisher.invoke(
             FunctionName=os.environ['PUBLICATION_FUNCTION'], InvocationType='Event', Payload=b'{}')
 
-    result = synchronize(table=table, budget=budget, before_drain=notify_publication)
+    source = invocation_source(_event)
+    try:
+        result = synchronize(table=table, budget=budget, before_drain=notify_publication,
+                             invocation_source=source)
+    except Exception as error:
+        # Keep an early provider/catalog failure attributable without emitting
+        # the raw event or exception text.  A normal result below carries the
+        # detailed safe counts and source failures.
+        print(json.dumps({
+            'invocationSource': source,
+            'failures': [f'Meetup synchronization failed: {type(error).__name__}'],
+            'metrics': {
+                'eligibleSources': 0,
+                'validFeeds': 0,
+                'detailReadsStarted': 0,
+                'detailReadsCompleted': 0,
+                'cutoff': isinstance(error, BudgetExhausted),
+                'sharedScanComplete': False,
+                'earlyFailure': True,
+            },
+        }))
+        raise
     print(json.dumps(result))
     if result['failures']:
         raise RuntimeError(f'{len(result["failures"])} Meetup sources failed; successful sources were synchronized')
@@ -1357,7 +2153,8 @@ def main():
             raise RuntimeError(f'Wrong AWS account: {identity["Account"]}')
         table = boto3.resource('dynamodb', region_name='us-east-1', config=config).Table(args.table)
         groups = None
-    result = synchronize(table=table, groups=groups, dry_run=args.dry_run)
+    result = synchronize(table=table, groups=groups, dry_run=args.dry_run,
+                         invocation_source='cli-dry-run' if args.dry_run else 'cli')
     print(json.dumps(result))
     if result['failures']:
         raise RuntimeError(f'{len(result["failures"])} Meetup sources failed')
