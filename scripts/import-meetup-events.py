@@ -316,6 +316,8 @@ def get_text(url, budget=None):
     opener = build_opener(MeetupRedirectHandler(request_deadline, observation_path))
     with opener.open(request, timeout=timeout) as response:
         validate_meetup_transport_url(response.url, observation_path)
+        if response.headers.defects:
+            raise ValueError(f'Malformed Meetup response headers: {url}')
         if response.status != 200 or 'Content-Range' in response.headers:
             raise ValueError(f'Meetup response is not a complete HTTP 200: {url}')
         lengths = response.headers.get_all('Content-Length', [])

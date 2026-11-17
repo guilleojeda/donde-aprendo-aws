@@ -191,17 +191,25 @@ class MeetupHttpTests(unittest.TestCase):
         start, end = support.EVENT_DATES['future']
         event = support.existing_event(starts_at=start, ends_at=end)
         body = support.EMPTY_ICAL.encode()
-        for status_code, declared_length, complete in (
-                (200, len(body), True), (200, len(body) + 200, False), (206, len(body), False),
-                (200, 'invalid', False)):
-            with self.subTest(status=status_code, length=declared_length):
+        length_header = f'Content-Length: {len(body)}\r\n'.encode()
+        truncated_header = f'Content-Length: {len(body) + 200}\r\n'.encode()
+        for status_code, header_lines, complete in (
+                (200, length_header, True),
+                (200, b'', True),
+                (200, truncated_header, False),
+                (206, length_header, False),
+                (200, b'Content-Length: invalid\r\n', False),
+                (200, b'Broken Proxy Header\r\n' + truncated_header, False)):
+            with self.subTest(status=status_code, headers=header_lines):
                 requests, invocations = [], []
                 table = support.FakeTable([source, event])
                 boto3 = support.fake_boto3(table, invocations)
 
                 def route(request):
                     requests.append(request.path)
-                    send(request, body, status=status_code, content_length=declared_length)
+                    request.send_response_only(status_code)
+                    request.flush_headers()
+                    request.wfile.write(b'Connection: close\r\n' + header_lines + b'\r\n' + body)
 
                 with LocalMeetup(route), patch.dict(sys.modules, support.fake_aws_modules(boto3)), \
                         patch.dict(os.environ, {
