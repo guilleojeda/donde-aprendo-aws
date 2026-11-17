@@ -254,7 +254,7 @@ function validCatalogUrlEvidence(item) {
 }
 
 function validCatalogCommunityShape(item) {
-  if (item.recordType !== undefined && item.recordType !== 'community') return false;
+  if (item.recordType !== undefined) return false;
   if (!validCatalogUrlEvidence(item)) return false;
   // A reclassified known Meetup row is still a normal catalog community for
   // this transition. The source identity is the reviewed exact ID, not kind.

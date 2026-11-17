@@ -448,3 +448,19 @@ test('a stale plan cannot overwrite a concurrent full-item edit; a new plan safe
   assert.equal(finished.editorNote, concurrent.editorNote);
   assert.equal(finished.version, 10);
 });
+
+test('backfill rejects a typed non-event row even when its reviewed ID and URL match', async () => {
+  const candidate = community({
+    id: 'meetup-380', url: sourceUrl('reviewed-380'), recordType: 'community',
+  });
+  const db = new CatalogDocumentClient([candidate]);
+  const plan = await planMeetupSourceLocators({
+    tableName: TABLE,
+    docClient: db,
+    reviewed: { groups: [reviewedGroup('380', 'reviewed-380')] },
+  });
+  assert.deepEqual(plan.updates, []);
+  assert.ok(byId(plan.blocked, candidate.id));
+  await assert.rejects(applyMeetupSourceLocators({ tableName: TABLE, docClient: db, plan }), /blocked/i);
+  assert.deepEqual(db.items.get(candidate.id), candidate);
+});

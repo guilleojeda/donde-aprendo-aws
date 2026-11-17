@@ -271,7 +271,7 @@ def group_feed_url(group):
     validate_catalog_url(source_url)
     url = urlparse(source_url)
     if (url.scheme != 'https' or url.hostname != MEETUP_HOST or url.port not in (None, 443)
-            or url.query or url.fragment
+            or url.params or '?' in source_url or '#' in source_url
             or not re.fullmatch(r'/[A-Za-z0-9_-]+/?', url.path)):
         raise ValueError(f'Unsafe Meetup group URL: {group["id"]}')
     return f'https://{MEETUP_HOST}{url.path.rstrip("/")}/events/ical/'
@@ -686,9 +686,9 @@ def read_source_inventory(table, budget=None):
                 raise ValueError('Invalid catalog item ID in the Meetup source scan')
             if not item_id.startswith('meetup-'):
                 continue
-            if item.get('recordType') == 'event':
+            if 'recordType' in item:
                 unresolved_ids.add(item_id.removeprefix('meetup-'))
-                failures.append(_source_row_error(item, 'event row has an invalid source classification'))
+                failures.append(_source_row_error(item, 'non-event row has a persisted recordType'))
                 withhold_retractions = True
                 continue
             if not isinstance(item.get('kind'), str):
@@ -741,6 +741,8 @@ def read_source_inventory(table, budget=None):
                      'country': item['country'], 'timeZone': None}
             try:
                 validate_meetup_group(group)
+                if group['url'] != locator:
+                    raise ValueError('meetupSourceUrl is not canonical')
             except ValueError as error:
                 unresolved_ids.add(raw_group_id)
                 failures.append(_source_row_error(item, str(error)))
@@ -755,9 +757,10 @@ def timezone_from_feed(group, budget=None):
     feed_url = group_feed_url(group)
     text = get_text(feed_url) if budget is None else get_text(feed_url, budget=budget)
     events, time_zone = parse_calendar(text, group)
-    if any(not event.get('cancelled') for event in events) and not time_zone:
+    has_active_events = any(not event.get('cancelled') for event in events)
+    if has_active_events and not time_zone:
         raise ValueError(f'Missing timezone in feed of {group["id"]}')
-    if time_zone:
+    if has_active_events and time_zone:
         ZoneInfo(time_zone)
     group['timeZone'] = time_zone
     return events
@@ -841,18 +844,31 @@ def event_has_ended(record):
         return False
 
 
+STORED_EVENT_TIMESTAMP = re.compile(
+    r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,3})?'
+    r'(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])'
+)
+
+
+def parse_observed_end(value):
+    """Parse the timestamp shape accepted by the public event projection.
+
+    ``datetime.fromisoformat`` normalizes offsets such as ``+00:60`` and
+    ``+00:99``. The public JavaScript reader rejects those values, so keep the
+    wire shape and offset bounds explicit before using Python's parser.
+    """
+    if not isinstance(value, str) or not STORED_EVENT_TIMESTAMP.fullmatch(value):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError:
+        return None
+
+
 def observed_end_state(record):
     """Return ``ended``, ``future`` or ``invalid`` for absence authority."""
-    value = record.get('endsAt')
-    if not isinstance(value, str) or not re.fullmatch(
-            r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}'
-            r'(?:\.[0-9]{1,3})?(?:Z|[+-][0-9]{2}:[0-9]{2})', value):
-        return 'invalid'
-    try:
-        end = datetime.fromisoformat(value.replace('Z', '+00:00'))
-    except (TypeError, ValueError):
-        return 'invalid'
-    if end.tzinfo is None:
+    end = parse_observed_end(record.get('endsAt'))
+    if end is None or end.tzinfo is None:
         return 'invalid'
     return 'ended' if end <= datetime.now(timezone.utc) else 'future'
 
