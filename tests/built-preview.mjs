@@ -132,6 +132,29 @@ test('the built mixed preview combines artifact defaults with exported overrides
   }
 });
 
+test('a fresh real packaged Compute boots using only its packaged release configuration', async (t) => {
+  assert.ok(hasBuiltPreview, 'Run the explicitly selected fixture build before verifying the built preview.');
+  assert.equal(process.versions.node.split('.')[0], '24', 'The packaged runtime runs with Node 24.');
+  // No copied account, catalog, profile, photo, analytics or credential values.
+  // The actual adapter entry loads its .env before the real route initializes.
+  const configured = await startMixedPreview(t, { root, env: {
+    ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
+    AWS_EC2_METADATA_DISABLED: 'true',
+  } });
+  const context = process.env.RELEASE_CONTEXT_FILE
+    ? JSON.parse(readFileSync(resolve(process.env.RELEASE_CONTEXT_FILE), 'utf8')) : null;
+  const previewWithoutCatalog = context?.mode === 'preview' && !context.runtimeEnvironment.CATALOG_TABLE;
+  const response = await fetch(new URL('/api/creador/perfil/', configured.origin), { signal: AbortSignal.timeout(3_000) });
+  assert.equal(response.status, previewWithoutCatalog ? 503 : 401,
+    'Packaged creator configuration reaches its declared anonymous boundary or explicit preview degradation.');
+  assert.equal((await response.json()).error, previewWithoutCatalog ? 'SERVICE_UNAVAILABLE' : 'AUTH_REQUIRED');
+  assert.match(response.headers.get('cache-control') ?? '', /private.*no-store/u);
+  const account = await fetch(new URL('/cuenta/', configured.origin), { signal: AbortSignal.timeout(3_000) });
+  assert.equal(account.status, 200, 'The same fresh Compute serves the account entry.');
+  assert.match(await account.text(), /<h1\b[^>]*>Tu cuenta<\/h1>/u);
+  await configured.stop();
+});
+
 test('the built artifact excludes the dummy credentials supplied during the fixture build', () => {
   assert.ok(hasBuiltPreview, 'Run `npm run build` before verifying the built preview.');
   const forbidden = Object.values(dummyCredentials).map((value) => Buffer.from(value));

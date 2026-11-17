@@ -1,0 +1,14 @@
+{
+  "mode": "preview",
+  "siteOrigin": "https://main.d33kh9d3cyassq.amplifyapp.com",
+  "submissionApiUrl": "https://api.example.invalid/submissions",
+  "runtimeEnvironment": {
+    "ACCOUNT_ORIGIN": "https://dondeaprendoaws.com",
+    "COGNITO_ISSUER": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_EXAMPLE",
+    "COGNITO_CLIENT_ID": "example-client-id",
+    "COGNITO_DOMAIN": "https://example.auth.us-east-1.amazoncognito.com",
+    "ACCOUNTS_TABLE": "example-accounts",
+    "CREATOR_PROFILES_TABLE": "example-profiles",
+    "CREATOR_PHOTOS_BUCKET": "example-photos"
+  }
+}
