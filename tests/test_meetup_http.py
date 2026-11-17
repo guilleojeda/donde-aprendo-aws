@@ -240,6 +240,50 @@ class MeetupHttpTests(unittest.TestCase):
                         with self.assertRaises(http.client.IncompleteRead):
                             support.meetup.get_text(url)
 
+    def test_malformed_chunked_calendar_preserves_future_rows(self):
+        source = {
+            'id': 'meetup-123', 'title': support.GROUP['name'], 'meetupSourceUrl': support.GROUP['url'],
+            'country': 'CO', 'kind': 'community', 'published': True,
+        }
+        start, end = support.EVENT_DATES['future']
+        event = support.existing_event(starts_at=start, ends_at=end)
+        body = support.EMPTY_ICAL.encode()
+        for after_chunk, final, complete in (
+                (b'\r\n', b'0\r\n\r\n', True),
+                (b'\r\n', b'0\r\nServer-Timing: app;dur=1\r\n\r\n', True),
+                (b'\r\n', b'0\r\n', False),
+                (b'\r\n', b'0\r\nServer-Timing: app;dur=1\r\n', False),
+                (b'\r\n', b'0\r\nContent-Length: 1\r\n\r\n', False),
+                (b'**', b'0\r\n\r\n', False)):
+            with self.subTest(delimiter=after_chunk, final=final):
+                table = support.FakeTable([source, event])
+                invocations = []
+                boto3 = support.fake_boto3(table, invocations)
+
+                def route(request):
+                    request.send_response(200)
+                    request.send_header('Transfer-Encoding', 'chunked')
+                    request.end_headers()
+                    first, rest = body[:8], body[8:]
+                    request.wfile.write(f'{len(first):x};tag="calendar"\r\n'.encode() + first + b'\r\n')
+                    request.wfile.write(f'{len(rest):x}\r\n'.encode() + rest + after_chunk + final)
+
+                with LocalMeetup(route), patch.dict(sys.modules, support.fake_aws_modules(boto3)), \
+                        patch.dict(os.environ, {
+                            'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication',
+                        }):
+                    if complete:
+                        result = support.meetup.lambda_handler({}, support.lambda_context())
+                        self.assertEqual((result['changed'], result['failures']), (1, []))
+                        self.assertFalse(table.existing[event['id']]['published'])
+                        self.assertEqual(len(invocations), 1)
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, 'Meetup sources failed'):
+                            support.meetup.lambda_handler({}, support.lambda_context())
+                        self.assertEqual(table.existing[event['id']], event)
+                        self.assertEqual(table.updates, [])
+                        self.assertEqual(invocations, [])
+
     def test_only_same_event_redirect_can_supply_structured_detail(self):
         path = '/aws-bogota/events/456/'
         response_text = 'verified event body'

@@ -59,7 +59,6 @@ class MeetupEventObservationTests(unittest.TestCase):
             ('alternate content type case and charset', script(cancelled) + script(support.PAGE).replace(
                 'application/ld+json', 'Application/LD+JSON; charset=UTF-8'), False),
             ('conflicting included event', script(cancelled) + script({'@included': [support.PAGE]}), False),
-
             ('conflicting expanded event type', script(cancelled) + script({
                 '@graph': [dict(support.PAGE, **{'@type': ['https://schema.org/Event']})],
             }), False),
@@ -106,17 +105,43 @@ class MeetupEventObservationTests(unittest.TestCase):
              }), False),
             ('conflicting Event in structured page mainEntity',
              script(cancelled) + script({'@type': 'WebPage', 'mainEntity': support.PAGE}), False),
+            ('same Event identity declares a different URL without a type',
+             script({'@context': 'https://schema.org', '@graph': [
+                 dict(cancelled, **{'@id': '#event'}), {
+                     '@id': support.EVENT_URL + '#event',
+                     'url': support.EVENT_URL.replace('/456/', '/457/'),
+                 },
+             ]}), False),
+            ('matching partial duplicate Event identity and facts',
+             script({'@context': 'https://schema.org', '@graph': [
+                 dict(cancelled, **{'@id': '#event'}), {
+                     '@id': support.EVENT_URL + '#event', 'url': support.EVENT_URL,
+                     'eventStatus': support.EVENT_CANCELLED,
+                 },
+             ]}), True),
+            ('relative fragment conflicts before the typed Event',
+             script({'@id': './#event', 'url': unlisted['registrationUrl']})
+             + script(dict(cancelled, **{'@id': '#event'})), False),
+            ('alternate URL in a fragment cannot bypass the direct fact check',
+             script(dict(cancelled, **{'@id': '#event'})) + script({
+                 '@id': '#event', 'https://schema.org/url': unlisted['registrationUrl'],
+             }), False),
+            ('prefix-only context does not establish the vocabulary of bare Event',
+             script(dict(cancelled, **{'@context': {'schema': 'https://schema.org/'}})), False),
+            ('expanded Event type does not establish the vocabulary of bare facts',
+             script(dict(cancelled, **{'@type': 'https://schema.org/Event',
+                                       '@context': {'schema': 'https://schema.org/'}})), False),
+            ('known Event vocabulary is inherited through a prefix declaration',
+             script({'@context': {'@vocab': 'https://schema.org/'}, '@graph': [
+                 dict(cancelled, **{'@type': 'schema:Event', '@context': {'schema': 'https://schema.org/'}}),
+             ]}), True),
             ('typed and untyped status fragments inside structured graph',
              script({'@graph': [dict(cancelled, **{'@id': '#event'}), {
                  '@id': '#event', 'https://schema.org/eventStatus': support.PAGE['eventStatus'],
              }]}), False),
-
-
-
             ('equivalent graph serialization', script(cancelled) + script({
                 '@graph': [dict(cancelled, **{'@type': ['Event', 'Thing']})],
             }), True),
-
             ('reverse conflicting objects', script(support.PAGE) + script(cancelled), False),
             ('conflicting direct keys', conflicting_status, False),
             ('other event before matching event', script(other_event) + script(cancelled), False),

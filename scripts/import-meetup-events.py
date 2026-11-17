@@ -13,6 +13,7 @@ from hashlib import sha256
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime, timezone
 from decimal import Decimal
+from http.client import IncompleteRead
 from html import unescape
 from html.parser import HTMLParser
 import json
@@ -63,6 +64,13 @@ NONPUBLISHABLE_EVENT_STATUSES = frozenset((
 MAX_HTTP_REQUEST_SECONDS = 20
 MAX_HTTP_BODY_BYTES = 2_000_000
 HTTP_READ_CHUNK_BYTES = 64 * 1024
+HTTP_TOKEN = rb"[!#$%&'*+.^_`|~0-9A-Za-z-]+"
+CHUNK_SIZE_LINE = re.compile(
+    rb'([0-9A-Fa-f]+)(?:[ \t]*;[ \t]*' + HTTP_TOKEN
+    + rb'(?:[ \t]*=[ \t]*(?:' + HTTP_TOKEN + rb'|"(?:[\t !#-\[\]-~\x80-\xff]'
+    + rb'|\\[\t -~\x80-\xff])*"))?)*'
+)
+HTTP_TRAILER_LINE = re.compile(rb'(' + HTTP_TOKEN + rb'):[\t -~\x80-\xff]*')
 SDK_CALL_SECONDS = 5
 LAMBDA_DRAIN_SECONDS = 20
 NOTIFICATION_SECONDS = 5
@@ -250,6 +258,51 @@ def validate_meetup_transport_url(url, observation_path=None):
     return url
 
 
+def read_chunked_body(read):
+    """Require the complete HTTP/1.1 framing before using an observation."""
+    pending = bytearray()
+    contents = bytearray()
+
+    def fill():
+        block = read(HTTP_READ_CHUNK_BYTES)
+        if not block:
+            raise IncompleteRead(bytes(contents))
+        pending.extend(block)
+
+    def read_line():
+        while (end := pending.find(b'\n')) == -1:
+            if len(pending) >= HTTP_READ_CHUNK_BYTES:
+                raise ValueError('Meetup chunk framing line too long')
+            fill()
+        if end < 1 or pending[end - 1] != 13 or end >= HTTP_READ_CHUNK_BYTES:
+            raise ValueError('Invalid Meetup chunk line ending')
+        line = bytes(pending[:end - 1])
+        del pending[:end + 1]
+        return line
+
+    while True:
+        match = CHUNK_SIZE_LINE.fullmatch(read_line())
+        if not match:
+            raise ValueError('Invalid Meetup chunk size or extension')
+        size = int(match[1], 16)
+        if size == 0:
+            break
+        if size > MAX_HTTP_BODY_BYTES - len(contents):
+            raise ValueError('Meetup response too large')
+        while len(pending) < size + 2:
+            fill()
+        if pending[size:size + 2] != b'\r\n':
+            raise ValueError('Invalid Meetup chunk data ending')
+        contents.extend(pending[:size])
+        del pending[:size + 2]
+
+    while (line := read_line()):
+        trailer = HTTP_TRAILER_LINE.fullmatch(line)
+        if not trailer or trailer[1].lower() in {b'content-length', b'transfer-encoding'}:
+            raise ValueError('Invalid Meetup chunk trailer')
+    return contents
+
+
 def get_text(url, budget=None):
     validate_meetup_transport_url(url)
     observation_path = meetup_observation_path(url)
@@ -270,28 +323,32 @@ def get_text(url, budget=None):
         if (encodings and ([encoding.strip().lower() for encoding in encodings] != ['chunked'] or lengths)
                 or lengths and (len(lengths) != 1 or not re.fullmatch(r'[0-9]+', lengths[0].strip()))):
             raise ValueError(f'Invalid Meetup response framing: {url}')
-        expected_length = response.length
-        contents = bytearray()
-        while True:
+        # HTTPResponse.read1() discards chunk delimiters and accepts premature EOF in trailers.
+        read = response.fp.read1 if encodings else response.read1
+
+        def read_within_budget(size):
             remaining_time = request_deadline - monotonic()
             if remaining_time <= 0:
                 raise RequestTimedOut(f'Meetup request budget exhausted while reading {url}')
             if response.isclosed():
-                break
-            remaining_bytes = MAX_HTTP_BODY_BYTES + 1 - len(contents)
+                return b''
             set_response_read_timeout(response, remaining_time)
-            chunk = response.read1(min(HTTP_READ_CHUNK_BYTES, remaining_bytes))
-            if chunk:
-                contents.extend(chunk)
-                if len(contents) > MAX_HTTP_BODY_BYTES:
-                    raise ValueError(f'Meetup response too large: {url}')
+            chunk = read(size)
             if monotonic() >= request_deadline:
                 raise RequestTimedOut(f'Meetup request budget exhausted while reading {url}')
-            if not chunk:
-                break
+            return chunk
+
+        if encodings:
+            return read_chunked_body(read_within_budget).decode('utf-8')
+        expected_length = response.length
+        contents = bytearray()
+        while (chunk := read_within_budget(min(HTTP_READ_CHUNK_BYTES, MAX_HTTP_BODY_BYTES + 1 - len(contents)))):
+            contents.extend(chunk)
+            if len(contents) > MAX_HTTP_BODY_BYTES:
+                raise ValueError(f'Meetup response too large: {url}')
         if expected_length is not None and len(contents) != expected_length:
             raise ValueError(f'Incomplete Meetup response body: {url}')
-        return bytes(contents).decode('utf-8')
+        return contents.decode('utf-8')
 
 
 def canonical_meetup_group_url(source_url, group_id):
@@ -597,22 +654,39 @@ def reject_json_constant(value):
     raise ValueError(f'Invalid JSON constant: {value}')
 
 
-def is_supported_schema_context(context):
-    if isinstance(context, str):
-        return re.fullmatch(r'https?://schema\.org/?', context) is not None
-    if isinstance(context, list):
-        return all(is_supported_schema_context(part) for part in context)
-    return isinstance(context, dict) and all(
-        key in {'@vocab', 'schema'} and isinstance(value, str)
-        and re.fullmatch(r'https?://schema\.org/', value)
-        for key, value in context.items()
-    )
+SCHEMA_NAMESPACES = ('http://schema.org/', 'https://schema.org/')
+SCHEMA_PREFIXES = ('schema:', *SCHEMA_NAMESPACES)
+EVENT_DETAIL_FIELDS = ('eventStatus', 'name', 'description', 'startDate', 'endDate', 'eventAttendanceMode', 'location')
+EVENT_FACT_FIELDS = ('url', *EVENT_DETAIL_FIELDS)
 
 
-def structured_nodes(data, *, node_required=True):
+def schema_term(name):
+    for prefix in SCHEMA_PREFIXES:
+        if name.startswith(prefix):
+            return name[len(prefix):]
+    return name
+
+
+def schema_context(declaration, inherited):
+    vocabulary, prefix = inherited or (False, False)
+    for part in declaration if isinstance(declaration, list) else [declaration]:
+        if isinstance(part, str) and re.fullmatch(r'https?://schema\.org/?', part):
+            vocabulary = prefix = True
+        elif isinstance(part, dict) and all(
+            key in {'@vocab', 'schema'} and value in SCHEMA_NAMESPACES
+            for key, value in part.items()
+        ):
+            vocabulary = vocabulary or '@vocab' in part
+            prefix = prefix or 'schema' in part
+        else:
+            raise ValueError('Unsupported structured data context')
+    return vocabulary, prefix
+
+
+def structured_nodes(data, *, context=None, node_required=True):
     if isinstance(data, list):
         for node in data:
-            yield from structured_nodes(node, node_required=node_required)
+            yield from structured_nodes(node, context=context, node_required=node_required)
         return
     if not isinstance(data, dict):
         if node_required:
@@ -626,8 +700,8 @@ def structured_nodes(data, *, node_required=True):
     supported_keywords = {'@context', '@type', '@id', '@graph', '@included', '@set', '@list', '@index'}
     if any(key.startswith('@') and key not in supported_keywords for key in data):
         raise ValueError('Unsupported structured data keyword')
-    if '@context' in data and not is_supported_schema_context(data['@context']):
-        raise ValueError('Unsupported structured data context')
+    if '@context' in data:
+        context = schema_context(data['@context'], context)
     if '@index' in data and not isinstance(data['@index'], str):
         raise ValueError('Invalid structured data index')
     for collection in ('@set', '@list'):
@@ -643,12 +717,30 @@ def structured_nodes(data, *, node_required=True):
         identity = data['@id']
         if not isinstance(identity, str) or not identity or re.search(r'[\s\x00-\x1f\x7f]', identity):
             raise ValueError('Invalid structured data identity')
-    yield data, types
+    # Keep accepting Meetup's direct fields on pages without a context.
+    yield data, types, context if context is not None else (True, False)
     for key, value in data.items():
         if key in {'@graph', '@included'}:
-            yield from structured_nodes(value)
+            yield from structured_nodes(value, context=context)
         elif key in {'@set', '@list'} or not key.startswith('@'):
-            yield from structured_nodes(value, node_required=False)
+            yield from structured_nodes(value, context=context, node_required=False)
+
+
+def direct_event_facts(node, vocabulary, expected_url):
+    # Check alternate spellings as well, but only the literal schema fields
+    # are supported at the observation boundary.
+    facts = {}
+    for key, value in node.items():
+        if (field := schema_term(key)) in EVENT_FACT_FIELDS:
+            if key != field or not vocabulary:
+                raise ValueError(f'Unsupported structured Event field {key}: {expected_url}')
+            facts[field] = value
+    return facts
+
+
+def agreeing_event_facts(facts, other):
+    return {field: value for field, value in facts.items()
+            if field in other and type(value) is type(other[field]) and value == other[field]}
 
 
 def parse_event_page(text, expected_url):
@@ -663,39 +755,49 @@ def parse_event_page(text, expected_url):
         raise ValueError(f'Unclosed structured data block: {expected_url}')
     event = None
     observed = None
-    event_types = ('Event', 'schema:Event', 'https://schema.org/Event', 'http://schema.org/Event')
-    details = ('eventStatus', 'name', 'description', 'startDate', 'endDate', 'eventAttendanceMode', 'location')
-    # The observer reads Meetup's literal schema.org fields. Reject alternate
-    # declarations rather than interpreting an incomplete JSON-LD expansion.
-    prefixes = ('schema:', 'http://schema.org/', 'https://schema.org/')
-    aliases = {prefix + field for prefix in prefixes for field in ('url', *details)}
-    status_fields = {'eventStatus', *(prefix + 'eventStatus' for prefix in prefixes)}
+    identified_events = {}
+    fragments = []
     for script in parser.scripts:
         try:
             data = json.loads(script, object_pairs_hook=unambiguous_json_object,
                               parse_constant=reject_json_constant)
         except ValueError as error:
             raise ValueError(f'Invalid structured data for {expected_url}: {error}') from error
-        for node, types in structured_nodes(data):
-            if not any(kind in event_types for kind in types):
-                if status_fields.intersection(node):
-                    raise ValueError(f'Structured Event status has no Event identity: {expected_url}')
+        for node, types, (vocabulary, prefix) in structured_nodes(data):
+            identity = node.get('@id')
+            if identity and not urlsplit(identity).scheme:
+                identity = urljoin(expected_url, identity)
+            event_types = [kind for kind in types if schema_term(kind) == 'Event']
+            if not event_types:
+                has_status = any(schema_term(key) == 'eventStatus' for key in node)
+                if identity or has_status:
+                    fragments.append((identity, vocabulary, node, has_status))
                 continue
-            if aliases.intersection(node):
-                raise ValueError(f'Unsupported alternate structured Event fields: {expected_url}')
-            validate_meetup_transport_url(node.get('url'), expected_path)
-            if '@id' in node:
-                node_id = node['@id']
-                if node_id.startswith('#'):
-                    node_id = urljoin(expected_url, node_id)
-                validate_meetup_transport_url(node_id, expected_path)
-            status = node.get('eventStatus')
-            fields = ('eventStatus',) if isinstance(status, str) and status in NONPUBLISHABLE_EVENT_STATUSES else details
-            observation = tuple(node.get(field) for field in fields)
+            if ('Event' in event_types and not vocabulary or 'schema:Event' in event_types and not prefix):
+                raise ValueError(f'Unsupported structured Event type vocabulary: {expected_url}')
+            facts = direct_event_facts(node, vocabulary, expected_url)
+            validate_meetup_transport_url(facts.get('url'), expected_path)
+            if identity:
+                validate_meetup_transport_url(identity, expected_path)
+                # Fragments must agree with every typed description of this identity.
+                earlier = identified_events.get(identity)
+                identified_events[identity] = facts if earlier is None else agreeing_event_facts(earlier, facts)
+            status = facts.get('eventStatus')
+            fields = (('eventStatus',) if isinstance(status, str) and status in NONPUBLISHABLE_EVENT_STATUSES
+                      else EVENT_DETAIL_FIELDS)
+            observation = tuple(facts.get(field) for field in fields)
             if event is not None and observed != observation:
                 raise ValueError(f'Conflicting structured Events: {expected_url}')
             if event is None:
                 event, observed = node, observation
+    # Identity references may appear before the typed Event or in another script.
+    for identity, vocabulary, node, has_status in fragments:
+        if identity in identified_events:
+            facts = direct_event_facts(node, vocabulary, expected_url)
+            if len(agreeing_event_facts(facts, identified_events[identity])) != len(facts):
+                raise ValueError(f'Conflicting structured Event facts: {expected_url}')
+        elif has_status:
+            raise ValueError(f'Structured Event status has no Event identity: {expected_url}')
     if event is None:
         raise ValueError(f'No structured Event found: {expected_url}')
     return event
