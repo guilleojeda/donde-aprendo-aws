@@ -89,6 +89,7 @@ class FakeTable:
         self.updates = []
         self.transactions = []
         self.gets = []
+        self.before_get = None
         self.before_update = None
         self.before_transact = None
         self.scan_responses = None
@@ -105,6 +106,8 @@ class FakeTable:
 
     def get_item(self, **kwargs):
         self.gets.append(kwargs)
+        if self.before_get is not None:
+            self.before_get(self.existing, kwargs)
         item = self.existing.get(kwargs['Key']['id'])
         if item is None:
             return {}
@@ -1242,6 +1245,370 @@ class MeetupEventsTests(unittest.TestCase):
             meetup.read_reservation(table, EVENT_URL)
         self.assertEqual(len(table.gets), 1, 'an invalid referenced ID is rejected before its catalog read')
 
+    def test_shared_current_reservation_shapes_require_revision_one_and_coherent_members(self):
+        fixture_path = pathlib.Path(__file__).resolve().parent / 'fixtures' / 'catalog-storage-cases.json'
+        with fixture_path.open(encoding='utf-8') as handle:
+            cases = json.load(handle)['cases']
+
+        for index, case in enumerate(cases):
+            with self.subTest(shape=case['name']):
+                table = FakeTable()
+                reservation_key = case['reservationPhysicalKey']['id']
+                table.existing = {reservation_key: case['reservation']}
+                table.existing.update({
+                    member['physicalKey']['id']: member['item']
+                    for member in case['members']
+                })
+                before = copy.deepcopy(table.existing)
+
+                candidate = existing_event(published=True)
+                candidate['id'] = f'meetup-event-candidate-{index}'
+                candidate['registrationUrl'] = case['url']
+                expected_admission = case['expected']['admission']
+                if expected_admission.startswith('reject-'):
+                    with self.assertRaisesRegex(RuntimeError, 'Inconsistent|Malformed|missing or inconsistent'):
+                        meetup.create_source_event_with_url_reservation(table, candidate)
+                else:
+                    outcome = meetup.create_source_event_with_url_reservation(table, candidate)
+                    self.assertEqual(outcome, 'collision' if expected_admission == 'collision-review' else 'duplicate')
+                self.assertEqual(table.transactions, [])
+                self.assertEqual(table.existing, before)
+
+    def test_interval_collapsed_by_serialization_is_reported_before_any_write(self):
+        entry = meetup.parse_feed(ICAL, GROUP)[0]
+        collapsed_page = dict(
+            PAGE,
+            startDate='2099-01-01T18:00:00.900-05:00',
+            endDate='2099-01-01T18:00:00.999-05:00',
+        )
+        invalid = FakeTable()
+        with patch.object(meetup, 'timezone_from_feed', return_value=[entry]), \
+                patch.object(meetup, 'fetch_event_page', return_value=collapsed_page):
+            rejected = meetup.synchronize(table=invalid, groups=[dict(GROUP)])
+
+        self.assertEqual(rejected['changed'], 0)
+        self.assertEqual(len(rejected['failures']), 1)
+        self.assertIn('Event 456 in group 123', rejected['failures'][0])
+        self.assertEqual(invalid.existing, {})
+        self.assertEqual(invalid.transactions, [])
+
+    def test_js_incompatible_low_year_refresh_preserves_event_and_reservation(self):
+        prior = existing_event(
+            published=True, starts_at='2099-01-01T18:00:00-05:00',
+            ends_at='2099-01-01T20:00:00-05:00')
+        reservation = meetup.current_url_reservation(prior['registrationUrl'], prior['id'])
+        table = FakeTable([prior, reservation])
+        invalid_page = dict(
+            PAGE,
+            startDate='0099-01-01T18:00:00-05:00',
+            endDate='0099-01-01T20:00:00-05:00',
+        )
+        with patch.object(meetup, 'timezone_from_feed', return_value=meetup.parse_feed(ICAL, GROUP)), \
+                patch.object(meetup, 'fetch_event_page', return_value=invalid_page):
+            result = meetup.synchronize(table=table, groups=[dict(GROUP)])
+
+        self.assertEqual(result['changed'], 0)
+        self.assertEqual(len(result['failures']), 1)
+        self.assertIn('Invalid event dates', result['failures'][0])
+        self.assertEqual(table.existing[prior['id']], prior)
+        self.assertEqual(table.existing[reservation['id']], reservation)
+        self.assertEqual(table.transactions, [])
+        self.assertEqual(table.updates, [])
+
+    def test_create_reobserves_a_url_freed_between_reservation_and_member_reads(self):
+        entry = meetup.parse_feed(ICAL, GROUP)[0]
+        record = meetup.map_event(GROUP, entry, PAGE)
+        requested_url = record['registrationUrl']
+        moved_url = requested_url + '?ref=concurrent-move'
+        member = {'id': 'other-resource', 'url': requested_url, 'version': 1}
+        old = meetup.current_url_reservation(requested_url, member['id'])
+        new = meetup.current_url_reservation(moved_url, member['id'])
+        table = FakeTable([member, old])
+
+        def move_member(rows, request):
+            if request['Key']['id'] == member['id']:
+                table.before_get = None
+                rows.pop(old['id'])
+                rows[member['id']] = dict(member, url=moved_url, version=2)
+                rows[new['id']] = new
+
+        table.before_get = move_member
+        self.assertIs(meetup.create_source_event_with_url_reservation(table, record), True)
+        self.assertEqual(table.existing, {
+            member['id']: dict(member, url=moved_url, version=2),
+            new['id']: new,
+            record['id']: dict(record, version=1),
+            old['id']: meetup.current_url_reservation(requested_url, record['id']),
+        })
+        self.assertEqual(len(table.transactions), 1)
+
+    def test_coherent_url_move_reobservation_preserves_newer_event_and_does_not_write_stale_state(self):
+        prior = existing_event(
+            published=True, starts_at='2099-01-01T18:00:00-05:00',
+            ends_at='2099-01-01T20:00:00-05:00')
+        prior['version'] = 1
+        old_url = prior['registrationUrl']
+        candidate_url = old_url + '?ref=source-candidate'
+        successor_url = old_url + '?ref=newer-authority'
+        entry = dict(meetup.parse_feed(ICAL, GROUP)[0], url=candidate_url)
+        record = meetup.map_event(GROUP, entry, dict(PAGE, url=candidate_url, name='Stale source facts'))
+        old_reservation = meetup.current_url_reservation(old_url, prior['id'])
+        table = FakeTable([prior, old_reservation])
+        successor = dict(record, registrationUrl=successor_url, title='Newer authoritative facts',
+                         version=prior['version'] + 1, autoSync=False,
+                         sourceModifiedAt='20990103T000000Z', editorNote='newer creator state')
+        successor_reservation = meetup.current_url_reservation(successor_url, successor['id'])
+
+        def move_after_initial_reservation_read(rows, request):
+            if request['Key']['id'] != prior['id']:
+                return
+            table.before_get = None
+            rows.pop(old_reservation['id'])
+            rows[successor['id']] = successor
+            rows[successor_reservation['id']] = successor_reservation
+
+        table.before_get = move_after_initial_reservation_read
+        outcome = meetup.update_source_event(table, record, prior)
+
+        self.assertFalse(outcome, 'the stale source observation becomes a no-op after fresh coherent state')
+        self.assertEqual(table.existing, {successor['id']: successor, successor_reservation['id']: successor_reservation})
+        self.assertTrue(any(
+            read['Key']['id'] == record['id'] and read.get('ConsistentRead') is True
+            and 'autoSync' in read.get('ExpressionAttributeNames', {}).values()
+            for read in table.gets
+        ), 'the fresh read observes the authoritative event, including its suppression flag')
+        self.assertEqual(table.transactions, [])
+        self.assertEqual(table.updates, [])
+
+    def test_record_local_reservation_loss_preserves_source_and_allows_healthy_sibling_retraction(self):
+        source_group = dict(GROUP)
+        sibling_group = dict(GIRLS_GROUP)
+        source_entry = meetup.parse_feed(ICAL, source_group)[0]
+        source_url = EVENT_URL + '?ref=source-move'
+        source_entry = dict(source_entry, url=source_url)
+        source_event = meetup.map_event(source_group, source_entry, dict(PAGE, url=source_url))
+        source_event['registrationUrl'] = EVENT_URL
+        source_event.update(version=4, published=True, startsAt='2099-01-01T18:00:00-05:00',
+                            endsAt='2099-01-01T20:00:00-05:00')
+        source_event['title'] = 'Stored source title'
+        broken_reservation = dict(meetup.current_url_reservation(EVENT_URL, source_event['id']), recordType='event')
+        same_source_absent = dict(source_event, id='meetup-event-789', registrationUrl=EVENT_URL + '?ref=absent',
+                                  title='Same source absent', version=6)
+
+        sibling_entry = meetup.parse_feed(GIRLS_ICAL, sibling_group)[0]
+        sibling_event = meetup.map_event(sibling_group, sibling_entry, GIRLS_PAGE)
+        sibling_event.update(version=3, published=True, startsAt='2099-02-01T19:00:00-03:00',
+                             endsAt='2099-02-01T21:00:00-03:00')
+        table = FakeTable([source_event, broken_reservation, same_source_absent, sibling_event])
+
+        def feed(group):
+            group['timeZone'] = source_group['timeZone'] if group['id'] == source_group['id'] \
+                else sibling_group['timeZone']
+            return [source_entry] if group['id'] == source_group['id'] else []
+
+        error = None
+        result = None
+        with patch.object(meetup, 'timezone_from_feed', side_effect=feed), \
+                patch.object(meetup, 'fetch_event_page', return_value=dict(PAGE, url=source_url, name='Fresh source title')):
+            try:
+                result = meetup.synchronize(table=table, groups=[source_group, sibling_group])
+            except Exception as raised:
+                error = raised
+
+        self.assertIsNone(error, 'a record-local reservation error must not stop sibling work')
+        self.assertEqual(result['changed'], 1)
+        self.assertTrue(any('Event 456 in group 123' in failure for failure in result['failures']))
+        self.assertEqual(table.existing[source_event['id']], source_event)
+        self.assertEqual(table.existing[same_source_absent['id']], same_source_absent)
+        self.assertFalse(table.existing[sibling_event['id']]['published'])
+        self.assertEqual(table.existing[sibling_event['id']]['version'], sibling_event['version'] + 1)
+        self.assertEqual(len(table.updates), 1)
+
+    def test_unknown_event_write_keeps_persisted_effect_uncertain_but_does_not_block_sibling(self):
+        class UnknownAfterCommitTable(FakeTable):
+            def transact_write_items(self, *, TransactItems):
+                super().transact_write_items(TransactItems=TransactItems)
+                raise TimeoutError('response lost after transaction')
+
+        source_group = dict(GROUP)
+        sibling_group = dict(GIRLS_GROUP)
+        source_entry = meetup.parse_feed(ICAL, source_group)[0]
+        absent = meetup.map_event(source_group, source_entry, PAGE)
+        absent.update(id='meetup-event-789', registrationUrl=EVENT_URL + '?ref=absent', version=4)
+        absent_reservation = meetup.current_url_reservation(absent['registrationUrl'], absent['id'])
+        sibling_entry = meetup.parse_feed(GIRLS_ICAL, sibling_group)[0]
+        sibling_event = meetup.map_event(sibling_group, sibling_entry, GIRLS_PAGE)
+        sibling_event.update(version=3, published=True, startsAt='2099-02-01T19:00:00-03:00',
+                             endsAt='2099-02-01T21:00:00-03:00')
+
+        def feed(group):
+            group['timeZone'] = source_group['timeZone'] if group['id'] == source_group['id'] \
+                else sibling_group['timeZone']
+            return [source_entry] if group['id'] == source_group['id'] else []
+
+        for with_sibling in (False, True):
+            with self.subTest(with_sibling=with_sibling):
+                rows = [absent, absent_reservation]
+                groups = [source_group]
+                if with_sibling:
+                    rows.append(sibling_event)
+                    groups.append(sibling_group)
+                table = UnknownAfterCommitTable(rows)
+                notified = []
+                with patch.object(meetup, 'timezone_from_feed', side_effect=feed), \
+                        patch.object(meetup, 'fetch_event_page', return_value=PAGE):
+                    result = meetup.synchronize(
+                        table=table, groups=groups,
+                        before_drain=lambda: notified.append(copy.deepcopy(table.existing)),
+                    )
+                self.assertEqual(result['changed'], int(with_sibling))
+                self.assertTrue(any('Event 456 in group 123' in failure for failure in result['failures']))
+                self.assertEqual(len(table.transactions), 1, 'the uncertain write is sent once')
+                saved = table.existing['meetup-event-456']
+                self.assertEqual(saved['registrationUrl'], EVENT_URL)
+                self.assertEqual(table.existing[f'__url#{meetup.current_url_hash(EVENT_URL)}']['resourceId'], saved['id'])
+                self.assertEqual(table.existing[absent['id']], absent)
+                self.assertEqual(table.existing[absent_reservation['id']], absent_reservation)
+                self.assertEqual(len(notified), int(with_sibling), 'only a confirmed independent change authorizes publication')
+                if with_sibling:
+                    self.assertFalse(notified[0][sibling_event['id']]['published'])
+
+    def test_transaction_none_reasons_are_definite_and_retry_a_move_once(self):
+        prior, record = MeetupUpdateTransportTests.records(moved=True)
+        table = FakeTable([prior, MeetupUpdateTransportTests.reservation(prior['registrationUrl'], prior['id'])])
+        error = RuntimeError('definite transaction cancellation')
+        error.response = {
+            'Error': {'Code': 'TransactionCanceledException'},
+            'CancellationReasons': [
+                {'Code': 'ConditionalCheckFailed'}, {'Code': 'None'},
+            ],
+        }
+
+        def cancel_first_write(_items, _request):
+            raise error
+
+        table.before_transact = cancel_first_write
+        self.assertIs(meetup.update_source_event(table, record, prior), True)
+        self.assertEqual(len(table.transactions), 2)
+        self.assertEqual(table.existing[prior['id']]['registrationUrl'], record['registrationUrl'])
+
+    def test_point_update_timeout_after_commit_is_uncertain_without_replay(self):
+        prior, record = MeetupUpdateTransportTests.records(moved=False)
+
+        class TimeoutAfterUpdateTable(FakeTable):
+            def update_item(self, **kwargs):
+                super().update_item(**kwargs)
+                raise TimeoutError('response lost after point update')
+
+        table = TimeoutAfterUpdateTable([prior, MeetupUpdateTransportTests.reservation(prior['registrationUrl'], prior['id'])])
+        with self.assertRaisesRegex(RuntimeError, 'Uncertain catalog write outcome'):
+            meetup.update_source_event(table, record, prior)
+        self.assertEqual(len(table.updates), 1)
+        self.assertEqual(table.existing[prior['id']]['title'], record['title'])
+
+    def test_access_denied_is_shared_failure_not_an_uncertain_write(self):
+        prior, record = MeetupUpdateTransportTests.records(moved=False)
+        error = RuntimeError('access denied')
+        error.response = {
+            'Error': {'Code': 'AccessDeniedException'},
+            'ResponseMetadata': {'HTTPStatusCode': 400},
+        }
+
+        class AccessDeniedTable(FakeTable):
+            def update_item(self, **kwargs):
+                raise error
+
+        table = AccessDeniedTable([prior, MeetupUpdateTransportTests.reservation(prior['registrationUrl'], prior['id'])])
+        with self.assertRaises(RuntimeError) as raised:
+            meetup.update_source_event(table, record, prior)
+        self.assertIs(raised.exception, error)
+        self.assertEqual(table.updates, [])
+
+    def test_same_owner_newer_url_move_is_preserved_after_reobservation(self):
+        prior, record = MeetupUpdateTransportTests.records(moved=True)
+        old_reservation = MeetupUpdateTransportTests.reservation(prior['registrationUrl'], prior['id'])
+        successor_url = prior['registrationUrl'] + '?updated-by-newer-writer=1'
+        successor = dict(record, registrationUrl=successor_url, title='Newer authoritative facts',
+                         sourceModifiedAt='20990103T000000Z', version=prior['version'] + 1)
+        successor_reservation = MeetupUpdateTransportTests.reservation(successor_url, successor['id'])
+        for key in (old_reservation['id'], prior['id']):
+            with self.subTest(key=key):
+                table = FakeTable([prior, old_reservation])
+
+                def move_before_read(rows, request):
+                    if request['Key']['id'] != key:
+                        return
+                    table.before_get = None
+                    rows.pop(old_reservation['id'])
+                    rows[successor['id']] = successor
+                    rows[successor_reservation['id']] = successor_reservation
+
+                table.before_get = move_before_read
+                self.assertIs(meetup.update_source_event(table, record, prior), False)
+                self.assertEqual(table.existing, {
+                    successor['id']: successor,
+                    successor_reservation['id']: successor_reservation,
+                })
+                self.assertEqual(table.transactions, [])
+
+    def test_uncertain_absence_preserves_other_candidates_from_that_source(self):
+        first = existing_event(starts_at='2099-01-01T18:00:00-05:00', ends_at='2099-01-01T20:00:00-05:00')
+        second = dict(first, id='meetup-event-789', registrationUrl=EVENT_URL + '?other=1')
+        sibling_entry = meetup.parse_feed(GIRLS_ICAL, GIRLS_GROUP)[0]
+        sibling = meetup.map_event(GIRLS_GROUP, sibling_entry, GIRLS_PAGE)
+        sibling.update(version=3, published=True, startsAt='2099-02-01T19:00:00-03:00',
+                       endsAt='2099-02-01T21:00:00-03:00')
+
+        class TimeoutAfterRetractionTable(FakeTable):
+            def update_item(self, **kwargs):
+                super().update_item(**kwargs)
+                if kwargs['Key']['id'] == first['id']:
+                    raise TimeoutError('response lost after retraction')
+
+        table = TimeoutAfterRetractionTable([first, second, sibling])
+        notified = []
+        with patch.object(meetup, 'timezone_from_feed', return_value=[]):
+            result = meetup.synchronize(
+                table=table, groups=[dict(GROUP), dict(GIRLS_GROUP)],
+                before_drain=lambda: notified.append(copy.deepcopy(table.existing)),
+            )
+        self.assertEqual(result['changed'], 1)
+        self.assertEqual(len(result['failures']), 1)
+        self.assertIn(f'Event {first["id"]}: source-removal write outcome uncertain', result['failures'][0])
+        self.assertCountEqual([call['Key']['id'] for call in table.updates], [first['id'], sibling['id']])
+        self.assertFalse(table.existing[first['id']]['published'])
+        self.assertEqual(table.existing[second['id']], second)
+        self.assertEqual(len(notified), 1)
+        self.assertFalse(notified[0][sibling['id']]['published'])
+
+    def test_same_id_reservation_is_obsolete_source_work_not_missing_resource(self):
+        prior, record = MeetupUpdateTransportTests.records(moved=False)
+        reservation = MeetupUpdateTransportTests.reservation(record['registrationUrl'], record['id'])
+        table = FakeTable([record, reservation])
+        self.assertIs(meetup.create_source_event_with_url_reservation(table, record), False)
+        self.assertEqual(table.transactions, [])
+
+    def test_url_move_does_not_retry_a_cancellation_without_a_definite_conditional_reason(self):
+        for reasons in (None, [], [{'Code': 'ConditionalCheckFailed'}, {'Code': 'ProvisionedThroughputExceeded'}]):
+            with self.subTest(reasons=reasons):
+                prior, record = MeetupUpdateTransportTests.records(moved=True)
+                reservation = meetup.current_url_reservation(prior['registrationUrl'], prior['id'])
+                table = FakeTable([prior, reservation])
+                before = copy.deepcopy(table.existing)
+                error = RuntimeError('uncertain transaction cancellation')
+                error.response = {'Error': {'Code': 'TransactionCanceledException'}}
+                if reasons is not None:
+                    error.response['CancellationReasons'] = reasons
+
+                def cancel_before_commit(_items, _request):
+                    raise error
+
+                table.before_transact = cancel_before_commit
+                with self.assertRaisesRegex(RuntimeError, 'uncertain transaction cancellation'):
+                    meetup.update_source_event(table, record, prior)
+                self.assertEqual(table.existing, before)
+                self.assertEqual(len(table.transactions), 1)
+
     def test_ended_events_missing_from_healthy_feed_keep_both_publication_values_without_hourly_writes(self):
         published = existing_event(published=True)
         hidden = existing_event(published=False)
@@ -1486,6 +1853,24 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertEqual(group['timeZone'], GROUP['timeZone'])
         get_text.assert_called_once_with(meetup.group_feed_url(group))
         fetch_event_page.assert_not_called()
+
+    def test_zoneinfo_aliases_rejected_when_public_intl_rejects_them(self):
+        for alias in ('Factory', 'localtime', 'posixrules', 'posix/America/Bogota', 'right/America/Bogota'):
+            with self.subTest(alias=alias):
+                prior = existing_event(published=True, starts_at=PAGE['startDate'], ends_at=PAGE['endDate'])
+                table = FakeTable([prior])
+                group = dict(GROUP)
+                feed = ICAL.replace('America/Bogota', alias)
+                with patch.object(meetup, 'get_text', return_value=feed), \
+                        patch.object(meetup, 'fetch_event_page') as fetch_event_page:
+                    result = meetup.synchronize(table=table, groups=[group])
+
+                self.assertEqual(result['feedsRead'], 0)
+                self.assertEqual(result['changed'], 0)
+                self.assertEqual(result['failures'], [f'Invalid timezone in feed of {GROUP["id"]}'])
+                self.assertTrue(table.existing[prior['id']]['published'])
+                self.assertEqual(table.updates, [])
+                fetch_event_page.assert_not_called()
 
     def test_explicit_cancelled_feed_entry_without_prior_row_does_not_insert(self):
         table = FakeTable()

@@ -8,14 +8,18 @@ import { pathToFileURL } from 'node:url';
 import { marshall } from '@aws-sdk/util-dynamodb';
 
 /** A Scan-only DynamoDB wire fixture; projection happens before SDK decoding. */
-export async function startHostingReleaseDynamo({ catalog, runtimeEnvironment }) {
+export async function startHostingReleaseDynamo({ catalog, runtimeEnvironment, physicalRows }) {
   const { CATALOG_TABLE: catalogTable, CREATOR_PROFILES_TABLE: profilesTable } = runtimeEnvironment;
-  assert.ok(catalogTable && profilesTable && catalogTable !== profilesTable, 'Fixture tables must be explicit and distinct.');
+  assert.ok(catalogTable && (!profilesTable || catalogTable !== profilesTable), 'Fixture tables must be explicit and distinct.');
   const items = Array.isArray(catalog) ? catalog : catalog.items;
   assert.ok(Array.isArray(items), 'The catalog fixture supplies rows.');
   const creators = (catalog.creators ?? []).map((creator) => ({
     ...creator, pk: `PROFILE#${creator.id}`, sk: 'META', recordType: 'creatorState',
   }));
+  const physicalCatalogRows = physicalRows?.catalog ?? items;
+  const physicalCreatorRows = physicalRows?.creators ?? creators;
+  assert.ok(Array.isArray(physicalCatalogRows) && Array.isArray(physicalCreatorRows),
+    'Physical table rows must be arrays when supplied.');
   const scans = [];
   const failures = [];
   const server = createServer(async (request, response) => {
@@ -35,7 +39,7 @@ export async function startHostingReleaseDynamo({ catalog, runtimeEnvironment })
         assert.ok(input.ExpressionAttributeNames?.[field], 'Every projection alias resolves.');
         return input.ExpressionAttributeNames[field];
       });
-      const rows = input.TableName === catalogTable ? items : creators;
+      const rows = input.TableName === catalogTable ? physicalCatalogRows : physicalCreatorRows;
       const projected = rows.map((row) => Object.fromEntries(fields
         .filter((field) => Object.hasOwn(row, field)).map((field) => [field, row[field]])));
       scans.push({ tableName: input.TableName, fields });
@@ -54,7 +58,7 @@ export async function startHostingReleaseDynamo({ catalog, runtimeEnvironment })
     endpoint, scans,
     assertBuildReads() {
       assert.deepEqual(failures, [], 'The build must not bypass or violate the table fixture.');
-      for (const table of [catalogTable, profilesTable]) {
+      for (const table of [catalogTable, profilesTable].filter(Boolean)) {
         assert.ok(scans.some(({ tableName }) => tableName === table), `The real build must scan ${table}.`);
       }
     },

@@ -51,6 +51,8 @@ Resources:
                       - recordType
                       - url
                       - registrationUrl
+                  StringEquals:
+                    dynamodb:Select: SPECIFIC_ATTRIBUTES
         - PolicyName: WriteFunctionLogs
           PolicyDocument:
             Version: '2012-10-17'

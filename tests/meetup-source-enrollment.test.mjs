@@ -19,6 +19,7 @@ const SIBLING_URL = 'https://www.meetup.com/aws-sbg-at-metropolitan-technologica
 const DISPLAY_URL = 'https://community.example.org/aws-girls/';
 const PROTECTED_EVENT_ID = 'meetup-event-316882965';
 const PROTECTED_EVENT_URL = `${GROUP_URL}events/316882965/`;
+const TARGET_NEW_EVENT_URL = `${GROUP_URL}events/316882966/`;
 const PROFILE_SLUG = 'aws-girls-owner';
 const PYTHON_PROVIDER = fileURLToPath(new URL('./fixtures/meetup-source-enrollment-provider.py', import.meta.url));
 
@@ -471,6 +472,118 @@ test('reviewed Meetup enrollment survives grants, URL moves, moderation, and Pyt
 
   assert.deepEqual({ locatorFailures, runtimeFailures }, { locatorFailures: [], runtimeFailures: [] },
     'the private source locator survives every real writer and lets the production Python sync use the original feed');
+});
+
+test('Python producer rows survive persistence and the actual JavaScript public projection', async () => {
+  const targetSource = {
+    id: GROUP_ID, title: 'AWS Girls Argentina', url: GROUP_URL,
+    meetupSourceUrl: GROUP_URL, country: 'AR', kind: 'community', published: true,
+  };
+  const siblingSource = {
+    id: SIBLING_ID, title: 'AWS SBG Macul', url: SIBLING_URL,
+    meetupSourceUrl: SIBLING_URL, country: 'CL', kind: 'community', published: true,
+  };
+  const protectedEvent = { ...communityEvent(), autoSync: false };
+  const python = spawnSync('python3', [PYTHON_PROVIDER], {
+    input: JSON.stringify({
+      rows: [targetSource, siblingSource, protectedEvent,
+        currentUrlReservation(PROTECTED_EVENT_URL, PROTECTED_EVENT_ID)],
+      eventPages: {
+        [TARGET_NEW_EVENT_URL]: {
+          '@type': 'Event', name: '\ufeff  Encuentro nuevo de AWS Girls  ',
+          url: TARGET_NEW_EVENT_URL, description: '<p>  Nuevo <strong>encuentro</strong>. </p>',
+          startDate: '2099-01-01T19:00:00.900-03:00', endDate: '2099-01-01T20:00:00.900-03:00',
+          eventStatus: 'https://schema.org/EventScheduled',
+          eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+          location: {
+            '@type': 'Place', name: '\ufeff Auditorio ',
+            address: { streetAddress: '\ufeff Calle 1 ', addressLocality: '\ufeff Córdoba ' },
+          },
+        },
+      },
+    }), encoding: 'utf8', timeout: 30000,
+  });
+  assert.equal(python.error, undefined, python.error?.message);
+  assert.equal(python.status, 0, python.stderr);
+  const sync = JSON.parse(python.stdout);
+  assert.deepEqual(sync.result.failures, []);
+  assert.equal(sync.result.changed, 2, 'two new events commit while the protected event remains source-owned');
+  assert.equal(sync.transactions.length, 2);
+
+  const client = new CatalogDocumentClientMock();
+  for (const row of sync.rows.filter(({ recordType }) => recordType === 'event' || recordType === 'urlReservation')) {
+    client.seed(CATALOG, row);
+  }
+  const publicRows = await loadCatalog({ tableName: CATALOG, docClient: client });
+  const events = publicRows.filter(({ recordType }) => recordType === 'event');
+  assert.deepEqual(events.map(({ id }) => id).sort(), [
+    PROTECTED_EVENT_ID, 'meetup-event-316882966', 'meetup-event-382663761',
+  ].sort());
+
+  const target = events.find(({ id }) => id === 'meetup-event-316882966');
+  assert.equal(target.title, 'Encuentro nuevo de AWS Girls');
+  assert.equal(target.description, 'Nuevo encuentro.');
+  assert.equal(target.startsAt, '2099-01-01T19:00:00-03:00');
+  assert.equal(target.endsAt, '2099-01-01T20:00:00-03:00');
+  assert.equal(target.place, 'Auditorio, Calle 1');
+  assert.equal(target.city, 'Córdoba');
+  assert.equal(target.mode, 'in-person');
+  assert.equal(target.registrationUrl, TARGET_NEW_EVENT_URL);
+  for (const privateField of ['sourceGroupId', 'sourceModifiedAt', 'autoSync', 'version', 'approvalRevoked', 'published']) {
+    assert.equal(Object.hasOwn(target, privateField), false,
+      `the actual public event projection excludes ${privateField}`);
+  }
+  assert.equal(publicRows.some(({ id }) => id.startsWith('__url#')), false,
+    'the stored URL reservation is not a public event record');
+
+  const scan = client.calls.find(({ name, input }) => name === 'ScanCommand' && input.TableName === CATALOG);
+  assert.ok(scan, 'the public read uses the actual catalog scan boundary');
+  const projectedFields = projectionFields(scan.input);
+  for (const required of ['recordType', 'description', 'startsAt', 'endsAt', 'registrationUrl']) {
+    assert.ok(projectedFields.includes(required), `the physical projection requests ${required}`);
+  }
+});
+
+test('a provider timezone rejected by the public runtime cannot poison other Meetup events', async () => {
+  const python = spawnSync('python3', [PYTHON_PROVIDER], {
+    input: JSON.stringify({
+      rows: [
+        {
+          id: GROUP_ID, title: 'AWS Girls Argentina', url: GROUP_URL,
+          meetupSourceUrl: GROUP_URL, country: 'AR', kind: 'community', published: true,
+        },
+        {
+          id: SIBLING_ID, title: 'AWS SBG Macul', url: SIBLING_URL,
+          meetupSourceUrl: SIBLING_URL, country: 'CL', kind: 'community', published: true,
+        },
+        { ...communityEvent(), autoSync: false },
+      ],
+      feedTimeZones: { [`${GROUP_URL}events/ical/`]: 'Factory' },
+    }),
+    encoding: 'utf8',
+    timeout: 30000,
+  });
+  assert.equal(python.error, undefined, python.error?.message);
+  assert.equal(python.status, 0, python.stderr);
+  const sync = JSON.parse(python.stdout);
+
+  const client = new CatalogDocumentClientMock();
+  for (const row of sync.rows.filter(({ recordType }) => recordType === 'event' || recordType === 'urlReservation')) {
+    client.seed(CATALOG, row);
+  }
+  const publicEvents = (await loadCatalog({ tableName: CATALOG, docClient: client }))
+    .filter(({ recordType }) => recordType === 'event');
+  assert.deepEqual(publicEvents.map(({ id, timeZone }) => [id, timeZone]).sort(), [
+    [PROTECTED_EVENT_ID, 'America/Argentina/Cordoba'],
+    ['meetup-event-382663761', 'America/Santiago'],
+  ]);
+  assert.equal(sync.result.changed, 1);
+  assert.equal(sync.result.failures.length, 1);
+  assert.match(sync.result.failures[0], /36431225.*timezone|timezone.*36431225/iu);
+  assert.equal(sync.rows.some(({ id }) => id === currentUrlReservationId(TARGET_NEW_EVENT_URL)), false);
+  assert.deepEqual(sync.transactions.map((actions) => actions.map(({ Put }) => Put.Item.id)), [[
+    'meetup-event-382663761', currentUrlReservationId(`${SIBLING_URL}events/382663761/`),
+  ]]);
 });
 
 test('a real backfill wins over a stale authorized full-item creator write, then a fresh edit preserves its locator', async () => {

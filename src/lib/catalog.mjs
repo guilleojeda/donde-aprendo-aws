@@ -253,44 +253,15 @@ export async function scanCreatorItems(scanPage, tableName) {
 
 export function normalizeCreatorRows(rows) {
   if (!Array.isArray(rows)) throw new TypeError('Creator-state source must return an array of records');
-  const creators = [];
-  const creatorIds = new Set();
+  const aggregateRows = [];
   for (const [index, row] of rows.entries()) {
     if (!row || typeof row !== 'object' || Array.isArray(row)) {
       throw new Error(`Creator-state record ${index + 1} is not an object`);
     }
-    const creatorKey = typeof row.pk === 'string' && row.pk.startsWith('PROFILE#') && row.sk === 'META';
-    if (row.recordType !== 'creatorState' && !creatorKey) continue;
-
-    const id = typeof row.pk === 'string' && row.pk.startsWith('PROFILE#') ? row.pk.slice('PROFILE#'.length) : '';
-    if (!id || row.sk !== 'META' || row.recordType !== 'creatorState'
-        || row.schemaVersion !== CREATOR_STATE_SCHEMA_VERSION
-        || row.id !== id || !isCreatorStateId(id)) {
-      throw new Error(`Creator-state aggregate ${index + 1} has an invalid schema identity`);
-    }
-    if (creatorIds.has(id)) throw new Error(`Creator-state aggregate ${index + 1} is duplicated`);
-    creatorIds.add(id);
-    if (typeof row.displayName !== 'string' || row.displayName.length > CREATOR_FIELD_LIMITS.displayName
-        || typeof row.slug !== 'string' || (row.slug !== '' && !isCreatorSlug(row.slug))
-        || typeof row.published !== 'boolean' || typeof row.hidden !== 'boolean') {
-      throw new Error(`Creator-state aggregate ${index + 1} has malformed public profile fields`);
-    }
-    if (isPublicCreator(row) && !hasCreatorPublicIdentity(row.displayName, row.slug)) {
-      throw new Error(`Creator-state aggregate ${index + 1} has malformed public identity`);
-    }
-    validateCreatorSequences({ placements: row.placements, order: row.order, series: row.series });
-    creators.push({
-      id,
-      displayName: row.displayName,
-      slug: row.slug,
-      published: row.published,
-      hidden: row.hidden,
-      placements: row.placements,
-      order: row.order,
-      series: row.series,
-    });
+    const aggregate = classifyCreatorTableRow(row, index);
+    if (aggregate) aggregateRows.push(aggregate);
   }
-  return { creators };
+  return normalizeCreatorAggregates(aggregateRows);
 }
 
 /**
@@ -388,23 +359,57 @@ function normalizeCreatorState(state) {
       || !Array.isArray(state.creators)) {
     throw new TypeError('Creator directory state must contain a creator aggregate array');
   }
+  return normalizeCreatorAggregates(state.creators);
+}
+
+/**
+ * Classify table rows before logical creator admission. Only the profile META
+ * row is a catalog input; auxiliary profile rows remain outside the public
+ * reader. A selected aggregate must prove its physical key, discriminator,
+ * and payload identity before its logical fields are considered.
+ */
+function classifyCreatorTableRow(row, index) {
+  const creatorKey = typeof row.pk === 'string' && row.pk.startsWith('PROFILE#') && row.sk === 'META';
+  if (row.recordType !== 'creatorState' && !creatorKey) return undefined;
+
+  const id = typeof row.pk === 'string' && row.pk.startsWith('PROFILE#') ? row.pk.slice('PROFILE#'.length) : '';
+  if (!id || row.sk !== 'META' || row.recordType !== 'creatorState' || row.id !== id) {
+    throw new Error(`Creator-state aggregate ${index + 1} has an invalid schema identity`);
+  }
+  return row;
+}
+
+/**
+ * Admit logical creator facts from either a fixture or a checked table row,
+ * then retain only the fields used by the public catalog association pass.
+ */
+function normalizeCreatorAggregates(aggregates) {
   const creatorIds = new Set();
-  const creators = state.creators.map((creator, index) => {
+  const creators = aggregates.map((creator, index) => {
     if (!creator || typeof creator !== 'object' || Array.isArray(creator)
         || typeof creator.id !== 'string' || !isCreatorStateId(creator.id)
         || creator.schemaVersion !== CREATOR_STATE_SCHEMA_VERSION
         || typeof creator.displayName !== 'string' || creator.displayName.length > CREATOR_FIELD_LIMITS.displayName
         || typeof creator.slug !== 'string' || (creator.slug !== '' && !isCreatorSlug(creator.slug))
         || typeof creator.published !== 'boolean' || typeof creator.hidden !== 'boolean') {
-      throw new Error(`Creator directory aggregate ${index + 1} is malformed`);
+      throw new Error(`Creator catalog aggregate ${index + 1} is malformed`);
     }
     if (isPublicCreator(creator) && !hasCreatorPublicIdentity(creator.displayName, creator.slug)) {
-      throw new Error(`Creator directory aggregate ${index + 1} has malformed public identity`);
+      throw new Error(`Creator catalog aggregate ${index + 1} has malformed public identity`);
     }
-    if (creatorIds.has(creator.id)) throw new Error(`Creator directory aggregate ${index + 1} is duplicated`);
+    if (creatorIds.has(creator.id)) throw new Error(`Creator catalog aggregate ${index + 1} is duplicated`);
     creatorIds.add(creator.id);
     validateCreatorSequences({ placements: creator.placements, order: creator.order, series: creator.series });
-    return creator;
+    return {
+      id: creator.id,
+      displayName: creator.displayName,
+      slug: creator.slug,
+      published: creator.published,
+      hidden: creator.hidden,
+      placements: creator.placements,
+      order: creator.order,
+      series: creator.series,
+    };
   });
   return { creators };
 }

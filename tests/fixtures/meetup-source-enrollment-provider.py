@@ -100,9 +100,10 @@ class IsolatedDynamoProvider:
             self.rows[item['id']] = item
 
 
-def feed_text(url):
+def feed_text(url, time_zones):
     entries = FEED_EVENTS[url]
-    time_zone = 'America/Argentina/Cordoba' if url == TARGET_FEED_URL else 'America/Santiago'
+    default_time_zone = 'America/Argentina/Cordoba' if url == TARGET_FEED_URL else 'America/Santiago'
+    time_zone = time_zones.get(url, default_time_zone)
     lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', f'TZID:{time_zone}']
     for event_id, event_url in entries:
         lines.extend([
@@ -127,12 +128,15 @@ def main():
         }))
         return
     requests = []
+    event_pages = copy.deepcopy(EVENT_PAGES)
+    event_pages.update(payload.get('eventPages', {}))
+    time_zones = payload.get('feedTimeZones', {})
 
     def fixture_get_text(url, budget=None):
         requests.append(url)
         if url in FEED_EVENTS:
-            return feed_text(url)
-        page = EVENT_PAGES.get(url)
+            return feed_text(url, time_zones)
+        page = event_pages.get(url)
         if page is not None:
             return '<script type="application/ld+json">' + json.dumps(page) + '</script>'
         parsed = urlparse(url)
@@ -158,6 +162,7 @@ def main():
         'sourceScans': source_scans,
         'eventScans': event_scans,
         'transactions': table.transactions,
+        'rows': sorted((copy.deepcopy(item) for item in table.rows.values()), key=lambda item: item['id']),
         'events': sorted((copy.deepcopy(item) for item in table.rows.values()
                           if item.get('recordType') == 'event'), key=lambda item: item['id']),
     }, ensure_ascii=False))
