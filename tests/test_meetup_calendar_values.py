@@ -156,6 +156,12 @@ class MeetupCalendarValueTests(unittest.TestCase):
                 'END:VCALENDAR', 'URL:https://www.meetup.com/%2Z/\r\nEND:VCALENDAR')),
             ('calendar URL without HTTP authority', support.EMPTY_ICAL.replace(
                 'END:VCALENDAR', 'URL:https:///aws-bogota/\r\nEND:VCALENDAR')),
+            ('invalid delimiter in calendar URI fragment', support.EMPTY_ICAL.replace(
+                'END:VCALENDAR', 'URL:https://www.meetup.com/aws-bogota/#a#b\r\nEND:VCALENDAR')),
+            ('ambiguous calendar URI authority', support.EMPTY_ICAL.replace(
+                'END:VCALENDAR', 'URL:https://name@another@www.meetup.com/aws-bogota/\r\nEND:VCALENDAR')),
+            ('duplicate calendar PRODID', support.EMPTY_ICAL.replace(
+                'END:VCALENDAR', 'PRODID:-//First//EN\r\nPRODID:-//Second//EN\r\nEND:VCALENDAR')),
             ('empty calendar UID', support.EMPTY_ICAL.replace(
                 'END:VCALENDAR', 'UID:\r\nEND:VCALENDAR')),
             ('escaped empty calendar UID', support.EMPTY_ICAL.replace(
@@ -227,7 +233,8 @@ class MeetupCalendarValueTests(unittest.TestCase):
 
     def test_valid_calendar_metadata_does_not_create_an_event(self):
         metadata = (
-            'UID:meetup-calendar-123\r\nURL:https://www.meetup.com/aws-bogota/?source=calendar'
+            'PRODID:-//Meetup//EN\r\nUID:meetup-calendar-123\r\n'
+            'URL:https://www.meetup.com/aws-bogota/?source=calendar#events'
             '\r\nLAST-MODIFIED:20990228T000000Z\r\n'
         )
         feed = support.EMPTY_ICAL.replace('END:VCALENDAR', metadata + 'END:VCALENDAR')

@@ -44,6 +44,15 @@ class MeetupEventObservationTests(unittest.TestCase):
             ('userinfo', script(userinfo_url), False),
             ('different path parameters', script(path_parameters), False),
             ('conflicting objects', script(cancelled) + script(support.PAGE), False),
+            ('conflicting event in a node array', script(cancelled) + script([support.PAGE]), False),
+            ('conflicting event in graph', script(cancelled) + script({'@graph': [support.PAGE]}), False),
+            ('conflicting expanded event type', script(cancelled) + script({
+                '@graph': [dict(support.PAGE, **{'@type': ['https://schema.org/Event']})],
+            }), False),
+            ('equivalent graph serialization', script(cancelled) + script({
+                '@graph': [dict(cancelled, **{'@type': ['Event', 'Thing']})],
+            }), True),
+
             ('reverse conflicting objects', script(support.PAGE) + script(cancelled), False),
             ('conflicting direct keys', conflicting_status, False),
             ('other event before matching event', script(other_event) + script(cancelled), False),

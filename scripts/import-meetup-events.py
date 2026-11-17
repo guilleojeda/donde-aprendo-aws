@@ -360,11 +360,11 @@ def parse_calendar(text, group):
     parameter_line = re.compile(
         rf';(?P<name>{token})=(?P<value>{parameter_value})(?=;|\Z)', re.I)
     event_properties = frozenset({'UID', 'URL', 'STATUS', 'LAST-MODIFIED'})
-    calendar_metadata = frozenset({'VERSION', 'TZID', 'UID', 'URL', 'LAST-MODIFIED'})
+    calendar_metadata = frozenset({'VERSION', 'PRODID', 'TZID', 'UID', 'URL', 'LAST-MODIFIED'})
     timezone_metadata = frozenset({'TZID', 'LAST-MODIFIED'})
     event_statuses = frozenset({'TENTATIVE', 'CONFIRMED', 'CANCELLED'})
     consumed_value_types = {
-        'VERSION': 'TEXT', 'TZID': 'TEXT', 'UID': 'TEXT',
+        'VERSION': 'TEXT', 'PRODID': 'TEXT', 'TZID': 'TEXT', 'UID': 'TEXT',
         'URL': 'URI', 'STATUS': 'TEXT', 'LAST-MODIFIED': 'DATE-TIME',
     }
     # The properties used here take extension parameters and an explicit
@@ -440,7 +440,12 @@ def parse_calendar(text, group):
             _ = uri.port
         except ValueError:
             invalid_feed()
-        if uri.scheme in {'http', 'https', 'ftp'} and not uri.hostname:
+        # Delimiters and IP literal brackets are only meaningful in
+        # their own URI components. urlsplit exposes them without rejecting
+        # extra fragment or user-info separators on its own.
+        if (value.count('#') > 1 or uri.netloc.count('@') > 1
+                or any('[' in part or ']' in part for part in (uri.path, uri.query, uri.fragment))
+                or (uri.scheme in {'http', 'https', 'ftp'} and not uri.hostname)):
             invalid_feed()
 
     def record_property(target, name, value, parameters, allowed_properties):
@@ -452,7 +457,7 @@ def parse_calendar(text, group):
             validate_consumed_parameters(name, parameters)
             if name == 'LAST-MODIFIED':
                 validate_modified_timestamp(value)
-            elif name in {'TZID', 'UID'}:
+            elif name in {'PRODID', 'TZID', 'UID'}:
                 validate_calendar_text(value)
             elif name == 'URL':
                 validate_calendar_uri(value)
@@ -574,6 +579,16 @@ def unambiguous_json_object(pairs):
     return record
 
 
+def structured_nodes(data):
+    if isinstance(data, list):
+        for node in data:
+            yield from structured_nodes(node)
+    elif isinstance(data, dict):
+        yield data
+        if '@graph' in data:
+            yield from structured_nodes(data['@graph'])
+
+
 def parse_event_page(text, expected_url):
     expected_path = meetup_observation_path(validate_meetup_transport_url(expected_url))
     if expected_path is None or expected_path.endswith('/ical'):
@@ -582,17 +597,28 @@ def parse_event_page(text, expected_url):
     parser = JsonLdScripts()
     parser.feed(text)
     event = None
+    observed = None
+    event_types = ('Event', 'schema:Event', 'https://schema.org/Event', 'http://schema.org/Event')
+    details = ('eventStatus', 'name', 'description', 'startDate', 'endDate', 'eventAttendanceMode', 'location')
     for script in parser.scripts:
         try:
             data = json.loads(script, object_pairs_hook=unambiguous_json_object)
         except json.JSONDecodeError:
             continue
-        if not isinstance(data, dict) or data.get('@type') != 'Event':
-            continue
-        validate_meetup_transport_url(data.get('url'), expected_path)
-        if event is not None and event != data:
-            raise ValueError(f'Conflicting structured Events: {expected_url}')
-        event = data
+        for node in structured_nodes(data):
+            types = node.get('@type')
+            if not isinstance(types, list):
+                types = [types]
+            if not any(kind in event_types for kind in types):
+                continue
+            validate_meetup_transport_url(node.get('url'), expected_path)
+            status = node.get('eventStatus')
+            fields = ('eventStatus',) if isinstance(status, str) and status in NONPUBLISHABLE_EVENT_STATUSES else details
+            observation = tuple(node.get(field) for field in fields)
+            if event is not None and observed != observation:
+                raise ValueError(f'Conflicting structured Events: {expected_url}')
+            if event is None:
+                event, observed = node, observation
     if event is None:
         raise ValueError(f'No structured Event found: {expected_url}')
     return event
