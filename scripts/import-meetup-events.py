@@ -185,7 +185,10 @@ class JsonLdScripts(HTMLParser):
         self.scripts = []
 
     def handle_starttag(self, tag, attrs):
-        if tag == 'script' and dict(attrs).get('type') == 'application/ld+json':
+        if tag != 'script':
+            return
+        content_type = next((value for key, value in attrs if key == 'type'), None)
+        if content_type and content_type.split(';', 1)[0].strip().casefold() == 'application/ld+json':
             self.active = True
             self.buffer = ''
 
@@ -580,14 +583,19 @@ def unambiguous_json_object(pairs):
     return record
 
 
+def reject_json_constant(value):
+    raise ValueError(f'Invalid JSON constant: {value}')
+
+
 def structured_nodes(data):
     if isinstance(data, list):
         for node in data:
             yield from structured_nodes(node)
     elif isinstance(data, dict):
         yield data
-        if '@graph' in data:
-            yield from structured_nodes(data['@graph'])
+        for key in ('@graph', '@included', '@set'):
+            if key in data:
+                yield from structured_nodes(data[key])
 
 
 def parse_event_page(text, expected_url):
@@ -597,15 +605,19 @@ def parse_event_page(text, expected_url):
 
     parser = JsonLdScripts()
     parser.feed(text)
+    parser.close()
+    if parser.active:
+        raise ValueError(f'Unclosed structured data block: {expected_url}')
     event = None
     observed = None
     event_types = ('Event', 'schema:Event', 'https://schema.org/Event', 'http://schema.org/Event')
     details = ('eventStatus', 'name', 'description', 'startDate', 'endDate', 'eventAttendanceMode', 'location')
     for script in parser.scripts:
         try:
-            data = json.loads(script, object_pairs_hook=unambiguous_json_object)
-        except json.JSONDecodeError:
-            continue
+            data = json.loads(script, object_pairs_hook=unambiguous_json_object,
+                              parse_constant=reject_json_constant)
+        except ValueError as error:
+            raise ValueError(f'Invalid structured data for {expected_url}: {error}') from error
         for node in structured_nodes(data):
             types = node.get('@type')
             if not isinstance(types, list):

@@ -48,6 +48,18 @@ class MeetupEventObservationTests(unittest.TestCase):
             ('conflicting objects', script(cancelled) + script(support.PAGE), False),
             ('conflicting event in a node array', script(cancelled) + script([support.PAGE]), False),
             ('conflicting event in graph', script(cancelled) + script({'@graph': [support.PAGE]}), False),
+            ('truncated peer Event node',
+             script(cancelled) + script(support.PAGE).replace('}</script>', '</script>'), False),
+            ('truncated peer Event graph',
+             script(cancelled) + script({'@graph': [support.PAGE]}).replace('}</script>', '</script>'), False),
+            ('declared Event block without closing tag',
+             script(cancelled) + script(support.PAGE).removesuffix('</script>'), False),
+            ('non-finite value in declared data',
+             script(cancelled) + script({'@type': 'Thing', 'amount': float('nan')}), False),
+            ('alternate content type case and charset', script(cancelled) + script(support.PAGE).replace(
+                'application/ld+json', 'Application/LD+JSON; charset=UTF-8'), False),
+            ('conflicting included event', script(cancelled) + script({'@included': [support.PAGE]}), False),
+
             ('conflicting expanded event type', script(cancelled) + script({
                 '@graph': [dict(support.PAGE, **{'@type': ['https://schema.org/Event']})],
             }), False),
