@@ -31,8 +31,10 @@ SCHEDULE_RULE_NAME = 'donde-aprendo-aws-hourly-meetup-events'
 SCHEDULE_RULE_ARN = f'arn:aws:events:us-east-1:{ACCOUNT_ID}:rule/{SCHEDULE_RULE_NAME}'
 MAX_CATALOG_RESOURCE_ID_BYTES = 256
 EVENT_RESOURCE_ID = re.compile(r'^[A-Za-z0-9_-]{1,128}$')
-# Public IDs follow JavaScript String.trim(): BOM is an edge separator, NEL is not.
-PUBLIC_ID_EDGE_WHITESPACE = (
+# Organizer countries use the catalog's exact COUNTRY_LABELS keys.
+ORGANIZER_COUNTRIES = frozenset('AR BO BR CL CO CR DO EC ES GT HN JM MX NI PA PE PR PY UY VE'.split())
+# Match the public reader's JavaScript String.trim() edge whitespace.
+JAVASCRIPT_TRIM_WHITESPACE = (
     '\u0009\u000a\u000b\u000c\u000d\u0020\u00a0\u1680'
     '\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a'
     '\u2028\u2029\u202f\u205f\u3000\ufeff'
@@ -129,7 +131,7 @@ def validate_public_catalog_resource_id(value, field='Catalog resource ID'):
     validate_catalog_resource_id(value)
     if '\x00' in value or '\r' in value:
         raise ValueError(f'{field} must not contain NUL or carriage return')
-    if value[0] in PUBLIC_ID_EDGE_WHITESPACE or value[-1] in PUBLIC_ID_EDGE_WHITESPACE:
+    if value[0] in JAVASCRIPT_TRIM_WHITESPACE or value[-1] in JAVASCRIPT_TRIM_WHITESPACE:
         raise ValueError(f'{field} must not have leading or trailing whitespace')
     return value
 
@@ -294,14 +296,22 @@ def group_feed_url(group):
     return f'{canonical}events/ical/'
 
 
+def valid_group_name(value):
+    return isinstance(value, str) and bool(value) and value == value.strip(JAVASCRIPT_TRIM_WHITESPACE)
+
+
+def valid_group_country(value):
+    return isinstance(value, str) and value in ORGANIZER_COUNTRIES
+
+
 def validate_meetup_group(group):
     if not isinstance(group, Mapping):
         raise ValueError('Invalid Meetup group record')
     group_id = group.get('id')
     meetup_community_resource_id(group_id)
-    if not isinstance(group.get('name'), str):
+    if not valid_group_name(group.get('name')):
         raise ValueError(f'Invalid Meetup community name: {group_id}')
-    if not isinstance(group.get('country'), str):
+    if not valid_group_country(group.get('country')):
         raise ValueError(f'Invalid Meetup community country: {group_id}')
     group_feed_url(group)
     # Keep the internal representation canonical so file-driven and
@@ -360,6 +370,7 @@ def parse_calendar(text, group):
     components = []
     calendar_properties = {}
     time_zone = None
+    component_time_zone = None
     calendar_seen = False
     current = None
 
@@ -430,12 +441,25 @@ def parse_calendar(text, group):
                 or not re.fullmatch(rf'/{re.escape(expected_slug)}/events/{match.group(1)}/?',
                                     parsed.path, re.I):
             invalid_feed()
-        modified = current.get('LAST-MODIFIED') or sha256(
-            json.dumps(current, sort_keys=True).encode('utf-8')).hexdigest()
+        modified = current.get('LAST-MODIFIED')
+        if modified is None:
+            modified = sha256(json.dumps(current, sort_keys=True).encode('utf-8')).hexdigest()
+        else:
+            if not re.fullmatch(r'[0-9]{8}T[0-9]{6}Z', modified, re.I | re.ASCII):
+                invalid_feed()
+            # iCalendar permits a positive leap second. Validate the other
+            # fields without changing the source marker we compare and store.
+            value = modified.upper()
+            if value.endswith('235960Z'):
+                value = value[:-3] + '59Z'
+            try:
+                datetime.strptime(value, '%Y%m%dT%H%M%SZ')
+            except ValueError:
+                invalid_feed()
         event_id = match.group(1)
         meetup_event_resource_id(event_id)
         event = {'id': event_id, 'url': url, 'modified': modified}
-        status = current.get('STATUS', '').strip().upper()
+        status = current.get('STATUS', '').upper()
         if 'STATUS' in current and status not in {'TENTATIVE', 'CONFIRMED', 'CANCELLED'}:
             invalid_feed()
         if status == 'CANCELLED':
@@ -467,6 +491,8 @@ def parse_calendar(text, group):
                     calendar_seen = True
                 elif component == 'VEVENT':
                     current = {}
+                elif component == 'VTIMEZONE':
+                    component_time_zone = None
                 components.append(component)
             else:
                 if not components or components[-1] != component:
@@ -476,16 +502,27 @@ def parse_calendar(text, group):
                 if component == 'VEVENT':
                     finish_event()
                     current = None
+                if component == 'VTIMEZONE':
+                    if component_time_zone is None:
+                        invalid_feed()
+                    if time_zone is None:
+                        time_zone = component_time_zone
                 components.pop()
         elif components == ['VCALENDAR', 'VEVENT'] and current is not None:
+            if name in calendar_singletons:
+                invalid_feed()
             validate_consumed_value_type(name, parameters)
             record_property(current, name, value, event_singletons)
         elif components == ['VCALENDAR']:
+            if name == 'STATUS' or (name == 'TZID' and not value.strip(JAVASCRIPT_TRIM_WHITESPACE)):
+                invalid_feed()
             validate_consumed_value_type(name, parameters)
             record_property(calendar_properties, name, value, calendar_singletons)
-        elif components == ['VCALENDAR', 'VTIMEZONE'] and name == 'TZID' and time_zone is None:
+        elif components == ['VCALENDAR', 'VTIMEZONE'] and name == 'TZID':
+            if component_time_zone is not None or not value.strip(JAVASCRIPT_TRIM_WHITESPACE):
+                invalid_feed()
             validate_consumed_value_type(name, parameters)
-            time_zone = value
+            component_time_zone = value
         elif components:
             # Properties nested in VALARM, VTIMEZONE, or extension components
             # do not affect direct event identity or cancellation authority.
@@ -806,9 +843,9 @@ def read_source_inventory(table, budget=None):
                     detail = f'Invalid approvalRevoked flag for Meetup community {item_id}'
                 elif published and item.get('approvalRevoked') is True:
                     detail = f'Conflicting publication and revocation for Meetup community {item_id}'
-                elif published and not isinstance(item.get('title'), str):
+                elif published and not valid_group_name(item.get('title')):
                     detail = f'Invalid Meetup community name: {item_id}'
-                elif published and not isinstance(item.get('country'), str):
+                elif published and not valid_group_country(item.get('country')):
                     detail = f'Invalid Meetup community country: {item_id}'
                 if detail:
                     unresolved_ids.add(raw_group_id)
