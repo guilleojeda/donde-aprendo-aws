@@ -47,6 +47,7 @@ SYNC_OWNED_FIELDS = (
     'published', 'sourceGroupId', 'sourceModifiedAt', 'autoSync', 'place',
     'city', 'venueCountry',
 )
+STORED_EVENT_FIELDS = ('id', 'version', 'approvalRevoked') + SYNC_OWNED_FIELDS
 OPTIONAL_SYNC_FIELDS = ('place', 'city', 'venueCountry')
 PUBLISHABLE_EVENT_STATUSES = frozenset((
     'https://schema.org/EventScheduled',
@@ -146,7 +147,7 @@ def meetup_event_resource_id(event_id):
 
 
 def meetup_community_resource_id(group_id):
-    if not isinstance(group_id, str):
+    if not isinstance(group_id, str) or not group_id:
         raise ValueError('Invalid Meetup community ID')
     return validate_public_catalog_resource_id(f'meetup-{group_id}', 'Meetup community ID')
 
@@ -196,9 +197,10 @@ class JsonLdScripts(HTMLParser):
 
 
 class MeetupRedirectHandler(HTTPRedirectHandler):
-    def __init__(self, request_deadline):
+    def __init__(self, request_deadline, calendar_path=None):
         super().__init__()
         self.request_deadline = request_deadline
+        self.calendar_path = calendar_path
 
     def redirect_request(self, request, response, code, message, headers, new_url):
         try:
@@ -206,7 +208,7 @@ class MeetupRedirectHandler(HTTPRedirectHandler):
             # it.  The feed and event URLs are untrusted provider input, so a
             # redirect must remain on the exact HTTPS Meetup origin too.
             redirect_url = urljoin(request.full_url, new_url)
-            validate_meetup_transport_url(redirect_url)
+            validate_meetup_transport_url(redirect_url, self.calendar_path)
             # urllib's default handler drains the unused redirect response before following it.
             response.close()
             remaining = self.request_deadline - monotonic()
@@ -224,17 +226,28 @@ def set_response_read_timeout(response, timeout):
     response.fp.raw._sock.settimeout(timeout)
 
 
-def validate_meetup_transport_url(url):
+def meetup_calendar_path(url):
+    parsed = urlparse(url)
+    path = parsed.path
+    if not parsed.params and re.fullmatch(r'/[A-Za-z0-9_-]+/events/ical/?', path, re.I | re.ASCII):
+        return path.rstrip('/').casefold()
+    return None
+
+
+def validate_meetup_transport_url(url, calendar_path=None):
     """Validate a URL before urllib is allowed to open it."""
     validate_catalog_url(url)
     parsed = urlparse(url)
     if parsed.scheme != 'https' or parsed.hostname != MEETUP_HOST or parsed.port not in (None, 443):
         raise ValueError(f'Unsafe Meetup request URL: {url}')
+    if calendar_path is not None and meetup_calendar_path(url) != calendar_path:
+        raise ValueError('Meetup calendar redirected away from its enrolled group')
     return url
 
 
 def get_text(url, budget=None):
     validate_meetup_transport_url(url)
+    calendar_path = meetup_calendar_path(url)
     request_deadline = monotonic() + MAX_HTTP_REQUEST_SECONDS
     if budget is not None:
         request_deadline = min(request_deadline, budget.request_deadline())
@@ -242,9 +255,9 @@ def get_text(url, budget=None):
     if timeout <= 0:
         raise RequestTimedOut(f'Meetup request budget exhausted before {url}')
     request = Request(url, headers={'User-Agent': 'DondeAprendoAWS/1.0 (+https://dondeaprendoaws.com/)'})
-    opener = build_opener(MeetupRedirectHandler(request_deadline))
+    opener = build_opener(MeetupRedirectHandler(request_deadline, calendar_path))
     with opener.open(request, timeout=timeout) as response:
-        validate_meetup_transport_url(response.url)
+        validate_meetup_transport_url(response.url, calendar_path)
         contents = bytearray()
         while True:
             remaining_time = request_deadline - monotonic()
@@ -666,21 +679,46 @@ def read_source_inventory(table, budget=None):
         items = scan_items(table, params, budget)
         for item in items:
             item_id = item.get('id')
-            has_kind = 'kind' in item
-            if isinstance(item_id, str) and item_id.startswith('meetup-'):
-                previous = source_rows.get(item_id)
-                if previous is not None:
-                    if previous != item:
-                        unresolved_ids.add(item_id.removeprefix('meetup-'))
-                        failures.append(_source_row_error(item, 'contradictory repeated projected ID'))
-                        withhold_retractions = True
-                    continue
-                source_rows[item_id] = item
+            if not isinstance(item_id, str) or not item_id:
+                raise ValueError('Invalid catalog item ID in the Meetup source scan')
+            if not item_id.startswith('meetup-'):
+                continue
+
+            raw_group_id = item_id.removeprefix('meetup-')
+            kind = item.get('kind')
+            is_event_id = item_id.startswith('meetup-event-')
+            locator = item.get('meetupSourceUrl')
+            locator_error = None
+            # First record all identifiable locator claims. A row can make
+            # its locator ambiguous even when its membership is malformed or
+            # a later observation of the same ID contradicts an earlier one.
+            if not is_event_id and (kind == 'community' or re.fullmatch(r'[0-9]+', raw_group_id)):
+                meetup_community_resource_id(raw_group_id)
+                try:
+                    if not isinstance(locator, str):
+                        raise ValueError('missing or invalid meetupSourceUrl')
+                    canonical_locator = canonical_meetup_group_url(locator, raw_group_id)
+                    if locator != canonical_locator:
+                        raise ValueError('meetupSourceUrl is not canonical')
+                except ValueError as error:
+                    locator_error = error
+                else:
+                    locator_owners.setdefault(canonical_locator.casefold(), set()).add(raw_group_id)
+
+            previous = source_rows.get(item_id)
+            if previous is not None:
+                if previous != item:
+                    unresolved_ids.add(raw_group_id)
+                    failures.append(_source_row_error(item, 'contradictory repeated projected ID'))
+                    withhold_retractions = True
+                continue
+            source_rows[item_id] = item
             # Event IDs share the meetup- prefix.  A typed event without a
             # kind is a valid catalog row, not a source candidate.  A row that
             # claims both identities is unresolved and cannot authorize
             # removal for that owner.
-            if isinstance(item_id, str) and item_id.startswith('meetup-event-'):
+            if is_event_id:
+                has_kind = 'kind' in item
                 try:
                     validate_event_resource_id(item_id)
                     valid_event_id = bool(item_id.removeprefix('meetup-event-'))
@@ -698,10 +736,6 @@ def read_source_inventory(table, budget=None):
                 withhold_retractions = True
                 continue
 
-            if not isinstance(item_id, str) or not item_id:
-                raise ValueError('Invalid catalog item ID in the Meetup source scan')
-            if not item_id.startswith('meetup-'):
-                continue
             if 'recordType' in item:
                 unresolved_ids.add(item_id.removeprefix('meetup-'))
                 failures.append(_source_row_error(item, 'non-event row has a persisted recordType'))
@@ -718,13 +752,7 @@ def read_source_inventory(table, budget=None):
                 withhold_retractions = True
                 continue
 
-            raw_group_id = item_id.removeprefix('meetup-')
-            is_community = item['kind'] == 'community'
-            # The reviewed importer creates numeric source identities. A
-            # reclassified numeric row still owns its valid private locator.
-            if not is_community and not re.fullmatch(r'[0-9]+', raw_group_id):
-                continue
-            meetup_community_resource_id(raw_group_id)
+            is_community = kind == 'community'
             published = item.get('published') is True
             if is_community:
                 detail = None
@@ -746,22 +774,14 @@ def read_source_inventory(table, budget=None):
                     continue
 
             eligible = is_community and published and item['country'] not in {'BR', 'JM'}
-            locator = item.get('meetupSourceUrl')
-            try:
-                if not isinstance(locator, str):
-                    raise ValueError('missing or invalid meetupSourceUrl')
-                canonical_locator = canonical_meetup_group_url(locator, raw_group_id)
-                if locator != canonical_locator:
-                    raise ValueError('meetupSourceUrl is not canonical')
-            except ValueError as error:
-                if eligible:
-                    unresolved_ids.add(raw_group_id)
-                    failures.append(_source_row_error(item, str(error)))
+            if not eligible:
                 continue
-            locator_owners.setdefault(canonical_locator.casefold(), set()).add(raw_group_id)
-            if eligible:
-                groups.append({'id': raw_group_id, 'url': locator, 'name': item['title'],
-                               'country': item['country'], 'timeZone': None})
+            if locator_error is not None:
+                unresolved_ids.add(raw_group_id)
+                failures.append(_source_row_error(item, str(locator_error)))
+                continue
+            groups.append({'id': raw_group_id, 'url': locator, 'name': item['title'],
+                           'country': item['country'], 'timeZone': None})
     except Exception as error:
         scan_error = error
 
@@ -826,36 +846,52 @@ def load_existing_events(table, budget=None):
     return events
 
 
+def validate_stored_event_row(item, expected_id=None):
+    """Validate the projected event shape used by scans and point reads."""
+    if not isinstance(item, Mapping):
+        raise ValueError('Invalid stored Meetup event row')
+    if expected_id is not None and item.get('id') != expected_id:
+        raise ValueError(f'Unexpected stored Meetup event ID: {item.get("id", "unknown")}')
+    validate_meetup_event_record(item)
+    if item.get('recordType') != 'event' or not item['id'].removeprefix('meetup-event-'):
+        raise ValueError(f'Invalid typed Meetup event: {item.get("id", "unknown")}')
+    resource_version(item)
+    if 'approvalRevoked' in item and not isinstance(item['approvalRevoked'], bool):
+        raise ValueError(f'Invalid approvalRevoked flag for {item["id"]}')
+    return item
+
+
 def read_existing_events(table, budget=None):
-    """Read event rows while retaining complete rows before a later scan error."""
+    """Keep independently verified rows without treating a failed scan as complete."""
     events = {}
-    projection_fields = ('id', 'version', 'approvalRevoked') + SYNC_OWNED_FIELDS
+    rejected_ids = set()
+    row_error = None
     params = {
-        'ProjectionExpression': ','.join(f'#{field}' for field in projection_fields),
+        'ProjectionExpression': ','.join(f'#{field}' for field in STORED_EVENT_FIELDS),
         'Select': 'SPECIFIC_ATTRIBUTES',
-        'ExpressionAttributeNames': {f'#{field}': field for field in projection_fields},
+        'ExpressionAttributeNames': {f'#{field}': field for field in STORED_EVENT_FIELDS},
     }
     try:
-        items = scan_items(table, params, budget)
-        while True:
+        for item in scan_items(table, params, budget):
+            item_id = item.get('id')
+            if not isinstance(item_id, str) or not item_id:
+                row_error = row_error or ValueError('Invalid stored Meetup event ID')
+                continue
+            if not item_id.startswith('meetup-event-') or item_id in rejected_ids:
+                continue
             try:
-                item = next(items)
-            except StopIteration:
-                break
-            if item.get('id', '').startswith('meetup-event-'):
-                validate_meetup_event_record(item)
-                if item.get('recordType') != 'event' or not item['id'].removeprefix('meetup-event-'):
-                    raise ValueError(f'Invalid typed Meetup event: {item["id"]}')
-                resource_version(item)
-                if 'approvalRevoked' in item and not isinstance(item['approvalRevoked'], bool):
-                    raise ValueError(f'Invalid approvalRevoked flag for {item["id"]}')
-                previous = events.get(item['id'])
+                validate_stored_event_row(item)
+                previous = events.get(item_id)
                 if previous is not None and previous != item:
-                    raise ValueError(f'Contradictory repeated projected event ID: {item["id"]}')
-                events[item['id']] = item
+                    raise ValueError(f'Contradictory repeated projected event ID: {item_id}')
+                events[item_id] = item
+            except ValueError as error:
+                row_error = row_error or error
+                rejected_ids.add(item_id)
+                events.pop(item_id, None)
     except Exception as error:
         return events, error
-    return events, None
+    return events, row_error
 
 
 def event_has_ended(record):
@@ -952,8 +988,10 @@ def is_conditional_write_conflict(error):
 
 
 def read_current_event(table, resource_id, budget=None):
-    fields = tuple(dict.fromkeys(('id', 'version', 'approvalRevoked') + SYNC_OWNED_FIELDS))
-    return read_projected_item(table, resource_id, fields, budget)
+    item = read_projected_item(table, resource_id, STORED_EVENT_FIELDS, budget)
+    if item is None:
+        return None
+    return validate_stored_event_row(item, resource_id)
 
 
 def read_reservation(table, url, budget=None):
@@ -1466,6 +1504,19 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
             state.seen_ids.add(record_id)
             globally_seen.add(record_id)
             prior = existing.get(record_id)
+            if prior is None and existing_error is not None:
+                try:
+                    prior = read_current_event(table, record_id, budget)
+                    if prior is not None:
+                        existing[record_id] = prior
+                except BudgetExhausted:
+                    raise
+                except Exception as error:
+                    state.failed = True
+                    failures.append(
+                        f'Event {entry.get("id", "unknown")} in group {state.group["id"]}: '
+                        f'prior observation failed: {error}')
+                    continue
             if entry.get('cancelled'):
                 if prior is not None and prior.get('sourceGroupId') == source_id:
                     try:

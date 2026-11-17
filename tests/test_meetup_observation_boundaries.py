@@ -265,7 +265,7 @@ class MeetupObservationBoundaries(unittest.TestCase):
         self.assertIn('meetup-event-789', table.existing)
         self.assertEqual(len(invocations), 1)
 
-    def test_reclassified_locator_conflict_blocks_both_owners_before_feed_open(self):
+    def test_known_locator_conflict_blocks_disputed_feeds_before_any_write(self):
         reclassified = {
             'id': 'meetup-123', 'title': 'Retained community', 'url': support.GROUP['url'],
             'meetupSourceUrl': support.GROUP['url'], 'country': 'CO', 'kind': 'content',
@@ -285,33 +285,45 @@ class MeetupObservationBoundaries(unittest.TestCase):
             starts_at='2099-01-01T18:00:00+00:00',
             ends_at='2099-01-01T20:00:00+00:00',
         )
+        owner_event['sourceGroupId'] = conflicting['id']
         healthy_url = 'https://www.meetup.com/aws-healthy/events/888/'
         healthy_feed = support.ICAL.replace('aws-bogota', 'aws-healthy').replace('456', '888')
         healthy_page = dict(support.PAGE, url=healthy_url, name='Independent healthy event')
-        table = support.FakeTable([reclassified, conflicting, healthy_group, owner_event])
-        invocations = []
-        boto3 = support.fake_boto3(table, invocations)
-        requested = []
+        cases = {
+            'reclassified': reclassified,
+            'invalid approval': dict(reclassified, kind='community', published=True, approvalRevoked=True),
+            'invalid type': dict(reclassified, kind='community', published=True, recordType='resource'),
+        }
+        for label, first_source in cases.items():
+            with self.subTest(label=label):
+                table = support.FakeTable([first_source, conflicting, healthy_group, owner_event])
+                invocations = []
+                boto3 = support.fake_boto3(table, invocations)
+                requested = []
 
-        def provider(url, **_kwargs):
-            requested.append(url)
-            self.assertIn('/aws-healthy/', url)
-            if url.endswith('/events/ical/'):
-                return healthy_feed
-            return '<script type="application/ld+json">' + json.dumps(healthy_page) + '</script>'
+                def provider(url, **_kwargs):
+                    requested.append(url)
+                    if '/aws-bogota/' in url:
+                        return support.CANCELLED_ICAL
+                    self.assertIn('/aws-healthy/', url)
+                    if url.endswith('/events/ical/'):
+                        return healthy_feed
+                    return '<script type="application/ld+json">' + json.dumps(healthy_page) + '</script>'
 
-        with patch.dict(sys.modules, support.fake_aws_modules(boto3)), \
-                patch.dict(os.environ, {
-                    'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication',
-                }), \
-                patch.object(meetup, 'get_text', side_effect=provider):
-            with self.assertRaisesRegex(RuntimeError, 'Meetup sources failed'):
-                meetup.lambda_handler({}, support.lambda_context())
+                with patch.dict(sys.modules, support.fake_aws_modules(boto3)), \
+                        patch.dict(os.environ, {
+                            'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication',
+                        }), \
+                        patch.object(meetup, 'get_text', side_effect=provider):
+                    with self.assertRaisesRegex(RuntimeError, 'Meetup sources failed'):
+                        meetup.lambda_handler({}, support.lambda_context())
 
-        self.assertTrue(table.existing[owner_event['id']]['published'])
-        self.assertIn('meetup-event-888', table.existing)
-        self.assertTrue(all('/aws-bogota/' not in url for url in requested))
-        self.assertEqual(len(invocations), 1)
+                self.assertEqual(table.existing[owner_event['id']], owner_event)
+                self.assertIn('meetup-event-888', table.existing)
+                self.assertCountEqual(requested, [
+                    'https://www.meetup.com/aws-healthy/events/ical/', healthy_url,
+                ])
+                self.assertEqual(len(invocations), 1)
 
     def test_non_group_automatic_owner_cannot_reach_source_removal(self):
         prior = support.existing_event(
@@ -336,18 +348,149 @@ class MeetupObservationBoundaries(unittest.TestCase):
             starts_at='2099-01-01T18:00:00+00:00',
             ends_at='2099-01-01T20:00:00+00:00',
         )
-        table = support.FakeTable([row, prior])
+        peer_locator = 'https://www.meetup.com/aws-peer/'
+        peer = dict(row, id='meetup-999', meetupSourceUrl=peer_locator)
+        table = support.FakeTable([row, peer, prior])
         table.scan_responses = [
-            {'Items': [row], 'LastEvaluatedKey': {'id': 'inventory-page-1'}},
-            {'Items': [dict(row, title='Contradictory source')]},
+            {'Items': [row, peer], 'LastEvaluatedKey': {'id': 'inventory-page-1'}},
+            {'Items': [dict(row, meetupSourceUrl=peer_locator)]},
         ]
         with patch.object(meetup, 'get_text') as transport:
             result = meetup.synchronize(table=table)
         self.assertEqual(result['changed'], 0)
         self.assertTrue(any('contradictory repeated projected ID' in failure
                             for failure in result['failures']))
+        self.assertTrue(any('locator conflict' in failure for failure in result['failures']))
         self.assertEqual(table.existing[prior['id']], prior)
         transport.assert_not_called()
+
+    def test_existing_event_scan_continues_after_malformed_projected_id(self):
+        valid = support.existing_event(
+            starts_at='2099-01-01T18:00:00+00:00',
+            ends_at='2099-01-01T20:00:00+00:00')
+        table = support.FakeTable([valid])
+        table.scan_responses = [
+            {'Items': [{'id': 456}], 'LastEvaluatedKey': {'id': 'events-page-1'}},
+            {'Items': [valid]},
+        ]
+
+        events, error = meetup.read_existing_events(table)
+
+        self.assertIn(valid['id'], events)
+        self.assertIsInstance(error, ValueError)
+        self.assertIn('stored Meetup event ID', str(error))
+
+    def test_contradictory_repeated_existing_event_is_removed_from_partial_map(self):
+        valid = support.existing_event(
+            starts_at='2099-01-01T18:00:00+00:00',
+            ends_at='2099-01-01T20:00:00+00:00')
+        contradictory = dict(valid, title='Contradictory stored event')
+        table = support.FakeTable([valid])
+        table.scan_responses = [
+            {'Items': [valid], 'LastEvaluatedKey': {'id': 'events-page-1'}},
+            {'Items': [contradictory]},
+        ]
+
+        events, error = meetup.read_existing_events(table)
+
+        self.assertNotIn(valid['id'], events)
+        self.assertIsInstance(error, ValueError)
+        self.assertIn('Contradictory repeated projected event ID', str(error))
+
+    def test_incomplete_existing_scan_uses_guarded_point_reads_for_cancellation_and_positive_work(self):
+        owner = {
+            'id': 'meetup-123', 'title': support.GROUP['name'], 'url': support.GROUP['url'],
+            'meetupSourceUrl': support.GROUP['url'], 'country': 'CO', 'kind': 'community',
+            'published': True,
+        }
+        healthy = {
+            'id': 'meetup-999', 'title': 'AWS Test', 'url': 'https://www.meetup.com/aws-test/',
+            'meetupSourceUrl': 'https://www.meetup.com/aws-test/', 'country': 'CO',
+            'kind': 'community', 'published': True,
+        }
+        owned_cancel = support.existing_event(
+            published=True, starts_at='2099-01-01T18:00:00+00:00',
+            ends_at='2099-01-01T20:00:00+00:00')
+        absent = support.existing_event(
+            published=True, starts_at='2099-01-02T18:00:00+00:00',
+            ends_at='2099-01-02T20:00:00+00:00')
+        absent['id'] = 'meetup-event-999'
+        coherent = support.existing_event(
+            published=True, starts_at='2099-01-03T18:00:00+00:00',
+            ends_at='2099-01-03T20:00:00+00:00')
+        coherent['id'] = 'meetup-event-790'
+        coherent_url = 'https://www.meetup.com/aws-test/events/790/'
+        coherent['registrationUrl'] = coherent_url
+        coherent['sourceGroupId'] = 'meetup-999'
+        coherent['communityId'] = 'meetup-999'
+        coherent['version'] = 4
+        malformed = dict(owned_cancel, id='meetup-event-malformed')
+        malformed.pop('recordType')
+        reservation = meetup.current_url_reservation(coherent_url, coherent['id'])
+        healthy_url = 'https://www.meetup.com/aws-test/events/789/'
+        healthy_feed_one = support.ICAL.replace('aws-bogota', 'aws-test').replace('456', '789')
+        coherent_feed_one = support.ICAL.replace('aws-bogota', 'aws-test').replace('456', '790')
+        event_start = healthy_feed_one.index('BEGIN:VEVENT\r\n')
+        event_end = healthy_feed_one.index('END:VEVENT\r\n', event_start) + len('END:VEVENT\r\n')
+        coherent_start = coherent_feed_one.index('BEGIN:VEVENT\r\n')
+        coherent_end = coherent_feed_one.index('END:VEVENT\r\n', coherent_start) + len('END:VEVENT\r\n')
+        healthy_feed = (healthy_feed_one[:event_start] + healthy_feed_one[event_start:event_end]
+                        + coherent_feed_one[coherent_start:coherent_end] + 'END:VCALENDAR\r\n')
+        healthy_page = dict(support.PAGE, url=healthy_url, name='Healthy event after scan failure')
+        coherent_page = dict(support.PAGE, url=coherent_url, name='Coherent event after scan failure')
+        def provider(url, **_kwargs):
+            if url == meetup.group_feed_url(support.GROUP):
+                return support.CANCELLED_ICAL
+            if url == 'https://www.meetup.com/aws-test/events/ical/':
+                return healthy_feed
+            if url == coherent_url:
+                return '<script type="application/ld+json">' + json.dumps(coherent_page) + '</script>'
+            self.assertEqual(url, healthy_url)
+            return '<script type="application/ld+json">' + json.dumps(healthy_page) + '</script>'
+
+        scans = {
+            'failed later page': (
+                [{'Items': [], 'LastEvaluatedKey': {'id': 'events-page-1'}},
+                 RuntimeError('later event page unavailable')],
+                'later event page unavailable',
+            ),
+            'malformed row before valid rows': (
+                [{'Items': [malformed, owned_cancel, coherent, absent]}],
+                'Invalid typed Meetup event',
+            ),
+        }
+        for label, (responses, failure) in scans.items():
+            with self.subTest(label=label):
+                table = support.FakeTable([owner, healthy, owned_cancel, absent, coherent, reservation, malformed])
+                table.scan_responses = [{'Items': [owner, healthy]}, *responses]
+                invocations = []
+                boto3 = support.fake_boto3(table, invocations)
+                output = StringIO()
+                with patch.dict(sys.modules, support.fake_aws_modules(boto3)), \
+                        patch.dict(os.environ, {
+                            'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication',
+                        }), \
+                        patch.object(meetup, 'get_text', side_effect=provider), \
+                        redirect_stdout(output):
+                    with self.assertRaisesRegex(RuntimeError, 'Meetup sources failed'):
+                        meetup.lambda_handler({}, support.lambda_context())
+
+                result = json.loads(output.getvalue())
+                self.assertEqual(result['changed'], 3)
+                self.assertTrue(any(failure in reason for reason in result['failures']))
+                self.assertFalse(table.existing[owned_cancel['id']]['published'])
+                self.assertEqual(table.existing['meetup-event-789']['title'], 'Healthy event after scan failure')
+                self.assertEqual(table.existing['meetup-event-790']['title'], 'Coherent event after scan failure')
+                self.assertEqual(table.existing['meetup-event-790']['version'], coherent['version'] + 1)
+                self.assertEqual(table.existing[reservation['id']], reservation)
+                self.assertTrue(table.existing[absent['id']]['published'])
+                self.assertEqual(table.existing[malformed['id']], malformed)
+                self.assertEqual(len(table.updates), 2)
+                self.assertEqual(len(table.transactions), 1)
+                self.assertEqual(len(invocations), 1)
+                if label == 'failed later page':
+                    strong_reads = {get['Key']['id'] for get in table.gets if get.get('ConsistentRead') is True}
+                    self.assertTrue({owned_cancel['id'], coherent['id'], 'meetup-event-789'} <= strong_reads)
 
     def test_private_source_locator_rejects_path_params_and_empty_query_fragment(self):
         for suffix in ('/;path', '?', '#'):
