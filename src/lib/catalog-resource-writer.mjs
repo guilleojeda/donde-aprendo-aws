@@ -1,4 +1,8 @@
-import { currentUrlReservation, currentUrlReservationId } from './catalog-url.mjs';
+import {
+  currentUrlReservation,
+  currentUrlReservationId,
+  decodeCurrentUrlReservation,
+} from './catalog-url.mjs';
 import { isCatalogResourceIdWithinLimit } from './catalog-identity.mjs';
 import { validateCatalogUrl } from './catalog.mjs';
 
@@ -28,23 +32,35 @@ export async function putCatalogResourceOnce({ tableName, item, getItem, transac
   const reservationId = currentUrlReservationId(resource.url);
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const existingResource = await readItem(getItem, tableName, resource.id, ['id']);
-    if (existingResource) return { status: 'id-exists' };
+    try {
+      const existingResource = await readItem(getItem, tableName, resource.id, ['id']);
+      if (existingResource) {
+        if (existingResource.id !== resource.id) throw new Error('Catalog resource has an inconsistent physical identity');
+        return { status: 'id-exists' };
+      }
 
-    const existingReservation = await readItem(
-      getItem,
-      tableName,
-      reservationId,
-      ['id', 'recordType', 'url', 'status', 'version', 'resourceId', 'resourceIds'],
-    );
-    const reservationStatus = await classifyPersistedReservation({
-      item: existingReservation,
-      requestedUrl: resource.url,
-      resourceId: resource.id,
-      tableName,
-      getItem,
-    });
-    if (reservationStatus) return { status: reservationStatus.status, resourceIds: reservationStatus.resourceIds };
+      const existingReservation = await readItem(
+        getItem,
+        tableName,
+        reservationId,
+        ['id', 'recordType', 'url', 'status', 'version', 'resourceId', 'resourceIds'],
+      );
+      const reservationStatus = await classifyPersistedReservation({
+        item: existingReservation,
+        requestedUrl: resource.url,
+        resourceId: resource.id,
+        tableName,
+        getItem,
+      });
+      if (reservationStatus) return { status: reservationStatus.status, resourceIds: reservationStatus.resourceIds };
+    } catch (error) {
+      // A member can move after the reservation read. Re-observe the whole
+      // candidate/reservation/member set once before treating the observation
+      // as a stable integrity failure. The reservation shape itself remains a
+      // hard failure because a malformed row cannot safely authorize a write.
+      if (!(error instanceof CatalogObservationError) || attempt === 1) throw error;
+      continue;
+    }
 
     const reservation = currentUrlReservation(resource.url, resource.id);
     try {
@@ -82,22 +98,14 @@ export async function putCatalogResourceOnce({ tableName, item, getItem, transac
 
 export function classifyReservation(item, requestedUrl, resourceId) {
   if (!item) return undefined;
-  if (item.recordType !== 'urlReservation' || item.url !== requestedUrl || item.version !== 1) {
-    throw new Error('Catalog URL reservation is inconsistent with its key');
-  }
-  if (item.status === 'reserved' && typeof item.resourceId === 'string' && item.resourceId.length > 0) {
-    if (item.resourceId === resourceId) {
-      throw new Error('Catalog URL reservation points to a missing resource');
+  const reservation = decodeCurrentUrlReservation(item, requestedUrl);
+  if (reservation.status === 'reserved') {
+    if (reservation.resourceIds[0] === resourceId) {
+      throw new CatalogObservationError('Catalog URL reservation points to a missing resource');
     }
-    return { status: 'duplicate', resourceIds: [item.resourceId] };
+    return { status: 'duplicate', resourceIds: reservation.resourceIds };
   }
-  if (item.status === 'collision' && Array.isArray(item.resourceIds)
-      && item.resourceIds.length >= 2
-      && item.resourceIds.every((id) => typeof id === 'string' && id.length > 0)
-      && new Set(item.resourceIds).size === item.resourceIds.length) {
-    return { status: 'collision', resourceIds: [...item.resourceIds] };
-  }
-  throw new Error('Catalog URL reservation is malformed');
+  return reservation;
 }
 
 async function classifyPersistedReservation({ item, requestedUrl, resourceId, tableName, getItem }) {
@@ -109,8 +117,11 @@ async function classifyPersistedReservation({ item, requestedUrl, resourceId, ta
     const currentUrl = referenced?.recordType === 'event'
       ? referenced.registrationUrl
       : referenced?.url;
-    if (currentUrl !== requestedUrl) {
-      throw new Error(`Catalog URL reservation for ${requestedUrl} points to a missing or inconsistent resource`);
+    if (referenced?.id !== referencedId || currentUrl !== requestedUrl
+        || (referenced.recordType !== undefined && referenced.recordType !== 'event')) {
+      throw new CatalogObservationError(
+        `Catalog URL reservation for ${requestedUrl} points to a missing or inconsistent resource`,
+      );
     }
   }
 
@@ -124,9 +135,20 @@ export function isConditionalTransactionConflict(error) {
       || error?.code === 'TransactionConflictException') return true;
   if (error?.name !== 'TransactionCanceledException' && error?.code !== 'TransactionCanceledException') return false;
   const reasons = error?.CancellationReasons;
-  return Array.isArray(reasons)
-    ? reasons.some((reason) => reason?.Code === 'ConditionalCheckFailed' || reason?.Code === 'TransactionConflict')
-    : true;
+  if (!Array.isArray(reasons) || reasons.length === 0) return false;
+  let definiteConflict = false;
+  for (const reason of reasons) {
+    const code = reason?.Code;
+    if (code === 'ConditionalCheckFailed' || code === 'TransactionConflict') {
+      definiteConflict = true;
+      continue;
+    }
+    if (code === 'None') continue;
+    // Any unknown or operational cancellation reason makes the write result
+    // uncertain. Do not replay an operation whose commit is not established.
+    return false;
+  }
+  return definiteConflict;
 }
 
 export async function createDynamoCatalogAccess({ region, docClient }) {
@@ -137,7 +159,7 @@ export async function createDynamoCatalogAccess({ region, docClient }) {
       import('@aws-sdk/client-dynamodb'),
       import('@aws-sdk/lib-dynamodb'),
     ]);
-    client = DynamoDBDocumentClient.from(new DynamoDBClient({ region }));
+    client = DynamoDBDocumentClient.from(new DynamoDBClient({ region, maxAttempts: 1 }));
   }
   return {
     getItem: (params) => client.send(new GetCommand(params)),
@@ -155,8 +177,11 @@ async function readItem(getItem, tableName, id, fields) {
     ProjectionExpression,
     ExpressionAttributeNames,
   });
-  if (!result || (result.Item !== undefined && (!result.Item || typeof result.Item !== 'object'))) {
+  if (!result || typeof result !== 'object' || Array.isArray(result) || (result.Item !== undefined
+    && (!result.Item || typeof result.Item !== 'object' || Array.isArray(result.Item)))) {
     throw new Error('Catalog item read returned a malformed result');
   }
   return result.Item ?? null;
 }
+
+class CatalogObservationError extends Error {}

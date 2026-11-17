@@ -85,6 +85,14 @@ class RequestTimedOut(RuntimeError):
     """One bounded Meetup request expired while invocation work may continue."""
 
 
+class CatalogObservationError(RuntimeError):
+    """A reservation/member read could not establish one coherent snapshot."""
+
+
+class UnknownWriteOutcome(RuntimeError):
+    """A catalog write may have committed, so it must not be replayed."""
+
+
 class InvocationBudget:
     def __init__(self, remaining_milliseconds):
         if (isinstance(remaining_milliseconds, bool)
@@ -132,6 +140,17 @@ def check_sdk_budget(budget, operation):
 def validate_catalog_resource_id(value):
     if not isinstance(value, str) or not value or len(value.encode('utf-8')) > MAX_CATALOG_RESOURCE_ID_BYTES:
         raise ValueError(f'Catalog resource ID must be at most {MAX_CATALOG_RESOURCE_ID_BYTES} UTF-8 bytes')
+    return value
+
+
+def validate_reservation_member_id(value):
+    """Validate a URL reservation member as a physical catalog resource key."""
+    validate_catalog_resource_id(value)
+    # URL reservations are catalog metadata, not resources.  A metadata key
+    # must never be accepted as a referenced public resource, even though the
+    # byte-only ID rule permits it for private storage keys.
+    if value.startswith('__'):
+        raise ValueError('Catalog URL reservation cannot reference a system ID')
     return value
 
 
@@ -810,6 +829,7 @@ def clean_description(value):
     text = re.sub(r'\[([^]]+)\]\([^)]+\)', r'\1', text)
     text = re.sub(r'[*_#`]+', '', unescape(text))
     text = ' '.join(text.split())
+    text = re.sub(r'\s+([,.;:!?])', r'\1', text)
     if not text:
         return 'Encuentro de la comunidad AWS. Consulta los detalles e inscripción en Meetup.'
     return text[:240].rstrip()
@@ -858,10 +878,34 @@ def map_event(group, entry, page):
     title = re.sub(r'^[\s\ufeff]+|[\s\ufeff]+$', '', name) if isinstance(name, str) else ''
     if not title:
         raise ValueError(f'Missing or invalid event title: {entry["id"]}')
-    start = datetime.fromisoformat(page['startDate'])
-    end = datetime.fromisoformat(page['endDate'])
-    if start.tzinfo is None or end.tzinfo is None or end <= start:
+    try:
+        start = datetime.fromisoformat(page['startDate'])
+        end = datetime.fromisoformat(page['endDate'])
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError(f'Invalid event dates: {entry["id"]}') from error
+    if start.tzinfo is None or end.tzinfo is None:
         raise ValueError(f'Invalid event dates: {entry["id"]}')
+    # The public JS projector stores at most millisecond precision, while the
+    # importer intentionally stores whole seconds.  Check the serialized
+    # values, not only the provider's sub-second values, so a positive source
+    # interval cannot become an unreadable zero-length event in DynamoDB.
+    starts_at = start.isoformat(timespec='seconds')
+    ends_at = end.isoformat(timespec='seconds')
+    serialized_start = parse_observed_end(starts_at)
+    serialized_end = parse_observed_end(ends_at)
+    if serialized_start is None or serialized_end is None:
+        raise ValueError(f'Invalid event dates: {entry["id"]}')
+    if serialized_end <= serialized_start:
+        raise ValueError(f'Invalid event dates: {entry["id"]}')
+    if not valid_group_name(group.get('name')) or not valid_group_country(group.get('country')):
+        raise ValueError(f'Invalid Meetup community facts: {group.get("id", "unknown")}')
+    time_zone = group.get('timeZone')
+    if not isinstance(time_zone, str) or not time_zone:
+        raise ValueError(f'Missing timezone in group {group.get("id", "unknown")}')
+    try:
+        ZoneInfo(time_zone)
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError(f'Invalid timezone in group {group.get("id", "unknown")}') from error
     attendance = page.get('eventAttendanceMode', '')
     mode = {
         'https://schema.org/OnlineEventAttendanceMode': 'online',
@@ -876,17 +920,20 @@ def map_event(group, entry, page):
     if mode != 'online':
         location = page.get('location') or {}
         if isinstance(location, list):
-            location = next((item for item in location if item.get('@type') == 'Place'), {})
+            location = next((item for item in location
+                             if isinstance(item, Mapping) and item.get('@type') == 'Place'), {})
+        if not isinstance(location, Mapping):
+            location = {}
         address = location.get('address') or {}
         if not isinstance(address, dict):
             address = {}
         venue_country = venue_country_code(address.get('addressCountry'), entry['id'])
-        place = ', '.join(dict.fromkeys(part.strip() for part in [
+        place = ', '.join(dict.fromkeys(part.strip(JAVASCRIPT_TRIM_WHITESPACE) for part in [
             location.get('name') or '', address.get('streetAddress') or '',
-        ] if isinstance(part, str) and part.strip()))
+        ] if isinstance(part, str) and part.strip(JAVASCRIPT_TRIM_WHITESPACE)))
         locality = address.get('addressLocality')
-        city = locality.strip() if isinstance(locality, str) else ''
-        if (len(city) > 100 or re.search(r'[\x00-\x1f\x7f]', city)
+        city = locality.strip(JAVASCRIPT_TRIM_WHITESPACE) if isinstance(locality, str) else ''
+        if (len(city.encode('utf-16-le')) // 2 > 100 or re.search(r'[\x00-\x1f\x7f]', city)
                 or city.casefold() in {'tbd', 'to be determined', 'por definir', 'online', 'en línea'}):
             city = ''
     record = {
@@ -894,8 +941,8 @@ def map_event(group, entry, page):
         'id': resource_id,
         'title': title,
         'description': clean_description(page.get('description')),
-        'startsAt': start.isoformat(timespec='seconds'),
-        'endsAt': end.isoformat(timespec='seconds'),
+        'startsAt': starts_at,
+        'endsAt': ends_at,
         'timeZone': group['timeZone'],
         'organizer': group['name'],
         'mode': mode,
@@ -1194,6 +1241,12 @@ def validate_stored_event_row(item, expected_id=None):
     validate_meetup_event_record(item)
     if item.get('recordType') != 'event' or not item['id'].removeprefix('meetup-event-'):
         raise ValueError(f'Invalid typed Meetup event: {item.get("id", "unknown")}')
+    if not isinstance(item.get('registrationUrl'), str):
+        raise ValueError(f'Invalid registration URL for Meetup event {item["id"]}')
+    try:
+        validate_catalog_url(item['registrationUrl'])
+    except ValueError as error:
+        raise ValueError(f'Invalid registration URL for Meetup event {item["id"]}') from error
     resource_version(item)
     for field in ('published', 'autoSync', 'approvalRevoked'):
         if field in item and not isinstance(item[field], bool):
@@ -1290,7 +1343,7 @@ def current_url_hash(url):
 
 
 def current_url_reservation(url, resource_id):
-    validate_catalog_resource_id(resource_id)
+    validate_reservation_member_id(resource_id)
     return {'id': f'__url#{current_url_hash(url)}', 'recordType': 'urlReservation',
             'url': url, 'status': 'reserved', 'resourceId': resource_id, 'version': 1}
 
@@ -1317,21 +1370,120 @@ def version_condition_expression(version):
 
 
 def is_conditional_write_conflict(error):
-    code = getattr(error, 'response', {}).get('Error', {}).get('Code')
+    response = getattr(error, 'response', None)
+    if not isinstance(response, Mapping):
+        return False
+    code = response.get('Error', {}).get('Code') if isinstance(response.get('Error'), Mapping) else None
     if code in ('ConditionalCheckFailedException', 'TransactionConflictException'):
         return True
     if code == 'TransactionCanceledException':
-        reasons = getattr(error, 'response', {}).get('CancellationReasons', [])
-        return not reasons or any(reason.get('Code') in ('ConditionalCheckFailed', 'TransactionConflict')
-                                  for reason in reasons)
+        reasons = response.get('CancellationReasons')
+        # A missing, empty, partial, or mixed cancellation list does not
+        # establish that the transaction was rejected before commit.  Replay
+        # would be unsafe when the provider response was lost or ambiguous.
+        if not isinstance(reasons, list) or not reasons:
+            return False
+        codes = [reason.get('Code') if isinstance(reason, Mapping) else None for reason in reasons]
+        return (any(code in ('ConditionalCheckFailed', 'TransactionConflict') for code in codes)
+                and all(code in ('None', 'ConditionalCheckFailed', 'TransactionConflict') for code in codes))
     return False
+
+
+def _is_dropped_write_response(error):
+    """Return true only for errors where a write may have reached DynamoDB."""
+    if isinstance(error, (TimeoutError, ConnectionError)):
+        return True
+    error_type = type(error)
+    return (error_type.__module__.startswith('botocore.')
+            and error_type.__name__ in {'ReadTimeoutError', 'ConnectionClosedError'})
+
+
+def _write_http_status(error):
+    response = getattr(error, 'response', None)
+    if not isinstance(response, Mapping):
+        return None
+    metadata = response.get('ResponseMetadata')
+    if not isinstance(metadata, Mapping):
+        return None
+    status = metadata.get('HTTPStatusCode')
+    return status if isinstance(status, int) and not isinstance(status, bool) else None
+
+
+def write_catalog(send, **request):
+    """Keep an unconfirmed write distinct from a rejected or unavailable request."""
+    try:
+        return send(**request)
+    except Exception as error:
+        if _is_dropped_write_response(error) or (_write_http_status(error) or 0) >= 500:
+            raise UnknownWriteOutcome(f'Uncertain catalog write outcome: {error}') from error
+        raise
 
 
 def read_current_event(table, resource_id, budget=None):
     item = read_projected_item(table, resource_id, STORED_EVENT_FIELDS, budget)
     if item is None:
         return None
-    return validate_stored_event_row(item, resource_id)
+    try:
+        return validate_stored_event_row(item, resource_id)
+    except ValueError as error:
+        raise CatalogObservationError(str(error)) from error
+
+
+def _reservation_revision_is_one(value):
+    """Accept DynamoDB's Decimal number but never Python bool-as-int."""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return value == 1
+    return isinstance(value, Decimal) and value.is_finite() and value == Decimal(1)
+
+
+def _decode_current_reservation(item, url):
+    reservation_id = f'__url#{current_url_hash(url)}'
+    if not isinstance(item, Mapping):
+        raise CatalogObservationError(f'Inconsistent catalog URL reservation for {url}')
+    if (item.get('recordType') != 'urlReservation' or item.get('url') != url
+            or item.get('id') != reservation_id or not _reservation_revision_is_one(item.get('version'))):
+        raise CatalogObservationError(f'Inconsistent catalog URL reservation for {url}')
+
+    has_resource_id = 'resourceId' in item
+    has_resource_ids = 'resourceIds' in item
+    if has_resource_id == has_resource_ids:
+        raise CatalogObservationError(f'Malformed catalog URL reservation for {url}')
+    if item.get('status') == 'reserved' and has_resource_id:
+        resource_ids = [item.get('resourceId')]
+    elif item.get('status') == 'collision' and has_resource_ids:
+        resource_ids = item.get('resourceIds')
+        if not isinstance(resource_ids, list) or len(resource_ids) < 2:
+            raise CatalogObservationError(f'Malformed catalog URL collision for {url}')
+    else:
+        raise CatalogObservationError(f'Malformed catalog URL reservation for {url}')
+
+    try:
+        for resource_id in resource_ids:
+            validate_reservation_member_id(resource_id)
+        if len(set(resource_ids)) != len(resource_ids):
+            raise ValueError('duplicate reservation member')
+    except (TypeError, ValueError) as error:
+        raise CatalogObservationError(f'Malformed catalog URL reservation for {url}') from error
+    return list(resource_ids)
+
+
+def _validate_reservation_member(item, resource_id, url):
+    if not isinstance(item, Mapping) or item.get('id') != resource_id:
+        raise CatalogObservationError(
+            f'Catalog URL reservation for {url} points to a missing or inconsistent resource')
+    record_type = item.get('recordType')
+    if record_type == 'event':
+        current_url = item.get('registrationUrl')
+    elif 'recordType' not in item:
+        current_url = item.get('url')
+    else:
+        raise CatalogObservationError(
+            f'Catalog URL reservation for {url} points to a missing or inconsistent resource')
+    if current_url != url:
+        raise CatalogObservationError(
+            f'Catalog URL reservation for {url} points to a missing or inconsistent resource')
 
 
 def read_reservation(table, url, budget=None):
@@ -1342,34 +1494,11 @@ def read_reservation(table, url, budget=None):
         budget,
     )
     if item is not None:
-        if (item.get('recordType') != 'urlReservation' or item.get('url') != url
-                or item.get('id') != reservation_id or item.get('version') != 1):
-            raise RuntimeError(f'Inconsistent catalog URL reservation for {url}')
-        if item.get('status') == 'reserved':
-            if not isinstance(item.get('resourceId'), str) or not item['resourceId']:
-                raise RuntimeError(f'Malformed catalog URL reservation for {url}')
-            resource_ids = [item['resourceId']]
-        elif item.get('status') == 'collision':
-            resource_ids = item.get('resourceIds')
-            if (not isinstance(resource_ids, list) or len(resource_ids) < 2
-                    or any(not isinstance(resource_id, str) or not resource_id for resource_id in resource_ids)
-                    or len(set(resource_ids)) != len(resource_ids)):
-                raise RuntimeError(f'Malformed catalog URL collision for {url}')
-        else:
-            raise RuntimeError(f'Malformed catalog URL reservation for {url}')
-        try:
-            for resource_id in resource_ids:
-                validate_catalog_resource_id(resource_id)
-        except ValueError as error:
-            raise RuntimeError(f'Malformed catalog URL reservation for {url}') from error
+        resource_ids = _decode_current_reservation(item, url)
         for resource_id in resource_ids:
             resource = read_projected_item(
                 table, resource_id, ('id', 'recordType', 'url', 'registrationUrl'), budget)
-            if resource is None:
-                raise RuntimeError(f'Catalog URL reservation for {url} points to a missing or inconsistent resource')
-            current_url = resource.get('registrationUrl') if resource.get('recordType') == 'event' else resource.get('url')
-            if current_url != url:
-                raise RuntimeError(f'Catalog URL reservation for {url} points to a missing or inconsistent resource')
+            _validate_reservation_member(resource, resource_id, url)
     return item
 
 
@@ -1413,16 +1542,16 @@ def transact_catalog(table, operations, budget=None):
         else:
             raise ValueError(f'Unknown catalog transaction operation: {kind}')
     check_sdk_budget(budget, 'catalog transaction')
-    return client.transact_write_items(TransactItems=request)
+    return write_catalog(client.transact_write_items, TransactItems=request)
 
 
 def update_expression(record, existing, preserve_published):
     fields = [(key, record[key]) for key in SYNC_OWNED_FIELDS
               if key in record and not (preserve_published and key == 'published')]
-    names = {'#id': 'id', '#owner': 'sourceGroupId', '#sync': 'autoSync',
-             '#version': 'version', '#revoked': 'approvalRevoked'}
+    names = {'#id': 'id', '#type': 'recordType', '#owner': 'sourceGroupId',
+             '#sync': 'autoSync', '#version': 'version', '#revoked': 'approvalRevoked'}
     version = resource_version(existing)
-    values = {':owner': record['sourceGroupId'], ':enabled': True,
+    values = {':event': 'event', ':owner': record['sourceGroupId'], ':enabled': True,
               ':version': version, ':nextVersion': version + 1, ':revoked': False}
     changes = []
     for index, (key, value) in enumerate(fields):
@@ -1441,7 +1570,7 @@ def update_expression(record, existing, preserve_published):
             removed.append(alias)
     if removed:
         expression += ' REMOVE ' + ', '.join(removed)
-    condition = ('attribute_exists(#id) AND #owner = :owner '
+    condition = ('attribute_exists(#id) AND #type = :event AND #owner = :owner '
                  'AND (attribute_not_exists(#sync) OR #sync = :enabled) '
                  f'AND {version_condition_expression(version)} '
                  'AND (attribute_not_exists(#revoked) OR #revoked = :revoked)')
@@ -1449,72 +1578,55 @@ def update_expression(record, existing, preserve_published):
 
 
 def update_event_and_url_reservation(table, record, existing, preserve_published, budget=None):
-    validate_meetup_event_record(record)
     old_url = existing.get('registrationUrl')
-    new_url = record['registrationUrl']
-    if not isinstance(old_url, str) or not isinstance(new_url, str):
-        raise RuntimeError(f'Meetup event {record["id"]} has an invalid current URL')
-    old_reservation = read_reservation(table, old_url, budget)
-    if old_reservation is None:
-        raise RuntimeError(f'Missing catalog URL reservation for Meetup event {record["id"]}')
-    operations = []
-    new_reservation = read_reservation(table, new_url, budget)
-    if new_reservation is None:
-        operations.append({'kind': 'put', 'item': current_url_reservation(new_url, record['id']),
-                           'condition': 'attribute_not_exists(#id)', 'names': {'#id': 'id'}})
-    elif new_reservation.get('status') == 'reserved' and new_reservation.get('resourceId') == record['id']:
-        raise RuntimeError(f'New URL reservation already points to a Meetup event at its old URL: {record["id"]}')
-    elif new_reservation.get('status') == 'collision':
-        return 'collision'
+    new_reservation = current_url_reservation(record['registrationUrl'], record['id'])
+    if not isinstance(old_url, str) or not old_url:
+        raise CatalogObservationError(f'Meetup event {record["id"]} has an invalid current URL')
+    old = read_reservation(table, old_url, budget)
+    if old is None:
+        raise CatalogObservationError(f'Missing catalog URL reservation for Meetup event {record["id"]}')
+    if old['id'] == new_reservation['id']:
+        raise CatalogObservationError(f'Meetup event URL hash collision for {record["id"]}')
+
+    names = {'#type': 'recordType', '#url': 'url', '#status': 'status', '#version': 'version',
+             '#resourceId': 'resourceId', '#resourceIds': 'resourceIds'}
+    values = {':type': 'urlReservation', ':url': old_url, ':status': old['status'], ':version': 1}
+    condition = '#type = :type AND #url = :url AND #status = :status AND #version = :version'
+    if old['status'] == 'reserved':
+        if old['resourceId'] != record['id']:
+            raise CatalogObservationError(f'Meetup event does not own its current URL reservation: {record["id"]}')
+        values[':resourceId'] = old['resourceId']
+        condition += ' AND #resourceId = :resourceId AND attribute_not_exists(#resourceIds)'
+        old_write = {'kind': 'delete', 'key': {'id': old['id']}}
     else:
+        members = old['resourceIds']
+        if record['id'] not in members:
+            raise CatalogObservationError(f'Meetup event is absent from its current URL collision: {record["id"]}')
+        values[':resourceIds'] = members
+        condition += ' AND #resourceIds = :resourceIds AND attribute_not_exists(#resourceId)'
+        remaining = sorted(member for member in members if member != record['id'])
+        replacement = (current_url_reservation(old_url, remaining[0]) if len(remaining) == 1 else
+                       {'id': old['id'], 'recordType': 'urlReservation', 'url': old_url,
+                        'status': 'collision', 'resourceIds': remaining, 'version': 1})
+        old_write = {'kind': 'put', 'item': replacement}
+    old_write.update(condition=condition, names=names, values=values)
+
+    destination = read_reservation(table, record['registrationUrl'], budget)
+    if destination is not None:
+        if destination['status'] == 'collision':
+            return 'collision'
+        if destination['resourceId'] == record['id']:
+            raise CatalogObservationError(f'New URL reservation already points to Meetup event {record["id"]}')
         return 'duplicate'
 
-    if old_reservation['id'] == f'__url#{current_url_hash(new_url)}':
-        raise RuntimeError(f'Meetup event URL hash collision for {record["id"]}')
-    old_status = old_reservation.get('status')
-    if old_status == 'reserved':
-        if old_reservation.get('resourceId') != record['id']:
-            raise RuntimeError(f'Meetup event does not own its current URL reservation: {record["id"]}')
-        operations.append({
-            'kind': 'delete',
-            'key': {'id': old_reservation['id']},
-            'condition': '#url = :url AND #status = :status AND #resourceId = :resourceId AND #version = :version',
-            'names': {'#url': 'url', '#status': 'status', '#resourceId': 'resourceId', '#version': 'version'},
-            'values': {':url': old_url, ':status': 'reserved', ':resourceId': record['id'], ':version': 1},
-        })
-    elif old_status == 'collision':
-        members = old_reservation.get('resourceIds')
-        if not isinstance(members, list) or record['id'] not in members:
-            raise RuntimeError(f'Meetup event is absent from its current URL collision: {record["id"]}')
-        remaining = sorted(set(members) - {record['id']})
-        if not remaining:
-            operations.append({'kind': 'delete', 'key': {'id': old_reservation['id']},
-                               'condition': '#url = :url AND #status = :status AND #version = :version AND #resourceIds = :resourceIds',
-                               'names': {'#url': 'url', '#status': 'status', '#version': 'version', '#resourceIds': 'resourceIds'},
-                               'values': {':url': old_url, ':status': 'collision', ':version': 1, ':resourceIds': members}})
-        else:
-            updated_old = ({'id': old_reservation['id'], 'recordType': 'urlReservation', 'url': old_url,
-                            'status': 'reserved', 'resourceId': remaining[0], 'version': 1}
-                           if len(remaining) == 1 else
-                           {'id': old_reservation['id'], 'recordType': 'urlReservation', 'url': old_url,
-                            'status': 'collision', 'resourceIds': remaining, 'version': 1})
-            operations.append({'kind': 'put', 'item': updated_old,
-                               'condition': '#url = :url AND #status = :status AND #version = :version AND #resourceIds = :resourceIds',
-                               'names': {'#url': 'url', '#status': 'status', '#version': 'version', '#resourceIds': 'resourceIds'},
-                               'values': {':url': old_url, ':status': 'collision', ':version': 1, ':resourceIds': members}})
-    else:
-        raise RuntimeError(f'Malformed catalog URL reservation for Meetup event {record["id"]}')
-
     expression, condition, names, values = update_expression(record, existing, preserve_published)
-    operations.append({'kind': 'update', 'key': {'id': record['id']}, 'update': expression,
-                       'condition': condition, 'names': names, 'values': values})
-    try:
-        transact_catalog(table, operations, budget)
-        return True
-    except Exception as error:
-        if is_conditional_write_conflict(error):
-            return None
-        raise
+    transact_catalog(table, [
+        {'kind': 'put', 'item': new_reservation, 'condition': 'attribute_not_exists(#id)', 'names': {'#id': 'id'}},
+        old_write,
+        {'kind': 'update', 'key': {'id': record['id']}, 'update': expression,
+         'condition': condition, 'names': names, 'values': values},
+    ], budget)
+    return True
 
 
 def update_source_event(table, record, existing, preserve_published=False, budget=None):
@@ -1522,74 +1634,69 @@ def update_source_event(table, record, existing, preserve_published=False, budge
     if existing is None:
         return create_source_event_with_url_reservation(table, record, budget)
     current = existing
+    observed_url = existing.get('registrationUrl')
     for attempt in range(2):
-        if current is None or current.get('autoSync') is False:
+        # A fresh read can reveal a newer move even when source ownership and
+        # autoSync are unchanged. The earlier observation has become obsolete.
+        if current is None or current.get('registrationUrl') != observed_url or current.get('autoSync') is False:
             return False
         revoked = current.get('approvalRevoked', False)
         if not isinstance(revoked, bool):
-            raise ValueError(f'Invalid approvalRevoked flag for {record["id"]}')
-        if revoked:
-            return False
-        if current.get('sourceGroupId') != record['sourceGroupId']:
+            raise CatalogObservationError(f'Invalid approvalRevoked flag for {record["id"]}')
+        if revoked or current.get('sourceGroupId') != record['sourceGroupId']:
             return False
         preserve_now = preserve_published or event_has_ended(record)
         if sync_fields_equal(record, current, preserve_now):
             return False
-        old_url = current.get('registrationUrl')
-        new_url = record['registrationUrl']
-        if old_url != new_url:
-            changed = update_event_and_url_reservation(table, record, current, preserve_now, budget)
-            if changed is True or changed is False or isinstance(changed, str):
-                return changed
-            if attempt == 1:
-                return False
-            current = read_current_event(table, record['id'], budget)
-            continue
-
-        expression, condition, names, values = update_expression(record, current, preserve_now)
-        check_sdk_budget(budget, f'update Meetup event {record["id"]}')
         try:
-            table.update_item(Key={'id': record['id']}, UpdateExpression=expression,
-                              ConditionExpression=condition,
-                              ExpressionAttributeNames=names, ExpressionAttributeValues=values)
+            if observed_url != record['registrationUrl']:
+                return update_event_and_url_reservation(table, record, current, preserve_now, budget)
+            expression, condition, names, values = update_expression(record, current, preserve_now)
+            check_sdk_budget(budget, f'update Meetup event {record["id"]}')
+            write_catalog(table.update_item, Key={'id': record['id']}, UpdateExpression=expression,
+                          ConditionExpression=condition, ExpressionAttributeNames=names,
+                          ExpressionAttributeValues=values)
             return True
+        except CatalogObservationError:
+            if attempt == 1:
+                raise
         except Exception as error:
             if not is_conditional_write_conflict(error):
                 raise
             if attempt == 1:
                 return False
-            current = read_current_event(table, record['id'], budget)
+        current = read_current_event(table, record['id'], budget)
     return False
 
 
 def create_source_event_with_url_reservation(table, record, budget=None):
     validate_meetup_event_record(record)
     reservation = current_url_reservation(record['registrationUrl'], record['id'])
-    existing_reservation = read_reservation(table, record['registrationUrl'], budget)
-    if existing_reservation is not None:
-        if existing_reservation.get('status') == 'collision':
-            return 'collision'
-        if existing_reservation.get('status') == 'reserved' and existing_reservation.get('resourceId') != record['id']:
-            return 'duplicate'
-        raise RuntimeError(f'URL reservation already points to missing Meetup event {record["id"]}')
-    item = dict(record, version=1)
     operations = [
-        {'kind': 'put', 'item': item, 'condition': 'attribute_not_exists(#id)', 'names': {'#id': 'id'}},
+        {'kind': 'put', 'item': dict(record, version=1),
+         'condition': 'attribute_not_exists(#id)', 'names': {'#id': 'id'}},
         {'kind': 'put', 'item': reservation, 'condition': 'attribute_not_exists(#id)', 'names': {'#id': 'id'}},
     ]
-    try:
-        transact_catalog(table, operations, budget)
-        return True
-    except Exception as error:
-        if not is_conditional_write_conflict(error):
-            raise
-        current_resource = read_current_event(table, record['id'], budget)
-        if current_resource is not None:
+    for attempt in range(2):
+        if read_current_event(table, record['id'], budget) is not None:
             return False
-        current_reservation = read_reservation(table, record['registrationUrl'], budget)
-        if current_reservation is not None:
-            return 'collision' if current_reservation.get('status') == 'collision' else 'duplicate'
-        return False
+        try:
+            existing_reservation = read_reservation(table, record['registrationUrl'], budget)
+        except CatalogObservationError:
+            if attempt == 1:
+                raise
+            continue
+        if existing_reservation is not None:
+            if existing_reservation['status'] == 'collision':
+                return 'collision'
+            return False if existing_reservation['resourceId'] == record['id'] else 'duplicate'
+        try:
+            transact_catalog(table, operations, budget)
+            return True
+        except Exception as error:
+            if not is_conditional_write_conflict(error):
+                raise
+    return False
 
 
 def unpublish_source_event(table, existing, check_ends_at=False, budget=None):
@@ -1604,11 +1711,11 @@ def unpublish_source_event(table, existing, check_ends_at=False, budget=None):
     if revoked:
         return False
     version = resource_version(existing)
-    names = {'#published': 'published', '#sync': 'autoSync', '#owner': 'sourceGroupId',
-             '#version': 'version', '#revoked': 'approvalRevoked'}
-    values = {':false': False, ':true': True, ':owner': existing['sourceGroupId'],
+    names = {'#type': 'recordType', '#published': 'published', '#sync': 'autoSync',
+             '#owner': 'sourceGroupId', '#version': 'version', '#revoked': 'approvalRevoked'}
+    values = {':event': 'event', ':false': False, ':true': True, ':owner': existing['sourceGroupId'],
               ':version': version, ':nextVersion': version + 1, ':revoked': revoked}
-    condition = ('#published = :true AND #sync = :true AND #owner = :owner '
+    condition = ('#type = :event AND #published = :true AND #sync = :true AND #owner = :owner '
                  f'AND {version_condition_expression(version)} '
                  'AND (attribute_not_exists(#revoked) OR #revoked = :revoked)')
     if check_ends_at:
@@ -1620,11 +1727,10 @@ def unpublish_source_event(table, existing, check_ends_at=False, budget=None):
             condition += ' AND attribute_not_exists(#ends)'
     try:
         check_sdk_budget(budget, f'unpublish Meetup event {existing["id"]}')
-        table.update_item(Key={'id': existing['id']},
-                          UpdateExpression='SET #published = :false, #version = :nextVersion',
-                          ConditionExpression=condition,
-                          ExpressionAttributeNames=names,
-                          ExpressionAttributeValues=values)
+        write_catalog(table.update_item, Key={'id': existing['id']},
+                      UpdateExpression='SET #published = :false, #version = :nextVersion',
+                      ConditionExpression=condition, ExpressionAttributeNames=names,
+                      ExpressionAttributeValues=values)
         return True
     except Exception as error:
         if is_conditional_write_conflict(error):
@@ -1770,7 +1876,7 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
         return outcome
 
     def apply_page(state, entry, page):
-        nonlocal changed, skipped, primary_error, stop_for_budget
+        nonlocal changed, skipped, stop_for_budget, primary_error
         group = state.group
         try:
             record = map_event(group, entry, page)
@@ -1788,6 +1894,10 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
                 except BudgetExhausted:
                     stop_for_budget = True
                 except Exception as error:
+                    if isinstance(error, UnknownWriteOutcome):
+                        state.failed = True
+                        failures.append(f'Event {entry["id"]} in group {group["id"]}: {error}')
+                        return
                     primary_error = error
                     state.failed = True
                     failures.append(f'Event {entry["id"]} in group {group["id"]}: {error}')
@@ -1813,6 +1923,10 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
             stop_for_budget = True
             return
         except Exception as error:
+            if isinstance(error, (CatalogObservationError, UnknownWriteOutcome)):
+                state.failed = True
+                failures.append(f'Event {entry["id"]} in group {group["id"]}: {error}')
+                return
             primary_error = error
             state.failed = True
             failures.append(f'Event {entry["id"]} in group {group["id"]}: {error}')
@@ -1864,6 +1978,9 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
                     except BudgetExhausted:
                         stop_for_budget = True
                         return
+                    except UnknownWriteOutcome as error:
+                        state.failed = True
+                        failures.append(f'Event {entry["id"]} in group {state.group["id"]}: {error}')
                 continue
             upcoming_event_ids.add(record_id)
             suppressed = prior is not None and (
@@ -2015,6 +2132,10 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
                     add_incomplete_failures()
                     break
                 except Exception as error:
+                    if isinstance(error, UnknownWriteOutcome):
+                        failures.append(f'Event {prior["id"]}: source-removal write outcome uncertain: {error}')
+                        unresolved_source_ids.add(group_id)
+                        continue
                     primary_error = error
                     failures.append(f'Event {prior["id"]}: source-removal write failed: {error}')
                     add_incomplete_failures()

@@ -305,6 +305,27 @@ test('a definite conditional winner is re-read once and reused as duplicate', as
   assert.equal((await readThroughProvider(provider, winner.id)).url, BASE_SUBMISSION.url);
 });
 
+test('a resource and reservation created together between the two reads settle as a duplicate', async () => {
+  const resource = { id: 'resource-phase3-concurrent', url: BASE_SUBMISSION.url, version: 1 };
+  const reservation = currentUrlReservation(resource.url, resource.id);
+  const provider = await createProvider([], {
+    resourceIds: [resource.id, 'resource-phase3-fresh-id'],
+    memberIds: new Set([reservation.id]),
+    onMemberRead: ({ records }) => {
+      records.set(resource.id, resource);
+      records.set(reservation.id, reservation);
+    },
+  });
+  const result = await provider.handler(request());
+
+  assert.equal(result.statusCode, 409);
+  assert.deepEqual(responseBody(result), { ok: false, code: 'duplicate' });
+  assert.equal(provider.calls.transactions.length, 0);
+  assert.equal(provider.records.size, 2);
+  assert.deepEqual(await readThroughProvider(provider, resource.id), resource);
+  assert.deepEqual(await readThroughProvider(provider, reservation.id), reservation);
+});
+
 test('persistent definite contention stops after the bounded writer attempts', async () => {
   const provider = await createProvider([], {
     transactionMode: 'conditional-always',

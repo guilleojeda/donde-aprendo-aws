@@ -463,6 +463,34 @@
       }
     },
     {
+      "name": "malformed-member-null-record-type",
+      "url": "https://example.invalid/common/null-type",
+      "reservationPhysicalKey": { "id": "__url#493e11de72757772c0da540f383c97569284534be09d4e2e909c121c24734c1a" },
+      "reservation": {
+        "id": "__url#493e11de72757772c0da540f383c97569284534be09d4e2e909c121c24734c1a",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/null-type",
+        "status": "reserved",
+        "resourceId": "resource-common-null-type",
+        "version": 1
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "resource-common-null-type" },
+          "item": {
+            "id": "resource-common-null-type",
+            "url": "https://example.invalid/common/null-type",
+            "recordType": null
+          }
+        }
+      ],
+      "expected": {
+        "shape": "reserved",
+        "resourceIds": ["resource-common-null-type"],
+        "admission": "reject-member-type"
+      }
+    },
+    {
       "name": "malformed-reservation-over-limit-member",
       "url": "https://example.invalid/common/oversized-member",
       "reservationPhysicalKey": { "id": "__url#e38836a5b1c5fd80400bfb085237f6efa7f999c898e532f4aa0d4694e181ba97" },
