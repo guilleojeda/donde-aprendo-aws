@@ -142,6 +142,14 @@ class MeetupCalendarValueTests(unittest.TestCase):
                 'BEGIN:VTIMEZONE\r\nTZID;VALUE=DATE:20990101\r\nEND:VTIMEZONE')),
             ('explicit empty LAST-MODIFIED', support.CANCELLED_ICAL.replace(
                 'LAST-MODIFIED:20990101T000000Z', 'LAST-MODIFIED:')),
+            ('STATUS with incompatible encoding', support.CANCELLED_ICAL.replace(
+                'STATUS:CANCELLED', 'STATUS;ENCODING=BASE64:CANCELLED')),
+            ('cancelled event URL path parameters', support.CANCELLED_ICAL.replace(
+                support.EVENT_URL, support.EVENT_URL + ';alternate-record')),
+            ('calendar VERSION with incompatible encoding', support.EMPTY_ICAL.replace(
+                'VERSION:2.0', 'VERSION;ENCODING=BASE64:2.0')),
+            ('calendar invalid LAST-MODIFIED value', support.EMPTY_ICAL.replace(
+                'END:VCALENDAR', 'LAST-MODIFIED:20990231T000000Z\r\nEND:VCALENDAR')),
         )
         for label, malformed in cases:
             with self.subTest(label=label):
@@ -197,6 +205,16 @@ class MeetupCalendarValueTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, 'Invalid iCalendar feed'):
                         meetup.parse_feed(feed, support.GROUP)
 
+    def test_calendar_modification_metadata_requires_a_real_utc_value_even_without_events(self):
+        def with_property(value):
+            return support.EMPTY_ICAL.replace('END:VCALENDAR', value + '\r\nEND:VCALENDAR')
+
+        self.assertEqual(meetup.parse_feed(with_property(
+            'LAST-MODIFIED;VALUE=DATE-TIME:20990228T000000Z'), support.GROUP), [])
+        with self.assertRaisesRegex(ValueError, 'Invalid iCalendar feed'):
+            meetup.parse_feed(with_property('LAST-MODIFIED;VALUE=DATE-TIME:20990231T000000Z'),
+                              support.GROUP)
+
     def test_valid_leap_second_keeps_the_original_source_marker(self):
         feed = support.ICAL.replace('20990101T000000Z', '20161231T235960Z')
         self.assertEqual(meetup.parse_feed(feed, support.GROUP)[0]['modified'], '20161231T235960Z')
@@ -209,7 +227,7 @@ class MeetupCalendarValueTests(unittest.TestCase):
             original, meetup.parse_feed(feed.replace('AWS en acci', 'Nueva descripci'),
                                         support.GROUP)[0]['modified'])
 
-    def test_invalid_modified_timestamp_cannot_cancel_or_authorize_absence(self):
+    def test_invalid_modified_property_cannot_cancel_or_authorize_absence(self):
         community = {
             'id': 'meetup-123', 'title': support.GROUP['name'], 'url': support.GROUP['url'],
             'meetupSourceUrl': support.GROUP['url'], 'country': 'CO', 'kind': 'community',
@@ -222,18 +240,22 @@ class MeetupCalendarValueTests(unittest.TestCase):
                       registrationUrl=support.EVENT_URL.replace('/456/', '/457/'))
         html = '<script type="application/ld+json">' + json.dumps(support.PAGE) + '</script>'
 
+        modified = 'LAST-MODIFIED:20990101T000000Z'
+        cases = (
+            modified,
+            'LAST-MODIFIED;VALUE=DATE-TIME:20990231T000000Z',
+            'lAsT-mOdIfIeD;vAlUe=DATE-TIME;tZiD=America/Bogota:20990101T000000Z',
+        )
         for valid_feed in (support.ICAL, support.CANCELLED_ICAL):
-            for malformed in (False, True):
+            for observed_value in cases:
+                malformed = observed_value != modified
                 cancelled = 'STATUS:CANCELLED' in valid_feed
-                with self.subTest(cancelled=cancelled, malformed=malformed):
+                with self.subTest(cancelled=cancelled, property=observed_value):
                     table = support.FakeTable([community, matching, absent])
                     before = copy.deepcopy(table.existing)
                     invocations = []
                     boto3 = support.fake_boto3(table, invocations)
-                    feed = valid_feed.replace(
-                        'LAST-MODIFIED:20990101T000000Z',
-                        'LAST-MODIFIED;VALUE=DATE-TIME:20990231T000000Z',
-                    ) if malformed else valid_feed
+                    feed = valid_feed.replace(modified, observed_value)
                     calls = []
 
                     def provider(url, **_kwargs):

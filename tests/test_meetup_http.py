@@ -179,6 +179,33 @@ class MeetupHttpTests(unittest.TestCase):
                         self.assertEqual(table.existing[event['id']], event)
                         self.assertEqual(invocations, [])
 
+
+    def test_only_same_event_redirect_can_supply_structured_detail(self):
+        path = '/aws-bogota/events/456/'
+        response_text = 'verified event body'
+        for redirect, allowed in ((path + '?source=calendar', True),
+                                  ('/aws-bogota/events/457/', False),
+                                  (path + ';alternate-record', False)):
+            with self.subTest(redirect=redirect):
+                requests = []
+
+                def route(request):
+                    requests.append(request.path)
+                    if request.path == path:
+                        send(request, b'', 302, redirect)
+                    else:
+                        send(request, response_text.encode())
+
+                with LocalMeetup(route):
+                    subject = load_importer()
+                    if allowed:
+                        self.assertEqual(subject.get_text(support.EVENT_URL), response_text)
+                        self.assertEqual(requests, [path, redirect])
+                    else:
+                        with self.assertRaises(ValueError):
+                            subject.get_text(support.EVENT_URL)
+                        self.assertEqual(requests, [path])
+
     def test_initial_disallowed_url_is_rejected_before_transport_open(self):
         subject = load_importer()
         opener = Mock()

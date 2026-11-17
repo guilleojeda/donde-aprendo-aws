@@ -20,7 +20,7 @@ import math
 import re
 import os
 from time import monotonic
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from zoneinfo import ZoneInfo
 
@@ -199,10 +199,10 @@ class JsonLdScripts(HTMLParser):
 
 
 class MeetupRedirectHandler(HTTPRedirectHandler):
-    def __init__(self, request_deadline, calendar_path=None):
+    def __init__(self, request_deadline, observation_path=None):
         super().__init__()
         self.request_deadline = request_deadline
-        self.calendar_path = calendar_path
+        self.observation_path = observation_path
 
     def redirect_request(self, request, response, code, message, headers, new_url):
         try:
@@ -210,7 +210,7 @@ class MeetupRedirectHandler(HTTPRedirectHandler):
             # it.  The feed and event URLs are untrusted provider input, so a
             # redirect must remain on the exact HTTPS Meetup origin too.
             redirect_url = urljoin(request.full_url, new_url)
-            validate_meetup_transport_url(redirect_url, self.calendar_path)
+            validate_meetup_transport_url(redirect_url, self.observation_path)
             # urllib's default handler drains the unused redirect response before following it.
             response.close()
             remaining = self.request_deadline - monotonic()
@@ -228,28 +228,27 @@ def set_response_read_timeout(response, timeout):
     response.fp.raw._sock.settimeout(timeout)
 
 
-def meetup_calendar_path(url):
-    parsed = urlparse(url)
-    path = parsed.path
-    if not parsed.params and re.fullmatch(r'/[A-Za-z0-9_-]+/events/ical/?', path, re.I | re.ASCII):
+def meetup_observation_path(url):
+    path = urlsplit(url).path
+    if re.fullmatch(r'/[A-Za-z0-9_-]+/events/(?:ical|[0-9]+)/?', path, re.I | re.ASCII):
         return path.rstrip('/').casefold()
     return None
 
 
-def validate_meetup_transport_url(url, calendar_path=None):
+def validate_meetup_transport_url(url, observation_path=None):
     """Validate a URL before urllib is allowed to open it."""
     validate_catalog_url(url)
     parsed = urlparse(url)
     if parsed.scheme != 'https' or parsed.hostname != MEETUP_HOST or parsed.port not in (None, 443):
         raise ValueError(f'Unsafe Meetup request URL: {url}')
-    if calendar_path is not None and meetup_calendar_path(url) != calendar_path:
-        raise ValueError('Meetup calendar redirected away from its enrolled group')
+    if observation_path is not None and meetup_observation_path(url) != observation_path:
+        raise ValueError('Meetup response moved away from its verified feed or event')
     return url
 
 
 def get_text(url, budget=None):
     validate_meetup_transport_url(url)
-    calendar_path = meetup_calendar_path(url)
+    observation_path = meetup_observation_path(url)
     request_deadline = monotonic() + MAX_HTTP_REQUEST_SECONDS
     if budget is not None:
         request_deadline = min(request_deadline, budget.request_deadline())
@@ -257,9 +256,9 @@ def get_text(url, budget=None):
     if timeout <= 0:
         raise RequestTimedOut(f'Meetup request budget exhausted before {url}')
     request = Request(url, headers={'User-Agent': 'DondeAprendoAWS/1.0 (+https://dondeaprendoaws.com/)'})
-    opener = build_opener(MeetupRedirectHandler(request_deadline, calendar_path))
+    opener = build_opener(MeetupRedirectHandler(request_deadline, observation_path))
     with opener.open(request, timeout=timeout) as response:
-        validate_meetup_transport_url(response.url, calendar_path)
+        validate_meetup_transport_url(response.url, observation_path)
         contents = bytearray()
         while True:
             remaining_time = request_deadline - monotonic()
@@ -361,24 +360,32 @@ def parse_calendar(text, group):
     parameter_line = re.compile(
         rf';(?P<name>{token})=(?P<value>{parameter_value})(?=;|\Z)', re.I)
     event_singletons = frozenset({'UID', 'URL', 'STATUS', 'LAST-MODIFIED'})
-    calendar_singletons = frozenset({'VERSION', 'TZID'})
+    calendar_singletons = frozenset({'VERSION', 'TZID', 'LAST-MODIFIED'})
     consumed_value_types = {
         'VERSION': 'TEXT', 'TZID': 'TEXT', 'UID': 'TEXT',
         'URL': 'URI', 'STATUS': 'TEXT', 'LAST-MODIFIED': 'DATE-TIME',
     }
+    # The properties used here take extension parameters and an explicit
+    # value type matching their default. RFC 5545's other core parameters
+    # have semantics on other properties, such as TZID on local DTSTART.
+    incompatible_core_parameters = frozenset((
+        'ALTREP', 'CN', 'CUTYPE', 'DELEGATED-FROM', 'DELEGATED-TO', 'DIR',
+        'ENCODING', 'FMTTYPE', 'FBTYPE', 'LANGUAGE', 'MEMBER', 'PARTSTAT',
+        'RANGE', 'RELATED', 'RELTYPE', 'ROLE', 'RSVP', 'SENT-BY', 'TZID',
+    ))
     events = {}
     components = []
     calendar_properties = {}
     time_zone = None
-    component_time_zone = None
+    timezone_properties = None
     calendar_seen = False
     current = None
 
     def invalid_feed():
         raise ValueError(invalid_message)
 
-    def validate_consumed_value_type(name, parameters):
-        """Reject a declared VALUE type that cannot represent this property."""
+    def validate_consumed_parameters(name, parameters):
+        """Keep consumed values in their supported representation."""
         expected = consumed_value_types.get(name)
         if expected is None or not parameters:
             return
@@ -388,7 +395,10 @@ def parse_calendar(text, group):
             match = parameter_line.match(parameters, position)
             if match is None:
                 invalid_feed()
-            if match.group('name').upper() == 'VALUE':
+            parameter_name = match.group('name').upper()
+            if parameter_name in incompatible_core_parameters:
+                invalid_feed()
+            if parameter_name == 'VALUE':
                 if declared is not None:
                     invalid_feed()
                 raw_value = match.group('value')
@@ -399,9 +409,24 @@ def parse_calendar(text, group):
         if declared is not None and declared != expected:
             invalid_feed()
 
+    def validate_modified_timestamp(value):
+        if not re.fullmatch(r'[0-9]{8}T[0-9]{6}Z', value, re.I | re.ASCII):
+            invalid_feed()
+        # iCalendar permits a positive leap second. Validate the other
+        # fields without changing the source marker we compare and store.
+        normalized = value.upper()
+        if normalized.endswith('235960Z'):
+            normalized = normalized[:-3] + '59Z'
+        try:
+            datetime.strptime(normalized, '%Y%m%dT%H%M%SZ')
+        except ValueError:
+            invalid_feed()
+
     def record_property(target, name, value, singleton_names):
         if name in singleton_names and name in target:
             invalid_feed()
+        if name == 'LAST-MODIFIED':
+            validate_modified_timestamp(value)
         # Preserve the old fallback hash behavior for repeatable extension
         # properties: the final value is the meaningful observed value.
         target[name] = value
@@ -431,31 +456,16 @@ def parse_calendar(text, group):
             if isinstance(uid, str) else None
         url = current.get('URL', '')
         try:
-            validate_catalog_url(url)
-            parsed = urlparse(url)
-            expected_slug = urlparse(group['url']).path.strip('/')
+            parsed = urlsplit(validate_meetup_transport_url(url))
+            expected_slug = urlsplit(group['url']).path.strip('/')
         except (KeyError, TypeError, ValueError):
             invalid_feed()
-        if not match or parsed.scheme != 'https' or parsed.hostname != MEETUP_HOST \
-                or parsed.port not in (None, 443) \
-                or not re.fullmatch(rf'/{re.escape(expected_slug)}/events/{match.group(1)}/?',
-                                    parsed.path, re.I):
+        if not match or not re.fullmatch(rf'/{re.escape(expected_slug)}/events/{match.group(1)}/?',
+                                         parsed.path, re.I):
             invalid_feed()
         modified = current.get('LAST-MODIFIED')
         if modified is None:
             modified = sha256(json.dumps(current, sort_keys=True).encode('utf-8')).hexdigest()
-        else:
-            if not re.fullmatch(r'[0-9]{8}T[0-9]{6}Z', modified, re.I | re.ASCII):
-                invalid_feed()
-            # iCalendar permits a positive leap second. Validate the other
-            # fields without changing the source marker we compare and store.
-            value = modified.upper()
-            if value.endswith('235960Z'):
-                value = value[:-3] + '59Z'
-            try:
-                datetime.strptime(value, '%Y%m%dT%H%M%SZ')
-            except ValueError:
-                invalid_feed()
         event_id = match.group(1)
         meetup_event_resource_id(event_id)
         event = {'id': event_id, 'url': url, 'modified': modified}
@@ -492,7 +502,7 @@ def parse_calendar(text, group):
                 elif component == 'VEVENT':
                     current = {}
                 elif component == 'VTIMEZONE':
-                    component_time_zone = None
+                    timezone_properties = {}
                 components.append(component)
             else:
                 if not components or components[-1] != component:
@@ -503,26 +513,26 @@ def parse_calendar(text, group):
                     finish_event()
                     current = None
                 if component == 'VTIMEZONE':
-                    if component_time_zone is None:
+                    if 'TZID' not in timezone_properties:
                         invalid_feed()
                     if time_zone is None:
-                        time_zone = component_time_zone
+                        time_zone = timezone_properties['TZID']
                 components.pop()
         elif components == ['VCALENDAR', 'VEVENT'] and current is not None:
-            if name in calendar_singletons:
+            if name in {'VERSION', 'TZID'}:
                 invalid_feed()
-            validate_consumed_value_type(name, parameters)
+            validate_consumed_parameters(name, parameters)
             record_property(current, name, value, event_singletons)
         elif components == ['VCALENDAR']:
             if name == 'STATUS' or (name == 'TZID' and not value.strip(JAVASCRIPT_TRIM_WHITESPACE)):
                 invalid_feed()
-            validate_consumed_value_type(name, parameters)
+            validate_consumed_parameters(name, parameters)
             record_property(calendar_properties, name, value, calendar_singletons)
-        elif components == ['VCALENDAR', 'VTIMEZONE'] and name == 'TZID':
-            if component_time_zone is not None or not value.strip(JAVASCRIPT_TRIM_WHITESPACE):
+        elif components == ['VCALENDAR', 'VTIMEZONE'] and name in {'TZID', 'LAST-MODIFIED'}:
+            if name == 'TZID' and not value.strip(JAVASCRIPT_TRIM_WHITESPACE):
                 invalid_feed()
-            validate_consumed_value_type(name, parameters)
-            component_time_zone = value
+            validate_consumed_parameters(name, parameters)
+            record_property(timezone_properties, name, value, calendar_singletons)
         elif components:
             # Properties nested in VALARM, VTIMEZONE, or extension components
             # do not affect direct event identity or cancellation authority.
@@ -534,22 +544,37 @@ def parse_calendar(text, group):
     return list(events.values()), calendar_properties.get('TZID', time_zone)
 
 
+def unambiguous_json_object(pairs):
+    record = {}
+    for name, value in pairs:
+        if name in record and (type(record[name]) is not type(value) or record[name] != value):
+            raise ValueError(f'Conflicting structured property: {name}')
+        record[name] = value
+    return record
+
+
 def parse_event_page(text, expected_url):
+    expected_path = meetup_observation_path(validate_meetup_transport_url(expected_url))
+    if expected_path is None or expected_path.endswith('/ical'):
+        raise ValueError(f'Invalid expected Meetup event path: {expected_url}')
+
     parser = JsonLdScripts()
     parser.feed(text)
+    event = None
     for script in parser.scripts:
         try:
-            data = json.loads(script)
+            data = json.loads(script, object_pairs_hook=unambiguous_json_object)
         except json.JSONDecodeError:
             continue
-        if data.get('@type') == 'Event':
-            actual = urlparse(data.get('url', ''))
-            expected = urlparse(expected_url)
-            if (actual.scheme, actual.hostname, actual.path.rstrip('/')) != \
-                    (expected.scheme, expected.hostname, expected.path.rstrip('/')):
-                raise ValueError(f'Event page URL mismatch: {expected_url}')
-            return data
-    raise ValueError(f'No structured Event found: {expected_url}')
+        if not isinstance(data, dict) or data.get('@type') != 'Event':
+            continue
+        validate_meetup_transport_url(data.get('url'), expected_path)
+        if event is not None and event != data:
+            raise ValueError(f'Conflicting structured Events: {expected_url}')
+        event = data
+    if event is None:
+        raise ValueError(f'No structured Event found: {expected_url}')
+    return event
 
 
 def clean_description(value):
@@ -937,8 +962,9 @@ def validate_stored_event_row(item, expected_id=None):
     if item.get('recordType') != 'event' or not item['id'].removeprefix('meetup-event-'):
         raise ValueError(f'Invalid typed Meetup event: {item.get("id", "unknown")}')
     resource_version(item)
-    if 'approvalRevoked' in item and not isinstance(item['approvalRevoked'], bool):
-        raise ValueError(f'Invalid approvalRevoked flag for {item["id"]}')
+    for field in ('published', 'autoSync', 'approvalRevoked'):
+        if field in item and not isinstance(item[field], bool):
+            raise ValueError(f'Invalid {field} flag for {item["id"]}')
     return item
 
 
