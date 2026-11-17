@@ -206,6 +206,13 @@ class MeetupHttpTests(unittest.TestCase):
                             subject.get_text(support.EVENT_URL)
                         self.assertEqual(requests, [path])
 
+    def test_event_authority_rejects_present_empty_userinfo_before_open(self):
+        subject = load_importer()
+        with patch.object(subject, 'build_opener') as build_opener:
+            with self.assertRaises(ValueError):
+                subject.get_text(support.EVENT_URL.replace('www.', '@www.'))
+        build_opener.assert_not_called()
+
     def test_initial_disallowed_url_is_rejected_before_transport_open(self):
         subject = load_importer()
         opener = Mock()

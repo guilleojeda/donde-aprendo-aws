@@ -146,6 +146,8 @@ class MeetupCalendarValueTests(unittest.TestCase):
                 'STATUS:CANCELLED', 'STATUS;ENCODING=BASE64:CANCELLED')),
             ('cancelled event URL path parameters', support.CANCELLED_ICAL.replace(
                 support.EVENT_URL, support.EVENT_URL + ';alternate-record')),
+            ('empty user-info on event URL', support.CANCELLED_ICAL.replace(
+                support.EVENT_URL, support.EVENT_URL.replace('www.', '@www.'))),
             ('calendar VERSION with incompatible encoding', support.EMPTY_ICAL.replace(
                 'VERSION:2.0', 'VERSION;ENCODING=BASE64:2.0')),
             ('calendar invalid LAST-MODIFIED value', support.EMPTY_ICAL.replace(

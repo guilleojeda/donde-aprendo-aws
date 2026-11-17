@@ -167,7 +167,8 @@ def validate_catalog_url(value):
             or re.search(r'[\x00-\x1f\x7f]', value):
         raise ValueError('Invalid catalog URL')
     parsed = urlparse(value)
-    if parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username or parsed.password:
+    if (parsed.scheme not in ('http', 'https') or not parsed.hostname
+            or parsed.username is not None or parsed.password is not None):
         raise ValueError('Unsafe catalog URL')
     try:
         _ = parsed.port
@@ -762,7 +763,9 @@ def scan_items(table, params, budget=None):
             raise ValueError('Invalid DynamoDB Scan LastEvaluatedKey')
         if not cursor:
             return
-        cursor_key = json.dumps(cursor, sort_keys=True, default=str)
+        cursor_key = cursor.get('id')
+        if len(cursor) != 1 or not isinstance(cursor_key, str) or not cursor_key:
+            raise ValueError('Invalid DynamoDB Scan LastEvaluatedKey')
         if cursor_key in seen_cursors:
             raise ValueError('Repeated DynamoDB Scan cursor')
         seen_cursors.add(cursor_key)
@@ -860,7 +863,10 @@ def read_source_inventory(table, budget=None):
 
             previous = source_rows.get(item_id)
             if previous is not None:
-                if previous != item:
+                # DynamoDB flags are Boolean facts. Python equality alone
+                # makes a provider Number such as Decimal(1) equal to True.
+                if previous != item or any(type(previous[key]) is not type(value)
+                                           for key, value in item.items()):
                     unresolved_ids.add(raw_group_id)
                     failures.append(_source_row_error(item, 'contradictory repeated projected ID'))
                     withhold_retractions = True
