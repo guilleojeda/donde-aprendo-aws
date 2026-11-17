@@ -587,6 +587,18 @@ def reject_json_constant(value):
     raise ValueError(f'Invalid JSON constant: {value}')
 
 
+def is_supported_schema_context(context):
+    if isinstance(context, str):
+        return re.fullmatch(r'https?://schema\.org/?', context) is not None
+    if isinstance(context, list):
+        return all(is_supported_schema_context(part) for part in context)
+    return isinstance(context, dict) and all(
+        key in {'@vocab', 'schema'} and isinstance(value, str)
+        and re.fullmatch(r'https?://schema\.org/', value)
+        for key, value in context.items()
+    )
+
+
 def structured_nodes(data):
     if isinstance(data, list):
         for node in data:
@@ -594,6 +606,15 @@ def structured_nodes(data):
         return
     if not isinstance(data, dict):
         raise ValueError('Invalid structured data node')
+    supported_keywords = {'@context', '@type', '@id', '@graph', '@included', '@set', '@index'}
+    if any(key.startswith('@') and key not in supported_keywords for key in data):
+        raise ValueError('Unsupported structured data keyword')
+    if '@context' in data and not is_supported_schema_context(data['@context']):
+        raise ValueError('Unsupported structured data context')
+    if '@index' in data and not isinstance(data['@index'], str):
+        raise ValueError('Invalid structured data index')
+    if '@set' in data and data.keys() - {'@context', '@index', '@set'}:
+        raise ValueError('Invalid structured data set')
     types = data.get('@type', [])
     if isinstance(types, str):
         types = [types]
@@ -624,6 +645,10 @@ def parse_event_page(text, expected_url):
     observed = None
     event_types = ('Event', 'schema:Event', 'https://schema.org/Event', 'http://schema.org/Event')
     details = ('eventStatus', 'name', 'description', 'startDate', 'endDate', 'eventAttendanceMode', 'location')
+    # The observer reads Meetup's literal schema.org fields. Reject alternate
+    # declarations rather than interpreting an incomplete JSON-LD expansion.
+    aliases = {prefix + field for prefix in ('schema:', 'http://schema.org/', 'https://schema.org/')
+               for field in ('url', *details)}
     for script in parser.scripts:
         try:
             data = json.loads(script, object_pairs_hook=unambiguous_json_object,
@@ -633,7 +658,14 @@ def parse_event_page(text, expected_url):
         for node, types in structured_nodes(data):
             if not any(kind in event_types for kind in types):
                 continue
+            if aliases.intersection(node):
+                raise ValueError(f'Unsupported alternate structured Event fields: {expected_url}')
             validate_meetup_transport_url(node.get('url'), expected_path)
+            if '@id' in node:
+                node_id = node['@id']
+                if node_id.startswith('#'):
+                    node_id = urljoin(expected_url, node_id)
+                validate_meetup_transport_url(node_id, expected_path)
             status = node.get('eventStatus')
             fields = ('eventStatus',) if isinstance(status, str) and status in NONPUBLISHABLE_EVENT_STATUSES else details
             observation = tuple(node.get(field) for field in fields)

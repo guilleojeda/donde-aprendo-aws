@@ -70,6 +70,37 @@ class MeetupEventObservationTests(unittest.TestCase):
             ('invalid graph node', script(cancelled) + script({'@graph': [False]}), False),
             ('invalid included node', script(cancelled) + script({'@included': 7}), False),
             ('invalid Event @id', script(dict(cancelled, **{'@id': {}})), False),
+            ('Event URL contradicts its explicit identity', script(dict(cancelled, **{
+                '@id': support.EVENT_URL.replace('/456/', '/457/'),
+            })), False),
+            ('matching Event identity with a fragment', script(dict(cancelled, **{
+                '@id': support.EVENT_URL + '#event', '@context': 'https://schema.org',
+            })), True),
+            ('relative fragment identifies the same Event', script(dict(cancelled, **{
+                '@id': '#event', '@context': {'@vocab': 'https://schema.org/'},
+            })), True),
+            ('invalid context declaration', script(dict(cancelled, **{'@context': 42})), False),
+            ('context changing what Event means', script(dict(cancelled, **{
+                '@context': {'Event': 'https://schema.org/Organization'},
+            })), False),
+            ('ancestor context changing what eventStatus means', script({
+                '@context': {'eventStatus': 'https://schema.org/description'}, '@graph': [cancelled],
+            }), False),
+            ('expanded status contradicts the literal event status', script(dict(cancelled, **{
+                '@context': 'https://schema.org',
+                '@id': support.EVENT_URL + '#event',
+                'https://schema.org/eventStatus': support.PAGE['eventStatus'],
+            })), False),
+            ('prefixed URL contradicts the literal event URL', script(dict(cancelled, **{
+                '@context': {'schema': 'https://schema.org/'},
+                'schema:url': support.EVENT_URL.replace('/456/', '/457/'),
+            })), False),
+            ('nested event facts are outside the admitted shape', script(dict(cancelled, **{
+                '@context': 'https://schema.org',
+                '@id': '#event',
+                '@nest': {'eventStatus': support.PAGE['eventStatus']},
+            })), False),
+
 
             ('equivalent graph serialization', script(cancelled) + script({
                 '@graph': [dict(cancelled, **{'@type': ['Event', 'Thing']})],
