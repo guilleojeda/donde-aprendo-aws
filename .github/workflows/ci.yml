@@ -38,9 +38,11 @@ jobs:
       - run: npm run package:password-reset
       - name: Prepare enriched directory fixture
         run: node tests/fixtures/compact-directory-catalog.mjs > "$RUNNER_TEMP/compact-directory-catalog.json"
+      - run: node --test tests/built-release-command.mjs
       - run: npm run build
         env:
           CATALOG_FIXTURE: ${{ runner.temp }}/compact-directory-catalog.json
+          RELEASE_CONTEXT_FILE: tests/fixtures/release-preview-context.json
           PUBLIC_SUBMISSION_API_URL: https://api.example.invalid/submissions
           PUBLIC_PRODUCTION: 'false'
           PUBLIC_SITE_ORIGIN: https://main.d33kh9d3cyassq.amplifyapp.com
@@ -51,48 +53,55 @@ jobs:
           ACCOUNTS_TABLE: example-accounts
           CREATOR_PROFILES_TABLE: example-profiles
           CREATOR_PHOTOS_BUCKET: example-photos
-          GA4_PROPERTY_ID: '123456789'
-          GA4_CREDENTIALS_SECRET_ARN: 'arn:aws:secretsmanager:us-east-1:000000000000:secret:creator-statistics-ci-placeholder-abcdef'
-          CREATOR_ANALYTICS_CAPTURE_STARTED_AT: '2000-01-01T00:00:00.000Z'
       - run: npm run verify:blog
         env:
-          PUBLIC_PRODUCTION: 'false'
-          PUBLIC_SITE_ORIGIN: https://main.d33kh9d3cyassq.amplifyapp.com
-      - run: npm run verify:site
-        env:
-          DIRECTORY_ACCEPTANCE_FIXTURE_MODE: enriched
-          PUBLIC_PRODUCTION: 'false'
-          PUBLIC_SITE_ORIGIN: https://main.d33kh9d3cyassq.amplifyapp.com
-      - run: npm run build
-        env:
-          CATALOG_FIXTURE: ${{ runner.temp }}/compact-directory-catalog.json
+          RELEASE_CONTEXT_FILE: tests/fixtures/release-preview-context.json
           PUBLIC_SUBMISSION_API_URL: https://api.example.invalid/submissions
-          PUBLIC_PRODUCTION: 'true'
-          PUBLIC_SITE_ORIGIN: https://dondeaprendoaws.com
-          # Invalid sentinels: verify:preview checks they never enter the artifact.
-          AWS_ACCESS_KEY_ID: mixed-preview-dummy-access-key-not-valid
-          AWS_SECRET_ACCESS_KEY: mixed-preview-dummy-secret-not-valid
-          AWS_SESSION_TOKEN: mixed-preview-dummy-session-not-valid
-          ACCOUNT_ORIGIN: https://dondeaprendoaws.com
-          COGNITO_ISSUER: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_EXAMPLE
-          COGNITO_CLIENT_ID: example-client-id
-          COGNITO_DOMAIN: https://example.auth.us-east-1.amazoncognito.com
-          ACCOUNTS_TABLE: example-accounts
-          CREATOR_PROFILES_TABLE: example-profiles
-          CREATOR_PHOTOS_BUCKET: example-photos
-          GA4_PROPERTY_ID: '123456789'
-          GA4_CREDENTIALS_SECRET_ARN: 'arn:aws:secretsmanager:us-east-1:000000000000:secret:creator-statistics-ci-placeholder-abcdef'
-          CREATOR_ANALYTICS_CAPTURE_STARTED_AT: '2000-01-01T00:00:00.000Z'
-      - run: npm run verify:blog
-        env:
-          PUBLIC_PRODUCTION: 'true'
-          PUBLIC_SITE_ORIGIN: https://dondeaprendoaws.com
+          PUBLIC_PRODUCTION: 'false'
+          PUBLIC_SITE_ORIGIN: https://main.d33kh9d3cyassq.amplifyapp.com
       - run: npm run verify:site
         env:
           DIRECTORY_ACCEPTANCE_FIXTURE_MODE: enriched
-          PUBLIC_PRODUCTION: 'true'
-          PUBLIC_SITE_ORIGIN: https://dondeaprendoaws.com
+          RELEASE_CONTEXT_FILE: tests/fixtures/release-preview-context.json
+          PUBLIC_SUBMISSION_API_URL: https://api.example.invalid/submissions
+          PUBLIC_PRODUCTION: 'false'
+          PUBLIC_SITE_ORIGIN: https://main.d33kh9d3cyassq.amplifyapp.com
+      - name: Verify preview generated output independently
+        run: node --test tests/built-deployment-context.mjs
+        env:
+          RELEASE_CONTEXT_FILE: tests/fixtures/release-preview-context.json
       - run: npm prune --omit=dev
       - run: mv node_modules ./.amplify-hosting/compute/default/node_modules
-      - run: npm run verify:hosting
-      - run: npm run verify:preview
+      - name: Verify packaged preview and runtime boundary
+        run: node --test tests/built-release-contract.mjs && npm run verify:preview
+        env:
+          RELEASE_CONTEXT_FILE: tests/fixtures/release-preview-context.json
+          ACCOUNT_ORIGIN: https://dondeaprendoaws.com
+      - run: mv ./.amplify-hosting/compute/default/node_modules ./node_modules
+      - run: npm ci
+      - name: Build through the production-shaped catalog SDK fixture
+        run: node tests/fixtures/hosting-release-dynamodb.mjs --catalog "$RUNNER_TEMP/compact-directory-catalog.json" --release-context tests/fixtures/release-production-context.json -- npm run build
+      - run: npm run verify:blog
+        env:
+          RELEASE_CONTEXT_FILE: tests/fixtures/release-production-context.json
+          PUBLIC_SUBMISSION_API_URL: https://api.example.invalid/submissions
+          PUBLIC_PRODUCTION: 'true'
+          PUBLIC_SITE_ORIGIN: https://dondeaprendoaws.com
+      - run: npm run verify:site
+        env:
+          DIRECTORY_ACCEPTANCE_FIXTURE_MODE: enriched
+          RELEASE_CONTEXT_FILE: tests/fixtures/release-production-context.json
+          PUBLIC_SUBMISSION_API_URL: https://api.example.invalid/submissions
+          PUBLIC_PRODUCTION: 'true'
+          PUBLIC_SITE_ORIGIN: https://dondeaprendoaws.com
+      - name: Verify production-shaped generated output
+        run: node --test tests/built-deployment-context.mjs
+        env:
+          RELEASE_CONTEXT_FILE: tests/fixtures/release-production-context.json
+      - run: npm prune --omit=dev
+      - run: mv node_modules ./.amplify-hosting/compute/default/node_modules
+      - name: Verify packaged production-shaped release
+        run: npm run verify:hosting && node --test tests/built-release-contract.mjs && npm run verify:preview
+        env:
+          RELEASE_CONTEXT_FILE: tests/fixtures/release-production-context.json
+          ACCOUNT_ORIGIN: https://dondeaprendoaws.com

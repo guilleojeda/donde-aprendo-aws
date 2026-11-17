@@ -14,7 +14,7 @@ import unittest
 from contextlib import redirect_stdout
 from types import SimpleNamespace
 from unittest.mock import patch
-from zipfile import ZipFile
+from zipfile import ZIP_STORED, ZipFile
 
 import test_meetup_events as meetup_support
 
@@ -50,6 +50,12 @@ class MeetupPackageTests(unittest.TestCase):
                 with ZipFile(target) as archive:
                     self.assertEqual(archive.namelist(), ['index.py'])
                     self.assertEqual(archive.read('index.py'), source_bytes)
+                    entry = archive.getinfo('index.py')
+                    self.assertEqual(entry.date_time, (1980, 1, 1, 0, 0, 0))
+                    self.assertEqual(entry.create_system, 3)
+                    self.assertEqual(entry.external_attr, 0o100644 << 16)
+                    self.assertEqual(entry.internal_attr, 0)
+                    self.assertEqual(entry.compress_type, ZIP_STORED)
 
             build_archive(first_archive)
             os.chmod(source_copy, 0o700)

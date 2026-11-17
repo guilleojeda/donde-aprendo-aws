@@ -5,7 +5,9 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { configuredAccountOrigin } from '../src/lib/amplify-security.mjs';
+import { parseEnv } from 'node:util';
+import deployment from '../config/deployment.json' with { type: 'json' };
+import { canonicalRuntimeValue, readReleaseContextFile, selectReleaseContext } from './lib/deployment-context.mjs';
 import { getCertificationPages } from '../src/lib/certifications.mjs';
 import { siteOutputRoot } from './lib/site-output.mjs';
 
@@ -13,8 +15,17 @@ const root = resolve('.amplify-hosting');
 const computeRoot = resolve(root, 'compute/default');
 const manifest = JSON.parse(readFileSync(resolve(root, 'deploy-manifest.json'), 'utf8'));
 const routingRules = JSON.parse(readFileSync(resolve('config/amplify-custom-rules.json'), 'utf8'));
-const accountOrigin = configuredAccountOrigin();
+const independentReleaseContext = process.env.RELEASE_CONTEXT_FILE
+  ? await readReleaseContextFile(process.env) : undefined;
+const releaseContext = await selectReleaseContext({ env: process.env, deployment, releaseContext: independentReleaseContext });
+const accountOrigin = releaseContext.runtimeEnvironment.ACCOUNT_ORIGIN;
 const accountHost = new URL(accountOrigin).host;
+// The account and creator SSR routes create the creator runtime before they
+// check an anonymous session. Its catalog table is the only optional preview
+// setting required to create that runtime; analytics remains lazy.
+const previewCatalogUnavailable = releaseContext.mode === 'preview' && !releaseContext.runtimeEnvironment.CATALOG_TABLE;
+const anonymousCreatorStatus = previewCatalogUnavailable ? 503 : 401;
+const anonymousCreatorError = previewCatalogUnavailable ? 'SERVICE_UNAVAILABLE' : 'AUTH_REQUIRED';
 const allowedRuntimeEnvironment = [
   'ACCOUNT_ORIGIN',
   'COGNITO_ISSUER',
@@ -28,30 +39,11 @@ const allowedRuntimeEnvironment = [
   'GA4_CREDENTIALS_SECRET_ARN',
   'CREATOR_ANALYTICS_CAPTURE_STARTED_AT',
 ];
-const optionalRuntimeEnvironment = new Set([
-  'CATALOG_TABLE',
-  'GA4_PROPERTY_ID',
-  'GA4_CREDENTIALS_SECRET_ARN',
-  'CREATOR_ANALYTICS_CAPTURE_STARTED_AT',
-]);
-const requiredRuntimeEnvironment = allowedRuntimeEnvironment.filter((name) => !optionalRuntimeEnvironment.has(name));
 const runtimeEnvironment = readFileSync(resolve(computeRoot, '.env'), 'utf8');
-const runtimeEnvironmentNames = runtimeEnvironment.split(/\r?\n/u)
-  .filter((line) => line.trim() && !line.trim().startsWith('#'))
-  .map((line) => line.slice(0, line.indexOf('=')))
-  .sort();
-const runtimeEnvironmentValues = runtimeEnvironment.split(/\r?\n/u)
-  .filter((line) => line.trim() && !line.trim().startsWith('#'))
-  .map((line) => {
-    const value = line.slice(line.indexOf('=') + 1);
-    if (!value.startsWith('"')) return value;
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value.slice(1, -1);
-    }
-  })
-  .filter(Boolean);
+const packagedRuntimeEnvironment = parseEnv(runtimeEnvironment);
+const runtimeEnvironmentNames = Object.keys(packagedRuntimeEnvironment).sort();
+const expectedRuntimeNames = Object.keys(releaseContext.runtimeEnvironment).sort();
+const runtimeEnvironmentValues = Object.values(packagedRuntimeEnvironment).filter(Boolean);
 
 assert.equal(manifest.version, 1, 'Amplify deployment manifest version.');
 assert.deepEqual(manifest.routes.map(({ path }) => path), ['/assets/*', '/*.*', '/*'], 'Amplify manifest routing order.');
@@ -79,8 +71,14 @@ assert.equal(nativePhotoCheck.status, 0,
   `The packaged Sharp native binary must decode and encode WebP on this deployment platform: ${nativePhotoCheck.stderr}`);
 assert.ok(runtimeEnvironmentNames.every((name) => allowedRuntimeEnvironment.includes(name)),
   'Only the approved runtime variables are packaged.');
-assert.ok(requiredRuntimeEnvironment.every((name) => runtimeEnvironmentNames.includes(name)),
-  'All baseline runtime configuration is packaged; catalog and creator analytics configuration are optional.');
+assert.deepEqual(runtimeEnvironmentNames, expectedRuntimeNames,
+  `The packaged runtime fields match the independent ${releaseContext.mode} release context.`);
+for (const name of expectedRuntimeNames) {
+  assert.ok(packagedRuntimeEnvironment[name]?.trim(), `${name} is nonempty in the packaged runtime configuration.`);
+  assert.equal(canonicalRuntimeValue(name, packagedRuntimeEnvironment[name]),
+    canonicalRuntimeValue(name, releaseContext.runtimeEnvironment[name]),
+    `${name} in the packaged runtime configuration matches the independent release target.`);
+}
 assert.doesNotMatch(runtimeEnvironment, /AWS_(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY|SESSION_TOKEN)|-----BEGIN [A-Z ]*PRIVATE KEY-----/u,
   'The runtime environment file does not contain credentials.');
 
@@ -178,9 +176,6 @@ const childEnvironment = {
   ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
   ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
   NODE_ENV: 'production',
-  // Fixture builds cannot set a live catalog table. Supply an inert identifier
-  // here to exercise anonymous SSR boundaries without contacting DynamoDB.
-  CATALOG_TABLE: 'hosting-verification-catalog',
   HOST: '127.0.0.1',
   PORT: String(port),
 };
@@ -245,7 +240,12 @@ try {
   for (const path of ['/cuenta/administracion/']) {
     const response = await getWhenReady(path);
     const html = await response.text();
-    assert.equal(response.status, 401, `${path} requires a real session.`);
+    assert.equal(response.status, anonymousCreatorStatus,
+      previewCatalogUnavailable
+        ? `${path} reports the declared preview catalog gap before authentication.`
+        : `${path} rejects an anonymous visitor before loading protected data.`);
+    assert.match(html, previewCatalogUnavailable ? /No pudimos cargar administración/u : /Inicia sesión/u,
+      `${path} keeps its existing response for the declared runtime configuration.`);
     assert.match(response.headers.get('cache-control') ?? '', /private.*no-store/iu);
     assert.match(html, /noindex/u);
     assert.doesNotMatch(html, /src="\/assets\/analytics\.js"/u, 'Private creator pages do not load Analytics.');
@@ -284,14 +284,31 @@ try {
       ...(isPhoto ? { body: '{"version":1}' } : {}),
       signal: AbortSignal.timeout(3000),
     });
-    assert.equal(response.status, 401, `${path} requires a real session.`);
+    assert.equal(response.status, anonymousCreatorStatus,
+      previewCatalogUnavailable
+        ? `${path} reports the declared preview catalog gap before authentication.`
+        : `${path} requires a real session.`);
+    assert.equal((await response.json()).error, anonymousCreatorError, `${path} keeps its expected anonymous or unavailable error.`);
     assert.match(response.headers.get('cache-control') ?? '', /private.*no-store/iu);
   }
   const malformedCreator = await getWhenReady('/c/a/');
-  assert.equal(malformedCreator.status, 404, 'An invalid public slug has a real 404.');
+  const malformedCreatorHtml = await malformedCreator.text();
+  assert.equal(malformedCreator.status, previewCatalogUnavailable ? 503 : 404,
+    previewCatalogUnavailable
+      ? 'Public creator handling reports the declared preview catalog gap before validating the slug.'
+      : 'An invalid public slug has a real 404.');
   assert.match(malformedCreator.headers.get('cache-control') ?? '', /no-store/iu);
+  if (previewCatalogUnavailable) {
+    assert.match(malformedCreatorHtml, /No pudimos cargar esta página/u);
+    assert.match(malformedCreatorHtml, /<meta name="robots" content="noindex/u);
+    assertRuntimeTheme(malformedCreatorHtml, 'Unavailable public creator page');
+  }
   const malformedPhoto = await getWhenReady('/media/fotos/invalid.id/unknown.webp');
-  assert.equal(malformedPhoto.status, 404, 'The media route rejects arbitrary identifiers.');
+  assert.equal(malformedPhoto.status, previewCatalogUnavailable ? 503 : 404,
+    previewCatalogUnavailable
+      ? 'Photo handling reports the declared preview catalog gap before validating the object identifier.'
+      : 'The media route rejects arbitrary identifiers.');
+  assert.match(malformedPhoto.headers.get('cache-control') ?? '', /no-store/iu);
   const rejectedCreatorWrite = await fetch(new URL('/api/creador/perfil/', origin), {
     method: 'POST', headers: { origin: 'https://attacker.example', host: accountHost, 'x-forwarded-host': accountHost, 'x-forwarded-proto': 'https', 'content-type': 'application/x-www-form-urlencoded' },
     body: '', signal: AbortSignal.timeout(3000),
@@ -377,4 +394,4 @@ if (runtimeError) {
   throw new Error(`${runtimeError.message}${details}`, { cause: runtimeError });
 }
 
-console.log(`Verified Amplify manifest, static inventory, runtime environment allowlist, ${ (computeBytes / 1_000_000).toFixed(1) } MB compute bundle, and built account/404 runtime responses.`);
+console.log(`Verified Amplify manifest, static inventory, ${releaseContext.mode} runtime configuration, ${(computeBytes / 1_000_000).toFixed(1)} MB compute bundle, and built account/404 runtime responses.`);

@@ -1,10 +1,16 @@
 import { createHash } from 'node:crypto';
 
 const FINISHED_JOBS = new Set(['SUCCEED', 'FAILED', 'CANCELLED']);
+const JOB_STATUSES = new Set([
+  'CREATED', 'PENDING', 'PROVISIONING', 'RUNNING', 'CANCELLING', 'CANCELLED', 'FAILED', 'SUCCEED',
+]);
 const MANIFEST_PATH = '/catalog-publication.json';
 const MAX_MANIFEST_BYTES = 1024;
 const MANIFEST_TIMEOUT_MS = 5000;
 const HASH_PATTERN = /^[a-f0-9]{64}$/iu;
+
+/** Sentinel for a modeled Amplify GetJob NotFoundException/404 from the adapter. */
+export const MISSING_AMPLIFY_JOB = Symbol('missing Amplify job');
 
 /** Serialize scheduled and manual invocations with a short DynamoDB lease. */
 export async function withPublicationLock({ acquire, release, run }) {
@@ -93,28 +99,40 @@ export async function synchronizePublication({
   markStarted,
   markSucceeded,
   markFailed,
+  markMissing,
   getJob,
   listJobs,
   startJob,
   now = () => new Date(),
 }) {
   const state = (await readState()) ?? {};
+  let jobs;
 
   if (state.pendingJobId) {
-    const job = await getJob(state.pendingJobId);
-    if (!job?.status) throw new Error(`Amplify job ${state.pendingJobId} has no status`);
-    if (!FINISHED_JOBS.has(job.status)) {
-      return { action: 'waiting', jobId: state.pendingJobId, status: job.status };
+    const pendingJobId = state.pendingJobId;
+    const job = await getJob(pendingJobId);
+    if (job === MISSING_AMPLIFY_JOB) {
+      jobs = validateJobList(await listJobs());
+      if (jobs.some((listed) => listed.jobId === pendingJobId)) {
+        throw new Error(`Amplify job ${pendingJobId} is listed after GetJob reported it missing`);
+      }
+      await markMissing(pendingJobId);
+    } else {
+      if (!isJobSummary(job) || job.jobId !== pendingJobId) {
+        throw new Error(`Amplify job ${pendingJobId} returned a malformed summary`);
+      }
+      if (!FINISHED_JOBS.has(job.status)) {
+        return { action: 'waiting', jobId: pendingJobId, status: job.status };
+      }
+      if (job.status !== 'SUCCEED') {
+        await markFailed(pendingJobId, job.status);
+        throw new Error(`Amplify publication job ${pendingJobId} ${job.status}; inspect it before retrying`);
+      }
+      await markSucceeded(pendingJobId);
     }
-    if (job.status !== 'SUCCEED') {
-      await markFailed(state.pendingJobId, job.status);
-      throw new Error(`Amplify publication job ${state.pendingJobId} ${job.status}; inspect it before retrying`);
-    }
-    await markSucceeded(state.pendingJobId);
   }
 
-  const jobs = await listJobs();
-  if (!Array.isArray(jobs)) throw new Error('Amplify did not return a job list');
+  if (!jobs) jobs = validateJobList(await listJobs());
   const active = jobs.find((job) => !FINISHED_JOBS.has(job.status));
   if (active) return { action: 'deferred', jobId: active.jobId, status: active.status };
 
@@ -129,6 +147,23 @@ export async function synchronizePublication({
   if (!started?.jobId) throw new Error('Amplify did not return a build job ID');
   await markStarted(started.jobId);
   return { action: 'started', jobId: started.jobId, hash };
+}
+
+function isJobSummary(job) {
+  return job !== null && typeof job === 'object' && !Array.isArray(job)
+    && typeof job.jobId === 'string' && /^\d+$/u.test(job.jobId)
+    && JOB_STATUSES.has(job.status);
+}
+
+function validateJobList(jobs) {
+  if (!Array.isArray(jobs)) throw new Error('Amplify did not return a job list');
+  const seenJobIds = new Set();
+  for (const job of jobs) {
+    if (!isJobSummary(job)) throw new Error('Amplify returned a malformed job list member');
+    if (seenJobIds.has(job.jobId)) throw new Error(`Amplify returned duplicate job ${job.jobId} in its job list`);
+    seenJobIds.add(job.jobId);
+  }
+  return jobs;
 }
 
 function validateManifestUrl(value) {

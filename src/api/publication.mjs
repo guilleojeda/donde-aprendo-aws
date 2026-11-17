@@ -3,7 +3,12 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { randomUUID } from 'node:crypto';
 import { loadCatalog } from '../lib/catalog.mjs';
-import { readPublishedCatalogHash, synchronizePublication, withPublicationLock } from '../lib/publication.mjs';
+import {
+  MISSING_AMPLIFY_JOB,
+  readPublishedCatalogHash,
+  synchronizePublication,
+  withPublicationLock,
+} from '../lib/publication.mjs';
 
 export const PUBLICATION_STATE_ID = '__system#publication';
 
@@ -86,9 +91,30 @@ export async function handler() {
           ExpressionAttributeValues: { ':jobId': jobId, ':status': status },
         }));
       },
+      markMissing: async (jobId) => {
+        await catalog.send(new UpdateCommand({
+          TableName: tableName,
+          Key: { id: PUBLICATION_STATE_ID },
+          UpdateExpression: 'SET lastFailureJobId = :jobId, lastFailureStatus = :status REMOVE pendingJobId, publishedHash, pendingHash',
+          ConditionExpression: 'pendingJobId = :jobId AND lockToken = :token AND lockUntil > :now',
+          ExpressionAttributeValues: {
+            ':jobId': jobId,
+            ':status': 'NOT_FOUND',
+            ':token': lockToken,
+            ':now': Math.floor(Date.now() / 1000),
+          },
+        }));
+      },
       getJob: async (jobId) => {
-        const { job } = await amplify.send(new GetJobCommand({ appId, branchName, jobId }));
-        return job?.summary;
+        try {
+          const { job } = await amplify.send(new GetJobCommand({ appId, branchName, jobId }));
+          return job?.summary;
+        } catch (error) {
+          if (error?.name === 'NotFoundException' && error?.$metadata?.httpStatusCode === 404) {
+            return MISSING_AMPLIFY_JOB;
+          }
+          throw error;
+        }
       },
       listJobs: async () => {
         const { jobSummaries } = await amplify.send(new ListJobsCommand({ appId, branchName, maxResults: 20 }));

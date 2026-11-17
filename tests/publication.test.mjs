@@ -631,6 +631,8 @@ test('publication handler retires only a corroborated missing job under its curr
       { name: 'GetJob transport timeout', getJob: { reset: true } },
       { name: 'empty GetJob success', getJob: { statusCode: 200, body: '' } },
       { name: 'GetJob success without a summary', getJob: { statusCode: 200, body: {} } },
+      { name: 'GetJob success with a null job', getJob: { statusCode: 200, body: { job: null } } },
+      { name: 'GetJob success with a null summary', getJob: { statusCode: 200, body: { job: { summary: null } } } },
       { name: 'malformed GetJob success', getJob: { statusCode: 200, body: '{' } },
       {
         name: 'inaccessible listing',

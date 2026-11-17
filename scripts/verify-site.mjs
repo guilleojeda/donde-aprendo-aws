@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import deployment from '../config/deployment.json' with { type: 'json' };
+import { readReleaseContextFile, selectReleaseContext } from './lib/deployment-context.mjs';
 import { COUNTRY_SLUGS } from '../src/lib/community-country-pages.mjs';
 import { COUNTRY_LABELS } from '../src/lib/resource-discovery.mjs';
 import { RESOURCE_COLLECTIONS, learningCollectionNavigation, resourceCollectionResources, groupCertificationResources, resolveResourceCollectionFaq } from '../src/lib/resource-collections.mjs';
@@ -13,8 +14,11 @@ import { getCertificationPages } from '../src/lib/certifications.mjs';
 import { LEARNING_PATHS, learningPathHref } from '../src/lib/learning-paths.mjs';
 import { siteOutputRoot } from './lib/site-output.mjs';
 
-const production = process.env.PUBLIC_PRODUCTION === 'true';
-const mediaOrigin = new URL(process.env.PUBLIC_SITE_ORIGIN || `https://${deployment.branchName}.${deployment.appId}.amplifyapp.com`).origin;
+const independentReleaseContext = process.env.RELEASE_CONTEXT_FILE
+  ? await readReleaseContextFile(process.env) : undefined;
+const releaseContext = await selectReleaseContext({ env: process.env, deployment, releaseContext: independentReleaseContext });
+const production = releaseContext.mode !== 'preview';
+const mediaOrigin = releaseContext.siteOrigin;
 const dist = siteOutputRoot;
 const customHeaders = parseYaml(readFileSync('customHttp.yml', 'utf8'));
 assert.deepEqual(customHeaders, {
