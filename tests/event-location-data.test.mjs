@@ -10,7 +10,7 @@ const directoryAttributes = [
 const meetupEventAttributes = [
   'id', 'recordType', 'title', 'description', 'startsAt', 'endsAt', 'timeZone', 'url', 'country', 'kind',
   'published', 'sourceGroupId', 'sourceModifiedAt', 'autoSync', 'organizer', 'mode', 'registrationUrl',
-  'communityId', 'place', 'city', 'venueCountry', 'approvalRevoked', 'version',
+  'communityId', 'place', 'city', 'venueCountry', 'approvalRevoked', 'version', 'meetupSourceUrl',
 ];
 
 async function scanAttributes(path) {
@@ -41,7 +41,7 @@ test('catalog and publication scan allowlists expose only the public fields, inc
   }
 });
 
-test('Meetup event scan allowlist includes venueCountry without widening its projected fields', async () => {
+test('Meetup event scan allowlist includes venueCountry and the private source locator', async () => {
   const [attributes] = await scanAttributes('../infra/meetup-events.yaml');
   assert.deepEqual([...attributes].sort(), [...meetupEventAttributes].sort());
   assert.ok(attributes.includes('city'));
