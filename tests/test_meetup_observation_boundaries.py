@@ -325,6 +325,41 @@ class MeetupObservationBoundaries(unittest.TestCase):
                 ])
                 self.assertEqual(len(invocations), 1)
 
+    def test_malformed_source_key_does_not_hide_later_valid_source(self):
+        valid = {
+            'id': 'meetup-123', 'title': support.GROUP['name'], 'url': support.GROUP['url'],
+            'meetupSourceUrl': support.GROUP['url'], 'country': 'CO', 'kind': 'community',
+            'published': True,
+        }
+        bad = dict(valid, id='meetup-legacy-invalid ',
+                   meetupSourceUrl='https://www.meetup.com/aws-malformed/')
+        cancelled = support.existing_event(
+            starts_at='2099-01-01T18:00:00-05:00', ends_at='2099-01-01T20:00:00-05:00')
+        preserved = dict(cancelled, id='meetup-event-789')
+        for malformed in (bad, dict(bad, id=456)):
+            with self.subTest(malformed=malformed['id']):
+                table = support.FakeTable([malformed, valid, cancelled, preserved])
+                invocations = []
+                boto3 = support.fake_boto3(table, invocations)
+                output = StringIO()
+                with patch.dict(sys.modules, support.fake_aws_modules(boto3)), \
+                        patch.dict(os.environ, {
+                            'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication',
+                        }), \
+                        patch.object(meetup, 'get_text', return_value=support.CANCELLED_ICAL) as transport, \
+                        redirect_stdout(output):
+                    with self.assertRaisesRegex(RuntimeError, 'Meetup sources failed'):
+                        meetup.lambda_handler({}, support.lambda_context())
+
+                result = json.loads(output.getvalue())
+                self.assertEqual((result['feedsRead'], result['changed']), (1, 1))
+                self.assertFalse(result['metrics']['sharedScanComplete'])
+                self.assertEqual(len(transport.call_args_list), 1)
+                self.assertEqual(transport.call_args.args[0], meetup.group_feed_url(support.GROUP))
+                self.assertFalse(table.existing[cancelled['id']]['published'])
+                self.assertEqual(table.existing[preserved['id']], preserved)
+                self.assertEqual(len(invocations), 1)
+
     def test_non_group_automatic_owner_cannot_reach_source_removal(self):
         prior = support.existing_event(
             starts_at='2099-01-01T18:00:00+00:00',

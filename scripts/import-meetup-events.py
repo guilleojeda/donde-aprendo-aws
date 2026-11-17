@@ -348,8 +348,14 @@ def parse_calendar(text, group):
     content_line = re.compile(
         rf'(?P<name>{token})(?P<parameters>(?:;{token}={parameter_value})*):'
         rf'(?P<value>[^\r\n\x00-\x08\x0a-\x1f\x7f]*)\Z')
+    parameter_line = re.compile(
+        rf';(?P<name>{token})=(?P<value>{parameter_value})(?=;|\Z)', re.I)
     event_singletons = frozenset({'UID', 'URL', 'STATUS', 'LAST-MODIFIED'})
     calendar_singletons = frozenset({'VERSION', 'TZID'})
+    consumed_value_types = {
+        'VERSION': 'TEXT', 'TZID': 'TEXT', 'UID': 'TEXT',
+        'URL': 'URI', 'STATUS': 'TEXT', 'LAST-MODIFIED': 'DATE-TIME',
+    }
     events = {}
     components = []
     calendar_properties = {}
@@ -359,6 +365,28 @@ def parse_calendar(text, group):
 
     def invalid_feed():
         raise ValueError(invalid_message)
+
+    def validate_consumed_value_type(name, parameters):
+        """Reject a declared VALUE type that cannot represent this property."""
+        expected = consumed_value_types.get(name)
+        if expected is None or not parameters:
+            return
+        declared = None
+        position = 0
+        while position < len(parameters):
+            match = parameter_line.match(parameters, position)
+            if match is None:
+                invalid_feed()
+            if match.group('name').upper() == 'VALUE':
+                if declared is not None:
+                    invalid_feed()
+                raw_value = match.group('value')
+                if raw_value.startswith('"') or ',' in raw_value:
+                    invalid_feed()
+                declared = raw_value.upper()
+            position = match.end()
+        if declared is not None and declared != expected:
+            invalid_feed()
 
     def record_property(target, name, value, singleton_names):
         if name in singleton_names and name in target:
@@ -425,7 +453,8 @@ def parse_calendar(text, group):
             invalid_feed()
         name = match.group('name').upper()
         value = match.group('value')
-        has_parameters = bool(match.group('parameters'))
+        parameters = match.group('parameters')
+        has_parameters = bool(parameters)
         if name in {'BEGIN', 'END'}:
             if has_parameters or not re.fullmatch(token, value):
                 invalid_feed()
@@ -449,10 +478,13 @@ def parse_calendar(text, group):
                     current = None
                 components.pop()
         elif components == ['VCALENDAR', 'VEVENT'] and current is not None:
+            validate_consumed_value_type(name, parameters)
             record_property(current, name, value, event_singletons)
         elif components == ['VCALENDAR']:
+            validate_consumed_value_type(name, parameters)
             record_property(calendar_properties, name, value, calendar_singletons)
         elif components == ['VCALENDAR', 'VTIMEZONE'] and name == 'TZID' and time_zone is None:
+            validate_consumed_value_type(name, parameters)
             time_zone = value
         elif components:
             # Properties nested in VALARM, VTIMEZONE, or extension components
@@ -630,8 +662,9 @@ def scan_items(table, params, budget=None):
 
 def load_groups_from_dynamodb(table, budget=None):
     inventory = read_source_inventory(table, budget)
-    if inventory.error is not None:
-        raise inventory.error
+    error = inventory.error or inventory.row_error
+    if error is not None:
+        raise error
     return inventory.groups
 
 
@@ -680,7 +713,11 @@ def read_source_inventory(table, budget=None):
         for item in items:
             item_id = item.get('id')
             if not isinstance(item_id, str) or not item_id:
-                raise ValueError('Invalid catalog item ID in the Meetup source scan')
+                detail = 'Invalid catalog item ID in the Meetup source scan'
+                failures.append(detail)
+                row_error = row_error or ValueError(detail)
+                withhold_retractions = True
+                continue
             if not item_id.startswith('meetup-'):
                 continue
 
@@ -693,7 +730,6 @@ def read_source_inventory(table, budget=None):
             # its locator ambiguous even when its membership is malformed or
             # a later observation of the same ID contradicts an earlier one.
             if not is_event_id and (kind == 'community' or re.fullmatch(r'[0-9]+', raw_group_id)):
-                meetup_community_resource_id(raw_group_id)
                 try:
                     if not isinstance(locator, str):
                         raise ValueError('missing or invalid meetupSourceUrl')
@@ -704,6 +740,14 @@ def read_source_inventory(table, budget=None):
                     locator_error = error
                 else:
                     locator_owners.setdefault(canonical_locator.casefold(), set()).add(raw_group_id)
+                try:
+                    meetup_community_resource_id(raw_group_id)
+                except ValueError as error:
+                    unresolved_ids.add(raw_group_id)
+                    failures.append(_source_row_error(item, str(error)))
+                    row_error = row_error or error
+                    withhold_retractions = True
+                    continue
 
             previous = source_rows.get(item_id)
             if previous is not None:
