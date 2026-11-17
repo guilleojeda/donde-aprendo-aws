@@ -591,11 +591,23 @@ def structured_nodes(data):
     if isinstance(data, list):
         for node in data:
             yield from structured_nodes(node)
-    elif isinstance(data, dict):
-        yield data
-        for key in ('@graph', '@included', '@set'):
-            if key in data:
-                yield from structured_nodes(data[key])
+        return
+    if not isinstance(data, dict):
+        raise ValueError('Invalid structured data node')
+    types = data.get('@type', [])
+    if isinstance(types, str):
+        types = [types]
+    if not isinstance(types, list) or any(
+            not isinstance(kind, str) or not kind or re.search(r'[\s\x00-\x1f\x7f]', kind) for kind in types):
+        raise ValueError('Invalid structured data type declaration')
+    if '@id' in data:
+        identity = data['@id']
+        if not isinstance(identity, str) or not identity or re.search(r'[\s\x00-\x1f\x7f]', identity):
+            raise ValueError('Invalid structured data identity')
+    yield data, types
+    for key in ('@graph', '@included', '@set'):
+        if key in data:
+            yield from structured_nodes(data[key])
 
 
 def parse_event_page(text, expected_url):
@@ -618,10 +630,7 @@ def parse_event_page(text, expected_url):
                               parse_constant=reject_json_constant)
         except ValueError as error:
             raise ValueError(f'Invalid structured data for {expected_url}: {error}') from error
-        for node in structured_nodes(data):
-            types = node.get('@type')
-            if not isinstance(types, list):
-                types = [types]
+        for node, types in structured_nodes(data):
             if not any(kind in event_types for kind in types):
                 continue
             validate_meetup_transport_url(node.get('url'), expected_path)

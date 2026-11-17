@@ -63,6 +63,14 @@ class MeetupEventObservationTests(unittest.TestCase):
             ('conflicting expanded event type', script(cancelled) + script({
                 '@graph': [dict(support.PAGE, **{'@type': ['https://schema.org/Event']})],
             }), False),
+            ('invalid Event type array', script(dict(cancelled, **{'@type': ['Event', 7]})), False),
+            ('invalid Event type object', script(dict(cancelled, **{'@type': ['Event', {}]})), False),
+            ('nested Event type array', script(dict(cancelled, **{'@type': ['Event', ['Thing']]})), False),
+            ('blank Event type', script(dict(cancelled, **{'@type': ['Event', ' ']})), False),
+            ('invalid graph node', script(cancelled) + script({'@graph': [False]}), False),
+            ('invalid included node', script(cancelled) + script({'@included': 7}), False),
+            ('invalid Event @id', script(dict(cancelled, **{'@id': {}})), False),
+
             ('equivalent graph serialization', script(cancelled) + script({
                 '@graph': [dict(cancelled, **{'@type': ['Event', 'Thing']})],
             }), True),
