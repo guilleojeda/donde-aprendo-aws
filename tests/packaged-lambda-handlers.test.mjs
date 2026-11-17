@@ -22,11 +22,13 @@ const packageEnvKeys = [
   'AMPLIFY_APP_ID', 'AMPLIFY_BRANCH', 'PUBLICATION_MANIFEST_URL',
 ];
 
-test('submission Lambda archive handler writes a pending catalog record and URL reservation', async () => {
+test('submission Lambda archive persists an atomic pair and leaves a lost receipt unconfirmed', async () => {
   const temporaryDirectory = await mkdtemp(join(tmpdir(), 'submission-archive-'));
   const records = new Map();
   const requests = [];
   let transactionCount = 0;
+  let loseReceipt = false;
+  let lostAttempt;
   const server = createServer(async (request, response) => {
     try {
       const chunks = [];
@@ -54,9 +56,20 @@ test('submission Lambda archive handler writes a pending catalog record and URL 
       assert.equal(resourcePut.Item.version.N, '1');
       assert.equal(reservationPut.Item.resourceId.S, resourcePut.Item.id.S);
       assert.equal(reservationPut.Item.status.S, 'reserved');
+      assert.equal(resourcePut.ConditionExpression, 'attribute_not_exists(#id)');
+      assert.equal(reservationPut.ConditionExpression, 'attribute_not_exists(#id)');
+      transactionCount += 1;
+      if (records.has(resourcePut.Item.id.S) || records.has(reservationPut.Item.id.S)) {
+        sendDynamo(response, { CancellationReasons: [{ Code: 'ConditionalCheckFailed' }] }, 400, 'TransactionCanceledException');
+        return;
+      }
       records.set(resourcePut.Item.id.S, resourcePut.Item);
       records.set(reservationPut.Item.id.S, reservationPut.Item);
-      transactionCount += 1;
+      if (loseReceipt) {
+        lostAttempt = { resourceId: resourcePut.Item.id.S, reservationId: reservationPut.Item.id.S };
+        response.destroy();
+        return;
+      }
       sendDynamo(response, {});
     } catch (error) {
       sendDynamo(response, { message: error.message }, 500, 'InternalServerError');
@@ -75,6 +88,7 @@ test('submission Lambda archive handler writes a pending catalog record and URL 
     process.env.AWS_REGION = 'us-east-1';
     process.env.AWS_ENDPOINT_URL_DYNAMODB = endpoint;
     process.env.AWS_IGNORE_CONFIGURED_ENDPOINT_URLS = 'false';
+    process.env.AWS_MAX_ATTEMPTS = '2';
     process.env.CATALOG_TABLE = 'archive-submissions';
 
     await run(process.execPath, ['scripts/package-submission.mjs'], { cwd: repositoryRoot });
@@ -127,6 +141,26 @@ test('submission Lambda archive handler writes a pending catalog record and URL 
     assert.equal(resource.url, 'https://example.invalid/archive-submission');
     assert.equal(reservation.resourceId, resource.id);
     assert.equal(reservation.status, 'reserved');
+
+    loseReceipt = true;
+    const lostUrl = 'https://example.invalid/archive-submission-lost-receipt';
+    const beforeLoss = transactionCount;
+    const uncertain = await shippedModule[declaration.exportName]({
+      ...event, body: JSON.stringify({ ...JSON.parse(event.body), url: lostUrl }),
+    });
+    assert.ok(lostAttempt, 'the provider committed both records before losing the receipt');
+    const [savedResource, savedReservation] = await Promise.all(
+      [lostAttempt.resourceId, lostAttempt.reservationId].map((id) => verifier.send(new GetItemCommand({
+        TableName: 'archive-submissions', Key: { id: { S: id } }, ConsistentRead: true,
+      }))),
+    );
+    assert.equal(unmarshall(savedResource.Item).url, lostUrl);
+    assert.equal(unmarshall(savedResource.Item).published, false);
+    assert.equal(unmarshall(savedReservation.Item).resourceId, lostAttempt.resourceId);
+    assert.equal(unmarshall(savedReservation.Item).url, lostUrl);
+    assert.deepEqual({ status: uncertain.statusCode, body: JSON.parse(uncertain.body), transactions: transactionCount - beforeLoss }, {
+      status: 500, body: { ok: false, code: 'storage_error' }, transactions: 1,
+    });
   } finally {
     verifier?.destroy();
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));

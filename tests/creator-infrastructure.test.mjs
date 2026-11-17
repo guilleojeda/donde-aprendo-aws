@@ -263,6 +263,14 @@ test('the Meetup source inventory role admits the private locator in its scan pr
   assert.ok(scanFields(sourceScan).includes('meetupSourceUrl'), 'the scheduler role can read the verified source locator');
 });
 
+for (const [stack, role] of [['submissions', 'SubmissionRole'], ['meetup-events', 'MeetupEventsRole']]) {
+  test(`${role} requires specific attributes on legacy-reference GetItem`, async () => {
+    const template = await readTemplate(stack);
+    const grant = assertProjectedTargetRead(policyStatements(template, role), 'table/${CatalogTableName}');
+    assert.equal(grant.Condition.StringEquals?.['dynamodb:Select'], 'SPECIFIC_ATTRIBUTES');
+  });
+}
+
 test('public and legacy reference roles keep the private Meetup locator out of their projections', async () => {
   const [meetup, catalog, publication, submissions] = await Promise.all(
     ['meetup-events', 'catalog', 'publication', 'submissions'].map(readTemplate),

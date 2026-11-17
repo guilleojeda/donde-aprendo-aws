@@ -127,12 +127,14 @@ def main():
         }))
         return
     requests = []
+    event_pages = copy.deepcopy(EVENT_PAGES)
+    event_pages.update(payload.get('eventPages', {}))
 
     def fixture_get_text(url, budget=None):
         requests.append(url)
         if url in FEED_EVENTS:
             return feed_text(url)
-        page = EVENT_PAGES.get(url)
+        page = event_pages.get(url)
         if page is not None:
             return '<script type="application/ld+json">' + json.dumps(page) + '</script>'
         parsed = urlparse(url)
@@ -158,6 +160,7 @@ def main():
         'sourceScans': source_scans,
         'eventScans': event_scans,
         'transactions': table.transactions,
+        'rows': sorted((copy.deepcopy(item) for item in table.rows.values()), key=lambda item: item['id']),
         'events': sorted((copy.deepcopy(item) for item in table.rows.values()
                           if item.get('recordType') == 'event'), key=lambda item: item['id']),
     }, ensure_ascii=False))

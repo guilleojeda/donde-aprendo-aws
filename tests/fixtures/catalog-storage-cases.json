@@ -1,0 +1,493 @@
+{
+  "schemaVersion": 1,
+  "description": "Language-neutral physical catalog reservation examples for the phase-3 JS and Python acceptance boundaries.",
+  "reservationProjection": ["id", "recordType", "url", "status", "version", "resourceId", "resourceIds"],
+  "memberProjection": ["id", "recordType", "url", "registrationUrl"],
+  "cases": [
+    {
+      "name": "reserved-resource",
+      "url": "https://example.invalid/common/unique",
+      "reservationPhysicalKey": { "id": "__url#f6786d3a97450b6e032b968ff6a0c378c42707a9c8c99439eafa133f64d7baef" },
+      "reservation": {
+        "id": "__url#f6786d3a97450b6e032b968ff6a0c378c42707a9c8c99439eafa133f64d7baef",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/unique",
+        "status": "reserved",
+        "resourceId": "resource-common-unique",
+        "version": 1
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "resource-common-unique" },
+          "item": {
+            "id": "resource-common-unique",
+            "url": "https://example.invalid/common/unique"
+          }
+        }
+      ],
+      "expected": {
+        "shape": "reserved",
+        "resourceIds": ["resource-common-unique"],
+        "admission": "unique"
+      }
+    },
+    {
+      "name": "reserved-event-registration",
+      "url": "https://example.invalid/common/event",
+      "reservationPhysicalKey": { "id": "__url#e80ec6b222a985e97999ab254305b51e3df3e63e61e56a34832a77ddf98ddeab" },
+      "reservation": {
+        "id": "__url#e80ec6b222a985e97999ab254305b51e3df3e63e61e56a34832a77ddf98ddeab",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/event",
+        "status": "reserved",
+        "resourceId": "meetup-event-common",
+        "version": 1
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "meetup-event-common" },
+          "item": {
+            "id": "meetup-event-common",
+            "recordType": "event",
+            "registrationUrl": "https://example.invalid/common/event"
+          }
+        }
+      ],
+      "expected": {
+        "shape": "reserved",
+        "resourceIds": ["meetup-event-common"],
+        "admission": "duplicate-event"
+      }
+    },
+    {
+      "name": "valid-collision",
+      "url": "https://example.invalid/common/collision",
+      "reservationPhysicalKey": { "id": "__url#5dbc1083261b7e22a6e5dc53d34365887773ad61649a44389a82ebb894278478" },
+      "reservation": {
+        "id": "__url#5dbc1083261b7e22a6e5dc53d34365887773ad61649a44389a82ebb894278478",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/collision",
+        "status": "collision",
+        "resourceIds": ["resource-common-collision-a", "resource-common-collision-b"],
+        "version": 1
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "resource-common-collision-a" },
+          "item": {
+            "id": "resource-common-collision-a",
+            "url": "https://example.invalid/common/collision"
+          }
+        },
+        {
+          "physicalKey": { "id": "resource-common-collision-b" },
+          "item": {
+            "id": "resource-common-collision-b",
+            "url": "https://example.invalid/common/collision"
+          }
+        }
+      ],
+      "expected": {
+        "shape": "collision",
+        "resourceIds": ["resource-common-collision-a", "resource-common-collision-b"],
+        "admission": "collision-review",
+        "allMembersRequired": true
+      }
+    },
+    {
+      "name": "malformed-reserved-missing-member",
+      "url": "https://example.invalid/common/malformed",
+      "reservationPhysicalKey": { "id": "__url#444e50d4a1f8ff59fbfed50a5823d24c63a0445a9de267e0d1be74b44949f353" },
+      "reservation": {
+        "id": "__url#444e50d4a1f8ff59fbfed50a5823d24c63a0445a9de267e0d1be74b44949f353",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/malformed",
+        "status": "reserved",
+        "resourceId": "resource-common-missing",
+        "version": 1
+      },
+      "members": [],
+      "expected": {
+        "shape": "reserved",
+        "resourceIds": ["resource-common-missing"],
+        "admission": "reject-missing-member"
+      }
+    },
+    {
+      "name": "malformed-reserved-moved-member",
+      "url": "https://example.invalid/common/moved",
+      "reservationPhysicalKey": { "id": "__url#17a9a5c926345c0d800c4c31a71fc599f8f0196949e3a2be1a1be3d5b9ab103a" },
+      "reservation": {
+        "id": "__url#17a9a5c926345c0d800c4c31a71fc599f8f0196949e3a2be1a1be3d5b9ab103a",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/moved",
+        "status": "reserved",
+        "resourceId": "resource-common-moved",
+        "version": 1
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "resource-common-moved" },
+          "item": {
+            "id": "resource-common-moved",
+            "url": "https://example.invalid/common/now-current"
+          }
+        }
+      ],
+      "expected": {
+        "shape": "reserved",
+        "resourceIds": ["resource-common-moved"],
+        "admission": "reject-moved-member"
+      }
+    },
+    {
+      "name": "malformed-collision-duplicate-member",
+      "url": "https://example.invalid/common/collision",
+      "reservationPhysicalKey": { "id": "__url#5dbc1083261b7e22a6e5dc53d34365887773ad61649a44389a82ebb894278478" },
+      "reservation": {
+        "id": "__url#5dbc1083261b7e22a6e5dc53d34365887773ad61649a44389a82ebb894278478",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/collision",
+        "status": "collision",
+        "resourceIds": ["resource-common-collision-a", "resource-common-collision-a"],
+        "version": 1
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "resource-common-collision-a" },
+          "item": {
+            "id": "resource-common-collision-a",
+            "url": "https://example.invalid/common/collision"
+          }
+        }
+      ],
+      "expected": {
+        "shape": "collision",
+        "resourceIds": ["resource-common-collision-a", "resource-common-collision-a"],
+        "admission": "reject-duplicate-member"
+      }
+    },
+    {
+      "name": "malformed-reservation-wrong-physical-key",
+      "url": "https://example.invalid/common/wrong-key",
+      "reservationPhysicalKey": { "id": "__url#f35591924d04b4c291f9b2aa94223cdb0fd5a3b0994978da897006e629cd9442" },
+      "reservation": {
+        "id": "__url#wrong-key-item",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/wrong-key",
+        "status": "reserved",
+        "resourceId": "resource-common-wrong-key",
+        "version": 1
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "resource-common-wrong-key" },
+          "item": {
+            "id": "resource-common-wrong-key",
+            "url": "https://example.invalid/common/wrong-key"
+          }
+        }
+      ],
+      "expected": {
+        "shape": "reserved",
+        "resourceIds": ["resource-common-wrong-key"],
+        "admission": "reject-reservation-identity"
+      }
+    },
+    {
+      "name": "malformed-member-wrong-physical-key",
+      "url": "https://example.invalid/common/member-key",
+      "reservationPhysicalKey": { "id": "__url#39cb4ba35c32088fc5148e7fdc2c429f65a54b82c38487c032c34137b45bda8b" },
+      "reservation": {
+        "id": "__url#39cb4ba35c32088fc5148e7fdc2c429f65a54b82c38487c032c34137b45bda8b",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/member-key",
+        "status": "reserved",
+        "resourceId": "resource-common-member-key",
+        "version": 1
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "resource-common-member-key-physical" },
+          "item": {
+            "id": "resource-common-member-key",
+            "url": "https://example.invalid/common/member-key"
+          }
+        }
+      ],
+      "expected": {
+        "shape": "reserved",
+        "resourceIds": ["resource-common-member-key"],
+        "admission": "reject-missing-member"
+      }
+    },
+    {
+      "name": "malformed-member-wrong-physical-identity",
+      "url": "https://example.invalid/common/member-identity",
+      "reservationPhysicalKey": { "id": "__url#daca7dfcce6a1178143accb053e47ca29922c49cb5576bb71f14741e3a3b7cbd" },
+      "reservation": {
+        "id": "__url#daca7dfcce6a1178143accb053e47ca29922c49cb5576bb71f14741e3a3b7cbd",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/member-identity",
+        "status": "reserved",
+        "resourceId": "resource-common-member-identity",
+        "version": 1
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "resource-common-member-identity" },
+          "item": {
+            "id": "resource-common-other-identity",
+            "url": "https://example.invalid/common/member-identity"
+          }
+        }
+      ],
+      "expected": {
+        "shape": "reserved",
+        "resourceIds": ["resource-common-member-identity"],
+        "admission": "reject-member-identity"
+      }
+    },
+    {
+      "name": "malformed-reservation-wrong-revision",
+      "url": "https://example.invalid/common/wrong-revision",
+      "reservationPhysicalKey": { "id": "__url#96f837b390262255dc9113b76e031f32c2ab3ed82551b79afb97bed13acbca05" },
+      "reservation": {
+        "id": "__url#96f837b390262255dc9113b76e031f32c2ab3ed82551b79afb97bed13acbca05",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/wrong-revision",
+        "status": "reserved",
+        "resourceId": "resource-common-wrong-revision",
+        "version": "1"
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "resource-common-wrong-revision" },
+          "item": {
+            "id": "resource-common-wrong-revision",
+            "url": "https://example.invalid/common/wrong-revision"
+          }
+        }
+      ],
+      "expected": {
+        "shape": "reserved",
+        "resourceIds": ["resource-common-wrong-revision"],
+        "admission": "reject-revision"
+      }
+    },
+    {
+      "name": "malformed-collision-mixed-membership",
+      "url": "https://example.invalid/common/mixed",
+      "reservationPhysicalKey": { "id": "__url#7e0a42b2bdb8ae1bf945ec772059617cc2cb23c89004d632037b24faafb45e8f" },
+      "reservation": {
+        "id": "__url#7e0a42b2bdb8ae1bf945ec772059617cc2cb23c89004d632037b24faafb45e8f",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/mixed",
+        "status": "collision",
+        "resourceIds": ["resource-common-mixed-a", "resource-common-mixed-b"],
+        "version": 1,
+        "resourceId": "resource-common-mixed-a"
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "resource-common-mixed-a" },
+          "item": {
+            "id": "resource-common-mixed-a",
+            "url": "https://example.invalid/common/mixed"
+          }
+        },
+        {
+          "physicalKey": { "id": "resource-common-mixed-b" },
+          "item": {
+            "id": "resource-common-mixed-b",
+            "url": "https://example.invalid/common/mixed"
+          }
+        }
+      ],
+      "expected": {
+        "shape": "collision",
+        "resourceIds": ["resource-common-mixed-a", "resource-common-mixed-b"],
+        "admission": "reject-mixed-membership"
+      }
+    },
+    {
+      "name": "malformed-collision-mismatching-second-member",
+      "url": "https://example.invalid/common/collision-mismatch",
+      "reservationPhysicalKey": { "id": "__url#37b9b903172574e352f7184d157ea35aa3ef0d78fd882cf9d878a995eb42c857" },
+      "reservation": {
+        "id": "__url#37b9b903172574e352f7184d157ea35aa3ef0d78fd882cf9d878a995eb42c857",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/collision-mismatch",
+        "status": "collision",
+        "resourceIds": ["resource-common-mismatch-a", "resource-common-mismatch-b"],
+        "version": 1
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "resource-common-mismatch-a" },
+          "item": {
+            "id": "resource-common-mismatch-a",
+            "url": "https://example.invalid/common/collision-mismatch"
+          }
+        },
+        {
+          "physicalKey": { "id": "resource-common-mismatch-b" },
+          "item": {
+            "id": "resource-common-mismatch-b",
+            "url": "https://example.invalid/common/different"
+          }
+        }
+      ],
+      "expected": {
+        "shape": "collision",
+        "resourceIds": ["resource-common-mismatch-a", "resource-common-mismatch-b"],
+        "admission": "reject-mismatching-member",
+        "allMembersRequired": true
+      }
+    },
+    {
+      "name": "malformed-reserved-mixed-membership",
+      "url": "https://example.invalid/common/reserved-mixed",
+      "reservationPhysicalKey": { "id": "__url#777decb4600595b046bcbe212c6e4a0f49dd86f0154cd92f46603f5c1059e6c3" },
+      "reservation": {
+        "id": "__url#777decb4600595b046bcbe212c6e4a0f49dd86f0154cd92f46603f5c1059e6c3",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/reserved-mixed",
+        "status": "reserved",
+        "resourceId": "resource-common-referenced",
+        "version": 1,
+        "resourceIds": ["resource-common-referenced", "resource-common-extra"]
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "resource-common-referenced" },
+          "item": {
+            "id": "resource-common-referenced",
+            "url": "https://example.invalid/common/reserved-mixed"
+          }
+        },
+        {
+          "physicalKey": { "id": "resource-common-extra" },
+          "item": {
+            "id": "resource-common-extra",
+            "url": "https://example.invalid/common/reserved-mixed"
+          }
+        }
+      ],
+      "expected": {
+        "shape": "reserved",
+        "resourceIds": ["resource-common-referenced"],
+        "admission": "reject-mixed-membership"
+      }
+    },
+    {
+      "name": "malformed-reservation-boolean-revision",
+      "url": "https://example.invalid/common/boolean-version",
+      "reservationPhysicalKey": { "id": "__url#521636b965d63c57424ec66f94d9c138c1d120e9302b8d616da83f61b010a873" },
+      "reservation": {
+        "id": "__url#521636b965d63c57424ec66f94d9c138c1d120e9302b8d616da83f61b010a873",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/boolean-version",
+        "status": "reserved",
+        "resourceId": "resource-common-referenced",
+        "version": true
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "resource-common-referenced" },
+          "item": {
+            "id": "resource-common-referenced",
+            "url": "https://example.invalid/common/boolean-version"
+          }
+        }
+      ],
+      "expected": {
+        "shape": "reserved",
+        "resourceIds": ["resource-common-referenced"],
+        "admission": "reject-revision"
+      }
+    },
+    {
+      "name": "malformed-member-other-record-type",
+      "url": "https://example.invalid/common/unexpected-type",
+      "reservationPhysicalKey": { "id": "__url#a79ff61f413212ffbe388a49031679e2119426f8c88bfd20f929c6f34e375362" },
+      "reservation": {
+        "id": "__url#a79ff61f413212ffbe388a49031679e2119426f8c88bfd20f929c6f34e375362",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/unexpected-type",
+        "status": "reserved",
+        "resourceId": "resource-common-referenced",
+        "version": 1
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "resource-common-referenced" },
+          "item": {
+            "id": "resource-common-referenced",
+            "url": "https://example.invalid/common/unexpected-type",
+            "recordType": "urlReservation"
+          }
+        }
+      ],
+      "expected": {
+        "shape": "reserved",
+        "resourceIds": ["resource-common-referenced"],
+        "admission": "reject-member-type"
+      }
+    },
+    {
+      "name": "malformed-reservation-system-member",
+      "url": "https://example.invalid/common/system-member",
+      "reservationPhysicalKey": { "id": "__url#9eb579ac06cce623226fa17ab71a826aedb663c91baf38f6d42e60f9cc3af90f" },
+      "reservation": {
+        "id": "__url#9eb579ac06cce623226fa17ab71a826aedb663c91baf38f6d42e60f9cc3af90f",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/system-member",
+        "status": "reserved",
+        "resourceId": "__system-member",
+        "version": 1
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "__system-member" },
+          "item": {
+            "id": "__system-member",
+            "url": "https://example.invalid/common/system-member"
+          }
+        }
+      ],
+      "expected": {
+        "shape": "reserved",
+        "resourceIds": ["__system-member"],
+        "admission": "reject-member-id"
+      }
+    },
+    {
+      "name": "malformed-reservation-over-limit-member",
+      "url": "https://example.invalid/common/oversized-member",
+      "reservationPhysicalKey": { "id": "__url#e38836a5b1c5fd80400bfb085237f6efa7f999c898e532f4aa0d4694e181ba97" },
+      "reservation": {
+        "id": "__url#e38836a5b1c5fd80400bfb085237f6efa7f999c898e532f4aa0d4694e181ba97",
+        "recordType": "urlReservation",
+        "url": "https://example.invalid/common/oversized-member",
+        "status": "reserved",
+        "resourceId": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééx",
+        "version": 1
+      },
+      "members": [
+        {
+          "physicalKey": { "id": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééx" },
+          "item": {
+            "id": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééx",
+            "url": "https://example.invalid/common/oversized-member"
+          }
+        }
+      ],
+      "expected": {
+        "shape": "reserved",
+        "resourceIds": ["ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééx"],
+        "admission": "reject-member-id"
+      }
+    }
+  ]
+}
