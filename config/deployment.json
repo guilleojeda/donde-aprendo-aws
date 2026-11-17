@@ -4,5 +4,20 @@
   "stackName": "donde-aprendo-aws-directory",
   "tableName": "donde-aprendo-aws-catalog",
   "branchName": "main",
-  "appId": "d33kh9d3cyassq"
+  "appId": "d33kh9d3cyassq",
+  "siteOrigin": "https://dondeaprendoaws.com",
+  "submissionApiUrl": "https://7wfnpw6p28.execute-api.us-east-1.amazonaws.com/submissions",
+  "runtimeEnvironment": {
+    "ACCOUNT_ORIGIN": "https://dondeaprendoaws.com",
+    "COGNITO_ISSUER": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_X9aEkBXVf",
+    "COGNITO_CLIENT_ID": "62i1ktg40gknol2kao668irgdb",
+    "COGNITO_DOMAIN": "https://donde-aprendo-719535286359.auth.us-east-1.amazoncognito.com",
+    "ACCOUNTS_TABLE": "donde-aprendo-aws-accounts",
+    "CATALOG_TABLE": "donde-aprendo-aws-catalog",
+    "CREATOR_PROFILES_TABLE": "donde-aprendo-aws-profiles",
+    "CREATOR_PHOTOS_BUCKET": "donde-aprendo-aws-creator-photos-719535286359",
+    "GA4_PROPERTY_ID": "424203315",
+    "GA4_CREDENTIALS_SECRET_ARN": "arn:aws:secretsmanager:us-east-1:719535286359:secret:donde-aprendo-aws/ga4-reader-pqolgO",
+    "CREATOR_ANALYTICS_CAPTURE_STARTED_AT": "2026-10-23T23:38:00Z"
+  }
 }

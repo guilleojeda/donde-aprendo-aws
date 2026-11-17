@@ -5,12 +5,16 @@ import { parse as parseYaml } from 'yaml';
 import { BLOG_CONTRIBUTORS } from '../src/lib/blog-contributors.mjs';
 import { createBlogMetadataSchema, contributorStructuredData, formatBlogDate } from '../src/lib/blog-metadata.mjs';
 import deployment from '../config/deployment.json' with { type: 'json' };
+import { readReleaseContextFile, selectReleaseContext } from './lib/deployment-context.mjs';
 import { LEARNING_PATHS, learningPathHref } from '../src/lib/learning-paths.mjs';
 import { siteOutputRoot } from './lib/site-output.mjs';
 
 const dist = siteOutputRoot;
-const production = process.env.PUBLIC_PRODUCTION === 'true';
-const mediaOrigin = new URL(process.env.PUBLIC_SITE_ORIGIN || `https://${deployment.branchName}.${deployment.appId}.amplifyapp.com`).origin;
+const independentReleaseContext = process.env.RELEASE_CONTEXT_FILE
+  ? await readReleaseContextFile(process.env) : undefined;
+const releaseContext = await selectReleaseContext({ env: process.env, deployment, releaseContext: independentReleaseContext });
+const production = releaseContext.mode !== 'preview';
+const mediaOrigin = releaseContext.siteOrigin;
 const expected = JSON.parse(readFileSync('tests/fixtures/blog-index.json', 'utf8'));
 const archive = JSON.parse(readFileSync('tests/fixtures/blog-routes.json', 'utf8'));
 const metadataSchema = createBlogMetadataSchema(BLOG_CONTRIBUTORS);
@@ -102,7 +106,8 @@ assert.equal(new Set(allIndexUrls).size, archive.length, 'Blog index must not du
 assert.match(index, /<link rel="canonical" href="https:\/\/dondeaprendoaws\.com\/blog\/"/);
 assert.match(index, /<meta name="twitter:url" content="https:\/\/dondeaprendoaws\.com\/blog\/"/);
 assert.match(index, /<meta name="twitter:card" content="summary_large_image"/);
-assert.equal(index.match(/<meta property="og:image" content="([^"]+)"/)?.[1], `${mediaOrigin}/assets/site-social.png`);
+assert.equal(index.match(/<meta property="og:image" content="([^"]+)"/)?.[1], `${mediaOrigin}/assets/site-social.png`,
+  'Generated blog social image origin matches the selected release context.');
 assert.match(index, /<meta property="og:type" content="website"/);
 
 const generated = readdirSync(resolve(dist, 'blog'), { withFileTypes: true })
