@@ -220,6 +220,11 @@ class MeetupCalendarValueTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, 'Invalid iCalendar feed'):
                         meetup.parse_feed(feed, support.GROUP)
 
+    def test_valid_extension_tokens_and_parameter_whitespace_keep_the_observation(self):
+        metadata = 'X-PROVIDER;X-LABEL=A\tB:value\r\nX-EXAMPLE-:value\r\n'
+        feed = support.ICAL.replace('END:VEVENT', metadata + 'END:VEVENT')
+        self.assertEqual(meetup.parse_feed(feed, support.GROUP)[0]['id'], '456')
+
     def test_valid_calendar_metadata_does_not_create_an_event(self):
         metadata = (
             'UID:meetup-calendar-123\r\nURL:https://www.meetup.com/aws-bogota/?source=calendar'

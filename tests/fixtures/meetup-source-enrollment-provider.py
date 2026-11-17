@@ -117,6 +117,15 @@ def feed_text(url):
 def main():
     payload = json.load(sys.stdin)
     table = IsolatedDynamoProvider(payload['rows'])
+    if payload.get('observeInventory'):
+        inventory = meetup.read_source_inventory(table)
+        print(json.dumps({
+            'groups': sorted(group['id'] for group in inventory.groups),
+            'unresolvedIds': sorted(inventory.unresolved_ids),
+            'withholdRetractions': inventory.withhold_retractions,
+            'failures': inventory.failures,
+        }))
+        return
     requests = []
 
     def fixture_get_text(url, budget=None):

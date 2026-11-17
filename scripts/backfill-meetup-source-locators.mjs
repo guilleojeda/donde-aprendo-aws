@@ -266,12 +266,16 @@ function validCatalogCommunityShape(item) {
 function storedLocatorOwners(items) {
   const byLocator = new Map();
   for (const item of items) {
-    if (typeof item?.id !== 'string' || !/^meetup-\d+$/u.test(item.id)) continue;
+    const { id, kind } = item;
+    if (!id.startsWith('meetup-') || id.startsWith('meetup-event-')) continue;
+    // Match runtime locator claims, including legacy and inactive
+    // community IDs. Reviewed migration targets still require numeric IDs.
+    if (kind !== 'community' && !/^meetup-[0-9]+$/u.test(id)) continue;
     const locator = canonicalMeetupSourceUrl(item.meetupSourceUrl);
     if (locator === null || locator !== item.meetupSourceUrl) continue;
     const key = locator.toLowerCase();
     const owners = byLocator.get(key) ?? new Set();
-    owners.add(item.id);
+    owners.add(id);
     byLocator.set(key, owners);
   }
   return byLocator;

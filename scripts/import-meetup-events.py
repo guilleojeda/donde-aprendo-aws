@@ -350,9 +350,9 @@ def parse_calendar(text, group):
         raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
 
     invalid_message = f'Invalid iCalendar feed for {group["id"]}'
-    token = r'[A-Za-z](?:[A-Za-z0-9-]*[A-Za-z0-9])?'
+    token = r'[A-Za-z0-9-]+'
     quoted = r'"(?:\\[^\r\n\x00-\x08\x0a-\x1f\x7f]|[^"\\\r\n\x00-\x08\x0a-\x1f\x7f])*"'
-    safe = r'[^,:;"\x00-\x1f\x7f]+'
+    safe = r'[^,:;"\r\n\x00-\x08\x0a-\x1f\x7f]+'
     parameter_value = rf'(?:{quoted}|{safe})(?:,(?:{quoted}|{safe}))*'
     content_line = re.compile(
         rf'(?P<name>{token})(?P<parameters>(?:;{token}={parameter_value})*):'

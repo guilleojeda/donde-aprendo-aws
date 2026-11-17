@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { GetCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { currentUrlReservationId } from '../src/lib/catalog-url.mjs';
@@ -489,4 +491,47 @@ test('a rename cannot take another row’s enrolled locator before that row actu
   assert.deepEqual(db.items.get(first.id), first);
   assert.deepEqual(db.items.get(second.id), second);
   assert.equal(db.updates.length, 0);
+});
+
+test('a reviewed rename cannot claim a locator retained by a legacy community the sync recognizes', async () => {
+  const original = sourceUrl('original-388');
+  const occupied = sourceUrl('legacy-owner');
+  const reviewedOwner = community({ id: 'meetup-388', meetupSourceUrl: original, version: 4 });
+  const reviewed = {
+    groups: [{ id: '388', url: occupied }],
+    renames: [{ id: '388', fromUrl: original, fromVersion: 4, url: occupied }],
+  };
+  const provider = fileURLToPath(new URL('./fixtures/meetup-source-enrollment-provider.py', import.meta.url));
+  function observeInventory(rows) {
+    const python = spawnSync('python3', [provider], {
+      input: JSON.stringify({ rows, observeInventory: true }),
+      encoding: 'utf8',
+    });
+    assert.equal(python.status, 0, python.stderr);
+    return JSON.parse(python.stdout);
+  }
+
+  for (const published of [true, false]) {
+    const legacyOwner = community({
+      id: 'meetup-legacy-owner', meetupSourceUrl: sourceUrl('LEGACY-owner'), published,
+    });
+    const rows = [reviewedOwner, legacyOwner];
+    const before = observeInventory(rows);
+    assert.deepEqual(before.groups, published ? ['388', 'legacy-owner'] : ['388']);
+    assert.equal(before.withholdRetractions, false);
+    assert.deepEqual(before.failures, []);
+
+    const db = new CatalogDocumentClient(rows, { pageSize: 1 });
+    const plan = await planMeetupSourceLocators({ tableName: TABLE, docClient: db, reviewed });
+    assert.deepEqual(plan.updates, []);
+    assert.deepEqual(byId(plan.blocked, reviewedOwner.id)?.duplicateIds, [legacyOwner.id]);
+    await assert.rejects(applyMeetupSourceLocators({ tableName: TABLE, docClient: db, plan }), /blocked/i);
+    assert.equal(db.updates.length, 0);
+    assert.deepEqual(observeInventory([...db.items.values()]), before);
+
+    const duplicate = observeInventory([{ ...reviewedOwner, meetupSourceUrl: occupied }, legacyOwner]);
+    assert.deepEqual(duplicate.groups, []);
+    assert.deepEqual(duplicate.unresolvedIds, ['388', 'legacy-owner']);
+    assert.equal(duplicate.withholdRetractions, true);
+  }
 });
