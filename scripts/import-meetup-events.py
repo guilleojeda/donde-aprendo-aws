@@ -266,15 +266,19 @@ def get_text(url, budget=None):
         return bytes(contents).decode('utf-8')
 
 
-def group_feed_url(group):
-    source_url = group.get('url')
+def canonical_meetup_group_url(source_url, group_id):
     validate_catalog_url(source_url)
     url = urlparse(source_url)
     if (url.scheme != 'https' or url.hostname != MEETUP_HOST or url.port not in (None, 443)
             or url.params or '?' in source_url or '#' in source_url
             or not re.fullmatch(r'/[A-Za-z0-9_-]+/?', url.path)):
-        raise ValueError(f'Unsafe Meetup group URL: {group["id"]}')
-    return f'https://{MEETUP_HOST}{url.path.rstrip("/")}/events/ical/'
+        raise ValueError(f'Unsafe Meetup group URL: {group_id}')
+    return f'https://{MEETUP_HOST}{url.path.rstrip("/")}/'
+
+
+def group_feed_url(group):
+    canonical = canonical_meetup_group_url(group.get('url'), group['id'])
+    return f'{canonical}events/ical/'
 
 
 def validate_meetup_group(group):
@@ -291,8 +295,7 @@ def validate_meetup_group(group):
     # database-backed callers derive identical event paths.  The slug's case
     # is intentionally preserved; only the fixed origin and trailing slash
     # are normalized.
-    source = urlparse(group['url'])
-    group['url'] = f'https://{MEETUP_HOST}{source.path.rstrip("/")}/'
+    group['url'] = canonical_meetup_group_url(group['url'], group_id)
     return group
 
 
@@ -326,12 +329,12 @@ def parse_calendar(text, group):
 
     invalid_message = f'Invalid iCalendar feed for {group["id"]}'
     token = r'[A-Za-z](?:[A-Za-z0-9-]*[A-Za-z0-9])?'
-    quoted = r'"(?:\\[^\r\n]|[^"\\\r\n])*"'
+    quoted = r'"(?:\\[^\r\n\x00-\x08\x0a-\x1f\x7f]|[^"\\\r\n\x00-\x08\x0a-\x1f\x7f])*"'
     safe = r'[^,:;"\x00-\x1f\x7f]+'
     parameter_value = rf'(?:{quoted}|{safe})(?:,(?:{quoted}|{safe}))*'
     content_line = re.compile(
         rf'(?P<name>{token})(?P<parameters>(?:;{token}={parameter_value})*):'
-        rf'(?P<value>[^\r\n]*)\Z')
+        rf'(?P<value>[^\r\n\x00-\x08\x0a-\x1f\x7f]*)\Z')
     event_singletons = frozenset({'UID', 'URL', 'STATUS', 'LAST-MODIFIED'})
     calendar_singletons = frozenset({'VERSION', 'TZID'})
     events = {}
@@ -649,17 +652,30 @@ def read_source_inventory(table, budget=None):
     unresolved_ids = set()
     withhold_retractions = False
     row_error = None
-    params = {'ProjectionExpression': '#id,#title,#country,#kind,published,#source,#record',
+    locator_owners = {}
+    source_rows = {}
+    scan_error = None
+    params = {'ProjectionExpression': '#id,#title,#country,#kind,published,#source,#record,#revoked',
               'Select': 'SPECIFIC_ATTRIBUTES',
               'ConsistentRead': True,
               'ExpressionAttributeNames': {'#id': 'id', '#title': 'title',
                                            '#country': 'country', '#kind': 'kind',
-                                           '#source': 'meetupSourceUrl', '#record': 'recordType'}}
+                                           '#source': 'meetupSourceUrl', '#record': 'recordType',
+                                           '#revoked': 'approvalRevoked'}}
     try:
         items = scan_items(table, params, budget)
         for item in items:
             item_id = item.get('id')
             has_kind = 'kind' in item
+            if isinstance(item_id, str) and item_id.startswith('meetup-'):
+                previous = source_rows.get(item_id)
+                if previous is not None:
+                    if previous != item:
+                        unresolved_ids.add(item_id.removeprefix('meetup-'))
+                        failures.append(_source_row_error(item, 'contradictory repeated projected ID'))
+                        withhold_retractions = True
+                    continue
+                source_rows[item_id] = item
             # Event IDs share the meetup- prefix.  A typed event without a
             # kind is a valid catalog row, not a source candidate.  A row that
             # claims both identities is unresolved and cannot authorize
@@ -701,67 +717,74 @@ def read_source_inventory(table, budget=None):
                 failures.append(_source_row_error(item, f'unknown catalog kind: {item["kind"]!r}'))
                 withhold_retractions = True
                 continue
-            if item['kind'] != 'community':
-                continue
 
-            # A community row with an invalid identity is a shared inventory
-            # error: we cannot safely establish which source it represents.
             raw_group_id = item_id.removeprefix('meetup-')
+            is_community = item['kind'] == 'community'
+            # The reviewed importer creates numeric source identities. A
+            # reclassified numeric row still owns its valid private locator.
+            if not is_community and not re.fullmatch(r'[0-9]+', raw_group_id):
+                continue
             meetup_community_resource_id(raw_group_id)
-            if 'published' in item and not isinstance(item['published'], bool):
-                unresolved_ids.add(raw_group_id)
-                detail = f'Invalid published flag for Meetup community {item_id}'
-                failures.append(detail)
-                row_error = row_error or ValueError(detail)
-                withhold_retractions = True
-                continue
-            if not isinstance(item.get('title'), str):
-                unresolved_ids.add(raw_group_id)
-                detail = f'Invalid Meetup community name: {item_id}'
-                failures.append(detail)
-                row_error = row_error or ValueError(detail)
-                withhold_retractions = True
-                continue
-            if not isinstance(item.get('country'), str):
-                unresolved_ids.add(raw_group_id)
-                detail = f'Invalid Meetup community country: {item_id}'
-                failures.append(detail)
-                row_error = row_error or ValueError(detail)
-                withhold_retractions = True
-                continue
-            if item.get('published') is not True or item.get('country') in {'BR', 'JM'}:
-                continue
+            published = item.get('published') is True
+            if is_community:
+                detail = None
+                if 'published' in item and not isinstance(item['published'], bool):
+                    detail = f'Invalid published flag for Meetup community {item_id}'
+                elif 'approvalRevoked' in item and not isinstance(item['approvalRevoked'], bool):
+                    detail = f'Invalid approvalRevoked flag for Meetup community {item_id}'
+                elif published and item.get('approvalRevoked') is True:
+                    detail = f'Conflicting publication and revocation for Meetup community {item_id}'
+                elif published and not isinstance(item.get('title'), str):
+                    detail = f'Invalid Meetup community name: {item_id}'
+                elif published and not isinstance(item.get('country'), str):
+                    detail = f'Invalid Meetup community country: {item_id}'
+                if detail:
+                    unresolved_ids.add(raw_group_id)
+                    failures.append(detail)
+                    row_error = row_error or ValueError(detail)
+                    withhold_retractions = True
+                    continue
 
+            eligible = is_community and published and item['country'] not in {'BR', 'JM'}
             locator = item.get('meetupSourceUrl')
-            if not isinstance(locator, str):
-                unresolved_ids.add(raw_group_id)
-                failures.append(_source_row_error(item, 'missing or invalid meetupSourceUrl'))
-                continue
-            group = {'id': raw_group_id, 'url': locator, 'name': item['title'],
-                     'country': item['country'], 'timeZone': None}
             try:
-                validate_meetup_group(group)
-                if group['url'] != locator:
+                if not isinstance(locator, str):
+                    raise ValueError('missing or invalid meetupSourceUrl')
+                canonical_locator = canonical_meetup_group_url(locator, raw_group_id)
+                if locator != canonical_locator:
                     raise ValueError('meetupSourceUrl is not canonical')
             except ValueError as error:
-                unresolved_ids.add(raw_group_id)
-                failures.append(_source_row_error(item, str(error)))
+                if eligible:
+                    unresolved_ids.add(raw_group_id)
+                    failures.append(_source_row_error(item, str(error)))
                 continue
-            groups.append(group)
+            locator_owners.setdefault(canonical_locator.casefold(), set()).add(raw_group_id)
+            if eligible:
+                groups.append({'id': raw_group_id, 'url': locator, 'name': item['title'],
+                               'country': item['country'], 'timeZone': None})
     except Exception as error:
-        return SourceInventory(groups, failures, unresolved_ids, error, withhold_retractions, row_error)
-    return SourceInventory(groups, failures, unresolved_ids, None, withhold_retractions, row_error)
+        scan_error = error
+
+    duplicate_owners = {
+        owner_id
+        for owners in locator_owners.values() if len(owners) > 1
+        for owner_id in owners
+    }
+    if duplicate_owners:
+        unresolved_ids.update(duplicate_owners)
+        withhold_retractions = True
+        failures.append(
+            'Meetup source locator conflict for owners: '
+            + ', '.join(sorted(f'meetup-{owner_id}' for owner_id in duplicate_owners))
+        )
+    groups = [group for group in groups if group['id'] not in unresolved_ids]
+    return SourceInventory(groups, failures, unresolved_ids, scan_error, withhold_retractions, row_error)
 
 
 def timezone_from_feed(group, budget=None):
     feed_url = group_feed_url(group)
     text = get_text(feed_url) if budget is None else get_text(feed_url, budget=budget)
     events, time_zone = parse_calendar(text, group)
-    has_active_events = any(not event.get('cancelled') for event in events)
-    if has_active_events and not time_zone:
-        raise ValueError(f'Missing timezone in feed of {group["id"]}')
-    if has_active_events and time_zone:
-        ZoneInfo(time_zone)
     group['timeZone'] = time_zone
     return events
 
@@ -826,6 +849,9 @@ def read_existing_events(table, budget=None):
                 resource_version(item)
                 if 'approvalRevoked' in item and not isinstance(item['approvalRevoked'], bool):
                     raise ValueError(f'Invalid approvalRevoked flag for {item["id"]}')
+                previous = events.get(item['id'])
+                if previous is not None and previous != item:
+                    raise ValueError(f'Contradictory repeated projected event ID: {item["id"]}')
                 events[item['id']] = item
     except Exception as error:
         return events, error
@@ -1426,8 +1452,8 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
         nonlocal feeds_read, stop_for_budget
         entries, time_zone = observation
         state.feed_done = True
-        state.group['timeZone'] = time_zone
-        feeds_read += 1
+        source_id = f'meetup-{state.group["id"]}'
+        pending = []
         for entry in entries:
             try:
                 record_id = meetup_event_resource_id(entry.get('id'))
@@ -1440,7 +1466,6 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
             state.seen_ids.add(record_id)
             globally_seen.add(record_id)
             prior = existing.get(record_id)
-            source_id = f'meetup-{state.group["id"]}'
             if entry.get('cancelled'):
                 if prior is not None and prior.get('sourceGroupId') == source_id:
                     try:
@@ -1450,10 +1475,26 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
                         return
                 continue
             upcoming_event_ids.add(record_id)
-            if prior is not None and (
-                    prior.get('autoSync') is False or prior.get('approvalRevoked') is True):
-                continue
-            state.events.append(entry)
+            suppressed = prior is not None and (
+                prior.get('autoSync') is False or prior.get('approvalRevoked') is True)
+            if not suppressed:
+                pending.append(entry)
+
+        if pending:
+            timezone_valid = isinstance(time_zone, str) and bool(time_zone)
+            if timezone_valid:
+                try:
+                    ZoneInfo(time_zone)
+                except (KeyError, TypeError, ValueError):
+                    timezone_valid = False
+            if not timezone_valid:
+                state.failed = True
+                message = 'Missing timezone' if not time_zone else 'Invalid timezone'
+                failures.append(f'{message} in feed of {state.group["id"]}')
+                return
+        state.group['timeZone'] = time_zone
+        feeds_read += 1
+        state.events.extend(pending)
 
     def process_completed(future):
         nonlocal stop_for_budget, primary_error, detail_reads_completed
@@ -1555,10 +1596,13 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
                 if prior['id'] in globally_seen:
                     continue
                 source = prior.get('sourceGroupId', '')
-                if source.removeprefix('meetup-') in unresolved_source_ids:
+                if (not isinstance(source, str) or not source.startswith('meetup-')
+                        or source == 'meetup-' or source.startswith('meetup-event-')):
+                    continue
+                group_id = source.removeprefix('meetup-')
+                if group_id in unresolved_source_ids:
                     continue
                 source_removed = source not in active_group_ids
-                group_id = source.removeprefix('meetup-')
                 source_state = source_by_id.get(group_id)
                 source_absent = source_state is not None and source_state.complete
                 if not source_removed and not source_absent:

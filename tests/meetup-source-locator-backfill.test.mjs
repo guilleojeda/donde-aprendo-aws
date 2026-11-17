@@ -464,3 +464,29 @@ test('backfill rejects a typed non-event row even when its reviewed ID and URL m
   await assert.rejects(applyMeetupSourceLocators({ tableName: TABLE, docClient: db, plan }), /blocked/i);
   assert.deepEqual(db.items.get(candidate.id), candidate);
 });
+
+test('a rename cannot take another row’s enrolled locator before that row actually moves', async () => {
+  const original = sourceUrl('original-386');
+  const occupied = sourceUrl('current-387');
+  const destination = sourceUrl('renamed-387');
+  const first = community({ id: 'meetup-386', meetupSourceUrl: original, version: 4 });
+  const second = community({
+    id: 'meetup-387', meetupSourceUrl: occupied, version: 6, published: false,
+  });
+  const db = new CatalogDocumentClient([first, second]);
+  const firstTarget = sourceUrl('CURRENT-387');
+  const review = {
+    groups: [{ id: '386', url: firstTarget }, { id: '387', url: destination }],
+    renames: [
+      { id: '386', fromUrl: original, fromVersion: 4, url: firstTarget },
+      { id: '387', fromUrl: occupied, fromVersion: 6, url: destination },
+    ],
+  };
+  const plan = await planMeetupSourceLocators({ tableName: TABLE, docClient: db, reviewed: review });
+  assert.deepEqual(byId(plan.blocked, first.id)?.duplicateIds, [second.id]);
+  assert.equal(byId(plan.updates, second.id)?.meetupSourceUrl, destination);
+  await assert.rejects(applyMeetupSourceLocators({ tableName: TABLE, docClient: db, plan }), /blocked/i);
+  assert.deepEqual(db.items.get(first.id), first);
+  assert.deepEqual(db.items.get(second.id), second);
+  assert.equal(db.updates.length, 0);
+});

@@ -118,13 +118,14 @@ export function normalizeReviewedSources(reviewed) {
     const url = reviewedSourceUrl(group.url, `Reviewed Meetup group ${id} URL`);
     const groupPublicUrl = optionalPublicUrl(group.publicUrl, `Reviewed Meetup group ${id} publicUrl`);
     if (byId.has(id)) throw new Error(`Reviewed Meetup input repeats group ID ${id}`);
-    if (byUrl.has(url)) {
-      throw new Error(`Reviewed Meetup URL ${url} identifies multiple group IDs (${byUrl.get(url)} and ${id})`);
+    const locatorKey = url.toLowerCase();
+    if (byUrl.has(locatorKey)) {
+      throw new Error(`Reviewed Meetup URL ${url} identifies multiple group IDs (${byUrl.get(locatorKey)} and ${id})`);
     }
     const normalized = { id, url, ...(groupPublicUrl === undefined ? {} : { publicUrl: groupPublicUrl }) };
     groups.push(normalized);
     byId.set(id, normalized);
-    byUrl.set(url, id);
+    byUrl.set(locatorKey, id);
   }
 
   if (reviewed.renames !== undefined && !Array.isArray(reviewed.renames)) {
@@ -262,19 +263,18 @@ function validCatalogCommunityShape(item) {
     && typeof item.country === 'string';
 }
 
-function duplicateStoredLocators(items) {
+function storedLocatorOwners(items) {
   const byLocator = new Map();
   for (const item of items) {
-    if (typeof item?.id !== 'string' || !/^meetup-\d+$/u.test(item.id) || !sourcePresent(item)) continue;
-    const locator = sourceValue(item);
-    if (typeof locator !== 'string') continue;
-    const ids = byLocator.get(locator) ?? [];
-    ids.push(item.id);
-    byLocator.set(locator, ids);
+    if (typeof item?.id !== 'string' || !/^meetup-\d+$/u.test(item.id)) continue;
+    const locator = canonicalMeetupSourceUrl(item.meetupSourceUrl);
+    if (locator === null || locator !== item.meetupSourceUrl) continue;
+    const key = locator.toLowerCase();
+    const owners = byLocator.get(key) ?? new Set();
+    owners.add(item.id);
+    byLocator.set(key, owners);
   }
-  return new Map([...byLocator.values()]
-    .filter((ids) => ids.length > 1)
-    .flatMap((ids) => ids.map((id) => [id, ids])));
+  return byLocator;
 }
 
 /**
@@ -286,7 +286,7 @@ export async function planMeetupSourceLocators({ tableName, region = DEFAULT_AWS
   const sources = normalizeReviewedSources(reviewed);
   const items = await scanMeetupLocatorItems({ tableName, docClient });
   const catalogById = indexCatalogItems(items);
-  const duplicateLocators = duplicateStoredLocators(items);
+  const locatorOwners = storedLocatorOwners(items);
   const updates = [];
   const unchanged = [];
   const blocked = [];
@@ -302,10 +302,18 @@ export async function planMeetupSourceLocators({ tableName, region = DEFAULT_AWS
       blocked.push(blockedEntry(id, 'catalog row has an invalid stored community shape', { reviewedGroupId: group.id }));
       continue;
     }
-    if (duplicateLocators.has(id)) {
-      blocked.push(blockedEntry(id, 'stored Meetup source locator identifies multiple catalog rows', {
+    const currentLocator = sourceValue(item);
+    // Two sequential CAS writes must never rely on the second one releasing
+    // its current locator. That write could lose a race and leave two owners.
+    const occupiedLocators = [currentLocator, group.url].filter((value) => typeof value === 'string');
+    const otherOwners = new Set(occupiedLocators.flatMap(
+      (value) => [...(locatorOwners.get(value.toLowerCase()) ?? [])],
+    ));
+    otherOwners.delete(id);
+    if (otherOwners.size > 0) {
+      blocked.push(blockedEntry(id, 'stored Meetup source locator is already owned by another catalog row', {
         reviewedGroupId: group.id,
-        duplicateIds: duplicateLocators.get(id),
+        duplicateIds: [...otherOwners],
       }));
       continue;
     }
@@ -314,7 +322,6 @@ export async function planMeetupSourceLocators({ tableName, region = DEFAULT_AWS
       blocked.push(blockedEntry(id, 'catalog row has an invalid revision', { reviewedGroupId: group.id }));
       continue;
     }
-    const currentLocator = sourceValue(item);
     if (version === Number.MAX_SAFE_INTEGER && currentLocator !== group.url) {
       blocked.push(blockedEntry(id, 'catalog row revision cannot advance', { reviewedGroupId: group.id }));
       continue;

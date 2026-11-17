@@ -35,11 +35,11 @@ export function mapMeetupCommunities(directory) {
       throw new Error(`Meetup group ${group.id} has an invalid name`);
     }
     const url = canonicalMeetupSourceUrl(group.url);
-    if (!url || urls.has(url)) {
+    if (!url || urls.has(url.toLowerCase())) {
       throw new Error(`Meetup group ${group.id} has an invalid or duplicate URL`);
     }
     ids.add(group.id);
-    urls.add(url);
+    urls.add(url.toLowerCase());
 
     const country = COUNTRY_LABELS[group.country];
     const description = group.type === 'User Group'

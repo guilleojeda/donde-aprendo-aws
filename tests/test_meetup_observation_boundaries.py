@@ -96,6 +96,92 @@ class MeetupObservationBoundaries(unittest.TestCase):
         self.assertEqual(table.existing[prior['id']]['version'], prior.get('version', 0) + 1)
         self.assertEqual(len(invocations), 1)
 
+    def test_suppressed_entries_need_no_timezone_and_allow_other_owner_absence(self):
+        community = {
+            'id': 'meetup-123', 'title': support.GROUP['name'], 'url': support.GROUP['url'],
+            'meetupSourceUrl': support.GROUP['url'], 'country': 'CO', 'kind': 'community',
+            'published': True,
+        }
+        no_zone_feed = support.ICAL.replace('TZID:America/Bogota\r\n', '')
+        for suppression in ('revoked', 'manual'):
+            with self.subTest(suppression=suppression):
+                suppressed = support.existing_event(
+                    published=True, starts_at='2099-01-01T18:00:00+00:00',
+                    ends_at='2099-01-01T20:00:00+00:00')
+                if suppression == 'revoked':
+                    suppressed['approvalRevoked'] = True
+                else:
+                    suppressed['autoSync'] = False
+                absent = support.existing_event(
+                    published=True, starts_at='2099-01-02T18:00:00+00:00',
+                    ends_at='2099-01-02T20:00:00+00:00')
+                absent['id'] = 'meetup-event-789'
+                table = support.FakeTable([community, suppressed, absent])
+                invocations = []
+                boto3 = support.fake_boto3(table, invocations)
+
+                with patch.dict(sys.modules, support.fake_aws_modules(boto3)), \
+                        patch.dict(os.environ, {
+                            'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication',
+                        }), \
+                        patch.object(meetup, 'get_text', return_value=no_zone_feed), \
+                        patch.object(meetup, 'fetch_event_page',
+                                     side_effect=AssertionError('suppressed event detail was fetched')):
+                    result = meetup.lambda_handler({}, support.lambda_context())
+
+                self.assertEqual((result['feedsRead'], result['changed'], result['failures']), (1, 1, []))
+                self.assertEqual(table.existing[suppressed['id']], suppressed)
+                self.assertFalse(table.existing[absent['id']]['published'])
+                self.assertEqual(len(invocations), 1)
+
+    def test_nul_in_ical_value_or_quoted_parameter_is_rejected(self):
+        cases = (
+            support.EMPTY_ICAL.replace(
+                'END:VCALENDAR', 'X-EXTENSION:bad\x00value\r\nEND:VCALENDAR'),
+            support.EMPTY_ICAL.replace(
+                'END:VCALENDAR', 'X-EXTENSION;LABEL="bad\x00value":ok\r\nEND:VCALENDAR'),
+        )
+        for feed in cases:
+            with patch.object(meetup, 'get_text', return_value=feed):
+                with self.assertRaisesRegex(ValueError, 'Invalid iCalendar feed'):
+                    meetup.timezone_from_feed(dict(support.GROUP))
+        valid = support.EMPTY_ICAL.replace(
+            'END:VCALENDAR', 'X-EXTENSION:ok\tvalue\r\nEND:VCALENDAR')
+        with patch.object(meetup, 'get_text', return_value=valid):
+            self.assertEqual(meetup.timezone_from_feed(dict(support.GROUP)), [])
+
+    def test_lambda_retains_absent_event_when_feed_extension_contains_nul(self):
+        community = {
+            'id': 'meetup-123', 'title': support.GROUP['name'], 'url': support.GROUP['url'],
+            'meetupSourceUrl': support.GROUP['url'], 'country': 'CO', 'kind': 'community',
+            'published': True,
+        }
+        prior = support.existing_event(
+            published=True, starts_at='2099-01-01T18:00:00+00:00',
+            ends_at='2099-01-01T20:00:00+00:00')
+        table = support.FakeTable([community, prior])
+        before = copy.deepcopy(table.existing)
+        malformed_feed = support.EMPTY_ICAL.replace(
+            'END:VCALENDAR', 'X-EXTENSION:bad\x00value\r\nEND:VCALENDAR')
+        invocations = []
+        boto3 = support.fake_boto3(table, invocations)
+        output = StringIO()
+
+        with patch.dict(sys.modules, support.fake_aws_modules(boto3)), \
+                patch.dict(os.environ, {
+                    'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication',
+                }), \
+                patch.object(meetup, 'get_text', return_value=malformed_feed), \
+                redirect_stdout(output):
+            with self.assertRaisesRegex(RuntimeError, 'Meetup sources failed'):
+                meetup.lambda_handler({}, support.lambda_context())
+
+        result = json.loads(output.getvalue())
+        self.assertIn('Invalid iCalendar feed', result['failures'][0])
+        self.assertEqual(table.existing, before)
+        self.assertEqual(table.updates, [])
+        self.assertEqual(invocations, [])
+
     def test_non_event_record_type_is_shared_invalid_while_healthy_source_continues(self):
         malformed_source = {
             'id': 'meetup-123', 'title': support.GROUP['name'], 'url': support.GROUP['url'],
@@ -137,6 +223,131 @@ class MeetupObservationBoundaries(unittest.TestCase):
         self.assertIn('meetup-event-789', table.existing)
         self.assertEqual(table.existing['meetup-event-789']['title'], 'Healthy source event')
         self.assertEqual(len(invocations), 1)
+
+    def test_revocation_conflict_is_shared_invalid_while_healthy_source_continues(self):
+        conflicted = {
+            'id': 'meetup-123', 'title': support.GROUP['name'], 'url': support.GROUP['url'],
+            'meetupSourceUrl': support.GROUP['url'], 'country': 'CO', 'kind': 'community',
+            'published': True, 'approvalRevoked': True,
+        }
+        healthy_group = {
+            'id': 'meetup-999', 'title': 'AWS Test', 'url': 'https://www.meetup.com/aws-test/',
+            'meetupSourceUrl': 'https://www.meetup.com/aws-test/', 'country': 'CO',
+            'kind': 'community', 'published': True,
+        }
+        owner_event = support.existing_event(
+            starts_at='2099-01-01T18:00:00+00:00',
+            ends_at='2099-01-01T20:00:00+00:00',
+        )
+        healthy_url = 'https://www.meetup.com/aws-test/events/789/'
+        healthy_feed = support.ICAL.replace('aws-bogota', 'aws-test').replace('456', '789')
+        healthy_page = dict(support.PAGE, url=healthy_url, name='Healthy source event')
+        table = support.FakeTable([conflicted, healthy_group, owner_event])
+        invocations = []
+        boto3 = support.fake_boto3(table, invocations)
+
+        def provider(url, **_kwargs):
+            if url.endswith('/events/ical/'):
+                self.assertEqual(url, 'https://www.meetup.com/aws-test/events/ical/')
+                return healthy_feed
+            self.assertEqual(url, healthy_url)
+            return '<script type="application/ld+json">' + json.dumps(healthy_page) + '</script>'
+
+        with patch.dict(sys.modules, support.fake_aws_modules(boto3)), \
+                patch.dict(os.environ, {
+                    'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication',
+                }), \
+                patch.object(meetup, 'get_text', side_effect=provider):
+            with self.assertRaisesRegex(RuntimeError, 'Meetup sources failed'):
+                meetup.lambda_handler({}, support.lambda_context())
+
+        self.assertTrue(table.existing[owner_event['id']]['published'])
+        self.assertIn('meetup-event-789', table.existing)
+        self.assertEqual(len(invocations), 1)
+
+    def test_reclassified_locator_conflict_blocks_both_owners_before_feed_open(self):
+        reclassified = {
+            'id': 'meetup-123', 'title': 'Retained community', 'url': support.GROUP['url'],
+            'meetupSourceUrl': support.GROUP['url'], 'country': 'CO', 'kind': 'content',
+            'published': False,
+        }
+        conflicting = {
+            'id': 'meetup-999', 'title': 'AWS Test', 'url': 'https://www.meetup.com/aws-bogota/',
+            'meetupSourceUrl': support.GROUP['url'], 'country': 'CO', 'kind': 'community',
+            'published': True,
+        }
+        healthy_group = {
+            'id': 'meetup-888', 'title': 'AWS Healthy', 'url': 'https://www.meetup.com/aws-healthy/',
+            'meetupSourceUrl': 'https://www.meetup.com/aws-healthy/', 'country': 'CO',
+            'kind': 'community', 'published': True,
+        }
+        owner_event = support.existing_event(
+            starts_at='2099-01-01T18:00:00+00:00',
+            ends_at='2099-01-01T20:00:00+00:00',
+        )
+        healthy_url = 'https://www.meetup.com/aws-healthy/events/888/'
+        healthy_feed = support.ICAL.replace('aws-bogota', 'aws-healthy').replace('456', '888')
+        healthy_page = dict(support.PAGE, url=healthy_url, name='Independent healthy event')
+        table = support.FakeTable([reclassified, conflicting, healthy_group, owner_event])
+        invocations = []
+        boto3 = support.fake_boto3(table, invocations)
+        requested = []
+
+        def provider(url, **_kwargs):
+            requested.append(url)
+            self.assertIn('/aws-healthy/', url)
+            if url.endswith('/events/ical/'):
+                return healthy_feed
+            return '<script type="application/ld+json">' + json.dumps(healthy_page) + '</script>'
+
+        with patch.dict(sys.modules, support.fake_aws_modules(boto3)), \
+                patch.dict(os.environ, {
+                    'CATALOG_TABLE': 'fake-table', 'PUBLICATION_FUNCTION': 'fake-publication',
+                }), \
+                patch.object(meetup, 'get_text', side_effect=provider):
+            with self.assertRaisesRegex(RuntimeError, 'Meetup sources failed'):
+                meetup.lambda_handler({}, support.lambda_context())
+
+        self.assertTrue(table.existing[owner_event['id']]['published'])
+        self.assertIn('meetup-event-888', table.existing)
+        self.assertTrue(all('/aws-bogota/' not in url for url in requested))
+        self.assertEqual(len(invocations), 1)
+
+    def test_non_group_automatic_owner_cannot_reach_source_removal(self):
+        prior = support.existing_event(
+            starts_at='2099-01-01T18:00:00+00:00',
+            ends_at='2099-01-01T20:00:00+00:00',
+        )
+        prior['sourceGroupId'] = 'internal-owner'
+        prior['autoSync'] = True
+        table = support.FakeTable([prior])
+        result = meetup.synchronize(table=table, groups=[])
+        self.assertEqual((result['changed'], result['failures']), (0, []))
+        self.assertEqual(table.existing[prior['id']], prior)
+        self.assertEqual(table.updates, [])
+
+    def test_contradictory_repeated_source_projection_cannot_complete_inventory(self):
+        row = {
+            'id': 'meetup-123', 'title': support.GROUP['name'], 'url': support.GROUP['url'],
+            'meetupSourceUrl': support.GROUP['url'], 'country': 'CO', 'kind': 'community',
+            'published': True,
+        }
+        prior = support.existing_event(
+            starts_at='2099-01-01T18:00:00+00:00',
+            ends_at='2099-01-01T20:00:00+00:00',
+        )
+        table = support.FakeTable([row, prior])
+        table.scan_responses = [
+            {'Items': [row], 'LastEvaluatedKey': {'id': 'inventory-page-1'}},
+            {'Items': [dict(row, title='Contradictory source')]},
+        ]
+        with patch.object(meetup, 'get_text') as transport:
+            result = meetup.synchronize(table=table)
+        self.assertEqual(result['changed'], 0)
+        self.assertTrue(any('contradictory repeated projected ID' in failure
+                            for failure in result['failures']))
+        self.assertEqual(table.existing[prior['id']], prior)
+        transport.assert_not_called()
 
     def test_private_source_locator_rejects_path_params_and_empty_query_fragment(self):
         for suffix in ('/;path', '?', '#'):

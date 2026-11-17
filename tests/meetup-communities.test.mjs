@@ -201,3 +201,8 @@ test('Meetup import preserves allowed LF/TAB and exact 256-byte IDs', async () =
   assert.deepEqual(reservations.map(({ resourceId }) => resourceId), ids,
     'URL reservations retain the accepted resource identities exactly');
 });
+
+test('the reviewed Meetup import rejects case variants of one group locator', () => {
+  const groups = [group(), group({ id: '124', url: 'https://www.meetup.com/AWS-BOGOTA/' })];
+  assert.throws(() => mapMeetupCommunities({ groups }), /invalid or duplicate URL/);
+});
