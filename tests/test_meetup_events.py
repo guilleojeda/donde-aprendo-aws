@@ -1292,6 +1292,29 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertEqual(invalid.existing, {})
         self.assertEqual(invalid.transactions, [])
 
+    def test_js_incompatible_low_year_refresh_preserves_event_and_reservation(self):
+        prior = existing_event(
+            published=True, starts_at='2099-01-01T18:00:00-05:00',
+            ends_at='2099-01-01T20:00:00-05:00')
+        reservation = meetup.current_url_reservation(prior['registrationUrl'], prior['id'])
+        table = FakeTable([prior, reservation])
+        invalid_page = dict(
+            PAGE,
+            startDate='0099-01-01T18:00:00-05:00',
+            endDate='0099-01-01T20:00:00-05:00',
+        )
+        with patch.object(meetup, 'timezone_from_feed', return_value=meetup.parse_feed(ICAL, GROUP)), \
+                patch.object(meetup, 'fetch_event_page', return_value=invalid_page):
+            result = meetup.synchronize(table=table, groups=[dict(GROUP)])
+
+        self.assertEqual(result['changed'], 0)
+        self.assertEqual(len(result['failures']), 1)
+        self.assertIn('Invalid event dates', result['failures'][0])
+        self.assertEqual(table.existing[prior['id']], prior)
+        self.assertEqual(table.existing[reservation['id']], reservation)
+        self.assertEqual(table.transactions, [])
+        self.assertEqual(table.updates, [])
+
     def test_create_reobserves_a_url_freed_between_reservation_and_member_reads(self):
         entry = meetup.parse_feed(ICAL, GROUP)[0]
         record = meetup.map_event(GROUP, entry, PAGE)
@@ -1830,6 +1853,24 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertEqual(group['timeZone'], GROUP['timeZone'])
         get_text.assert_called_once_with(meetup.group_feed_url(group))
         fetch_event_page.assert_not_called()
+
+    def test_zoneinfo_aliases_rejected_when_public_intl_rejects_them(self):
+        for alias in ('Factory', 'localtime', 'posixrules', 'posix/America/Bogota', 'right/America/Bogota'):
+            with self.subTest(alias=alias):
+                prior = existing_event(published=True, starts_at=PAGE['startDate'], ends_at=PAGE['endDate'])
+                table = FakeTable([prior])
+                group = dict(GROUP)
+                feed = ICAL.replace('America/Bogota', alias)
+                with patch.object(meetup, 'get_text', return_value=feed), \
+                        patch.object(meetup, 'fetch_event_page') as fetch_event_page:
+                    result = meetup.synchronize(table=table, groups=[group])
+
+                self.assertEqual(result['feedsRead'], 0)
+                self.assertEqual(result['changed'], 0)
+                self.assertEqual(result['failures'], [f'Invalid timezone in feed of {GROUP["id"]}'])
+                self.assertTrue(table.existing[prior['id']]['published'])
+                self.assertEqual(table.updates, [])
+                fetch_event_page.assert_not_called()
 
     def test_explicit_cancelled_feed_entry_without_prior_row_does_not_insert(self):
         table = FakeTable()

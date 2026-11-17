@@ -544,6 +544,48 @@ test('Python producer rows survive persistence and the actual JavaScript public 
   }
 });
 
+test('a provider timezone rejected by the public runtime cannot poison other Meetup events', async () => {
+  const python = spawnSync('python3', [PYTHON_PROVIDER], {
+    input: JSON.stringify({
+      rows: [
+        {
+          id: GROUP_ID, title: 'AWS Girls Argentina', url: GROUP_URL,
+          meetupSourceUrl: GROUP_URL, country: 'AR', kind: 'community', published: true,
+        },
+        {
+          id: SIBLING_ID, title: 'AWS SBG Macul', url: SIBLING_URL,
+          meetupSourceUrl: SIBLING_URL, country: 'CL', kind: 'community', published: true,
+        },
+        { ...communityEvent(), autoSync: false },
+      ],
+      feedTimeZones: { [`${GROUP_URL}events/ical/`]: 'Factory' },
+    }),
+    encoding: 'utf8',
+    timeout: 30000,
+  });
+  assert.equal(python.error, undefined, python.error?.message);
+  assert.equal(python.status, 0, python.stderr);
+  const sync = JSON.parse(python.stdout);
+
+  const client = new CatalogDocumentClientMock();
+  for (const row of sync.rows.filter(({ recordType }) => recordType === 'event' || recordType === 'urlReservation')) {
+    client.seed(CATALOG, row);
+  }
+  const publicEvents = (await loadCatalog({ tableName: CATALOG, docClient: client }))
+    .filter(({ recordType }) => recordType === 'event');
+  assert.deepEqual(publicEvents.map(({ id, timeZone }) => [id, timeZone]).sort(), [
+    [PROTECTED_EVENT_ID, 'America/Argentina/Cordoba'],
+    ['meetup-event-382663761', 'America/Santiago'],
+  ]);
+  assert.equal(sync.result.changed, 1);
+  assert.equal(sync.result.failures.length, 1);
+  assert.match(sync.result.failures[0], /36431225.*timezone|timezone.*36431225/iu);
+  assert.equal(sync.rows.some(({ id }) => id === currentUrlReservationId(TARGET_NEW_EVENT_URL)), false);
+  assert.deepEqual(sync.transactions.map((actions) => actions.map(({ Put }) => Put.Item.id)), [[
+    'meetup-event-382663761', currentUrlReservationId(`${SIBLING_URL}events/382663761/`),
+  ]]);
+});
+
 test('a real backfill wins over a stale authorized full-item creator write, then a fresh edit preserves its locator', async () => {
   // This planned backfill module is intentionally loaded only in this focused race
   // test so the source-enrollment composition test remains independently runnable.

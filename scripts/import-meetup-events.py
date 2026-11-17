@@ -75,6 +75,9 @@ SDK_CALL_SECONDS = 5
 LAMBDA_DRAIN_SECONDS = 20
 NOTIFICATION_SECONDS = 5
 FINAL_MARGIN_SECONDS = 10
+# ZoneInfo can open these tzdata placeholders, local aliases and alternate
+# trees. They do not name zones usable by the public JavaScript Intl runtime.
+NON_PUBLIC_TIME_ZONES = frozenset(('Factory', 'localtime', 'posixrules'))
 
 
 class BudgetExhausted(RuntimeError):
@@ -393,6 +396,19 @@ def valid_group_name(value):
 
 def valid_group_country(value):
     return isinstance(value, str) and value in ORGANIZER_COUNTRIES
+
+
+def validate_public_time_zone(value, source):
+    if not value:
+        raise ValueError(f'Missing timezone {source}')
+    if (not isinstance(value, str) or value in NON_PUBLIC_TIME_ZONES
+            or value.startswith(('posix/', 'right/'))):
+        raise ValueError(f'Invalid timezone {source}')
+    try:
+        ZoneInfo(value)
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError(f'Invalid timezone {source}') from error
+    return value
 
 
 def validate_meetup_group(group):
@@ -893,19 +909,16 @@ def map_event(group, entry, page):
     ends_at = end.isoformat(timespec='seconds')
     serialized_start = parse_observed_end(starts_at)
     serialized_end = parse_observed_end(ends_at)
-    if serialized_start is None or serialized_end is None:
+    # JavaScript Date.UTC treats years 0–99 as offsets from 1900, so the
+    # public projector rejects those otherwise valid Python datetime years.
+    if (serialized_start is None or serialized_end is None
+            or start.year < 100 or end.year < 100):
         raise ValueError(f'Invalid event dates: {entry["id"]}')
     if serialized_end <= serialized_start:
         raise ValueError(f'Invalid event dates: {entry["id"]}')
     if not valid_group_name(group.get('name')) or not valid_group_country(group.get('country')):
         raise ValueError(f'Invalid Meetup community facts: {group.get("id", "unknown")}')
-    time_zone = group.get('timeZone')
-    if not isinstance(time_zone, str) or not time_zone:
-        raise ValueError(f'Missing timezone in group {group.get("id", "unknown")}')
-    try:
-        ZoneInfo(time_zone)
-    except (KeyError, TypeError, ValueError) as error:
-        raise ValueError(f'Invalid timezone in group {group.get("id", "unknown")}') from error
+    time_zone = validate_public_time_zone(group.get('timeZone'), f'in group {group["id"]}')
     attendance = page.get('eventAttendanceMode', '')
     mode = {
         'https://schema.org/OnlineEventAttendanceMode': 'online',
@@ -943,7 +956,7 @@ def map_event(group, entry, page):
         'description': clean_description(page.get('description')),
         'startsAt': starts_at,
         'endsAt': ends_at,
-        'timeZone': group['timeZone'],
+        'timeZone': time_zone,
         'organizer': group['name'],
         'mode': mode,
         'registrationUrl': entry['url'],
@@ -1989,16 +2002,11 @@ def synchronize(table=None, groups=None, dry_run=False, budget=None, before_drai
                 pending.append(entry)
 
         if pending:
-            timezone_valid = isinstance(time_zone, str) and bool(time_zone)
-            if timezone_valid:
-                try:
-                    ZoneInfo(time_zone)
-                except (KeyError, TypeError, ValueError):
-                    timezone_valid = False
-            if not timezone_valid:
+            try:
+                validate_public_time_zone(time_zone, f'in feed of {state.group["id"]}')
+            except ValueError as error:
                 state.failed = True
-                message = 'Missing timezone' if not time_zone else 'Invalid timezone'
-                failures.append(f'{message} in feed of {state.group["id"]}')
+                failures.append(str(error))
                 return
         state.group['timeZone'] = time_zone
         feeds_read += 1
