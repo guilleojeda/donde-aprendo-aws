@@ -150,6 +150,21 @@ class MeetupCalendarValueTests(unittest.TestCase):
                 'VERSION:2.0', 'VERSION;ENCODING=BASE64:2.0')),
             ('calendar invalid LAST-MODIFIED value', support.EMPTY_ICAL.replace(
                 'END:VCALENDAR', 'LAST-MODIFIED:20990231T000000Z\r\nEND:VCALENDAR')),
+            ('invalid calendar URI', support.EMPTY_ICAL.replace(
+                'END:VCALENDAR', 'URL;VALUE=URI:not a URI\r\nEND:VCALENDAR')),
+            ('invalid calendar URI encoding', support.EMPTY_ICAL.replace(
+                'END:VCALENDAR', 'URL:https://www.meetup.com/%2Z/\r\nEND:VCALENDAR')),
+            ('calendar URL without HTTP authority', support.EMPTY_ICAL.replace(
+                'END:VCALENDAR', 'URL:https:///aws-bogota/\r\nEND:VCALENDAR')),
+            ('empty calendar UID', support.EMPTY_ICAL.replace(
+                'END:VCALENDAR', 'UID:\r\nEND:VCALENDAR')),
+            ('escaped empty calendar UID', support.EMPTY_ICAL.replace(
+                'END:VCALENDAR', 'UID:\\n\r\nEND:VCALENDAR')),
+            ('duplicate calendar UID', support.EMPTY_ICAL.replace(
+                'END:VCALENDAR', 'UID:one\r\nUID:two\r\nEND:VCALENDAR')),
+            ('duplicate calendar URL', support.EMPTY_ICAL.replace(
+                'END:VCALENDAR', 'URL:https://example.invalid/one\r\n'
+                'URL:https://example.invalid/two\r\nEND:VCALENDAR')),
         )
         for label, malformed in cases:
             with self.subTest(label=label):
@@ -204,6 +219,14 @@ class MeetupCalendarValueTests(unittest.TestCase):
                     feed = support.ICAL.replace(original, f'LAST-MODIFIED{declared_type}:{raw}')
                     with self.assertRaisesRegex(ValueError, 'Invalid iCalendar feed'):
                         meetup.parse_feed(feed, support.GROUP)
+
+    def test_valid_calendar_metadata_does_not_create_an_event(self):
+        metadata = (
+            'UID:meetup-calendar-123\r\nURL:https://www.meetup.com/aws-bogota/?source=calendar'
+            '\r\nLAST-MODIFIED:20990228T000000Z\r\n'
+        )
+        feed = support.EMPTY_ICAL.replace('END:VCALENDAR', metadata + 'END:VCALENDAR')
+        self.assertEqual(meetup.parse_feed(feed, support.GROUP), [])
 
     def test_calendar_modification_metadata_requires_a_real_utc_value_even_without_events(self):
         def with_property(value):

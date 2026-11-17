@@ -359,8 +359,10 @@ def parse_calendar(text, group):
         rf'(?P<value>[^\r\n\x00-\x08\x0a-\x1f\x7f]*)\Z')
     parameter_line = re.compile(
         rf';(?P<name>{token})=(?P<value>{parameter_value})(?=;|\Z)', re.I)
-    event_singletons = frozenset({'UID', 'URL', 'STATUS', 'LAST-MODIFIED'})
-    calendar_singletons = frozenset({'VERSION', 'TZID', 'LAST-MODIFIED'})
+    event_properties = frozenset({'UID', 'URL', 'STATUS', 'LAST-MODIFIED'})
+    calendar_metadata = frozenset({'VERSION', 'TZID', 'UID', 'URL', 'LAST-MODIFIED'})
+    timezone_metadata = frozenset({'TZID', 'LAST-MODIFIED'})
+    event_statuses = frozenset({'TENTATIVE', 'CONFIRMED', 'CANCELLED'})
     consumed_value_types = {
         'VERSION': 'TEXT', 'TZID': 'TEXT', 'UID': 'TEXT',
         'URL': 'URI', 'STATUS': 'TEXT', 'LAST-MODIFIED': 'DATE-TIME',
@@ -422,13 +424,43 @@ def parse_calendar(text, group):
         except ValueError:
             invalid_feed()
 
-    def record_property(target, name, value, singleton_names):
-        if name in singleton_names and name in target:
+    def validate_calendar_text(value):
+        if not re.fullmatch(r'(?:\\[\\;,nN]|[^\\;,])+', value):
             invalid_feed()
-        if name == 'LAST-MODIFIED':
-            validate_modified_timestamp(value)
-        # Preserve the old fallback hash behavior for repeatable extension
-        # properties: the final value is the meaningful observed value.
+        visible = re.sub(r'\\[nN]', '\n', value)
+        if not visible.strip(JAVASCRIPT_TRIM_WHITESPACE):
+            invalid_feed()
+
+    def validate_calendar_uri(value):
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9+.-]*:[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+", value) \
+                or re.search(r'%(?![A-Fa-f0-9]{2})', value):
+            invalid_feed()
+        try:
+            uri = urlsplit(value)
+            _ = uri.port
+        except ValueError:
+            invalid_feed()
+        if uri.scheme in {'http', 'https', 'ftp'} and not uri.hostname:
+            invalid_feed()
+
+    def record_property(target, name, value, parameters, allowed_properties):
+        # Recognized properties have one value and a defined component
+        # scope. Other properties remain extension data for this observer.
+        if name in consumed_value_types:
+            if name not in allowed_properties or name in target:
+                invalid_feed()
+            validate_consumed_parameters(name, parameters)
+            if name == 'LAST-MODIFIED':
+                validate_modified_timestamp(value)
+            elif name in {'TZID', 'UID'}:
+                validate_calendar_text(value)
+            elif name == 'URL':
+                validate_calendar_uri(value)
+            elif name == 'VERSION' and value != '2.0':
+                invalid_feed()
+            elif name == 'STATUS' and value.upper() not in event_statuses:
+                invalid_feed()
+        # Preserve the fallback fingerprint for repeatable extensions.
         target[name] = value
 
     def allowed_component(parent, component):
@@ -470,8 +502,6 @@ def parse_calendar(text, group):
         meetup_event_resource_id(event_id)
         event = {'id': event_id, 'url': url, 'modified': modified}
         status = current.get('STATUS', '').upper()
-        if 'STATUS' in current and status not in {'TENTATIVE', 'CONFIRMED', 'CANCELLED'}:
-            invalid_feed()
         if status == 'CANCELLED':
             event['cancelled'] = True
         previous = events.get(event_id)
@@ -519,27 +549,18 @@ def parse_calendar(text, group):
                         time_zone = timezone_properties['TZID']
                 components.pop()
         elif components == ['VCALENDAR', 'VEVENT'] and current is not None:
-            if name in {'VERSION', 'TZID'}:
-                invalid_feed()
-            validate_consumed_parameters(name, parameters)
-            record_property(current, name, value, event_singletons)
+            record_property(current, name, value, parameters, event_properties)
         elif components == ['VCALENDAR']:
-            if name == 'STATUS' or (name == 'TZID' and not value.strip(JAVASCRIPT_TRIM_WHITESPACE)):
-                invalid_feed()
-            validate_consumed_parameters(name, parameters)
-            record_property(calendar_properties, name, value, calendar_singletons)
-        elif components == ['VCALENDAR', 'VTIMEZONE'] and name in {'TZID', 'LAST-MODIFIED'}:
-            if name == 'TZID' and not value.strip(JAVASCRIPT_TRIM_WHITESPACE):
-                invalid_feed()
-            validate_consumed_parameters(name, parameters)
-            record_property(timezone_properties, name, value, calendar_singletons)
+            record_property(calendar_properties, name, value, parameters, calendar_metadata)
+        elif components == ['VCALENDAR', 'VTIMEZONE']:
+            record_property(timezone_properties, name, value, parameters, timezone_metadata)
         elif components:
             # Properties nested in VALARM, VTIMEZONE, or extension components
             # do not affect direct event identity or cancellation authority.
             pass
         else:
             invalid_feed()
-    if components or calendar_properties.get('VERSION') != '2.0':
+    if components or 'VERSION' not in calendar_properties:
         invalid_feed()
     return list(events.values()), calendar_properties.get('TZID', time_zone)
 
