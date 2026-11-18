@@ -9,6 +9,8 @@ import {
   captureCreatorApi,
 } from '../fixtures/creator-browser-test.mjs';
 
+const SUMMARY_PATH = '/api/creador/estadisticas/resumen/';
+
 async function assertDetail(page, period) {
   await page.locator('[data-owner-activity-detail]').click();
   await expect(page).toHaveURL((url) => url.searchParams.get('vista') === 'estadisticas'
@@ -46,11 +48,17 @@ function statisticsReport(request, rows, metricNames = request.metrics.map(({ na
   };
 }
 
+function queryDays(request) {
+  const { startDate, endDate } = request.dateRanges[0];
+  const relativeStart = /^(\d+)daysAgo$/.exec(startDate);
+  if (relativeStart && endDate === 'today') return Number(relativeStart[1]) + 1;
+  return (Date.parse(endDate) - Date.parse(startDate)) / 86_400_000 + 1;
+}
+
 function expandedStatisticsResponse(body) {
   const reportFor = (request) => {
     const dimensions = request.dimensions?.map(({ name }) => name) ?? [];
-    const startDate = request.dateRanges?.[0]?.startDate;
-    const period = startDate === '29daysAgo' ? 30 : 7;
+    const period = queryDays(request);
     if (dimensions.includes('date')) {
       const start = new Date(Date.UTC(2026, period === 30 ? 8 : 9, period === 30 ? 24 : 17));
       const rows = [];
@@ -86,7 +94,7 @@ function expandedStatisticsResponse(body) {
   return reportFor(body);
 }
 
-test('el resumen real de 7 y 30 días abre cada informe privado con los mismos datos GA4', async ({ fixture, page }) => {
+test('el resumen real de 7 y 30 días abre cada informe privado con los mismos datos GA4', async ({ fixture, page, browser }) => {
   const cookie = await loggedInOwner(fixture, page);
   const published = await publishOwner(fixture, cookie);
   assert.equal(published.response.status, 200);
@@ -104,6 +112,8 @@ test('el resumen real de 7 y 30 días abre cada informe privado con los mismos d
       const rawBody = await response.body();
       summaryResponses.push({
         period,
+        pathname: url.pathname,
+        query: [...url.searchParams.keys()],
         status: response.status(),
         headers: response.headers(),
         body: JSON.parse(rawBody.toString('utf8')),
@@ -122,6 +132,7 @@ test('el resumen real de 7 y 30 días abre cada informe privado con los mismos d
     }
   };
   await page.route('**/api/creador/estadisticas/**', captureSummaryResponse);
+  const beforeColdSummary = fixture.statistics.requests.length;
   await page.goto(`${fixture.origin}/cuenta/?vista=series&paginaSeries=1`);
   const summary = page.locator('[data-owner-activity]');
   await expect(summary).toBeVisible();
@@ -135,6 +146,8 @@ test('el resumen real de 7 y 30 días abre cada informe privado con los mismos d
   assert.ok(initialReport, 'a real initial response contains the published profile report');
   assert.match(initialReport.headers['cache-control'] ?? '', /private.*no-store/i);
   assert.deepEqual(initialReport.body.totals, { views: 12, visitors: 6, clicks: 20 });
+  const coldSummaryReports = fixture.statistics.requests.slice(beforeColdSummary)
+    .flatMap((call) => call.requests ?? [call]);
   await expect(summary.locator('[data-owner-activity-period="30"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(summary.locator('[data-owner-activity-total-group]'))
     .toHaveAttribute('aria-label', 'Totales de los últimos 30 días');
@@ -171,12 +184,36 @@ test('el resumen real de 7 y 30 días abre cada informe privado con los mismos d
   'the returned 30-day request kept its distinct GA4 totals');
   await assertDetail(page, 30);
 
-  const providerPeriods = fixture.statistics.requests.flatMap(({ requests }) =>
-    requests.map(({ dateRanges }) => dateRanges[0]?.startDate));
-  assert.ok(providerPeriods.includes('6daysAgo'), 'the real GA4 reader fetched the 7-day period');
-  assert.ok(providerPeriods.includes('29daysAgo'), 'the real GA4 reader fetched the 30-day period');
+  const providerPeriods = fixture.statistics.requests.flatMap(({ requests }) => requests.map(queryDays));
+  assert.ok(providerPeriods.includes(7), 'the real GA4 reader fetched the 7-day period');
+  assert.ok(providerPeriods.includes(30), 'the real GA4 reader fetched the 30-day period');
   assert.deepEqual(summaryCaptureFailures, [], 'the route observer captures each real response before returning it unchanged');
   await page.unroute('**/api/creador/estadisticas/**', captureSummaryResponse);
+
+  // Put the split-operation assertions after both working detail journeys so
+  // the baseline measures what it really reads and preserves.
+  assert.deepEqual(coldSummaryReports.map(({ dimensions }) => dimensions?.map(({ name }) => name) ?? []), [[], []],
+    'a cold summary performs two totals reports without fetching any detail');
+  for (const { pathname, query, body, headers } of summaryResponses) {
+    assert.equal(pathname, SUMMARY_PATH);
+    assert.deepEqual(query, ['periodo']);
+    assert.match(headers['x-robots-tag'] ?? '', /noindex/i);
+    for (const key of ['page', 'daily', 'links', 'sources']) assert.ok(!Object.hasOwn(body, key), key);
+  }
+  const rejectedQuery = await page.request.get(fixture.origin + SUMMARY_PATH + '?pagina=1');
+  assert.equal(rejectedQuery.status(), 400);
+  assert.match(rejectedQuery.headers()['cache-control'] ?? '', /private.*no-store/i);
+  assert.match(rejectedQuery.headers()['x-robots-tag'] ?? '', /noindex/i);
+
+  const visitor = await browser.newContext();
+  try {
+    const anonymous = await visitor.request.get(fixture.origin + SUMMARY_PATH);
+    assert.equal(anonymous.status(), 401);
+    assert.match(anonymous.headers()['cache-control'] ?? '', /private.*no-store/i);
+    assert.match(anonymous.headers()['x-robots-tag'] ?? '', /noindex/i);
+  } finally {
+    await visitor.close();
+  }
 });
 
 test('el formulario y la paginación del informe funcionan sin JavaScript', async ({ fixture, page, browser }) => {
@@ -263,6 +300,19 @@ test('la respuesta anterior no reemplaza el período elegido aunque su JSON term
   await page.goto(`${fixture.origin}/cuenta/?vista=series`);
   await page.waitForFunction(() => window.__ownerActivityThirtyBodyStarted === true);
   const summary = page.locator('[data-owner-activity]');
+  await expect(summary.locator('[data-owner-activity-status]')).toContainText(/Cargando estadísticas/u);
+  await page.getByRole('button', { name: 'Editar datos' }).click();
+  const edit = page.locator('[data-owner-dialog] form[data-owner-form="datos"]');
+  await expect(edit).toBeVisible();
+  await edit.getByLabel('Nombre visible').fill('Edición guardada mientras carga actividad');
+  const saved = page.waitForResponse((response) => response.request().method() === 'PUT'
+    && new URL(response.url()).pathname.replace(/\/$/u, '') === '/api/creador/perfil');
+  await edit.getByRole('button', { name: 'Guardar datos' }).click();
+  assert.equal((await saved).status(), 200);
+  await expect(edit).not.toBeVisible();
+  assert.equal((await fixture.rawOwner(cookie)).profile.displayName, 'Edición guardada mientras carga actividad');
+  assert.equal(await page.evaluate(() => window.__ownerActivityThirtyBodyFinished === true), false,
+    'saving persists while the original report body is still pending');
   await summary.locator('[data-owner-activity-period="7"]').click();
   await expect(summary.locator('[data-owner-activity-period="7"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(summary.locator('[data-owner-activity-total-group]'))
@@ -284,13 +334,12 @@ test('la respuesta anterior no reemplaza el período elegido aunque su JSON term
   await expect(summary.locator('[data-owner-activity-detail]'))
     .toHaveAttribute('href', '/cuenta/?vista=estadisticas&periodo=7&pagina=1');
 
-  const providerPeriods = fixture.statistics.requests.flatMap(({ requests }) =>
-    requests.map(({ dateRanges }) => dateRanges[0]?.startDate));
-  assert.ok(providerPeriods.includes('6daysAgo'));
-  assert.ok(providerPeriods.includes('29daysAgo'));
+  const providerPeriods = fixture.statistics.requests.flatMap(({ requests }) => requests.map(queryDays));
+  assert.ok(providerPeriods.includes(7));
+  assert.ok(providerPeriods.includes(30));
 });
 
-test('creator, período, página y DTO inválidos quedan sin cifras hasta un reintento, mientras la edición sigue disponible', async ({ fixture, page }) => {
+test('creador, período, rango y totales inválidos quedan sin cifras hasta un reintento, mientras la edición sigue disponible', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const published = await publishOwner(fixture, cookie);
   assert.equal(published.response.status, 200);
@@ -304,8 +353,8 @@ test('creator, período, página y DTO inválidos quedan sin cifras hasta un rei
   const invalidations = [
     ['creator ajeno', (body) => { body.creatorId = 'otro-creador'; }],
     ['período ajeno', (body) => { body.period = 7; }],
-    ['página ajena', (body) => { body.page = 2; }],
-    ['DTO malformado', (body) => { body.daily[0].date = 'fecha-inválida'; }],
+    ['rango inválido', (body) => { body.range.startDate = 'fecha-inválida'; }],
+    ['totales inválidos', (body) => { body.totals.clicks = -1; }],
   ];
 
   try {
@@ -371,44 +420,32 @@ test('las limitaciones, los valores desconocidos, el cero medido y la recuperaci
   let mode = 'limited';
   fixture.statistics.setProviderResponder(({ body, payload }) => {
     if (mode === 'unavailable') return new Response(null, { status: 503 });
-    const reports = payload.reports;
-    const period = body.requests[0]?.dateRanges?.[0]?.startDate === '6daysAgo' ? 7 : 30;
-    if (mode === 'limited' && period === 30) {
-      const linksIndex = body.requests.findIndex(({ dimensions }) =>
-        dimensions?.some(({ name }) => name === 'customEvent:link_id'));
-      reports[linksIndex] = {
-        ...reports[linksIndex],
-        metadata: { ...reports[linksIndex].metadata, dataLossFromOtherRow: true },
-      };
-    }
-    if (mode === 'limited' && period === 7) {
-      const visitsIndex = body.requests.findIndex(({ metrics }) => metrics.some(({ name }) => name === 'totalUsers'));
-      const clicksIndex = body.requests.findIndex(({ dimensions, metrics }) =>
-        !dimensions?.length && metrics.some(({ name }) => name === 'eventCount')
-          && !metrics.some(({ name }) => name === 'totalUsers'));
-      reports[visitsIndex] = {
-        ...reports[visitsIndex],
-        rows: [],
-        rowCount: 0,
-        metadata: { ...reports[visitsIndex].metadata, subjectToThresholding: true },
-      };
-      reports[clicksIndex] = { ...reports[clicksIndex], rows: [], rowCount: 0 };
-    }
-    if (mode === 'recovered' && period === 7) {
-      for (const [index, request] of body.requests.entries()) {
-        if (request.dimensions?.length) continue;
-        const metrics = request.metrics.map(({ name }) => name);
-        const values = metrics.map((name) => name === 'totalUsers' ? 4 : name === 'eventCount'
-          ? metrics.includes('totalUsers') ? 7 : 9
-          : 0);
-        reports[index] = {
-          ...reports[index],
-          rows: [{ dimensionValues: [], metricValues: values.map((value) => ({ value: String(value) })) }],
-          rowCount: 1,
-        };
+    const isBatch = Array.isArray(body.requests);
+    const requests = isBatch ? body.requests : [body];
+    const reports = payload.reports ?? [payload];
+    for (const [index, request] of requests.entries()) {
+      const period = queryDays(request);
+      const dimensions = request.dimensions?.map(({ name }) => name) ?? [];
+      const measuresVisitors = request.metrics.some(({ name }) => name === 'totalUsers');
+      const report = reports[index];
+      if (mode === 'limited' && period === 30) {
+        if (measuresVisitors) {
+          report.metadata.samplingMetadatas = [{ samplesReadCount: '700', samplingSpaceSize: '1000' }];
+        }
+        if (dimensions.includes('customEvent:link_id')) report.metadata.dataLossFromOtherRow = true;
+      }
+      if (mode === 'limited' && period === 7 && dimensions.length === 0) {
+        report.rows = [];
+        report.rowCount = 0;
+        if (measuresVisitors) report.metadata.subjectToThresholding = true;
+      }
+      if (mode === 'recovered' && period === 7 && dimensions.length === 0) {
+        const values = request.metrics.map(({ name }) => name === 'totalUsers' ? 4 : measuresVisitors ? 7 : 9);
+        report.rows = [{ dimensionValues: [], metricValues: values.map((value) => ({ value: String(value) })) }];
+        report.rowCount = 1;
       }
     }
-    return { ...payload, reports };
+    return isBatch ? { ...payload, reports } : reports[0];
   });
 
   await page.goto(`${fixture.origin}/cuenta/?vista=series`);
@@ -417,6 +454,13 @@ test('las limitaciones, los valores desconocidos, el cero medido y la recuperaci
   await expect(summary.locator('[data-owner-activity-total="visitors"]')).toHaveText('6');
   await expect(summary.locator('[data-owner-activity-total="clicks"]')).toHaveText('20');
   const finiteSummaryWarning = await summary.locator('[data-owner-activity-status]').innerText();
+
+  await summary.locator('[data-owner-activity-detail]').click();
+  const detail = page.locator('[data-owner-statistics]');
+  await expect(detail).toContainText('Google Analytics agrupó parte del detalle en “(other)”.');
+  await expect(detail).toContainText(/limitó el detalle de clics por enlace/u);
+  await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+  await expect(summary.locator('[data-owner-activity-total="views"]')).toHaveText('12');
 
   await summary.locator('[data-owner-activity-period="7"]').click();
   await expect(summary.locator('[data-owner-activity-total="views"]')).toHaveText('Datos limitados');
@@ -464,7 +508,7 @@ test('las limitaciones, los valores desconocidos, el cero medido y la recuperaci
       `${state}: the provider limitation remains visible beside its totals`);
   }
   assert.ok(fixture.statistics.requests.some(({ requests }) =>
-    requests.some(({ dateRanges }) => dateRanges[0]?.startDate === '6daysAgo')),
+    requests.some((request) => queryDays(request) === 7)),
   'the real GA4 reader handled the period-specific report behind the stale recovery');
 });
 
@@ -522,10 +566,10 @@ test('ningún perfil o borrador consulta GA y publicar desde el detalle de 7 dí
       assert.equal(writes.length, state === 'none' ? 1 : 2, `${state}: one explicit publication request is sent`);
       assert.equal(writes.at(-1).status, 200);
       assert.equal((await fixture.rawOwner(cookie)).profile.published, true);
-      const providerCalls = fixture.statistics.requests.slice(providerCallsBefore);
-      assert.equal(providerCalls.length, 1, `${state}: publication causes one real GA4 batch read`);
-      assert.ok(providerCalls[0].requests.every(({ dateRanges }) => dateRanges[0]?.startDate === '6daysAgo'),
-        `${state}: every report in that batch uses the selected seven-day period`);
+      const reports = fixture.statistics.requests.slice(providerCallsBefore).flatMap(({ requests }) => requests);
+      assert.ok(reports.length > 0, `${state}: publication loads real GA4 data`);
+      assert.ok(reports.every((request) => queryDays(request) === 7),
+        `${state}: each report uses the selected seven-day period`);
     }
   } finally {
     oidc.claims = previousClaims;

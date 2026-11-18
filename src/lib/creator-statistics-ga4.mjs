@@ -52,6 +52,8 @@ const REPORTS = [
   },
 ];
 
+const SUMMARY_REPORTS = REPORTS.filter(({ key }) => key === 'visits' || key === 'clicks');
+
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -136,9 +138,11 @@ function eventFilter(profileId, filter) {
   };
 }
 
-function queryFor(spec, profileId, period, page = 1) {
+function queryFor(spec, profileId, period, page = 1, range) {
   const query = {
-    dateRanges: [{ startDate: `${period - 1}daysAgo`, endDate: 'today' }],
+    dateRanges: [range
+      ? { startDate: range.startDate, endDate: range.endDate }
+      : { startDate: `${period - 1}daysAgo`, endDate: 'today' }],
     metrics: spec.metrics.map((name) => ({ name })),
     dimensionFilter: eventFilter(profileId, spec.eventFilter),
     returnPropertyQuota: true,
@@ -391,11 +395,11 @@ function ensureCompleteUnpaginated(report, spec) {
   return parsed;
 }
 
-function warningsFrom(reports) {
+function warningsFromEntries(reports) {
   const seen = new Set();
   const warnings = [];
-  for (const spec of REPORTS) {
-    for (const warning of reports[spec.key].warnings) {
+  for (const report of reports) {
+    for (const warning of report.warnings) {
       const identity = `${warning.section}\u0000${warning.code}`;
       if (seen.has(identity)) continue;
       seen.add(identity);
@@ -403,6 +407,39 @@ function warningsFrom(reports) {
     }
   }
   return warnings;
+}
+
+function warningsFrom(reports) {
+  return warningsFromEntries(REPORTS.map((spec) => reports[spec.key]));
+}
+
+function validTimeZone(value) {
+  if (typeof value !== 'string' || value === '') return false;
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function validatedRange(period, range) {
+  if (!isRecord(range)
+    || !validIsoDate(range.startDate)
+    || !validIsoDate(range.endDate)
+    || !validTimeZone(range.timeZone)) {
+    throw new TypeError('range must be a valid GA4 date range');
+  }
+  const start = Date.parse(`${range.startDate}T00:00:00.000Z`);
+  const end = Date.parse(`${range.endDate}T00:00:00.000Z`);
+  if (end < start || Math.round((end - start) / 86_400_000) + 1 !== period) {
+    throw new TypeError('range must match period');
+  }
+  return {
+    startDate: range.startDate,
+    endDate: range.endDate,
+    timeZone: range.timeZone,
+  };
 }
 
 function reportHasUnknownValues(report) {
@@ -482,33 +519,81 @@ function aggregateSources(report) {
     .slice(0, 10);
 }
 
-async function readSourcePages({ report, spec, query, endpoint, fetchImpl, token, timeoutMs }) {
-  const parsedFirst = parseReport(report, spec, { limit: LINK_PAGE_SIZE });
-  if (parsedFirst.rowCount < parsedFirst.rows.length) throw unavailable();
-  const rows = [...parsedFirst.rows];
-  const warnings = [...parsedFirst.warnings];
+function reportTotals(reports) {
+  return {
+    views: readEventTotals(reports.visits, 'eventCount'),
+    visitors: readEventTotals(reports.visits, 'totalUsers'),
+    clicks: readEventTotals(reports.clicks, 'eventCount'),
+  };
+}
+
+async function readSourcePages({ firstPage, spec, query, range, endpoint, fetchImpl, token, timeoutMs }) {
+  if (firstPage.rowCount < firstPage.rows.length) throw unavailable();
+  const rows = [...firstPage.rows];
+  const warnings = [...firstPage.warnings];
+  const rawSources = new Set();
+  for (const row of firstPage.rows) {
+    const source = dimensionValue(row, 'sessionSourceMedium');
+    if (rawSources.has(source)) throw unavailable();
+    rawSources.add(source);
+  }
   let offset = rows.length;
-  while (offset < parsedFirst.rowCount) {
+  while (offset < firstPage.rowCount) {
     if (rows.length === 0) throw unavailable();
-    const nextQuery = { ...query, offset: String(offset) };
-    const response = await fetchJson({ fetchImpl, url: endpoint.replace(':batchRunReports', ':runReport'), body: nextQuery, token, timeoutMs });
+    const nextQuery = {
+      ...query,
+      dateRanges: [{ startDate: range.startDate, endDate: range.endDate }],
+      offset: String(offset),
+    };
+    const response = await fetchJson({ fetchImpl, url: endpoint, body: nextQuery, token, timeoutMs });
     const page = parseReport(response, spec, { offset, limit: LINK_PAGE_SIZE });
-    if (page.timeZone !== parsedFirst.timeZone || page.rowCount !== parsedFirst.rowCount
-      || page.rows.length === 0 || page.rows.length > parsedFirst.rowCount - offset) throw unavailable();
+    if (page.timeZone !== firstPage.timeZone || page.rowCount !== firstPage.rowCount
+      || page.rows.length === 0
+      || page.rows.length !== Math.min(LINK_PAGE_SIZE, firstPage.rowCount - offset)) throw unavailable();
+    for (const row of page.rows) {
+      const source = dimensionValue(row, 'sessionSourceMedium');
+      if (rawSources.has(source)) throw unavailable();
+      rawSources.add(source);
+    }
     rows.push(...page.rows);
     warnings.push(...page.warnings);
     offset += page.rows.length;
   }
-  return { ...parsedFirst, rows, warnings };
+  return { ...firstPage, rows, warnings };
 }
 
-function validateReadInput({ profileId, period, page }) {
+function validateCommonInput(input) {
+  if (!isRecord(input)) throw new TypeError('statistics query must be an object');
+  const { profileId, period } = input;
   if (typeof profileId !== 'string' || profileId.trim() === '' || profileId !== profileId.trim()) throw new TypeError('profileId must be a non-empty string');
   if (period !== 7 && period !== 30) throw new TypeError('period must be 7 or 30');
+  return { profileId, period };
+}
+
+function validatePage(page) {
   if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger((page - 1) * LINK_PAGE_SIZE)) {
     throw new TypeError('page must be a positive integer');
   }
-  return { profileId, period, page };
+  return page;
+}
+
+function validateReadInput(input) {
+  const { profileId, period } = validateCommonInput(input);
+  return { profileId, period, page: validatePage(input.page) };
+}
+
+function validateSummaryInput(input) {
+  return validateCommonInput(input);
+}
+
+function validateLinksInput(input) {
+  const { profileId, period } = validateCommonInput(input);
+  return {
+    profileId,
+    period,
+    page: validatePage(input.page),
+    range: validatedRange(period, input.range),
+  };
 }
 
 export function createGA4StatisticsReader({
@@ -528,66 +613,94 @@ export function createGA4StatisticsReader({
 
   const endpoint = `${API_ROOT}${encodeURIComponent(propertyId)}`;
 
+  async function accessToken() {
+    let token;
+    try {
+      token = await getAccessToken();
+    } catch {
+      throw unavailable();
+    }
+    if (typeof token !== 'string' || token.trim() === '' || /\s/.test(token)) throw unavailable();
+    return token;
+  }
+
+  function clockValue() {
+    const value = now();
+    if (!Number.isSafeInteger(value) || value < 0) {
+      throw new TypeError('now must return a non-negative epoch timestamp in milliseconds');
+    }
+    return value;
+  }
+
+  async function batchReports({ specs, profileId, period, page = 1, token }) {
+    const queries = specs.map((spec) => queryFor(spec, profileId, period, page));
+    const response = await fetchJson({
+      fetchImpl,
+      url: `${endpoint}:batchRunReports`,
+      body: { requests: queries },
+      token,
+      timeoutMs,
+    });
+    if (!Array.isArray(response.reports) || response.reports.length !== specs.length) throw unavailable();
+    return { queries, rawReports: response.reports };
+  }
+
+  function resolveWindow({ reports, specs, period, nowValue }) {
+    const timeZone = reports[specs[0].key].timeZone;
+    if (!validTimeZone(timeZone)) throw unavailable();
+    for (const spec of specs) if (reports[spec.key].timeZone !== timeZone) throw unavailable();
+    return dateRange(period, timeZone, nowValue);
+  }
+
   return {
     async read(input) {
       const key = validateReadInput(input);
 
-      let token;
-      try {
-        token = await getAccessToken();
-      } catch {
-        throw unavailable();
-      }
-      if (typeof token !== 'string' || token.trim() === '' || /\s/.test(token)) throw unavailable();
-      const nowValue = now();
-      if (!Number.isSafeInteger(nowValue) || nowValue < 0) throw new TypeError('now must return a non-negative epoch timestamp in milliseconds');
-
-      const queries = REPORTS.map((spec) => queryFor(spec, key.profileId, key.period, key.page));
-      const response = await fetchJson({
-        fetchImpl,
-        url: `${endpoint}:batchRunReports`,
-        body: { requests: queries },
+      const token = await accessToken();
+      const nowValue = clockValue();
+      const { queries, rawReports } = await batchReports({
+        specs: REPORTS,
+        profileId: key.profileId,
+        period: key.period,
+        page: key.page,
         token,
-        timeoutMs,
       });
-      if (!Array.isArray(response.reports) || response.reports.length !== REPORTS.length) throw unavailable();
 
       const reports = {};
       for (let index = 0; index < REPORTS.length; index += 1) {
         const spec = REPORTS[index];
-        const rawReport = response.reports[index];
+        const rawReport = rawReports[index];
         if (spec.key === 'links') {
           const offset = (key.page - 1) * LINK_PAGE_SIZE;
           reports.links = parseReport(rawReport, spec, { offset, limit: LINK_PAGE_SIZE });
         } else if (spec.key === 'sources') {
-          reports.sources = await readSourcePages({
-            report: rawReport,
-            spec,
-            query: queries[index],
-            endpoint: `${endpoint}:batchRunReports`,
-            fetchImpl,
-            token,
-            timeoutMs,
-          });
+          reports.sources = parseReport(rawReport, spec, { limit: LINK_PAGE_SIZE });
         } else {
           reports[spec.key] = ensureCompleteUnpaginated(rawReport, spec);
         }
       }
 
-      const timeZone = reports.visits.timeZone;
-      try {
-        new Intl.DateTimeFormat('en', { timeZone });
-      } catch {
-        throw unavailable();
-      }
-      for (const spec of REPORTS) if (reports[spec.key].timeZone !== timeZone) throw unavailable();
+      const range = resolveWindow({
+        reports,
+        specs: REPORTS,
+        period: key.period,
+        nowValue,
+      });
+      reports.sources = await readSourcePages({
+        firstPage: reports.sources,
+        spec: REPORTS.find(({ key: reportKey }) => reportKey === 'sources'),
+        query: queries[REPORTS.findIndex(({ key: reportKey }) => reportKey === 'sources')],
+        range,
+        endpoint: `${endpoint}:runReport`,
+        fetchImpl,
+        token,
+        timeoutMs,
+      });
 
-      const finishValue = now();
-      if (!Number.isSafeInteger(finishValue) || finishValue < 0) throw new TypeError('now must return a non-negative epoch timestamp in milliseconds');
-      if (localDate(timeZone, nowValue) !== localDate(timeZone, finishValue)) throw unavailable();
+      const finishValue = clockValue();
+      if (localDate(range.timeZone, nowValue) !== localDate(range.timeZone, finishValue)) throw unavailable();
 
-      const range = dateRange(key.period, timeZone, nowValue);
-      const measuredFrom = localDate(timeZone, Date.parse(captureStartedAt));
+      const measuredFrom = localDate(range.timeZone, Date.parse(captureStartedAt));
       const dailyCounts = new Map();
       const seenDaily = new Set();
       for (const row of reports.daily.rows) {
@@ -629,15 +742,79 @@ export function createGA4StatisticsReader({
         period: key.period,
         page: key.page,
         range,
-        totals: {
-          views: readEventTotals(reports.visits, 'eventCount'),
-          visitors: readEventTotals(reports.visits, 'totalUsers'),
-          clicks: readEventTotals(reports.clicks, 'eventCount'),
-        },
+        totals: reportTotals(reports),
         daily,
         links: aggregateLinks(reports.links, key.page, (key.page - 1) * LINK_PAGE_SIZE),
         sources: aggregateSources(reports.sources),
         warnings: warningsFrom(reports),
+        captureStartedAt,
+      };
+    },
+
+    async readSummary(input) {
+      const key = validateSummaryInput(input);
+      const token = await accessToken();
+      const nowValue = clockValue();
+      const { rawReports } = await batchReports({
+        specs: SUMMARY_REPORTS,
+        profileId: key.profileId,
+        period: key.period,
+        token,
+      });
+      const reports = {};
+      for (let index = 0; index < SUMMARY_REPORTS.length; index += 1) {
+        const spec = SUMMARY_REPORTS[index];
+        reports[spec.key] = ensureCompleteUnpaginated(rawReports[index], spec);
+      }
+      const finishValue = clockValue();
+      const range = resolveWindow({
+        reports,
+        specs: SUMMARY_REPORTS,
+        period: key.period,
+        nowValue,
+      });
+      if (localDate(range.timeZone, nowValue) !== localDate(range.timeZone, finishValue)) throw unavailable();
+      return {
+        creatorId: key.profileId,
+        period: key.period,
+        range,
+        totals: reportTotals(reports),
+        warnings: warningsFromEntries(SUMMARY_REPORTS.map((spec) => reports[spec.key])),
+        captureStartedAt,
+      };
+    },
+
+    async readLinks(input) {
+      const key = validateLinksInput(input);
+      const token = await accessToken();
+      const nowValue = clockValue();
+      if (localDate(key.range.timeZone, nowValue) !== key.range.endDate) throw unavailable();
+      const spec = REPORTS.find(({ key: reportKey }) => reportKey === 'links');
+      const query = queryFor(spec, key.profileId, key.period, key.page, key.range);
+      const report = await fetchJson({
+        fetchImpl,
+        url: `${endpoint}:runReport`,
+        body: query,
+        token,
+        timeoutMs,
+      });
+      const parsed = parseReport(report, spec, {
+        offset: (key.page - 1) * LINK_PAGE_SIZE,
+        limit: LINK_PAGE_SIZE,
+      });
+      if (parsed.timeZone !== key.range.timeZone) throw unavailable();
+      const finishValue = clockValue();
+      if (localDate(key.range.timeZone, finishValue) !== key.range.endDate
+        || localDate(key.range.timeZone, nowValue) !== localDate(key.range.timeZone, finishValue)) {
+        throw unavailable();
+      }
+      return {
+        creatorId: key.profileId,
+        period: key.period,
+        page: key.page,
+        range: key.range,
+        links: aggregateLinks(parsed, key.page, (key.page - 1) * LINK_PAGE_SIZE),
+        warnings: warningsFromEntries([parsed]),
         captureStartedAt,
       };
     },

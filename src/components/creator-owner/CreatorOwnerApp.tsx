@@ -17,7 +17,7 @@ import {
   isCreatorSessionBinding,
   type CreatorSessionResponse,
 } from '../../lib/creator-session-response';
-import { parseCreatorStatisticsReady } from '../../lib/creator-statistics-response';
+import { parseCreatorStatisticsSummaryReady } from '../../lib/creator-statistics-response';
 import { CREATOR_CONTRACT_HEADER, CREATOR_CONTRACT_VERSION, CREATOR_FIELD_LIMITS, CREATOR_PHOTO_MAX_UPLOAD_BYTES, CREATOR_PHOTO_MIME_TYPES, CREATOR_SOCIALS } from '../../lib/creator-values.mjs';
 import { creatorOwnerNavigationLists } from '../../lib/creator-owner-presentation';
 import { safeCreatorSocialUrl } from '../../lib/creator-public.mjs';
@@ -685,9 +685,8 @@ export default function CreatorOwnerApp(props: Props) {
     const profileId = currentProfile.id;
     const period = state.activity.period;
     dispatch({ type: 'activity-loading', period, sequence });
-    const target = new URL('/api/creador/estadisticas/', window.location.origin);
+    const target = new URL('/api/creador/estadisticas/resumen/', window.location.origin);
     target.searchParams.set('periodo', String(period));
-    target.searchParams.set('pagina', '1');
     void fetch(target, { method: 'GET', credentials: 'same-origin', cache: 'no-store', headers: { accept: 'application/json' } })
       .then(async (response) => {
         const observedProfile = stateRef.current.observed.profile;
@@ -702,7 +701,7 @@ export default function CreatorOwnerApp(props: Props) {
         const body: unknown = await response.json();
         const profileAfterBody = stateRef.current.observed.profile;
         if (activityRequestSequenceRef.current !== sequence || profileAfterBody?.id !== profileId || !profileAfterBody.published) return;
-        const report = parseCreatorStatisticsReady(body, period, 1, profileId);
+        const report = parseCreatorStatisticsSummaryReady(body, period, profileId);
         if (!report) {
           dispatch({ type: 'activity-failed', period, sequence, message: 'No pudimos validar estas estadísticas. No mostramos cifras que no correspondan a tu página.' });
           return;
