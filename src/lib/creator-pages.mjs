@@ -6,7 +6,6 @@ import {
   currentUrlCollision,
   currentUrlKey,
   currentUrlReservation,
-  currentUrlReservationId,
   decodeCurrentUrlReservation,
 } from './catalog-url.mjs';
 import { creatorResourceFacts } from './creator-resource-facts.mjs';
@@ -569,30 +568,19 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return value + 1;
   }
 
-  function isValidUrlReservation(reservation, url, { allowOverLimitUniqueId = false } = {}) {
-    if (!isRecord(reservation) || reservation.id !== currentUrlReservationId(url)
-      || reservation.recordType !== 'urlReservation' || reservation.url !== url
-      || !Number.isSafeInteger(reservation.version) || reservation.version < 0) return false;
-    if (reservation.status === 'reserved') {
-      const resourceIdIsValid = typeof reservation.resourceId === 'string' && reservation.resourceId.length > 0
-        && !reservation.resourceId.startsWith('__')
-        && (allowOverLimitUniqueId || isCatalogResourceIdWithinLimit(reservation.resourceId));
-      return resourceIdIsValid
-        && !Object.hasOwn(reservation, 'resourceIds');
+  function isValidMoveReservation(reservation, url) {
+    if (!Number.isSafeInteger(reservation?.version) || reservation.version < 0) return false;
+    try {
+      // Existing URL moves compare the original revision in their transaction.
+      // Only the shape check treats a legacy observed revision like version one.
+      decodeCurrentUrlReservation({ ...reservation, version: 1 }, url);
+      return true;
+    } catch {
+      return false;
     }
-    if (reservation.status === 'collision') {
-      const ids = reservation.resourceIds;
-      return !Object.hasOwn(reservation, 'resourceId') && Array.isArray(ids) && ids.length >= 2
-        && ids.every((id) => isCatalogResourceIdWithinLimit(id) && !id.startsWith('__'))
-        && new Set(ids).size === ids.length;
-    }
-    return false;
   }
 
-  function reservationMembers(reservation, url, { allowOverLimitUniqueId = false, requireCurrentVersion = true } = {}) {
-    if (requireCurrentVersion && reservation?.version !== 1) {
-      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is inconsistent');
-    }
+  function reservationMembers(reservation, url, { allowOverLimitUniqueId = false } = {}) {
     try {
       const decoded = decodeCurrentUrlReservation(reservation, url, { allowOverLimitUniqueId });
       return decoded.resourceIds;
@@ -719,10 +707,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const previousReservation = await store.get(previousKey);
     if (nextKey === previousKey) fail(422, 'INVALID_URL', 'current URL could not be changed');
 
-    if (previousReservation && !isValidUrlReservation(previousReservation, oldUrl)) {
+    if (previousReservation && !isValidMoveReservation(previousReservation, oldUrl)) {
       fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is malformed');
     }
-    if (reservation && !isValidUrlReservation(reservation, nextUrl)) {
+    if (reservation && !isValidMoveReservation(reservation, nextUrl)) {
       fail(503, 'URL_INDEX_MISMATCH', 'destination URL reservation is malformed');
     }
     if (reservation && (reservation.status !== 'reserved' || reservation.resourceId !== resource.id)) {
@@ -1367,12 +1355,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       // membership is unchanged but a concurrent writer advanced its
       // observed revision. Full current-shape admission happens before the
       // write; this fallback only distinguishes that race from a URL move.
-      const reservationStillMatches = latestReservation?.id === currentUrlReservationId(url)
-        && latestReservation.recordType === 'urlReservation'
-        && latestReservation.url === url
+      const reservationStillMatches = isValidMoveReservation(latestReservation, url)
         && latestReservation.status === 'reserved'
-        && latestReservation.resourceId === resource.id
-        && !Object.hasOwn(latestReservation, 'resourceIds');
+        && latestReservation.resourceId === resource.id;
       if (!resourceStillMatches || !reservationStillMatches) {
         fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
       }

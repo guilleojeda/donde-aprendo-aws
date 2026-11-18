@@ -122,7 +122,8 @@ function cleanItem(item, identity) {
   if (identity?.type !== 'claim') delete value.ttl;
   // Aggregate revisions are mandatory persisted state. Do not turn a malformed
   // creatorState row with a missing revision into an apparent revision zero.
-  return value.recordType === 'creatorState' ? value : { ...value, version: value.version ?? 0 };
+  return value.recordType === 'creatorState' || Object.hasOwn(value, 'version')
+    ? value : { ...value, version: 0 };
 }
 
 function conflictCancel(error) {
@@ -463,8 +464,8 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
         ConsistentRead: true,
         KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :sk)',
         ExpressionAttributeValues: { ':pk': `PROFILE#${profileId}`, ':sk': 'CLAIM#' },
-        ProjectionExpression: '#pk, #sk, #id, #version',
-        ExpressionAttributeNames: { '#pk': 'pk', '#sk': 'sk', '#id': 'id', '#version': 'version' },
+        ProjectionExpression: '#pk, #sk, #recordType, #id, #version',
+        ExpressionAttributeNames: { '#pk': 'pk', '#sk': 'sk', '#recordType': 'recordType', '#id': 'id', '#version': 'version' },
       });
       return rows.map((row) => {
         const identity = assertCreatorRecordIdentity(row, {
@@ -543,7 +544,7 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
     return { descriptor, item: withPhysicalKeys(descriptor, value) };
   }
 
-  function buildTransactionRequests({ checks = [], puts = [], deletes = [] } = {}, { enforceActionLimit = false } = {}) {
+  function buildTransactionRequests({ checks = [], puts = [], deletes = [] } = {}) {
     if (!Array.isArray(checks) || !Array.isArray(puts) || !Array.isArray(deletes)) {
       throw new TypeError('transaction inputs must be arrays');
     }
@@ -582,7 +583,7 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
     }
 
     const ids = new Set([...conditions.keys(), ...actions.keys()]);
-    if (enforceActionLimit && ids.size > MAX_TRANSACTION_ACTIONS) {
+    if (ids.size > MAX_TRANSACTION_ACTIONS) {
       throw new RangeError(`DynamoDB transaction exceeds ${MAX_TRANSACTION_ACTIONS} physical actions`);
     }
     const requests = [];
@@ -646,7 +647,7 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
     },
 
     async transact(transaction = {}) {
-      return sendTransaction(buildTransactionRequests(transaction, { enforceActionLimit: true }));
+      return sendTransaction(buildTransactionRequests(transaction));
     },
   };
 }

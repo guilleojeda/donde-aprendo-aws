@@ -314,6 +314,21 @@ test('admin claim listing rejects a projected claim whose payload ID differs fro
     'the malformed projected identity is not disclosed in the failure');
 });
 
+test('owner history rejects a typed claim masquerading as a profile claim reference', async () => {
+  const { mock, store } = createDynamoMoveStore({ projectionAware: true });
+  const profileId = 'phase4-claim-owner';
+  const id = 'claim-invalid-reference-class';
+  seedMoveProfile(mock, { profileId, accountId: 'private-account-a', published: false });
+  seedClaim(mock, { id, profileId, resourceIds: ['claim-resource'], reference: false });
+  mock.seed(TABLES.profiles, { ...claimReference({ profileId, id }), recordType: 'claim' });
+  const harness = await createCreatorPagesHarness({ store });
+
+  const response = await ownerView(harness);
+  assert.equal(response.status, 503, await response.clone().text());
+  assert.equal(Object.hasOwn(await responseJson(response), 'claims'), false);
+  await assert.rejects(store.get(`claim-ref:${profileId}:${id}`), /claim reference identity/u);
+});
+
 test('owner history distinguishes a confirmed absent claim from a missing response association', async () => {
   const { mock, store } = createDynamoMoveStore({ projectionAware: true });
   const profileId = 'phase4-claim-owner';

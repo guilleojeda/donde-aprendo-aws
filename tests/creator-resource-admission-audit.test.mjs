@@ -150,6 +150,15 @@ test('a valid unlisted exact-ID resource is attachable through HTTP and remains 
 
 const malformedAdmissionCases = [
   {
+    name: 'add-by-URL with a null stored revision',
+    async setup(harness, resourceId, url) {
+      await seedResourceWithFields(harness, resourceId, url, { version: null });
+    },
+    async invoke(harness, _resourceId, url, creatorVersion) {
+      return addByUrl(harness, { title: 'No debe confirmar una colocación', url, creatorVersion });
+    },
+  },
+  {
     name: 'add-by-URL attach',
     async setup(harness, resourceId, url) {
       await seedResourceWithFields(harness, resourceId, url, { description: { invalid: true } });
