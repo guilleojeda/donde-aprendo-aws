@@ -236,6 +236,7 @@ function usableOwnerFocusTarget(target: HTMLElement | null | undefined): target 
 }
 
 const sessionRecoveryFocus = '[data-session-recovery-check]';
+const sessionTerminalFocus = '[data-session-recovery-new], [data-session-recovery-sign-in]';
 const retryReadFocus = '[data-owner-refresh-retry]';
 const recoveryDecisionFocus = '[data-owner-conflict-save], [data-owner-use-saved], [data-owner-return-to-draft]';
 
@@ -557,15 +558,17 @@ export default function CreatorOwnerApp(props: Props) {
 
   useEffect(() => {
     const requested = state.location.focusAfterRender;
-    const sessionNeedsFocus = state.session.state === 'recovery-required' && !hasUsableOwnerActiveFocus();
-    const selector = requested ?? (sessionNeedsFocus ? sessionRecoveryFocus : undefined);
+    const sessionNeedsFocus = (state.session.state === 'recovery-required' || state.session.state === 'blocked')
+      && !hasUsableOwnerActiveFocus();
+    const selector = sessionNeedsFocus ? state.session.state === 'blocked' ? sessionTerminalFocus : sessionRecoveryFocus : requested;
     if (!selector || stateRef.current.location.focusAfterRender !== requested) return;
     const root = rootRef.current;
     const target = visibleOwnerFocusTarget(root, selector);
     const clearRequestedFocus = () => {
-      if (requested) dispatch({ type: 'clear-focus', selector: requested });
+      if (requested && selector === requested) dispatch({ type: 'clear-focus', selector: requested });
     };
     if (!root || !target) {
+      if (sessionNeedsFocus || requested && state.session.state !== 'ready') return;
       clearRequestedFocus();
       return;
     }
@@ -580,8 +583,10 @@ export default function CreatorOwnerApp(props: Props) {
         clearRequestedFocus();
         return;
       }
-      const recoveryFocusTarget = latestTarget.matches(`${retryReadFocus}, ${sessionRecoveryFocus}, ${recoveryDecisionFocus}`);
-      if (recoveryFocusTarget && document.activeElement !== latestTarget && hasUsableOwnerActiveFocus()) {
+      const recoveryFocusTarget = latestTarget.matches(`${retryReadFocus}, ${sessionRecoveryFocus}, ${recoveryDecisionFocus}, [data-owner-check], [data-owner-compare], [data-owner-publish-check]`)
+        || selector.includes('[data-owner-dialog] form[data-owner-form]') || selector === '#owner-create-name';
+      const preserveUsableFocus = recoveryFocusTarget || state.message?.sessionDerived === true;
+      if (preserveUsableFocus && document.activeElement !== latestTarget && hasUsableOwnerActiveFocus()) {
         clearRequestedFocus();
         return;
       }
@@ -607,8 +612,7 @@ export default function CreatorOwnerApp(props: Props) {
     if (openDialog && !openDialog.contains(target)) {
       const onClose = () => {
         const current = stateRef.current;
-        if (current.location.focusAfterRender !== requested || current.location.prompt !== 'none'
-          || (!requested && current.session.state !== 'recovery-required')) return;
+        if (current.location.focusAfterRender !== requested || current.location.prompt !== 'none') return;
         focusTarget();
       };
       openDialog.addEventListener('close', onClose, { once: true });

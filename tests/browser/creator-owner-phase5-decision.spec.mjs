@@ -401,6 +401,53 @@ test('un Save fallido y su salida no navegan después de una comprobación: sól
   }
 });
 
+test('un guardado confirmado con acuse perdido conserva el recorrido de teclado hasta el borrador', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  await expect(page.locator('astro-island[component-url*="CreatorOwnerApp"]')).not.toHaveAttribute('ssr', '');
+  const activeUrl = page.url();
+  await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
+  const form = page.locator('[data-owner-dialog] form[data-owner-form="datos"]');
+  const city = form.getByLabel(/Ciudad/u);
+  const submittedCity = 'Ciudad con acuse perdido';
+  await city.fill(submittedCity);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const lostReceipt = async (route) => {
+    if (route.request().method() !== 'PUT' || ownerPath(route.request()) !== '/api/creador/perfil') {
+      await route.fallback();
+      return;
+    }
+    const response = await route.fetch();
+    assert.equal(response.status(), 200, 'the real profile update commits before losing its receipt');
+    await route.abort('failed');
+  };
+  await page.route('**/api/creador/**', lostReceipt);
+  try {
+    await form.getByRole('button', { name: 'Guardar datos', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    const check = await enabledOwnerReadRetry(page);
+    await expect(check).toBeFocused();
+    assert.equal((await fixture.rawOwner(cookie)).profile.city, submittedCity);
+
+    await page.keyboard.press('Enter');
+    const restore = form.getByRole('button', { name: 'Volver al borrador', exact: true });
+    await expect(restore).toBeEnabled();
+    await restore.focus();
+    await page.keyboard.press('Enter');
+    await expect(restore).toHaveCount(0);
+    const activeControl = form.locator('input:focus, textarea:focus, select:focus, button:focus');
+    await expect(activeControl).toHaveCount(1);
+    await expect(activeControl).toBeEnabled();
+    await expect(activeControl).toBeVisible();
+    await expect(city).toHaveValue(submittedCity);
+    await expect(page).toHaveURL(activeUrl);
+    assert.equal(ownerWrites(capture).length, 1, 'comparison and returning to the draft send no second write');
+  } finally {
+    await page.unroute('**/api/creador/**', lostReceipt);
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+
 test('una reclamación real no consume el borrador con un GET pre-claim: Retry instala el claim exacto sin replay', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const candidate = await seedClaimCandidate(fixture);

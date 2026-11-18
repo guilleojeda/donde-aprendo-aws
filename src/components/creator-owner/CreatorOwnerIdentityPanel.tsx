@@ -122,7 +122,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
             <a class="button button--outline" data-session-recovery-sign-in href="/cuenta/ingresar/" target="_blank" rel="noopener noreferrer">Ingresar en otra pestaña</a>
             <button class="button button--outline" type="button" data-session-recovery-check disabled={state.session.state === 'checking'} onClick={onCheckSession}>Comprobar sesión</button>
           </>
-          : <a class="button button--outline" href="/cuenta/">Abrir una página nueva</a>}
+          : <a class="button button--outline" data-session-recovery-new href="/cuenta/">Abrir una página nueva</a>}
       </section>}
 
       {(createEditor || !profile) && <section class="creator-owner__create" data-owner-create-panel aria-labelledby="creator-owner-create-title">

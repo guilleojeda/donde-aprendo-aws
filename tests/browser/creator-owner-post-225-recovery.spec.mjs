@@ -324,9 +324,23 @@ test('un 401 tras confirmar un capítulo exige sesión, conserva stale y permite
     const profileReadsBeforeCheck = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length;
     const sessionChecksBefore = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/sesion').length;
     const writesBeforeCheck = capture.writes().length;
+    let renewalRetryRead;
+    const renewalRetry = async (route) => {
+      const request = route.request();
+      if (request.method() !== 'GET' || ownerPath(request) !== '/api/creador/perfil') {
+        await route.fallback();
+        return;
+      }
+      const response = await route.fetch();
+      renewalRetryRead = response.status();
+      await route.fulfill({ status: 503, headers: response.headers(), body: await response.body() });
+    };
+    await page.route('**/api/creador/**', renewalRetry);
     await page.keyboard.press('Enter');
     await expect(page.locator('[data-session-recovery-shell]:visible')).toHaveCount(0);
     await expect(staleRetry).toBeEnabled();
+    await expect(staleRetry).toBeFocused();
+    await assertWithinViewport(page, staleRetry, 'the retry after session renewal');
     await expect(staleFeedback).toContainText(/capítulo agregado/iu);
     await expect(staleFeedback).toContainText(/vista sigue desactualizada/iu);
     await expect(staleFeedback).not.toContainText(/ingresa con la misma cuenta|comprueba la sesión/iu);
@@ -336,6 +350,10 @@ test('un 401 tras confirmar un capítulo exige sesión, conserva stale y permite
     assert.equal(capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/sesion').length,
       sessionChecksBefore + 1, 'session recovery uses its dedicated session endpoint');
     assert.equal(capture.writes().length, writesBeforeCheck, 'checking the session does not replay the chapter command');
+    await page.keyboard.press('Enter');
+    await expect.poll(() => renewalRetryRead).toBe(200);
+    await expect(staleRetry).toBeEnabled();
+    await page.unroute('**/api/creador/**', renewalRetry);
 
     let retryAttempt = 0;
     const retryActualStatuses = [];
@@ -433,10 +451,12 @@ test('un 401 en la escritura enfoca la comprobación y permite publicar con otra
     await addCookie(page.context(), fixture, renewed);
     await page.keyboard.press('Enter');
     await expect(publish).toBeEnabled();
+    await expect(publish).toBeFocused();
+    await assertWithinViewport(page, publish, 'the publish action after session renewal');
     assert.deepEqual(attempts().map(({ status }) => status), [401]);
     assert.equal(capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length, readsBeforeCheck);
     assert.equal((await readOwnerSnapshot(fixture, renewed)).profile.published, false);
-    await publish.click();
+    await page.keyboard.press('Enter');
     await expect(page.locator('[data-owner-public-copy]')).toContainText('publicada y visible');
     assert.deepEqual(attempts().map(({ status }) => status), [401, 200]);
     assert.equal((await readOwnerSnapshot(fixture, renewed)).profile.published, true);
@@ -688,9 +708,8 @@ async function recoverUnknownPublication(fixture, page, acknowledgementDelivery,
         sessionChecksBefore + 1, 'session recovery uses its dedicated check');
       assert.equal(capture.writes().length, writesBeforeCheck, 'session recovery does not repeat publication');
       assert.deepEqual(ownerReadStatuses, [401]);
-      await page.keyboard.press('Tab');
       await expect(retry).toBeFocused();
-      await expect(() => assertWithinViewport(page, retry, 'the retry reached by Tab after session recovery'))
+      await expect(() => assertWithinViewport(page, retry, 'the retry focused after session recovery'))
         .toPass({ timeout: 5_000 });
     } else {
       await expect(retry).toBeEnabled();
