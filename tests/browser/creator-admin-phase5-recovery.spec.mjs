@@ -300,7 +300,7 @@ test('lost profile moderation delivery preserves the commit, pauses only its pro
     assert.equal(stored.hidden, true, 'profile moderation is stored even though its receipt is lost');
     assert.equal(stored.version, 2);
     await expect(profileRow(page, relatedOwner.profile.id).getByRole('button', { name: 'Ocultar perfil' })).toBeDisabled();
-    await expect(profileRow(page, relatedOwner.profile.id).getByRole('button', { name: 'Restaurar perfil' })).toBeDisabled();
+    await expect(profileRow(page, relatedOwner.profile.id).locator('[data-profile-action="restaurar"]:not(:disabled)')).toHaveCount(0);
     await assertRelatedClaimPaused(page, relatedClaim.id, ids[0], unrelatedClaim.id, ids[3]);
     await expect(profileRow(page, unrelatedOwner.profile.id).getByRole('button', { name: 'Ocultar perfil' })).toBeEnabled();
     await expect(row(page, ids[2]).getByLabel('Categoría')).toHaveValue('Borrador independiente');

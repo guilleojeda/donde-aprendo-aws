@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import type { CreatorSocial } from '../../types/creators';
 import { canonicalCreatorPath, isPublicCreator, safeCreatorSocialUrl } from '../../lib/creator-public.mjs';
 import { CREATOR_FIELD_LIMITS, CREATOR_SLUG_MIN_LENGTH, CREATOR_SLUG_PATTERN, CREATOR_SOCIALS } from '../../lib/creator-values.mjs';
-import { creatorOwnerCanSubmitEditor, type CreatorOwnerRecoveryChoice, type CreatorOwnerState } from '../../lib/creator-owner-state';
+import { creatorOwnerCanSubmitEditor, deriveCreatorOwnerRecoveryAction, type CreatorOwnerRecoveryChoice, type CreatorOwnerState } from '../../lib/creator-owner-state';
 
 const SOCIAL_LABELS: Record<CreatorSocial, string> = {
   instagram: 'Instagram', x: 'X', linkedin: 'LinkedIn', awsBuilder: 'AWS Builder Center', website: 'Sitio web o newsletter',
@@ -51,6 +51,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
   const profile = state.observed.profile;
   const isPublic = isPublicCreator(profile);
   const operation = state.operation;
+  const recoveryAction = deriveCreatorOwnerRecoveryAction(state);
   const createEditor = state.editor?.kind === 'create-profile' ? state.editor : undefined;
   const createLocked = operation.status !== 'idle';
   const createMatchesOperation = Boolean(createEditor && operation.status !== 'idle' && 'intent' in operation
@@ -62,6 +63,8 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
     ['Dirección', profile?.slug ?? '—', createEditor.draft.slug],
   ] as Array<[string, string, string]> : undefined;
   const publishOperation = operation.status !== 'idle' && 'intent' in operation && operation.intent?.action === 'publish-profile';
+  const createRecoveryAction = createMatchesOperation && recoveryAction.surface === 'identity' ? recoveryAction : undefined;
+  const publishRecoveryAction = publishOperation && recoveryAction.surface === 'identity' ? recoveryAction : undefined;
   const photoPath = profile?.photo?.version !== undefined
     ? `/media/fotos/${encodeURIComponent(profile.id)}/${encodeURIComponent(String(profile.photo.version))}.webp`
     : undefined;
@@ -143,11 +146,11 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
             <small>3–40 caracteres: minúsculas, números y guiones sencillos.</small>
           </div>
           <button class="button button--dark" type="submit" disabled={disabled || !creatorOwnerCanSubmitEditor(state)}>Crear borrador</button>
-          {createMatchesOperation && operation.status === 'refresh-failed' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind={operation.status} data-owner-stale role="alert">
+          {(createRecoveryAction?.kind === 'retry' || createRecoveryAction?.kind === 'session-check') && operation.status === 'refresh-failed' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind={operation.status} data-owner-stale role="alert">
             <p>{operation.message}</p><button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>
           </section>}
-          {createMatchesOperation && operation.status === 'reading' && <p class="creator-owner__status" data-owner-operation-message role="status" aria-live="polite">{operation.message}</p>}
-          {createMatchesOperation && operation.status === 'unknown' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind="unknown" aria-live="polite">
+          {createRecoveryAction?.kind === 'pending' && operation.status === 'reading' && <p class="creator-owner__status" data-owner-operation-message role="status" aria-live="polite">{operation.message}</p>}
+          {createRecoveryAction && (createRecoveryAction.kind === 'compare' || createRecoveryAction.kind === 'resolve') && operation.status === 'unknown' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind="unknown" aria-live="polite">
             <h3>No sabemos si se guardó</h3><p>{operation.message}</p>
             {operation.readCompleted && createRows && <ComparisonRows rows={createRows} />}
             {!operation.readCompleted ? <button class="button button--outline" type="button" data-owner-check disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Comprobar estado guardado</button>
@@ -156,7 +159,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
                 <button class="button button--outline" type="button" data-owner-return-to-draft onClick={() => onResolveRecovery('draft')}>Volver al borrador</button>
               </div>}
           </section>}
-          {createMatchesOperation && operation.status === 'conflict' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind="conflict" aria-live="polite">
+          {createRecoveryAction?.kind === 'resolve' && operation.status === 'conflict' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind="conflict" aria-live="polite">
             <h3>El contenido cambió</h3><p>{operation.message}</p>{operation.readCompleted && createRows && <ComparisonRows rows={createRows} />}
             <div class="creator-owner__dialog-actions">
               {createCanSaveAfterConflict && <button class="button button--dark" type="button" data-owner-conflict-save onClick={onSaveRecoveryDraft}>Guardar mi borrador</button>}
@@ -208,18 +211,18 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
             <p data-owner-draft-copy>Tu página está en borrador. Puedes completar el perfil y publicarla cuando esté lista.</p>
             {!profile.hidden && <button class="button button--dark" type="button" data-owner-publish disabled={disabled} onClick={onPublish}>Publicar página</button>}
           </>}
-          {publishOperation && operation.status === 'reading' && <p class="creator-owner__status" data-owner-operation-message role="status" aria-live="polite">{operation.message}</p>}
-          {publishOperation && operation.status === 'refresh-failed' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind={operation.fact === 'unknown' ? 'unknown' : 'refresh-failed'} data-owner-stale role="alert" aria-live="polite">
+          {publishRecoveryAction?.kind === 'pending' && operation.status === 'reading' && <p class="creator-owner__status" data-owner-operation-message role="status" aria-live="polite">{operation.message}</p>}
+          {(publishRecoveryAction?.kind === 'retry' || publishRecoveryAction?.kind === 'session-check') && operation.status === 'refresh-failed' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind={operation.fact === 'unknown' ? 'unknown' : 'refresh-failed'} data-owner-stale role="alert" aria-live="polite">
             <h3>{operation.fact === 'unknown' ? 'No sabemos si se publicó' : 'No pudimos actualizar la publicación'}</h3>
             <p>{operation.message}</p>
             <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>
           </section>}
-          {publishOperation && operation.status === 'unknown' && !operation.readCompleted && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind="unknown" aria-live="polite">
+          {publishRecoveryAction?.kind === 'compare' && operation.status === 'unknown' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind="unknown" aria-live="polite">
             <h3>No sabemos si se publicó</h3>
             <p>{operation.message}</p>
             <button class="button button--outline" type="button" data-owner-publish-check disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Comprobar estado guardado</button>
           </section>}
-          {publishOperation && (operation.status === 'unknown' || operation.status === 'conflict') && operation.readCompleted && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind={operation.status} aria-live="polite">
+          {publishRecoveryAction?.kind === 'resolve' && (operation.status === 'unknown' || operation.status === 'conflict') && operation.readCompleted && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind={operation.status} aria-live="polite">
             <h3>Estado de publicación comprobado</h3>
             <p>{operation.message}</p>
             <button class="button button--outline" type="button" data-owner-use-saved onClick={() => onResolveRecovery('saved')}>Usar lo guardado</button>

@@ -58,6 +58,7 @@ function shouldTrack(control: EditableControl): boolean {
 
 export function createCreatorFormState(root: ParentNode) {
   const baseline = new WeakMap<EditableControl, ControlValue>();
+  const paused = new WeakMap<EditableControl, ControlValue>();
   const allControls = () => controlsWithin(root).filter(shouldTrack);
   allControls().forEach((control) => baseline.set(control, defaultValueOf(control)));
 
@@ -66,12 +67,22 @@ export function createCreatorFormState(root: ParentNode) {
       return new Map(controlsWithin(scope).map((control) => [control, valueOf(control)]));
     },
     commit(snapshot: FormValueSnapshot | undefined) {
-      snapshot?.forEach((value, control) => baseline.set(control, value));
+      snapshot?.forEach((value, control) => {
+        baseline.set(control, value);
+        paused.delete(control);
+      });
+    },
+    allowPausedSnapshot(snapshot: FormValueSnapshot | undefined) {
+      snapshot?.forEach((value, control) => paused.set(control, value));
     },
     hasPendingChanges(): boolean {
       return allControls().some((control) => {
         const savedValue = baseline.get(control);
-        return savedValue === undefined || !sameValue(valueOf(control), savedValue);
+        const current = valueOf(control);
+        const pausedValue = paused.get(control);
+        if (pausedValue !== undefined && !sameValue(current, pausedValue)) paused.delete(control);
+        return savedValue === undefined
+          || (!sameValue(current, savedValue) && (pausedValue === undefined || !sameValue(current, pausedValue)));
       });
     },
   };

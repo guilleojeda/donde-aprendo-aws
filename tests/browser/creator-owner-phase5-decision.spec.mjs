@@ -261,6 +261,49 @@ for (const [choice, label] of [
   });
 }
 
+test('una validación nativa de Guardar y salir no autoriza la salida de un guardado posterior', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const initial = await fixture.rawOwner(cookie);
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  await expect(page.locator('astro-island[component-url*="CreatorOwnerApp"]')).not.toHaveAttribute('ssr', '');
+  const destination = page.url();
+  await page.locator('#owner-link-order').selectOption('titulo-desc');
+  await expect(page).toHaveURL((url) => url.searchParams.get('orden') === 'titulo-desc');
+  const activeUrl = page.url();
+
+  await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
+  const form = page.locator('[data-owner-dialog] form[data-owner-form="datos"]');
+  const name = form.getByLabel('Nombre visible', { exact: true });
+  await name.fill('');
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const back = page.goBack();
+  try {
+    const prompt = page.locator('[data-owner-exit-prompt]');
+    await expect(prompt).toBeVisible();
+    await expect(page).toHaveURL(activeUrl);
+    await prompt.getByRole('button', { name: 'Guardar y salir', exact: true }).click();
+    await expect(name).toBeFocused();
+    assert.equal(await name.evaluate((input) => input.validity.valueMissing), true);
+    assert.equal(ownerWrites(capture).length, 0, 'native validation prevents a first request');
+    assert.equal((await fixture.rawOwner(cookie)).profile.displayName, initial.profile.displayName);
+
+    const correctedName = 'Nombre corregido después de validar';
+    await name.fill(correctedName);
+    await form.getByRole('button', { name: 'Guardar datos', exact: true }).click();
+    await expect.poll(() => ownerWrites(capture)[0]?.status).toBe(200);
+    await expect(form).not.toBeVisible();
+    await expect(page).toHaveURL(activeUrl, 'the ordinary Save does not resume an abandoned Back');
+    assert.equal((await fixture.rawOwner(cookie)).profile.displayName, correctedName);
+    assert.equal(ownerWrites(capture).length, 1);
+    await page.goBack();
+    await expect(page).toHaveURL(destination, 'a new Back remains available after saving');
+    await expect(prompt).toHaveCount(0);
+  } finally {
+    back.catch(() => {});
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+
 test('un Save fallido y su salida no navegan después de una comprobación: sólo una nueva decisión autoriza Back', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const initial = await fixture.rawOwner(cookie);

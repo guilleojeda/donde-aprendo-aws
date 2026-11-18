@@ -13,6 +13,10 @@ for (const form of document.querySelectorAll<HTMLFormElement>('[data-account-log
     button.disabled = true;
     status.hidden = false;
     status.textContent = 'Cerrando sesión…';
+    const controller = typeof AbortController === 'function' ? new AbortController() : undefined;
+    const timeout = controller && typeof window.setTimeout === 'function'
+      ? window.setTimeout(() => controller.abort(), 8_000)
+      : undefined;
 
     try {
       // A native navigation POST sends Origin:null from a no-referrer page.
@@ -22,6 +26,7 @@ for (const form of document.querySelectorAll<HTMLFormElement>('[data-account-log
         mode: 'cors',
         credentials: 'same-origin',
         redirect: 'error',
+        ...(controller ? { signal: controller.signal } : {}),
         headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ csrfToken: token.value }),
       });
@@ -40,6 +45,8 @@ for (const form of document.querySelectorAll<HTMLFormElement>('[data-account-log
         : 'No pudimos confirmar el cierre de sesión. Inténtalo de nuevo.';
     } catch {
       status.textContent = 'No pudimos confirmar el cierre de sesión. Inténtalo de nuevo.';
+    } finally {
+      if (timeout !== undefined && typeof window.clearTimeout === 'function') window.clearTimeout(timeout);
     }
 
     pending = false;

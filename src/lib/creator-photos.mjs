@@ -6,6 +6,7 @@ import {
   CREATOR_PHOTO_MAX_PIXELS,
   CREATOR_PHOTO_MAX_UPLOAD_BYTES,
   CREATOR_PHOTO_MIME_TYPES,
+  isCreatorPhotoId,
 } from './creator-values.mjs';
 
 export { CREATOR_PHOTO_MAX_PIXELS, CREATOR_PHOTO_MAX_UPLOAD_BYTES };
@@ -17,7 +18,6 @@ const PROFILE_KEY = (profileId) => `profile:${profileId}`;
 const UPLOAD_KEY = (uploadId) => `photo-upload:${uploadId}`;
 const TEMPORARY_PREFIX = (profileId) => `photos/tmp/${profileId}/`;
 const FINAL_PREFIX = (profileId) => `photos/final/${profileId}/`;
-const MAX_ID_LENGTH = 128;
 const CACHE_CONTROL = 'public, max-age=31536000, immutable';
 const PHOTO_MIME_TYPE_BY_FORMAT = Object.freeze(Object.fromEntries(
   CREATOR_PHOTO_FORMATS.map((format, index) => [format, CREATOR_PHOTO_MIME_TYPES[index]]),
@@ -29,15 +29,8 @@ function fail(code, message) {
   return error;
 }
 
-function validId(value) {
-  return typeof value === 'string'
-    && value.length > 0
-    && value.length <= MAX_ID_LENGTH
-    && /^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(value);
-}
-
 function requireId(value, label) {
-  if (!validId(value)) throw new TypeError(`${label} must be a non-empty opaque identifier`);
+  if (!isCreatorPhotoId(value)) throw new TypeError(`${label} must be a non-empty opaque identifier`);
   return value;
 }
 
@@ -242,7 +235,7 @@ export function createCreatorPhotoService(dependencies) {
       if (upload.state !== 'pending') throw fail('UPLOAD_NOT_PENDING', 'upload cannot be finalized');
 
       let finalKey;
-      let transactionReturnedFalse = false;
+      let commit = 'before-commit';
       try {
         const timestamp = now();
         if (!Number.isSafeInteger(timestamp) || timestamp < 0) throw new TypeError('now must return a non-negative millisecond timestamp');
@@ -278,6 +271,7 @@ export function createCreatorPhotoService(dependencies) {
           finalKey,
         };
 
+        commit = 'unconfirmed';
         const committed = await store.transact({
           checks: [
             prepared.check,
@@ -288,8 +282,8 @@ export function createCreatorPhotoService(dependencies) {
             { key: uploadKey, value: nextUpload },
           ],
         });
+        commit = committed ? 'confirmed' : 'declined';
         if (!committed) {
-          transactionReturnedFalse = true;
           throw fail('PROFILE_VERSION_CONFLICT', 'profile changed while the photo was being finalized');
         }
 
@@ -313,7 +307,7 @@ export function createCreatorPhotoService(dependencies) {
 
         const completed = recognizeCompletedUpload(currentUpload, { profileId, uploadId, expectedVersion });
         if (completed) {
-          if (transactionReturnedFalse && finalKey && completed.finalKey !== finalKey) {
+          if (commit === 'declined' && finalKey && completed.finalKey !== finalKey) {
             try {
               await objects.delete(finalKey);
             } catch {
@@ -322,12 +316,16 @@ export function createCreatorPhotoService(dependencies) {
           }
           return completed.result;
         }
+        if (commit === 'unconfirmed') {
+          // A lost transaction response conveys no input or conflict result.
+          throw new Error(error instanceof Error ? error.message : 'photo finalization could not be confirmed', { cause: error });
+        }
         throw error;
       }
     },
 
     async readPhoto({ profileId: rawProfileId, version: rawVersion } = {}) {
-      if (!validId(rawProfileId) || !validId(rawVersion)) return null;
+      if (!isCreatorPhotoId(rawProfileId) || !isCreatorPhotoId(rawVersion)) return null;
       const upload = await store.get(UPLOAD_KEY(rawVersion));
       if (!upload || upload.profileId !== rawProfileId || upload.state !== 'complete'
         || upload.photo?.version !== rawVersion

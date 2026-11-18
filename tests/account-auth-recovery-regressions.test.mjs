@@ -130,19 +130,29 @@ test('retry does not clear a cookie or contact logout when revocation cannot be 
   assert.equal(harness.store.calls.filter(({ operation }) => operation === 'deleteSession').length, 0);
 });
 
-test('a malformed presented cookie is not treated as an anonymous provider-only retry', async () => {
-  const harness = await createAccountHarness();
-  const response = await harness.auth.handle(makeRequest('/cuenta/salir/', {
-    method: 'POST',
-    headers: { cookie: 'da_session=malformed-cookie', origin: ORIGIN },
-    body: new URLSearchParams({ csrfToken: 'c'.repeat(43) }),
-  }));
-  assert.equal(response.status, 403);
-  assert.equal(response.headers.has('location'), false);
-  assert.equal(responseCookies(response).length, 0);
-  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'getSession').length, 0,
-    'a malformed token is rejected before a storage lookup');
-  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'deleteSession').length, 0);
+test('a malformed presented cookie is not treated as an anonymous provider-only retry', async (t) => {
+  const token = 'c'.repeat(43);
+  for (const [name, cookie] of [
+    ['invalid token', 'da_session=malformed-cookie'],
+    ['bare name', 'da_session'],
+    ['empty token', 'da_session='],
+    ['duplicate session cookies', `da_session=${token}; da_session=${token}`],
+  ]) {
+    await t.test(name, async () => {
+      const harness = await createAccountHarness();
+      const response = await harness.auth.handle(makeRequest('/cuenta/salir/', {
+        method: 'POST',
+        headers: { cookie, origin: ORIGIN },
+        body: new URLSearchParams({ csrfToken: token }),
+      }));
+      assert.equal(response.status, 403);
+      assert.equal(response.headers.has('location'), false);
+      assert.equal(responseCookies(response).length, 0);
+      assert.equal(harness.store.calls.filter(({ operation }) => operation === 'getSession').length, 0,
+        'a malformed token is rejected before a storage lookup');
+      assert.equal(harness.store.calls.filter(({ operation }) => operation === 'deleteSession').length, 0);
+    });
+  }
 });
 
 function noCookieFormRequest({ origin, body, headers = {} } = {}) {

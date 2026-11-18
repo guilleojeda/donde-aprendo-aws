@@ -37,6 +37,10 @@ sesión con lecturas consistentes. Un fallo del almacenamiento produce
 indisponibilidad, no acceso anónimo aparente ni éxito. DynamoDB TTL limpia
 filas: su demora no prolonga autorización. La página y las operaciones de
 cuenta responden `private, no-store`; dos navegadores no comparten HTML privado.
+Las APIs privadas de creadores y administración responden también con
+`X-Robots-Tag: noindex, nofollow`, incluso ante errores, rechazos y rutas
+desconocidas. Si falla la inicialización de creadores, la página de cuenta
+aún permite cerrar la sesión autenticada.
 
 Cada petición privada comparte una sola resolución de sesión y cuenta entre
 sus consultas. El contexto queda en el servidor: la página recibe la proyección
@@ -59,6 +63,11 @@ almacenamiento en caché para reintentar con el token CSRF ya validado; no se
 guarda una autorización de salida adicional.
 Si un reintento confirma que la sesión local ya no existe, completa de todas
 formas el cierre de Cognito. Una lectura fallida no confirma la revocación.
+Cuando el navegador ya no presenta la cookie local, un POST del mismo origen
+con un único token CSRF bien formado y dentro del límite de tamaño puede
+continuar únicamente al destino fijo de salida de Cognito. Esa operación
+no revoca sesiones ni concede autorización. Una cookie malformada o una lectura fallida no se
+consideran ausencia y no habilitan esa continuación.
 
 Si se desactiva una cuenta mientras conserva una sesión vigente, `/cuenta/`
 responde 403 y no muestra datos privados ni acciones de gestión, pero permite

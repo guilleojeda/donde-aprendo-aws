@@ -190,7 +190,12 @@ const publicOrigin = import.meta.env.PUBLIC_SITE_ORIGIN || Astro.url.origin;
           <section class="account-message account-message--error" role="alert" aria-labelledby="account-unavailable-title">
             <h1 id="account-unavailable-title">{recognizedCallbackState === 'no-disponible' || pageState === 'unavailable' ? 'No pudimos cargar tu cuenta' : 'No pudimos cargar tu página'}</h1>
             <p>Inténtalo de nuevo en unos minutos. No pudimos confirmar si tienes una página todavía.</p>
-            <a class="button button--dark" href="/cuenta/">Reintentar</a>
+            <div class="account-actions">
+              <a class="button button--dark" href="/cuenta/">Reintentar</a>
+              {pageState.startsWith('owner-') && session.state === 'authenticated' && (
+                <AccountLogout csrfToken={session.csrfToken} buttonClass="button button--outline" />
+              )}
+            </div>
           </section>
         )}
 

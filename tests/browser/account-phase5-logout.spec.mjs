@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { COGNITO_DOMAIN } from '../fixtures/account-auth.mjs';
 import { test, expect, addCookie, loggedInOwner } from '../fixtures/creator-browser-test.mjs';
+import { request as playwrightRequest } from '@playwright/test';
 
 async function openCreatorOutage(fixture, page) {
   const cookie = await fixture.login();
@@ -115,6 +116,7 @@ test('the signed-in creator shell recovers when the real logout response is with
   const release = deferred();
   const finished = deferred();
   let firstLogout = true;
+  let upstream;
   const holdResponse = async (route) => {
     if (!firstLogout || route.request().method() !== 'POST') {
       await route.fallback();
@@ -122,8 +124,20 @@ test('the signed-in creator shell recovers when the real logout response is with
     }
     firstLogout = false;
     try {
-      const response = await route.fetch();
+      // Keep the real application request, but use an independent HTTP
+      // client. route.fetch() can process Set-Cookie in the browser context
+      // before the intercepted response is delivered, which would make this
+      // held-response assertion observe the wrong cookie state.
+      upstream ??= await playwrightRequest.newContext({ ignoreHTTPSErrors: true });
+      const intercepted = route.request();
+      const response = await upstream.fetch(intercepted.url(), {
+        method: intercepted.method(),
+        headers: intercepted.headers(),
+        data: intercepted.postDataBuffer() ?? undefined,
+        maxRedirects: 0,
+      });
       assert.equal(response.status(), 200);
+      await response.body();
       assert.equal(fixture.accountStore.sessions.size, 0,
         'the real application commits local revocation before the response is handed to the browser');
       entered.resolve(response);
@@ -156,6 +170,8 @@ test('the signed-in creator shell recovers when the real logout response is with
     release.resolve();
     await finished.promise;
     await page.unroute('**/cuenta/salir/**', holdResponse);
+    await upstream?.dispose();
+    upstream = undefined;
     await button.click();
     await expect.poll(() => logoutPosts.posts.length).toBe(2);
     await assertProviderCompletion(page, provider, fixture.origin);
@@ -164,6 +180,7 @@ test('the signed-in creator shell recovers when the real logout response is with
     release.resolve();
     await finished.promise.catch(() => {});
     await page.unroute('**/cuenta/salir/**', holdResponse).catch(() => {});
+    await upstream?.dispose().catch(() => {});
     await provider.close();
     logoutPosts.stop();
   }
