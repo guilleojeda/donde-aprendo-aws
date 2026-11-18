@@ -10,12 +10,34 @@ import {
 } from './fixtures/creator-pages.mjs';
 
 const STATISTICS_PATH = '/api/creador/estadisticas/';
+const SUMMARY_PATH = `${STATISTICS_PATH}resumen/`;
 
 function createStatisticsReader({ fail = false } = {}) {
   const calls = [];
   const values = new Map();
+  const summaryCalls = [];
   return {
     calls,
+    summaryCalls,
+    async readSummary(input) {
+      summaryCalls.push(structuredClone(input));
+      if (fail) throw new Error('private-account-a service-account-key internal GA response');
+      return {
+        state: 'ready',
+        creatorId: input.profileId,
+        period: input.period,
+        range: {
+          startDate: input.period === 7 ? '2026-10-17' : '2026-09-24',
+          endDate: '2026-10-23',
+          timeZone: 'America/Los_Angeles',
+        },
+        totals: values.get(input.profileId)?.totals ?? { views: 5, visitors: 3, clicks: 8 },
+        warnings: [],
+        captureStartedAt: '2026-10-23T23:38:00Z',
+        freshness: 'fresh',
+        updatedAt: '2026-10-24T02:30:00.000Z',
+      };
+    },
     values,
     async read(input) {
       calls.push(structuredClone(input));
@@ -247,12 +269,16 @@ test('authentication failures happen before any statistics read', async () => {
   };
   const harness = await createCreatorPagesHarness({ statistics, authenticate });
 
-  for (const [session, expectedStatus] of [['disabled', 403], ['failed', 503]]) {
-    const response = await callApi(harness, STATISTICS_PATH, { session });
-    assert.equal(response.status, expectedStatus);
-    assertPrivateNoStore(response);
+  for (const path of [STATISTICS_PATH, SUMMARY_PATH]) {
+    for (const [session, expectedStatus] of [['disabled', 403], ['failed', 503]]) {
+      const response = await callApi(harness, path, { session });
+      assert.equal(response.status, expectedStatus, `${path} ${session}`);
+      assertPrivateNoStore(response);
+      assert.doesNotMatch(await response.text(), /private account authentication secret/u);
+    }
   }
   assert.equal(statistics.calls.length, 0);
+  assert.equal(statistics.summaryCalls.length, 0);
 });
 
 test('reader failure without a usable result is sanitized as 503', async () => {
@@ -266,4 +292,88 @@ test('reader failure without a usable result is sanitized as 503', async () => {
   const body = await response.text();
   assert.doesNotMatch(body, /private-account-a|service-account-key|internal GA response/);
   assert.equal(statistics.calls.length, 1);
+});
+
+test('summary resolves the hidden published owner and a second owner to their own stable IDs', async () => {
+  const statistics = createStatisticsReader();
+  const harness = await createCreatorPagesHarness({ statistics });
+  const first = await createProfile(harness, 'creator-a');
+  const profileA = await saveProfile(harness, 'creator-a', first, 'resumen-cambiado');
+  const profileB = await createProfile(harness, 'creator-b');
+  const adminProfile = await createProfile(harness, 'admin');
+  statistics.values.set(profileB.id, { totals: { views: 22, visitors: 9, clicks: 31 } });
+  statistics.values.set(adminProfile.id, { totals: { views: 35, visitors: 16, clicks: 47 } });
+  const hidden = await api(harness, `/api/admin/perfiles/${profileA.id}/ocultar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'profile', profileA.id) },
+  });
+  assert.equal(hidden.status, 200);
+
+  for (const [session, query, expectedId, period, totals] of [
+    ['creator-a', '?periodo=30', first.id, 30, { views: 5, visitors: 3, clicks: 8 }],
+    ['creator-b', '?periodo=7', profileB.id, 7, { views: 22, visitors: 9, clicks: 31 }],
+    ['admin', '', adminProfile.id, 7, { views: 35, visitors: 16, clicks: 47 }],
+  ]) {
+    const summary = await callApi(harness, SUMMARY_PATH + query, { session });
+    assert.equal(summary.status, 200);
+    assertPrivateNoStore(summary);
+    const response = await responseJson(summary);
+    assert.equal(response.creatorId, expectedId);
+    assert.equal(response.period, period);
+    assert.deepEqual(response.totals, totals);
+    for (const field of ['page', 'daily', 'sources', 'links']) assert.ok(!Object.hasOwn(response, field), field);
+  }
+
+  for (const [query, session, status] of [
+    ['', undefined, 401],
+    [`?profileId=${first.id}`, 'admin', 400],
+    ['?property=424203315', 'creator-a', 400],
+    ['?periodo=7&periodo=30', 'creator-a', 400],
+    ['?periodo=14', 'creator-a', 400],
+    ['?pagina=1', 'creator-a', 400],
+  ]) {
+    const response = await callApi(harness, SUMMARY_PATH + query, { session });
+    assert.equal(response.status, status, `${session ?? 'anonymous'} ${query}`);
+    assertPrivateNoStore(response);
+  }
+  for (const method of ['POST', 'PUT', 'DELETE']) {
+    const rejectedWrite = await api(harness, SUMMARY_PATH, 'creator-a', { method, body: {} });
+    assert.equal(rejectedWrite.status, 405);
+    assertPrivateNoStore(rejectedWrite);
+  }
+
+  assert.deepEqual(statistics.summaryCalls, [
+    { profileId: first.id, period: 30 },
+    { profileId: profileB.id, period: 7 },
+    { profileId: adminProfile.id, period: 7 },
+  ]);
+  assert.deepEqual(statistics.calls, [], 'summary never reads full detail');
+});
+
+test('summary skips provider work before publication and sanitizes errors after publication', async () => {
+  const statistics = createStatisticsReader({ fail: true });
+  const harness = await createCreatorPagesHarness({ statistics });
+  const missing = await callApi(harness, SUMMARY_PATH, { session: 'creator-a' });
+  assert.equal(missing.status, 200);
+  assertPrivateNoStore(missing);
+  assert.deepEqual(await responseJson(missing), { state: 'no-profile', period: 7 });
+
+  const profile = await createProfile(harness, 'creator-a', { publish: false });
+  const draft = await callApi(harness, `${SUMMARY_PATH}?periodo=30`, { session: 'creator-a' });
+  assert.equal(draft.status, 200);
+  assertPrivateNoStore(draft);
+  assert.deepEqual(await responseJson(draft), { state: 'not-published', period: 30 });
+  assert.deepEqual(statistics.summaryCalls, []);
+  assert.deepEqual(statistics.calls, []);
+
+  const snapshot = await ownerSnapshot(harness);
+  const publication = await api(harness, '/api/creador/perfil/publicar', 'creator-a', {
+    method: 'POST', body: { creatorVersion: snapshot.creatorVersion },
+  });
+  assert.equal(publication.status, 200);
+  const unavailable = await callApi(harness, SUMMARY_PATH, { session: 'creator-a' });
+  assert.equal(unavailable.status, 503);
+  assertPrivateNoStore(unavailable);
+  assert.doesNotMatch(await unavailable.text(), /private-account-a|service-account-key|internal GA response/);
+  assert.deepEqual(statistics.summaryCalls, [{ profileId: profile.id, period: 7 }]);
+  assert.deepEqual(statistics.calls, []);
 });

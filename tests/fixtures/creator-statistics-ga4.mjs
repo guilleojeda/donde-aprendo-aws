@@ -3,6 +3,18 @@ import { createCachedCreatorStatistics } from '../../src/lib/creator-statistics.
 
 export const CREATOR_STATISTICS_NOW = Date.parse('2026-10-24T02:30:00.000Z');
 
+function periodFor(request) {
+  const range = request.dateRanges?.[0];
+  if (!range) return 30;
+  if (range.startDate === '6daysAgo') return 7;
+  if (range.startDate === '29daysAgo') return 30;
+  const start = Date.parse(`${range.startDate}T00:00:00.000Z`);
+  const end = Date.parse(`${range.endDate}T00:00:00.000Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return 30;
+  const period = Math.round((end - start) / 86_400_000) + 1;
+  return period === 7 ? 7 : 30;
+}
+
 export function analyticsReport(request, totals = { views: 5, visitors: 3, clicks: 8 }) {
   const dimensions = request.dimensions?.map(({ name }) => name) ?? [];
   const metrics = request.metrics.map(({ name }) => name);
@@ -27,13 +39,22 @@ export function createBrowserCreatorStatistics() {
   const requests = [];
   let currentNow = CREATOR_STATISTICS_NOW;
   let providerResponder;
+  const cacheIdentity = (key) => {
+    const kind = key.kind ?? (Object.hasOwn(key, 'page') ? 'page' : 'summary');
+    return JSON.stringify({
+      profileId: key.profileId,
+      period: key.period,
+      kind,
+      ...(kind === 'page' ? { page: key.page } : {}),
+    });
+  };
   const cache = {
     async get(key) {
-      const value = values.get(JSON.stringify([key.profileId, key.period, key.page]));
+      const value = values.get(cacheIdentity(key));
       return value === undefined ? undefined : structuredClone(value);
     },
     async put(key, envelope) {
-      values.set(JSON.stringify([key.profileId, key.period, key.page]), structuredClone(envelope));
+      values.set(cacheIdentity(key), structuredClone(envelope));
     },
   };
   const reader = createGA4StatisticsReader({
@@ -41,11 +62,14 @@ export function createBrowserCreatorStatistics() {
     captureStartedAt: '2026-10-23T23:38:00Z',
     now: () => currentNow,
     getAccessToken: async () => 'browser-fixture-access-token',
-    fetch: async (_url, options) => {
+    fetch: async (url, options) => {
       const body = JSON.parse(options.body);
-      requests.push(structuredClone(body));
-      const payload = { reports: body.requests.map((request) => {
-        const periodTotals = request.dateRanges?.[0]?.startDate === '6daysAgo'
+      const queries = Array.isArray(body.requests) ? body.requests : [body];
+      // Keep one stable request-log shape for existing browser assertions while
+      // sending the real runReport body to the responder and transport seam.
+      requests.push({ requests: structuredClone(queries), transport: String(url).endsWith(':runReport') ? 'runReport' : 'batchRunReports' });
+      const payload = { reports: queries.map((request) => {
+        const periodTotals = periodFor(request) === 7
           ? { views: 5, visitors: 3, clicks: 8 }
           : { views: 12, visitors: 6, clicks: 20 };
         return analyticsReport(request, periodTotals);
@@ -56,7 +80,10 @@ export function createBrowserCreatorStatistics() {
         call: requests.length,
       });
       if (response instanceof Response) return response;
-      return Response.json(response ?? payload);
+      if (response !== undefined) return Response.json(response);
+      return String(url).endsWith(':runReport')
+        ? Response.json(payload.reports[0])
+        : Response.json(payload);
     },
   });
   return {
