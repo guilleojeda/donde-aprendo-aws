@@ -172,3 +172,20 @@ test('each public member has a compact title, time and original action outside c
     }
   }
 });
+
+test('the rendered agenda keeps no-JavaScript occurrences grouped with their own ICS destinations', () => {
+  for (const { path, tree } of pages) {
+    const list = one(tree, 'data-event-list', path);
+    const noScript = descendants(tree).find((node) => node.tag === 'noscript' && /Activa JavaScript/iu.test(text(node)));
+    assert.ok(noScript && /Activa JavaScript/iu.test(text(noScript)),
+      `${path}: the static page explains how to use interactive periods without JavaScript`);
+    const members = find(list, 'data-event-member-id');
+    for (const member of members) {
+      const id = member.attrs.get('data-event-member-id');
+      const calendar = descendants(member).find((node) => node.tag === 'a' && node.attrs.get('href') === `/eventos/${id}.ics`);
+      assert.ok(calendar, `${path} member ${id}: the grouped occurrence keeps its own calendar link`);
+      assert.ok(existsSync(join(dist, 'eventos', `${id}.ics`)),
+        `${path} member ${id}: its linked calendar is present in the built output`);
+    }
+  }
+});
