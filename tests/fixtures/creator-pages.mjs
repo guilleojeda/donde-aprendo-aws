@@ -133,6 +133,21 @@ export function createDocumentStore() {
       }
       return resources;
     },
+    async getClaims(ids) {
+      before('getClaims', { ids });
+      const claims = new Map();
+      for (const id of new Set(ids)) {
+        const value = documents.get(`claim:${id}`);
+        if (value !== undefined) claims.set(id, copy({ ...value, version: value.version ?? 0 }));
+      }
+      return claims;
+    },
+    async listOpenClaimsForAccount(accountId) {
+      before('listOpenClaimsForAccount', { accountId });
+      return (await store.list('claim:'))
+        .filter(({ value }) => value.accountId === accountId && ['pending', 'partial'].includes(value.status))
+        .map(({ key, value }) => ({ key, value: { ...value, version: value.version ?? 0 } }));
+    },
     async list(prefix) {
       before('list', { prefix });
       return [...documents.entries()]

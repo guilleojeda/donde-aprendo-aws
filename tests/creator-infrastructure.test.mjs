@@ -17,7 +17,7 @@ const publicCreatorFields = [
   'placements', 'order', 'series',
 ];
 const creatorTableActions = [
-  'dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:DeleteItem',
+  'dynamodb:GetItem', 'dynamodb:BatchGetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:DeleteItem',
   'dynamodb:Query', 'dynamodb:Scan', 'dynamodb:ConditionCheckItem',
 ].sort();
 const referencedResourceFields = ['id', 'recordType', 'url', 'registrationUrl'];
@@ -163,6 +163,7 @@ test('Amplify compute gets app access to creator tables and only temporary/final
     'dynamodb:DeleteItem', 'dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem',
   ]);
   const profiles = findStatement(statements, 'CreatorProfilesTable.Arn', 'dynamodb:ConditionCheckItem');
+  assert.equal(profiles.Resource, 'CreatorProfilesTable.Arn');
   assert.deepEqual(actions(profiles), creatorTableActions);
   const catalog = findStatement(statements, 'table/donde-aprendo-aws-catalog', 'dynamodb:ConditionCheckItem');
   assert.deepEqual(actions(catalog), catalogTableActions);

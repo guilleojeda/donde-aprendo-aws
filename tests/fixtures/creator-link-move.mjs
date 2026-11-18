@@ -205,7 +205,7 @@ function conditionalFailure() {
   return failure;
 }
 
-function projectQueryItem(item, input) {
+function projectItem(item, input) {
   if (typeof input.ProjectionExpression !== 'string') return copy(item);
   const names = input.ExpressionAttributeNames ?? {};
   const fields = input.ProjectionExpression.split(',').map((field) => {
@@ -215,6 +215,22 @@ function projectQueryItem(item, input) {
   return Object.fromEntries(fields
     .filter((field) => Object.hasOwn(item, field))
     .map((field) => [field, copy(item[field])]));
+}
+
+function filterEvaluatedPage(items, input) {
+  if (input.FilterExpression === undefined) return items;
+  const match = /^(#[\w]+)\s*=\s*(:[\w]+)\s+AND\s+(#[\w]+)\s+IN\s*\((:[\w]+)\s*,\s*(:[\w]+)\)$/u
+    .exec(input.FilterExpression.trim());
+  if (!match) throw new Error('unsupported Query filter in the test provider');
+  const [, equalName, equalValue, memberName, firstValue, secondValue] = match;
+  const names = input.ExpressionAttributeNames ?? {};
+  const values = input.ExpressionAttributeValues ?? {};
+  if (![equalName, memberName].every((key) => Object.hasOwn(names, key))
+    || ![equalValue, firstValue, secondValue].every((key) => Object.hasOwn(values, key))) {
+    throw new Error('Query filter has unbound attributes in the test provider');
+  }
+  return items.filter((item) => item[names[equalName]] === values[equalValue]
+    && [values[firstValue], values[secondValue]].includes(item[names[memberName]]));
 }
 
 function createMockClient({ projectionAware = false, queryPageSize } = {}) {
@@ -242,7 +258,7 @@ function createMockClient({ projectionAware = false, queryPageSize } = {}) {
     calls.push({ name, input: copy(input) });
     if (name === 'GetCommand') {
       const Item = read(input.TableName, input.Key);
-      return Item === undefined ? {} : { Item: copy(Item) };
+      return Item === undefined ? {} : { Item: projectionAware ? projectItem(Item, input) : copy(Item) };
     }
     if (name === 'QueryCommand') {
       const values = input.ExpressionAttributeValues ?? {};
@@ -254,7 +270,8 @@ function createMockClient({ projectionAware = false, queryPageSize } = {}) {
         .filter((item) => cursorSk === undefined || item.sk.localeCompare(cursorSk) > 0)
         .sort((left, right) => left.sk.localeCompare(right.sk));
       const pageRows = queryPageSize === undefined ? matching : matching.slice(0, queryPageSize);
-      const Items = pageRows.map((item) => projectionAware ? projectQueryItem(item, input) : copy(item));
+      const Items = filterEvaluatedPage(pageRows, input)
+        .map((item) => projectionAware ? projectItem(item, input) : copy(item));
       const LastEvaluatedKey = queryPageSize !== undefined && matching.length > queryPageSize
         ? { pk, sk: pageRows.at(-1).sk }
         : undefined;
@@ -262,7 +279,8 @@ function createMockClient({ projectionAware = false, queryPageSize } = {}) {
     }
     if (name === 'BatchGetCommand') {
       const [table, request] = Object.entries(input.RequestItems)[0];
-      const Responses = request.Keys.map((key) => read(table, key)).filter(Boolean).map(copy);
+      const Responses = request.Keys.map((key) => read(table, key)).filter(Boolean)
+        .map((item) => projectionAware ? projectItem(item, request) : copy(item));
       return { Responses: { [table]: Responses } };
     }
     if (name !== 'TransactWriteCommand') throw new Error(`unexpected DynamoDB command ${name}`);

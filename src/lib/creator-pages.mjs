@@ -2,7 +2,13 @@ import { createHash } from 'node:crypto';
 import { isCatalogResourceIdWithinLimit, isPublicCatalogResourceId } from './catalog-identity.mjs';
 import { projectPublicRecord, validateCatalogUrl } from './catalog.mjs';
 import { classifyLegacyResource, validateTaxonomy } from './resource-taxonomy.mjs';
-import { currentUrlCollision, currentUrlKey, currentUrlReservation, currentUrlReservationId } from './catalog-url.mjs';
+import {
+  currentUrlCollision,
+  currentUrlKey,
+  currentUrlReservation,
+  decodeCurrentUrlReservation,
+} from './catalog-url.mjs';
+import { creatorResourceFacts } from './creator-resource-facts.mjs';
 import {
   CREATOR_CONTRACT_VERSION,
   CREATOR_CONTRACT_HEADER,
@@ -77,12 +83,6 @@ function hash(value) {
 
 function currentResourceUrl(resource) {
   return resource.recordType === 'event' ? resource.registrationUrl : resource.url;
-}
-
-function resourceMatchesSelection(resource, resourceId, url) {
-  return resource?.id === resourceId
-    && isCatalogResource(resource)
-    && currentResourceUrl(resource) === url;
 }
 
 function isCatalogResource(resource) {
@@ -261,82 +261,18 @@ function storedClaimResources(claim) {
   });
 }
 
-function cleanPublicProfile(profile) {
-  if (typeof profile.id !== 'string' || !profile.id || typeof profile.displayName !== 'string'
-    || profile.displayName.length > TEXT_FIELD_LIMITS.get('displayName')
-    || typeof profile.slug !== 'string' || profile.slug.length > 40
-    || !Number.isSafeInteger(profile.version) || profile.version < 0
-    || typeof profile.published !== 'boolean' || typeof profile.hidden !== 'boolean') {
-    fail(503, 'INVALID_PROFILE', 'profile data is malformed');
-  }
-
-  const optionalText = {};
-  for (const field of ['city', 'country', 'bio']) {
-    if (!Object.hasOwn(profile, field)) continue;
-    const value = profile[field];
-    if (typeof value !== 'string' || value.length > TEXT_FIELD_LIMITS.get(field)) {
-      fail(503, 'INVALID_PROFILE', 'profile data is malformed');
-    }
-    optionalText[field] = value;
-  }
-
-  let programs = [];
-  if (Object.hasOwn(profile, 'programs')) {
-    if (!Array.isArray(profile.programs) || profile.programs.some((program) => typeof program !== 'string' || !PROGRAMS.has(program))) {
-      fail(503, 'INVALID_PROFILE', 'profile data is malformed');
-    }
-    programs = [...profile.programs];
-  }
-
-  let socials = {};
-  if (Object.hasOwn(profile, 'socials')) {
-    if (!isRecord(profile.socials)) fail(503, 'INVALID_PROFILE', 'profile data is malformed');
-    socials = {};
-    for (const [key, url] of Object.entries(profile.socials)) {
-      if (!SOCIALS.has(key) || typeof url !== 'string' || url.length > SOCIAL_FIELD_LIMIT) {
-        fail(503, 'INVALID_PROFILE', 'profile data is malformed');
-      }
-      if (url) {
-        try {
-          validateCatalogUrl(url);
-        } catch {
-          fail(503, 'INVALID_PROFILE', 'profile data is malformed');
-        }
-      }
-      socials[key] = url;
-    }
-  }
-
-  let photo;
-  if (Object.hasOwn(profile, 'photo')) {
-    const storedPhoto = profile.photo;
-    const validVersion = (typeof storedPhoto?.version === 'string'
-      && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(storedPhoto.version))
-      || (Number.isSafeInteger(storedPhoto?.version) && storedPhoto.version >= 0);
-    if (!isRecord(storedPhoto) || !validVersion) fail(503, 'INVALID_PROFILE', 'profile data is malformed');
-    photo = { version: storedPhoto.version };
-    if (Object.hasOwn(storedPhoto, 'url')) {
-      const url = storedPhoto.url;
-      if (typeof url !== 'string' || url !== `/media/fotos/${profile.id}/${String(storedPhoto.version)}.webp`) {
-        fail(503, 'INVALID_PROFILE', 'profile data is malformed');
-      }
-      photo.url = url;
-    }
-  }
-
-  const result = {
-    id: profile.id,
-    displayName: profile.displayName,
-    slug: profile.slug,
-    ...optionalText,
-    programs,
-    socials,
-    ...(photo ? { photo } : {}),
-    published: profile.published === true,
-    hidden: profile.hidden === true,
-    version: profile.version,
+function profileDto(profile) {
+  const { id, displayName, slug, city, country, bio, programs, socials, photo, published, hidden, version } = profile;
+  return {
+    id, displayName, slug,
+    ...(Object.hasOwn(profile, 'city') ? { city } : {}),
+    ...(Object.hasOwn(profile, 'country') ? { country } : {}),
+    ...(Object.hasOwn(profile, 'bio') ? { bio } : {}),
+    programs: [...programs],
+    socials: { ...socials },
+    ...(photo ? { photo: { ...photo } } : {}),
+    published, hidden, version,
   };
-  return result;
 }
 
 function jsonResponse(value, status = 200, serialized) {
@@ -443,8 +379,9 @@ function cleanAdminResource(resource) {
 
 export function createCreatorPagesService({ store, authenticate, origin, now = Date.now, createId, statistics } = {}) {
   if (!store || typeof store.get !== 'function' || typeof store.getResources !== 'function'
+    || typeof store.getClaims !== 'function' || typeof store.listOpenClaimsForAccount !== 'function'
     || typeof store.list !== 'function' || typeof store.transact !== 'function') {
-    throw new TypeError('store must implement get, getResources, list, and transact');
+    throw new TypeError('store must implement creator reads, lists, and transactions');
   }
   if (typeof authenticate !== 'function') throw new TypeError('authenticate must be a function');
   if (typeof origin !== 'string' || !origin) throw new TypeError('origin is required');
@@ -601,7 +538,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
   function ownerProfileDto(profile) {
     if (!profile) return null;
-    const { version: _version, ...dto } = cleanPublicProfile(profile);
+    const { version: _version, ...dto } = profileDto(profile);
     return dto;
   }
 
@@ -631,24 +568,88 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return value + 1;
   }
 
-  function isValidUrlReservation(reservation, url, { allowOverLimitUniqueId = false } = {}) {
-    if (!isRecord(reservation) || reservation.id !== currentUrlReservationId(url)
-      || reservation.recordType !== 'urlReservation' || reservation.url !== url
-      || !Number.isSafeInteger(reservation.version) || reservation.version < 0) return false;
+  function isValidMoveReservation(reservation, url) {
+    if (!Number.isSafeInteger(reservation?.version) || reservation.version < 0) return false;
+    try {
+      // Existing URL moves compare the original revision in their transaction.
+      // Only the shape check treats a legacy observed revision like version one.
+      decodeCurrentUrlReservation({ ...reservation, version: 1 }, url);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function reservationMembers(reservation, url, { allowOverLimitUniqueId = false } = {}) {
+    try {
+      const decoded = decodeCurrentUrlReservation(reservation, url, { allowOverLimitUniqueId });
+      return decoded.resourceIds;
+    } catch {
+      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is inconsistent');
+    }
+  }
+
+  async function inspectReservation(url, reservation, { allowOverLimitUniqueId = false } = {}) {
+    const members = reservationMembers(reservation, url, { allowOverLimitUniqueId });
     if (reservation.status === 'reserved') {
-      const resourceIdIsValid = typeof reservation.resourceId === 'string' && reservation.resourceId.length > 0
-        && !reservation.resourceId.startsWith('__')
-        && (allowOverLimitUniqueId || isCatalogResourceIdWithinLimit(reservation.resourceId));
-      return resourceIdIsValid
-        && !Object.hasOwn(reservation, 'resourceIds');
+      const [resourceId] = members;
+      if (!isCatalogResourceIdWithinLimit(resourceId)) {
+        // Add-by-URL has a historical 422 for an over-limit reservation ID;
+        // all other readers reject it as an unusable index member.
+        if (allowOverLimitUniqueId) requireCatalogResourceIdWithinLimit(resourceId);
+        fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is inconsistent');
+      }
+      const resources = assertResourceBatch(await store.getResources([resourceId]), [resourceId]);
+      const resource = resources.get(resourceId);
+      if (!resource) return { coherent: false };
+      let facts;
+      try {
+        facts = resourceIdentityFacts(resource, resourceId);
+      } catch {
+        fail(503, 'INVALID_RESOURCE', 'resource presentation or visibility fields are malformed');
+      }
+      if (facts.url !== url) return { coherent: false };
+      return { coherent: true, resource, facts, resourceId };
     }
-    if (reservation.status === 'collision') {
-      const ids = reservation.resourceIds;
-      return !Object.hasOwn(reservation, 'resourceId') && Array.isArray(ids) && ids.length >= 2
-        && ids.every((id) => isCatalogResourceIdWithinLimit(id) && !id.startsWith('__'))
-        && new Set(ids).size === ids.length;
+
+    const found = assertResourceBatch(await store.getResources(members), members);
+    const resources = [];
+    for (const resourceId of members) {
+      const resource = found.get(resourceId);
+      if (!resource) return { coherent: false };
+      let facts;
+      try {
+        facts = resourceIdentityFacts(resource, resourceId);
+      } catch {
+        return { coherent: false };
+      }
+      if (facts.url !== url) return { coherent: false };
+      resources.push({ resourceId, resource, facts });
     }
-    return false;
+    return { coherent: true, resources };
+  }
+
+  async function resolveReservation(url, { allowOverLimitUniqueId = false, initialReservation } = {}) {
+    const key = currentUrlKey(url);
+    let reservation = initialReservation === undefined ? await store.get(key) : initialReservation;
+    if (!reservation) fail(404, 'RESOURCE_NOT_FOUND', 'no catalog resource is reserved for this URL');
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const observation = await inspectReservation(url, reservation, { allowOverLimitUniqueId });
+      if (observation.coherent) {
+        if (reservation.status === 'collision') {
+          fail(409, 'URL_COLLISION', 'this URL needs administrative review');
+        }
+        return { reservation, ...observation };
+      }
+      if (attempt === 1) {
+        fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the catalog resource');
+      }
+      reservation = await store.get(key);
+      if (!reservation) fail(404, 'RESOURCE_NOT_FOUND', 'no catalog resource is reserved for this URL');
+    }
+    // The loop always returns or throws. Keep a defensive failure for a
+    // future refactor that changes the bounded observation above.
+    fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the catalog resource');
   }
 
   function urlReservationCheck(key, reservation) {
@@ -706,10 +707,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const previousReservation = await store.get(previousKey);
     if (nextKey === previousKey) fail(422, 'INVALID_URL', 'current URL could not be changed');
 
-    if (previousReservation && !isValidUrlReservation(previousReservation, oldUrl)) {
+    if (previousReservation && !isValidMoveReservation(previousReservation, oldUrl)) {
       fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is malformed');
     }
-    if (reservation && !isValidUrlReservation(reservation, nextUrl)) {
+    if (reservation && !isValidMoveReservation(reservation, nextUrl)) {
       fail(503, 'URL_INDEX_MISMATCH', 'destination URL reservation is malformed');
     }
     if (reservation && (reservation.status !== 'reserved' || reservation.resourceId !== resource.id)) {
@@ -810,21 +811,20 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return [...profile.order.featured, ...profile.order.ordinary];
   }
 
-  function resourceProjectionFacts(resource) {
-    if (!resource || !isCatalogResource(resource)) fail(503, 'INVALID_RESOURCE', 'a referenced catalog row is not a resource');
-    if (typeof resource.title !== 'string'
-      || (Object.hasOwn(resource, 'description') && typeof resource.description !== 'string')
-      || (Object.hasOwn(resource, 'hidden') && typeof resource.hidden !== 'boolean')) {
+  function resourceProjectionFacts(resource, expectedId = resource?.id) {
+    try {
+      return creatorResourceFacts(resource, expectedId);
+    } catch {
       fail(503, 'INVALID_RESOURCE', 'resource presentation or visibility fields are malformed');
     }
+  }
+
+  function resourceIdentityFacts(resource, expectedId = resource?.id) {
+    if (!resource || !isCatalogResource(resource) || resource.id !== expectedId) throw new Error('resource identity is malformed');
     const url = currentResourceUrl(resource);
-    if (typeof url !== 'string') fail(503, 'INVALID_RESOURCE', 'resource URL is malformed');
-    try { validateCatalogUrl(url); } catch { fail(503, 'INVALID_RESOURCE', 'resource URL is malformed'); }
-    return {
-      url,
-      version: storedVersion(resource.version ?? 0, 'resource', { legacyZero: true }),
-      directoryApproval: approvalState(resource),
-    };
+    if (typeof url !== 'string') throw new Error('resource URL is malformed');
+    try { validateCatalogUrl(url); } catch { throw new Error('resource URL is malformed'); }
+    return { url };
   }
 
   function projectCreatorLink(profile, placementIdValue, resource) {
@@ -922,16 +922,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     resources.sort((left, right) => left.id.localeCompare(right.id));
 
     const claimRefs = await store.list(`claim-ref:${profile.id}:`);
+    const claimsById = await store.getClaims(claimRefs.map(({ value }) => value.id));
     const claims = [];
-    for (const row of claimRefs) {
-      const reference = row.value;
-      if (!reference || typeof reference.id !== 'string') fail(503, 'INVALID_CLAIM_REFERENCE', 'claim reference is malformed');
-      const claim = await store.get(claimKey(reference.id));
+    for (const { value: reference } of claimRefs) {
+      const claim = claimsById.get(reference.id);
       if (!claim) fail(503, 'MISSING_CLAIM', 'claim reference points to missing claim data');
       if (claim.profileId !== profile.id) continue;
-      if (claim.version !== undefined && (!Number.isSafeInteger(claim.version) || claim.version < 0)) {
-        fail(503, 'INVALID_CLAIM', 'claim version is malformed');
-      }
       const claimResources = storedClaimResources(claim);
       claims.push({
         id: claim.id,
@@ -1208,7 +1204,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     disposition = 'resource-reused',
   } = {}) {
     if (!isCatalogResource(resource)) fail(503, 'INVALID_RESOURCE', 'a catalog control row cannot be attached as a resource');
-    const resourceVersion = storedVersion(resource.version ?? 0, 'resource', { legacyZero: true });
+    const facts = resourceProjectionFacts(resource, resource.id);
+    const resourceVersion = facts.version;
     const activeId = activePlacementId(profile, resource.id);
     const reservationChecks = [
       { key: `resource:${resource.id}`, version: resourceVersion },
@@ -1234,23 +1231,26 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     selectedForDirectory = true,
     conflictOnStale = false,
   } = {}) {
-    if (!isValidUrlReservation(reservation, url, { allowOverLimitUniqueId: true })) {
-      fail(conflictOnStale ? 409 : 503,
-        conflictOnStale ? 'URL_CONFLICT' : 'URL_INDEX_MISMATCH',
-        'URL reservation is malformed or no longer matches its resource');
+    let resolved;
+    try {
+      resolved = await resolveReservation(url, {
+        allowOverLimitUniqueId: true,
+        initialReservation: reservation,
+      });
+    } catch (error) {
+      if (conflictOnStale && error instanceof ApiError
+        && ['URL_INDEX_MISMATCH', 'RESOURCE_NOT_FOUND'].includes(error.code)) {
+        fail(409, 'URL_CONFLICT', 'URL reservation is malformed or no longer matches its resource');
+      }
+      if (!conflictOnStale && error instanceof ApiError && error.code === 'RESOURCE_NOT_FOUND') {
+        fail(503, 'URL_INDEX_MISMATCH', 'URL reservation is malformed or no longer matches its resource');
+      }
+      throw error;
     }
-    if (reservation.status === 'collision') fail(409, 'URL_COLLISION', 'this URL needs administrative review');
-    requireCatalogResourceIdWithinLimit(reservation.resourceId);
-    const resource = await store.get(`resource:${reservation.resourceId}`);
-    if (!resource || resource.id !== reservation.resourceId || !isCatalogResource(resource)
-      || currentResourceUrl(resource) !== url) {
-      fail(conflictOnStale ? 409 : 503,
-        conflictOnStale ? 'URL_CONFLICT' : 'URL_INDEX_MISMATCH',
-        'URL reservation is malformed or no longer matches its resource');
-    }
+    const { resource, reservation: observedReservation } = resolved;
     return attachExistingResource(profile, resource, {
       selectedForDirectory,
-      checks: [urlReservationCheck(currentUrlKey(url), reservation)],
+      checks: [urlReservationCheck(currentUrlKey(url), observedReservation)],
       operation: 'add-link',
       disposition: 'resource-reused',
     });
@@ -1267,7 +1267,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const expectedResourceVersion = validVersion(body.resourceVersion);
     const resource = await store.get(`resource:${body.resourceId}`);
     if (!resource || resource.id !== body.resourceId || !isCatalogResource(resource)) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
-    const resourceVersion = storedVersion(resource.version ?? 0, 'resource', { legacyZero: true });
+    const facts = resourceProjectionFacts(resource, body.resourceId);
+    const resourceVersion = facts.version;
     if (expectedResourceVersion !== resourceVersion) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before re-adding it');
     if (resource.editorProfileId !== profile.id || resource.directoryControl !== 'creator') {
       fail(403, 'RESOURCE_EDIT_FORBIDDEN', 'this profile does not edit the resource');
@@ -1278,8 +1279,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       || reference.resourceId !== resource.id || !Number.isSafeInteger(reference.version) || reference.version < 0) {
       fail(403, 'RESOURCE_EDIT_FORBIDDEN', 'this profile does not edit the resource');
     }
-    const url = currentResourceUrl(resource);
-    try { validateCatalogUrl(url); } catch { fail(503, 'INVALID_RESOURCE', 'resource URL is malformed'); }
     return attachExistingResource(profile, resource, {
       selectedForDirectory: true,
       checks: [{ key: referenceKey, version: reference.version }],
@@ -1300,24 +1299,43 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
     const resource = await store.get(`resource:${body.resourceId}`);
     if (!resource || resource.id !== body.resourceId || !isCatalogResource(resource)) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
-    const currentUrl = currentResourceUrl(resource);
-    try { validateResourceUrl(currentUrl); } catch { fail(503, 'INVALID_RESOURCE', 'resource URL is malformed'); }
+    const facts = resourceProjectionFacts(resource, body.resourceId);
+    const currentUrl = facts.url;
     if (currentUrl !== url) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
     const reservationKey = currentUrlKey(url);
     const reservation = await store.get(reservationKey);
-    const validReservation = isValidUrlReservation(reservation, url);
-    if (!validReservation || reservation.status === 'collision' || reservation.resourceId !== resource.id) {
+    let resolved;
+    try {
+      resolved = await resolveReservation(url, { initialReservation: reservation });
+    } catch (error) {
+      if (!(error instanceof ApiError)) throw error;
+      // A malformed or incomplete reservation is only a conflict when the
+      // selected resource has moved; otherwise it is an operational index
+      // failure and remains non-disclosing.
       const latestResource = await store.get(`resource:${resource.id}`);
-      if (!resourceMatchesSelection(latestResource, resource.id, url)) {
+      let latestFacts;
+      try { latestFacts = resourceIdentityFacts(latestResource, resource.id); } catch { latestFacts = null; }
+      if (latestFacts && latestFacts.url !== url) {
         fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
       }
-      if (validReservation && reservation.status === 'collision') fail(409, 'URL_COLLISION', 'this URL needs administrative review');
+      if (error.code === 'RESOURCE_NOT_FOUND') {
+        fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the selected resource');
+      }
+      throw error;
+    }
+    if (resolved.resourceId !== resource.id) {
+      const latestResource = await store.get(`resource:${resource.id}`);
+      let latestFacts;
+      try { latestFacts = resourceIdentityFacts(latestResource, resource.id); } catch { latestFacts = null; }
+      if (!latestFacts || latestFacts.url !== url) {
+        fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
+      }
       fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the selected resource');
     }
     try {
       return await attachExistingResource(profile, resource, {
         selectedForDirectory: body.selectedForDirectory ?? true,
-        checks: [urlReservationCheck(reservationKey, reservation)],
+        checks: [urlReservationCheck(reservationKey, resolved.reservation)],
         operation: 'reference-link',
         disposition: 'attached',
       });
@@ -1331,8 +1349,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       } catch {
         throw error;
       }
-      const resourceStillMatches = resourceMatchesSelection(latestResource, resource.id, url);
-      const reservationStillMatches = isValidUrlReservation(latestReservation, url)
+      let resourceStillMatches = false;
+      try { resourceStillMatches = resourceIdentityFacts(latestResource, resource.id).url === url; } catch { /* stale or malformed */ }
+      // Preserve the existing LINK_CONFLICT contract when the reservation's
+      // membership is unchanged but a concurrent writer advanced its
+      // observed revision. Full current-shape admission happens before the
+      // write; this fallback only distinguishes that race from a URL move.
+      const reservationStillMatches = isValidMoveReservation(latestReservation, url)
         && latestReservation.status === 'reserved'
         && latestReservation.resourceId === resource.id;
       if (!resourceStillMatches || !reservationStillMatches) {
@@ -1712,12 +1735,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (!await store.transact({ checks: [{ key, version: observedVersion }] })) {
         fail(409, 'PROFILE_CONFLICT', 'profile changed while applying action');
       }
-      return { profile: cleanPublicProfile(profile), versionChanges: [] };
+      return { profile: profileDto(profile), versionChanges: [] };
     }
     const updated = nextCreatorState(profile, { hidden });
     await commitCreatorState(profile, updated, { code: 'PROFILE_CONFLICT' });
     return {
-      profile: cleanPublicProfile(updated),
+      profile: profileDto(updated),
       versionChanges: versionChanges(versionChange('profile', profileId, observedVersion, updated.version)),
     };
   }
@@ -1728,28 +1751,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   }
 
   async function claimResourceIdForUrl(url) {
-    const reservation = await store.get(currentUrlKey(url));
-    if (!reservation) fail(404, 'RESOURCE_NOT_FOUND', 'no catalog resource is reserved for this URL');
-    if (reservation.recordType !== 'urlReservation' || reservation.url !== url) {
-      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is inconsistent');
-    }
-    if (!Number.isSafeInteger(reservation.version) || reservation.version < 1) {
-      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is inconsistent');
-    }
-    if (reservation.status === 'collision') {
-      const ids = reservation.resourceIds;
-      if (!Array.isArray(ids) || ids.length < 2
-        || ids.some((id) => typeof id !== 'string' || !id || id.startsWith('__'))
-        || new Set(ids).size !== ids.length) {
-        fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is inconsistent');
-      }
-      fail(409, 'URL_COLLISION', 'this URL needs administrative review');
-    }
-    if (reservation.status !== 'reserved' || typeof reservation.resourceId !== 'string'
-      || !reservation.resourceId || reservation.resourceId.startsWith('__')) {
-      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is inconsistent');
-    }
-    return reservation.resourceId;
+    const resolved = await resolveReservation(url, { allowOverLimitUniqueId: true });
+    return { resourceId: resolved.resourceId, resource: resolved.resource };
   }
 
   async function createClaim(principal, body) {
@@ -1776,12 +1779,17 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     });
 
     const resolvedIds = [];
+    const resolvedResources = new Map();
     for (const target of submittedResources) {
-      const resourceId = target.resourceId ?? await claimResourceIdForUrl(target.url);
+      const urlResolution = target.resourceId === undefined ? await claimResourceIdForUrl(target.url) : null;
+      const resourceId = target.resourceId ?? urlResolution.resourceId;
       requireCatalogResourceIdWithinLimit(resourceId);
       resolvedIds.push(resourceId);
+      if (urlResolution) resolvedResources.set(resourceId, urlResolution.resource);
     }
-    const records = await claimResourcesById(resolvedIds);
+    const records = resolvedResources.size === resolvedIds.length
+      ? resolvedResources
+      : new Map([...resolvedResources, ...await claimResourcesById(resolvedIds)]);
     const resolved = submittedResources.map((target, index) => {
       const resourceId = resolvedIds[index];
       const resource = records.get(resourceId);
@@ -1794,9 +1802,15 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         if (target.resourceId !== undefined) fail(422, 'INVALID_CLAIM_RESOURCES', 'selected record is not a catalog resource');
         fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not point to a catalog resource');
       }
-      const currentUrl = currentResourceUrl(resource);
-      try { validateCatalogUrl(currentUrl); } catch { fail(503, 'INVALID_RESOURCE', 'catalog resource URL is malformed'); }
-      if (currentUrl !== target.url) {
+      let facts;
+      try {
+        facts = creatorResourceFacts(resource, resourceId);
+      } catch {
+        fail(target.resourceId !== undefined ? 503 : 503,
+          target.resourceId !== undefined ? 'INVALID_RESOURCE' : 'URL_INDEX_MISMATCH',
+          target.resourceId !== undefined ? 'catalog resource facts are malformed' : 'current URL reservation does not match the catalog resource');
+      }
+      if (facts.url !== target.url) {
         if (target.resourceId !== undefined) fail(409, 'RESOURCE_CONFLICT', 'selected resource URL changed; review the current catalog entry');
         fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the catalog resource');
       }
@@ -1834,6 +1848,49 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     };
   }
 
+  async function reconcileClaimStatus(accountId, profileId, matching) {
+    const ids = [...new Set(matching.flatMap(({ value }) => value.resourceIds))];
+    const resources = assertResourceBatch(await store.getResources(ids), ids);
+    const linked = new Set();
+    for (const [id, resource] of resources) {
+      if (resource?.directoryControl === 'creator' && resource.editorProfileId === profileId) {
+        resourceProjectionFacts(resource, id);
+        linked.add(id);
+      }
+    }
+    for (const { key, value: observed } of matching) {
+      const linkedCount = observed.resourceIds.filter((id) => linked.has(id)).length;
+      const status = linkedCount === observed.resourceIds.length ? 'resolved' : linkedCount > 0 ? 'partial' : 'pending';
+      if (status === observed.status) continue;
+
+      // The query projects matching facts only. A guarded full read preserves
+      // historic metadata and detects an intervening claim status or target change.
+      const current = await store.get(key);
+      if (!current || current.id !== observed.id || current.accountId !== accountId
+        || current.version !== observed.version || current.status !== observed.status
+        || !['pending', 'partial'].includes(current.status)
+        || !Array.isArray(current.resourceIds) || current.resourceIds.length !== observed.resourceIds.length
+        || current.resourceIds.some((id, index) => id !== observed.resourceIds[index])) {
+        fail(409, 'CLAIM_CONFLICT', 'claim state changed while resolving');
+      }
+      const updated = {
+        ...current,
+        status,
+        ...(status === 'resolved' ? { resolvedAt: timestamp() } : {}),
+        version: nextVersion(current.version, 'claim'),
+      };
+      const refKey = claimRefKey(profileId, current.id);
+      const ref = await store.get(refKey);
+      const checks = [{ key, version: current.version }];
+      const puts = [{ key, value: updated }];
+      if (!ref) {
+        checks.push({ key: refKey, version: null });
+        puts.push({ key: refKey, value: { id: current.id, version: 1 } });
+      }
+      if (!await store.transact({ checks, puts })) fail(409, 'CLAIM_CONFLICT', 'claim state changed while resolving');
+    }
+  }
+
   async function linkClaim(body) {
     assertKnownFields(body, new Set(['accountId', 'resourceIds', 'sourceId']));
     if (typeof body.accountId !== 'string' || !body.accountId || !Array.isArray(body.resourceIds)
@@ -1859,7 +1916,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         || (resource.directoryControl === 'creator' && resource.editorProfileId !== profile.id)) {
         fail(409, 'RESOURCE_ALREADY_CLAIMED', `resource ${resourceId} has another editor`);
       }
-      observedResources.set(resourceId, resource);
+      const { version } = resourceProjectionFacts(resource, resourceId);
+      observedResources.set(resourceId, { resource, version });
     }
 
     const confirmedIds = [];
@@ -1874,8 +1932,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     try {
       for (const resourceId of requestedIds) {
         const resourceKey = `resource:${resourceId}`;
-        const resource = observedResources.get(resourceId);
-        const resourceVersion = storedVersion(resource.version ?? 0, 'resource', { legacyZero: true });
+        const { resource, version: resourceVersion } = observedResources.get(resourceId);
         const editKey = editorKey(profile.id, resourceId);
         const currentEditor = await store.get(editKey);
         if (currentEditor && (currentEditor.recordType !== 'editorReference' || currentEditor.profileId !== profile.id
@@ -1922,30 +1979,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         confirmedIds.push(resourceId);
       }
 
-      const claims = await store.list('claim:');
-      for (const row of claims) {
-        const claim = row.value;
-        const claimIds = Array.isArray(claim.resourceIds) ? claim.resourceIds : [];
-        if (claim.accountId !== body.accountId || !['pending', 'partial'].includes(claim.status)
-          || !requestedIds.some((id) => claimIds.includes(id))) continue;
-        const linked = await Promise.all(claimIds.map(async (id) => {
-          const resource = await store.get(`resource:${id}`);
-          return resource?.directoryControl === 'creator' && resource.editorProfileId === profile.id;
-        }));
-        const linkedCount = linked.filter(Boolean).length;
-        const nextStatus = linkedCount === claimIds.length ? 'resolved' : linkedCount > 0 ? 'partial' : 'pending';
-        if (nextStatus === claim.status) continue;
-        const updated = { ...claim, status: nextStatus,
-          ...(nextStatus === 'resolved' ? { resolvedAt: timestamp() } : {}), version: claim.version + 1 };
-        const refKey = claimRefKey(profile.id, claim.id);
-        const ref = await store.get(refKey);
-        const checks = [{ key: row.key, version: claim.version }];
-        const puts = [{ key: row.key, value: updated }];
-        if (!ref) {
-          checks.push({ key: refKey, version: null });
-          puts.push({ key: refKey, value: { id: claim.id, version: 1 } });
-        }
-        if (!await store.transact({ checks, puts })) fail(409, 'CLAIM_CONFLICT', 'claim state changed while resolving');
+      const granted = new Set(requestedIds);
+      const claims = await store.listOpenClaimsForAccount(body.accountId);
+      const matching = claims.filter(({ value }) => Array.isArray(value.resourceIds)
+        && value.resourceIds.some((id) => granted.has(id)));
+      if (matching.length > 0) {
+        await reconcileClaimStatus(body.accountId, profile.id, matching);
       }
     } catch (error) {
       // No-op confirmations alone are not partial writes. If every grant was confirmed,
@@ -2007,7 +2046,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (!row) fail(503, 'INVALID_ALIAS', 'profile alias points to missing data');
       const profile = readCreatorStateOrFail(row, alias.profileId);
       if (!isPublicCreator(profile)) return { status: 404 };
-      const publicProfile = cleanPublicProfile(profile);
+      const publicProfile = profileDto(profile);
       if (profile.slug !== slug) {
         return { status: 308, redirectTo: `${canonicalCreatorPath(profile.slug, suffix)}${search}` };
       }
@@ -2037,7 +2076,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (!row) fail(503, 'INVALID_ALIAS', 'profile alias points to missing data');
       const profile = readCreatorStateOrFail(row, profileAlias.profileId);
       if (!isPublicCreator(profile)) return { status: 404 };
-      const publicProfile = cleanPublicProfile(profile);
+      const publicProfile = profileDto(profile);
 
       const seriesAlias = await readSeriesAlias(profile.id, seriesSlug);
       if (!seriesAlias) return { status: 404 };

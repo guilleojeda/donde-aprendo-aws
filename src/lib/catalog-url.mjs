@@ -59,7 +59,7 @@ export function currentUrlCollision(url, resourceIds) {
  * This keeps the physical key and literal URL checks at the boundary instead
  * of allowing a projected row to be interpreted under a reconstructed key.
  */
-export function decodeCurrentUrlReservation(item, requestedUrl) {
+export function decodeCurrentUrlReservation(item, requestedUrl, { allowOverLimitUniqueId = false } = {}) {
   if (!isRecord(item)) {
     throw new Error('Catalog URL reservation is malformed');
   }
@@ -72,7 +72,7 @@ export function decodeCurrentUrlReservation(item, requestedUrl) {
   const hasResourceId = Object.hasOwn(item, 'resourceId');
   const hasResourceIds = Object.hasOwn(item, 'resourceIds');
   if (item.status === 'reserved' && hasResourceId && !hasResourceIds
-      && isCatalogReservationMemberId(item.resourceId)) {
+      && isCatalogReservationMemberId(item.resourceId, { allowOverLimit: allowOverLimitUniqueId })) {
     return { status: 'reserved', resourceIds: [item.resourceId] };
   }
   if (item.status === 'collision' && hasResourceIds && !hasResourceId) {
@@ -87,8 +87,9 @@ export function decodeCurrentUrlReservation(item, requestedUrl) {
   throw new Error(`Malformed catalog URL reservation for ${requestedUrl}`);
 }
 
-function isCatalogReservationMemberId(id) {
-  return isCatalogResourceIdWithinLimit(id) && !id.startsWith('__');
+function isCatalogReservationMemberId(id, { allowOverLimit = false } = {}) {
+  return typeof id === 'string' && id.length > 0 && !id.startsWith('__')
+    && (allowOverLimit || isCatalogResourceIdWithinLimit(id));
 }
 
 function isRecord(value) {

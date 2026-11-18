@@ -647,7 +647,7 @@ const rejectedReferenceCases = [
         ],
         puts: [
           { key: `resource:${colliding.id}`, value: colliding },
-          { key, value: { ...currentUrlCollision(selected.url, [selected.id, colliding.id]), version: reservation.version + 1 } },
+          { key, value: currentUrlCollision(selected.url, [selected.id, colliding.id]) },
         ],
       }), true);
     },

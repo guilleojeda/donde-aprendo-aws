@@ -507,6 +507,129 @@ test('URL-only resolution distinguishes missing and inconsistent reservations an
   assert.deepEqual((await harness.store.get(`claim:${eventAck.claimId}`)).resourceIds, [event.id]);
 });
 
+test('URL-only claims reject a mixed reservation while an exact ID claim stays independent of that index', async () => {
+  const harness = await createCreatorPagesHarness();
+  const profile = await createProfile(harness, 'creator-a', 'claim-reservation-shape');
+  const url = 'https://catalog.example/mixed-reservation-shape';
+  const target = resource('mixed-reservation-target', url, { hidden: true });
+  await seedResource(harness.store, target);
+
+  const reservationKey = currentUrlKey(url);
+  const reservation = await harness.store.get(reservationKey);
+  assert.equal(await harness.store.transact({
+    checks: [{ key: reservationKey, version: reservation.version }],
+    puts: [{ key: reservationKey, value: {
+      ...reservation,
+      resourceIds: [target.id],
+    } }],
+  }), true, 'the provider-shaped fixture installs the malformed mixed membership shape');
+
+  const rejectedAt = harness.store.calls.length;
+  const urlOnly = await api(harness, CLAIMS_PATH, 'creator-a', {
+    method: 'POST', body: { resources: [{ url }] },
+  });
+  assert.equal(urlOnly.status, 503,
+    'URL-only admission must reject a reservation that contains both single and collision membership');
+  assert.equal((await responseJson(urlOnly)).error, 'URL_INDEX_MISMATCH');
+  await assertNoClaimCreated(harness, profile.profile.id, rejectedAt);
+
+  const exact = await api(harness, CLAIMS_PATH, 'creator-a', {
+    method: 'POST', body: { resources: [{ resourceId: target.id, url }] },
+  });
+  assert.equal(exact.status, 202,
+    'an exact resource and literal URL are validated against the resource, not resolved through the URL index');
+  const acknowledgement = await responseJson(exact);
+  assert.deepEqual((await harness.store.get(`claim:${acknowledgement.claimId}`)).resources, [
+    { resourceId: target.id, url },
+  ]);
+  assert.equal((await harness.store.get(reservationKey)).resourceIds.length, 1,
+    'the exact claim does not repair or rewrite the malformed reservation');
+});
+
+test('URL-only claims reject a stable collision with a member at a different current URL', async () => {
+  const harness = await createCreatorPagesHarness();
+  const profile = await createProfile(harness);
+  const url = 'https://catalog.example/stale-claim-collision';
+  const first = resource('stale-claim-collision-first', url);
+  const second = resource('stale-claim-collision-second', `${url}-moved`);
+  await seedResource(harness.store, first);
+  await seedResource(harness.store, second);
+  const key = currentUrlKey(url);
+  const malformed = currentUrlCollision(url, [first.id, second.id]);
+  assert.equal(await harness.store.transact({
+    checks: [{ key, version: 1 }], puts: [{ key, value: malformed }],
+  }), true);
+
+  const before = harness.store.calls.length;
+  const response = await api(harness, CLAIMS_PATH, 'creator-a', {
+    method: 'POST', body: { resources: [{ url }] },
+  });
+  assert.equal(response.status, 503, await response.clone().text());
+  const error = await responseJson(response);
+  assert.equal(error.error, 'URL_INDEX_MISMATCH');
+  assert.equal(JSON.stringify(error).includes(second.id), false);
+  assert.equal(JSON.stringify(error).includes(second.url), false);
+  await assertNoClaimCreated(harness, profile.profile.id, before);
+  assert.deepEqual(await harness.store.get(key), malformed);
+  assert.deepEqual(await harness.store.get(`resource:${second.id}`), second);
+});
+
+test('URL-only claim uses a coherent fresh owner after two real writes change a reservation during its read', async () => {
+  const harness = await createCreatorPagesHarness();
+  const claimant = await createProfile(harness, 'creator-a', 'claim-read-race');
+  const editor = await createProfile(harness, 'creator-b', 'claim-concurrent-editor');
+  const url = 'https://catalog.example/concurrent-claim-url';
+  const movedUrl = `${url}-moved`;
+  const initialResponse = await api(harness, '/api/creador/enlaces', 'creator-b', {
+    method: 'POST', body: { creatorVersion: editor.creatorVersion, title: 'Ficha anterior', url },
+  });
+  assert.equal(initialResponse.status, 201, await initialResponse.clone().text());
+  const original = await responseJson(initialResponse);
+  const key = currentUrlKey(url);
+  const read = harness.store.get.bind(harness.store);
+  let interleavingStarted = false;
+  let winner;
+  harness.store.get = async (requestedKey) => {
+    const observed = await read(requestedKey);
+    if (requestedKey === key && !interleavingStarted) {
+      interleavingStarted = true;
+      const moved = await api(harness, `/api/creador/recursos/?id=${encodeURIComponent(original.resourceId)}`, 'creator-b', {
+        method: 'PATCH', body: { resourceVersion: original.resourceVersion, url: movedUrl },
+      });
+      assert.equal(moved.status, 200, await moved.clone().text());
+      const afterMove = await ownerView(harness, 'creator-b');
+      const added = await api(harness, '/api/creador/enlaces', 'creator-b', {
+        method: 'POST', body: { creatorVersion: afterMove.creatorVersion, title: 'Ficha actual', url },
+      });
+      assert.equal(added.status, 201, await added.clone().text());
+      winner = await responseJson(added);
+    }
+    return observed;
+  };
+
+  let response;
+  const before = harness.store.calls.length;
+  try {
+    response = await api(harness, CLAIMS_PATH, 'creator-a', {
+      method: 'POST', body: { resources: [{ url }], evidence: 'Prueba concurrente' },
+    });
+  } finally {
+    harness.store.get = read;
+  }
+  assert.ok(winner, 'the actual move and replacement committed between the reservation and target reads');
+  assert.notEqual(winner.resourceId, original.resourceId);
+  assert.equal((await read(key)).resourceId, winner.resourceId);
+  assert.equal((await read(currentUrlKey(movedUrl))).resourceId, original.resourceId);
+  assert.equal(response.status, 202, await response.clone().text());
+  const ack = await responseJson(response);
+  const after = await ownerView(harness);
+  assert.deepEqual(after.claims.map(({ id, resources, evidence }) => ({ id, resources, evidence })), [{
+    id: ack.claimId, resources: [{ resourceId: winner.resourceId, url }], evidence: 'Prueba concurrente',
+  }]);
+  assert.equal(after.creatorVersion, claimant.creatorVersion);
+  assert.equal(claimWritesSince(harness, before).length, 1);
+});
+
 test('all submitted pairs are validated before deduplication and errors do not reveal an unsubmitted private URL or title', async () => {
   const harness = await createCreatorPagesHarness();
   const profile = await createProfile(harness);

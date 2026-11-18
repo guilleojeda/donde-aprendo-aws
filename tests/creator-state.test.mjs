@@ -102,6 +102,30 @@ test('sequence validation accepts the projected content and rejects incomplete o
   });
 });
 
+test('placement and Series keys use the same exact creator ID boundaries', () => {
+  for (const [id, valid] of [
+    ['_', true], ['Aa_9-'.repeat(25) + 'X_0', true],
+    ['a'.repeat(129), false], ['', false], ['private:id', false],
+    ['x\n', false], [' x', false], ['í', false],
+  ]) {
+    const placement = creatorState({
+      placements: { [id]: { resourceId: 'resource:exact', selectedForDirectory: false } },
+      order: { featured: [], ordinary: [id] },
+      series: { series: { name: 'Primera', slug: 'primera', chapters: [id] } },
+    });
+    const series = creatorState({
+      series: { [id]: { name: 'Primera', slug: 'primera', chapters: ['placement-a'] } },
+    });
+    if (valid) {
+      assert.equal(readCreatorState(placement, placement.id), placement);
+      assert.equal(readCreatorState(series, series.id), series);
+    } else {
+      assertInvalid(placement);
+      assertInvalid(series);
+    }
+  }
+});
+
 test('candidate sizing includes exact physical keys and excludes only bounded root system fields from content', () => {
   const candidate = creatorState({
     photo: { version: 'upload-1', url: '/media/fotos/creator-one/upload-1.webp' },

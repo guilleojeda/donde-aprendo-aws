@@ -15,7 +15,6 @@ export const CREATOR_STATE_SCHEMA_VERSION = 2;
 export const CREATOR_CONTENT_LIMIT_BYTES = 384 * 1024;
 export const CREATOR_ITEM_LIMIT_BYTES = 400 * 1024;
 
-const CONTENT_ID = /^[A-Za-z0-9_-]{1,128}$/u;
 const ROOT_FIELDS = new Set([
   'pk', 'sk', 'recordType', 'schemaVersion', 'id', 'version',
   'displayName', 'slug', 'city', 'country', 'bio', 'programs', 'socials',
@@ -102,7 +101,7 @@ function validatePhoto(photo, profileId) {
 function validatePlacementMap(placements) {
   invalidIf(!isRecord(placements), 'creator state placements are malformed');
   for (const [placementId, placement] of Object.entries(placements)) {
-    invalidIf(!CONTENT_ID.test(placementId) || !isRecord(placement)
+    invalidIf(!isCreatorStateId(placementId) || !isRecord(placement)
       || Object.keys(placement).some((field) => !['resourceId', 'selectedForDirectory'].includes(field))
       || !isCatalogResourceIdWithinLimit(placement.resourceId)
       || typeof placement.selectedForDirectory !== 'boolean',
@@ -135,7 +134,7 @@ export function validateCreatorSequences(value) {
 
   invalidIf(!isRecord(series), 'creator state Series are malformed');
   for (const [seriesId, item] of Object.entries(series)) {
-    invalidIf(!CONTENT_ID.test(seriesId) || !isRecord(item)
+    invalidIf(!isCreatorStateId(seriesId) || !isRecord(item)
       || Object.keys(item).some((field) => !['name', 'slug', 'description', 'chapters', 'createdAt', 'updatedAt'].includes(field)),
     'creator state Series entry is malformed');
     requireText(item.name, `series ${seriesId} name`, { max: CREATOR_FIELD_LIMITS.name });
