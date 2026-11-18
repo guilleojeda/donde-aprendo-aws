@@ -1,9 +1,19 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { buildSync } from 'esbuild';
 import { runInNewContext } from 'node:vm';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-const source = readFileSync(new URL('../src/scripts/contribution-form.js', import.meta.url), 'utf8');
+// The browser entry imports the shared catalog identity predicate. Bundle the
+// real entry for this small VM harness so its validation tests execute the
+// same module graph as the shipped script instead of maintaining a copy.
+const bundledSource = buildSync({
+  entryPoints: [fileURLToPath(new URL('../src/scripts/contribution-form.js', import.meta.url))],
+  bundle: true,
+  format: 'iife',
+  platform: 'browser',
+  write: false,
+}).outputFiles[0].text;
 
 class Field {
   constructor({ id, type = 'text', tagName = 'INPUT', validity, describedBy = 'contribution-help' }) {
@@ -44,7 +54,10 @@ function createForm(fields) {
       return [];
     },
   };
-  runInNewContext(source, { document: { querySelector: () => form } });
+  runInNewContext(bundledSource, {
+    document: { querySelector: () => form },
+    TextEncoder,
+  });
   return {
     errors,
     listeners,

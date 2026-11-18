@@ -8,6 +8,8 @@ import BlogArticleMetadata from '../../components/BlogArticleMetadata.astro';
 import { BLOG_CONTRIBUTORS } from '../../lib/blog-contributors.mjs';
 import { loadSiteCatalog } from '../../lib/site-catalog.mjs';
 import { LEARNING_PATHS, resolveLearningPaths, articlePathNavigation } from '../../lib/learning-paths.mjs';
+import RenderedBlogBody from '../../components/RenderedBlogBody.astro';
+import { createBlogArticleLinkContext } from '../../lib/blog-links.mjs';
 import type { CatalogEvent, CatalogResource } from '../../types/catalog';
 
 export async function getStaticPaths() {
@@ -15,6 +17,7 @@ export async function getStaticPaths() {
   const resources = (catalog as Array<CatalogResource | CatalogEvent>)
     .filter((record): record is CatalogResource => record.recordType !== 'event');
   const paths = resolveLearningPaths(LEARNING_PATHS, resources, posts);
+  const linkContext = createBlogArticleLinkContext(catalog);
   const postsByUrl = new Map(posts.map((post) => [`https://dondeaprendoaws.com/blog/${post.id}/`, post]));
   return posts.map((post) => {
     const related = post.data.related.map((link) => {
@@ -24,12 +27,12 @@ export async function getStaticPaths() {
     });
     return {
       params: { slug: post.id },
-      props: { post, related, pathNavigation: articlePathNavigation(paths, post.id) },
+      props: { post, related, pathNavigation: articlePathNavigation(paths, post.id), linkContext },
     };
   });
 }
 
-const { post, related, pathNavigation } = Astro.props;
+const { post, related, pathNavigation, linkContext } = Astro.props;
 const { Content } = await render(post);
 const canonical = new URL(`/blog/${post.id}/`, Astro.site ?? Astro.url).href;
 const author = BLOG_CONTRIBUTORS[post.data.author];
@@ -62,7 +65,9 @@ const review = post.data.review && {
       />
     </header>
     <article class="blog-article__body">
-      <Content />
+      <RenderedBlogBody linkContext={linkContext}>
+        <Content />
+      </RenderedBlogBody>
     </article>
     {pathNavigation.length > 0 && (
       <nav class="blog-paths" aria-labelledby="blog-paths-title">

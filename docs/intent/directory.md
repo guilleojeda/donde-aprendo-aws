@@ -133,7 +133,16 @@ to the existing contact mailbox for requests to delete those details; requests
 are handled by the owner, not an automated deletion endpoint. The notice does
 not invent a retention period. When JavaScript is disabled, native HTML explains
 that it must be enabled to send the form. The normal JavaScript validation,
-submission and receipt flow stays available.
+submission and receipt flow stays available. A receipt is shown only for a
+201 response with the handler's affirmative status, a valid public resource ID
+and an exact UTC timestamp. It identifies the submitted title, not a later
+local edit. A twelve-second deadline covers both response headers and body;
+unreadable, malformed, timed-out, transport and storage-uncertain results keep
+the draft and require a deliberate new submission. If the draft changed while
+the request was in flight, all of those newer fields and their focus remain;
+only an unchanged submitted draft is reset. Duplicate URLs stay authoritative
+and do not manufacture a receipt or replay the write, and a late completion
+from an older attempt cannot replace a newer draft or receipt.
 
 Resource and event cards offer a contextual email draft for a broken link or incorrect data. The draft includes only the public title, record ID and destination URL; the record ID is a JSON string literal so the complete identity can be recovered even when it contains quotes or whitespace. The visitor must send the URI-encoded draft from their own mail client. A generic footer link covers pages without a card. This reuses the existing contact mailbox and does not create a second submission or moderation store. Editors investigate these messages and correct the authoritative DynamoDB record, or the versioned article file when the report concerns an article.
 

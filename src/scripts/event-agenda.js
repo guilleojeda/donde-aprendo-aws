@@ -2,7 +2,7 @@ import { eventGroupsForAgenda } from '../lib/event-agenda-groups.mjs';
 import { effectiveEventLocation, eventCountryLabel, normalizeEventCityKey } from '../lib/event-location.mjs';
 import { eventDateLabel, eventEndTimeLabel, eventLocalDate, eventTimeLabel } from '../lib/events.mjs';
 import {
-  createEventAgendaPeriod,
+  resolveEventAgendaPeriod,
   eventOverlapsAgendaPeriod,
   parseEventAgendaPeriod,
   serializeEventAgendaPeriod,
@@ -100,6 +100,7 @@ if (agenda && empty) {
   let expiryTimer;
   let latestShare;
   let lastShareSignature;
+  let lastShareStateSignature;
   let shareRevision = 0;
   let copyPending = false;
   let limit = 12;
@@ -145,6 +146,15 @@ if (agenda && empty) {
 
   const currentFilters = () => Object.fromEntries(Object.entries(controls)
     .map(([field, control]) => [field, control?.value ?? '']));
+  const setTextIfChanged = (element, value) => {
+    if (element && element.textContent !== String(value ?? '')) element.textContent = String(value ?? '');
+  };
+  const setHiddenIfChanged = (element, hidden) => {
+    if (element && element.hidden !== Boolean(hidden)) element.hidden = Boolean(hidden);
+  };
+  const setAttributeIfChanged = (element, name, value) => {
+    if (element && element.getAttribute(name) !== String(value)) element.setAttribute(name, String(value));
+  };
   const setFilters = (filters) => {
     ensureModeOption(filters.mode);
     ensureCountryOption(filters.country);
@@ -199,6 +209,16 @@ if (agenda && empty) {
         periodLabel.textContent = `Semana del ${formatDate.format(new Date(period.start))} al ${formatDate.format(new Date(period.end - 1))} · ${period.timeZone}`;
       }
     }
+    const canShift = (amount) => {
+      try {
+        shiftEventAgendaPeriod(period, amount);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    if (previousPeriod) previousPeriod.disabled = !canShift(-1);
+    if (nextPeriod) nextPeriod.disabled = !canShift(1);
   };
   const ensureTimeZoneOption = (timeZone) => {
     if (!timeZoneControl || [...timeZoneControl.options].some((option) => option.value === timeZone)) return;
@@ -249,23 +269,56 @@ if (agenda && empty) {
 
   function updateShareControls(selection, filters, now) {
     if (!shareControls || !xShareLink || !linkedinShareLink) return;
-    const nextShare = buildEventAgendaShare({
-      selection,
-      period,
+    const stateSignature = JSON.stringify([
+      period.view,
+      period.date,
+      period.timeZone,
       filters,
-      communityById,
-      url: window.location.href,
-      now,
-    });
-    xShareLink.setAttribute('href', nextShare.xHref);
-    linkedinShareLink.setAttribute('href', nextShare.linkedInHref);
+      Boolean(includeEndedControl?.checked),
+      selection.map(({ event }) => [
+        event.id, event.startsAt, event.endsAt, event.title, event.registrationUrl,
+        event.mode, event.country, event.city, event.communityId,
+      ]),
+    ]);
+    const stateChanged = lastShareStateSignature !== undefined
+      && lastShareStateSignature !== stateSignature;
+    if (stateChanged) {
+      shareRevision += 1;
+      if (shareStatus) shareStatus.textContent = '';
+    }
+    lastShareStateSignature = stateSignature;
+    let nextShare;
+    try {
+      nextShare = buildEventAgendaShare({
+        selection,
+        period,
+        filters,
+        communityById,
+        url: window.location.href,
+        now,
+      });
+    } catch {
+      latestShare = null;
+      lastShareSignature = undefined;
+      for (const link of [xShareLink, linkedinShareLink]) {
+        link.removeAttribute('href');
+        setHiddenIfChanged(link, true);
+      }
+      shareControls.hidden = false;
+      return;
+    }
+    for (const [link, href] of [[xShareLink, nextShare.xHref], [linkedinShareLink, nextShare.linkedInHref]]) {
+      if (href) link.setAttribute('href', href);
+      else link.removeAttribute('href');
+      setHiddenIfChanged(link, !href);
+    }
 
     const signature = JSON.stringify([
       nextShare.url,
       Boolean(includeEndedControl?.checked),
       nextShare.text,
     ]);
-    if (lastShareSignature !== undefined && lastShareSignature !== signature) {
+    if (lastShareSignature !== undefined && lastShareSignature !== signature && !stateChanged) {
       shareRevision += 1;
       if (shareStatus) shareStatus.textContent = '';
     }
@@ -350,11 +403,11 @@ if (agenda && empty) {
     const endTimeLabel = member.view.querySelector('[data-event-time-end-label]');
     const participation = member.view.querySelector('[data-event-participation]');
     const place = member.view.querySelector('[data-event-place]');
-    if (status) status.textContent = finalized ? 'Finalizado' : start <= now ? 'En curso' : 'Próximo';
-    if (registration) registration.textContent = finalized ? 'Ver evento' : 'Inscribirme';
-    if (dateLabel) dateLabel.textContent = eventDateLabel(member.startsAt, period.timeZone);
-    if (startTimeLabel) startTimeLabel.textContent = eventTimeLabel(member.startsAt, period.timeZone);
-    if (endTimeLabel) endTimeLabel.textContent = eventEndTimeLabel(member.startsAt, member.endsAt, period.timeZone);
+    setTextIfChanged(status, finalized ? 'Finalizado' : start <= now ? 'En curso' : 'Próximo');
+    setTextIfChanged(registration, finalized ? 'Ver evento' : 'Inscribirme');
+    setTextIfChanged(dateLabel, eventDateLabel(member.startsAt, period.timeZone));
+    setTextIfChanged(startTimeLabel, eventTimeLabel(member.startsAt, period.timeZone));
+    setTextIfChanged(endTimeLabel, eventEndTimeLabel(member.startsAt, member.endsAt, period.timeZone));
     let remoteParticipation = false;
     if (member.mode === 'hybrid') {
       const filters = currentFilters();
@@ -364,12 +417,12 @@ if (agenda && empty) {
         && (!filters.city || normalizeEventCityKey(`${physical.country}:${physical.city}`) === normalizeEventCityKey(filters.city));
       remoteParticipation = filters.mode === 'online'
         || ((filters.mode === '' || filters.mode === 'hybrid') && hasLocation && !locationMatches);
-      if (participation) participation.textContent = remoteParticipation
+      if (participation) setTextIfChanged(participation, remoteParticipation
         ? 'Participación remota'
         : filters.mode === 'in-person' ? 'Participación presencial'
-          : 'Participación presencial y remota';
+          : 'Participación presencial y remota');
     }
-    if (place) place.hidden = member.mode === 'hybrid' && remoteParticipation;
+    setHiddenIfChanged(place, member.mode === 'hybrid' && remoteParticipation);
   }
 
   function focusedMemberTarget(view, focused) {
@@ -411,24 +464,29 @@ if (agenda && empty) {
 
     // Reveal the replacement and its details before transferring focus. Hiding
     // the old member afterwards avoids losing focus during expiry or re-filtering.
-    member.view.hidden = false;
+    setHiddenIfChanged(member.view, false);
     if (previousDetails && nextDetails) nextDetails.open = previousDetails.open;
     target?.focus({ preventScroll: true });
     for (const item of group.events) {
-      if (item.id !== member.id) item.view.hidden = true;
+      if (item.id !== member.id) setHiddenIfChanged(item.view, true);
     }
     const { card } = group;
     const physical = effectiveEventLocation(member, communityById);
     const country = physical.country ?? '';
-    card.dataset.eventId = member.id;
-    card.dataset.eventStartsAt = member.startsAt;
-    card.dataset.eventEndsAt = member.endsAt;
-    card.dataset.eventTimeZone = member.timeZone;
-    card.dataset.eventMode = member.mode;
-    card.dataset.country = country;
-    card.dataset.eventDate = eventLocalDate(member.startsAt, period.timeZone);
-    card.dataset.eventCity = physical.city ? `${country}:${physical.city}` : '';
-    card.dataset.eventCountries = [...new Set(group.events.map((item) => effectiveEventLocation(item, communityById).country).filter(Boolean))].join('|');
+    const data = {
+      eventId: member.id,
+      eventStartsAt: member.startsAt,
+      eventEndsAt: member.endsAt,
+      eventTimeZone: member.timeZone,
+      eventMode: member.mode,
+      country,
+      eventDate: eventLocalDate(member.startsAt, period.timeZone),
+      eventCity: physical.city ? `${country}:${physical.city}` : '',
+      eventCountries: [...new Set(group.events.map((item) => effectiveEventLocation(item, communityById).country).filter(Boolean))].join('|'),
+    };
+    for (const [key, value] of Object.entries(data)) {
+      if (card.dataset[key] !== value) card.dataset[key] = value;
+    }
   }
 
   function currentCardOrder() {
@@ -447,28 +505,32 @@ if (agenda && empty) {
     if (focused && document.activeElement !== focused) focused.focus({ preventScroll: true });
   }
 
-  function updateDayHeadings(matchingGroups) {
-    for (const group of groups) {
-      const heading = group.card.querySelector('[data-event-day-heading]');
-      if (heading) heading.hidden = true;
-    }
+  let activeHeadings = new Set(cards.map((card) => card.querySelector('[data-event-day-heading]'))
+    .filter((heading) => heading && !heading.hidden));
 
+  function updateDayHeadings(matchingGroups) {
     const visibleDays = new Set();
+    const nextHeadings = new Set();
     for (const { card, event } of matchingGroups.slice(0, limit)) {
       const heading = card.querySelector('[data-event-day-heading]');
       if (!heading) continue;
       const day = eventLocalDate(event.startsAt, period.timeZone);
-      heading.dataset.eventDay = day;
+      if (heading.dataset.eventDay !== day) heading.dataset.eventDay = day;
       const date = heading.querySelector('time');
       if (date) {
-        date.setAttribute('datetime', day);
-        date.textContent = eventDateLabel(event.startsAt, period.timeZone);
+        setAttributeIfChanged(date, 'datetime', day);
+        setTextIfChanged(date, eventDateLabel(event.startsAt, period.timeZone));
       }
       if (!visibleDays.has(day)) {
-        heading.hidden = false;
         visibleDays.add(day);
+        nextHeadings.add(heading);
+        setHiddenIfChanged(heading, false);
       }
     }
+    for (const heading of activeHeadings) {
+      if (!nextHeadings.has(heading)) setHiddenIfChanged(heading, true);
+    }
+    activeHeadings = nextHeadings;
   }
 
   function refresh() {
@@ -476,20 +538,35 @@ if (agenda && empty) {
     const now = Date.now();
     const focusedElement = document.activeElement;
     const focusedCard = focusedElement && groups.find(({ card }) => card.contains(focusedElement))?.card;
-    for (const member of allEvents) updateMemberState(member, now);
-
+    const updatedMembers = new Set();
+    // A member can leave the current selection at this refresh (most notably
+    // when it expires with Include ended unchecked). Update only the members
+    // that were already visible so their final state remains truthful without
+    // touching the retained archive.
+    for (const group of groups) {
+      if (group.card.hidden) continue;
+      const visibleMember = group.events.find((member) => !member.view.hidden);
+      if (!visibleMember) continue;
+      updateMemberState(visibleMember, now);
+      updatedMembers.add(visibleMember);
+    }
     const filters = currentFilters();
     const includeEnded = Boolean(includeEndedControl?.checked);
     const matchingGroups = selectGroups(groups, filters, includeEnded, now);
     const focusedGroupIndex = matchingGroups.findIndex((group) => group.card === focusedCard);
     if (focusedGroupIndex >= limit) limit = focusedGroupIndex + 1;
     const matchingByCard = new Map(matchingGroups.map((group) => [group.card, group]));
+    const matchingIndexByCard = new Map(matchingGroups.map((group, index) => [group.card, index]));
     const focusedItemWillBeHidden = (focusedCard && !matchingByCard.has(focusedCard))
       || (focusedElement === more && matchingGroups.length <= limit);
     for (const group of groups) {
       const selected = matchingByCard.get(group.card);
-      group.card.hidden = !selected || matchingGroups.indexOf(selected) >= limit;
-      if (selected) applyRepresentative(group, selected.event);
+      const selectedIndex = matchingIndexByCard.get(group.card) ?? -1;
+      setHiddenIfChanged(group.card, !selected || selectedIndex >= limit);
+      if (selected) {
+        applyRepresentative(group, selected.event);
+        if (selectedIndex < limit && !updatedMembers.has(selected.event)) updateMemberState(selected.event, now);
+      }
     }
     updateDayHeadings(matchingGroups);
     syncCardOrder(matchingGroups);
@@ -497,21 +574,23 @@ if (agenda && empty) {
     const selectedEvents = matchingGroups.map((group) => group.event);
     updatePageCopy(filters);
     updateFactSummary(selectedEvents, now);
-    updateShareControls(matchingGroups, filters, now);
-    empty.hidden = matchingGroups.length > 0;
+    setHiddenIfChanged(empty, matchingGroups.length > 0);
     if (empty.hidden === false) {
-      empty.textContent = allEvents.length > 0
+      setTextIfChanged(empty, allEvents.length > 0
         ? `${empty.dataset.eventNoMatches ?? 'No hay eventos que coincidan con estos filtros.'} Período: ${periodLabel?.textContent ?? ''}.`
-        : empty.dataset.eventNoEvents ?? 'No hay eventos publicados en esta agenda.';
+        : empty.dataset.eventNoEvents ?? 'No hay eventos publicados en esta agenda.');
     }
-    if (more) more.hidden = matchingGroups.length <= limit;
-    if (count) count.textContent = `${matchingGroups.length} ${matchingGroups.length === 1 ? 'evento' : 'eventos'}`;
+    setHiddenIfChanged(more, matchingGroups.length <= limit);
+    setTextIfChanged(count, `${matchingGroups.length} ${matchingGroups.length === 1 ? 'evento' : 'eventos'}`);
     if (focusedItemWillBeHidden) includeEndedControl?.focus({ preventScroll: true });
 
     const nextTransition = nextEventAgendaTransition(allEvents, now);
     if (nextTransition !== null) {
       expiryTimer = setTimeout(refresh, Math.min(Math.max(nextTransition - now, 1), 2_147_483_647));
     }
+
+    // Keep the primary list, navigation and timer usable if a share formatter fails.
+    updateShareControls(matchingGroups, filters, now);
     return matchingGroups;
   }
 
@@ -589,7 +668,7 @@ if (agenda && empty) {
     }
     const currentSelection = selectGroups([group], currentFilters(), Boolean(includeEndedControl?.checked), now, period);
     const targetPeriod = targetMember && currentSelection.length === 0 && !eventOverlapsAgendaPeriod(targetMember, period)
-      ? createEventAgendaPeriod({
+      ? resolveEventAgendaPeriod({
         view: period.view,
         date: eventLocalDate(targetMember.startsAt, period.timeZone),
         timeZone: period.timeZone,
@@ -797,7 +876,7 @@ if (agenda && empty) {
     button.addEventListener('click', () => {
       const view = button.dataset.eventView;
       if (view !== 'week' && view !== 'month') return;
-      period = createEventAgendaPeriod({ view, date: period.date, timeZone: period.timeZone, now: Date.now() });
+      period = resolveEventAgendaPeriod({ view, date: period.date, timeZone: period.timeZone, now: Date.now() });
       limit = 12;
       syncPeriodControls();
       writeUrl();
@@ -805,14 +884,24 @@ if (agenda && empty) {
     });
   }
   previousPeriod?.addEventListener('click', () => {
-    period = shiftEventAgendaPeriod(period, -1);
+    if (previousPeriod.disabled) return;
+    try {
+      period = shiftEventAgendaPeriod(period, -1);
+    } catch {
+      return;
+    }
     limit = 12;
     syncPeriodControls();
     writeUrl();
     refresh();
   });
   nextPeriod?.addEventListener('click', () => {
-    period = shiftEventAgendaPeriod(period, 1);
+    if (nextPeriod.disabled) return;
+    try {
+      period = shiftEventAgendaPeriod(period, 1);
+    } catch {
+      return;
+    }
     limit = 12;
     syncPeriodControls();
     writeUrl();
@@ -820,7 +909,7 @@ if (agenda && empty) {
   });
   currentWeekButton?.addEventListener('click', () => {
     const now = Date.now();
-    period = createEventAgendaPeriod({
+    period = resolveEventAgendaPeriod({
       view: 'week',
       date: eventLocalDate(now, period.timeZone),
       timeZone: period.timeZone,
@@ -839,7 +928,7 @@ if (agenda && empty) {
       timeZoneControl.value = period.timeZone;
       return;
     }
-    period = createEventAgendaPeriod({ view: period.view, date: period.date, timeZone, now: Date.now() });
+    period = resolveEventAgendaPeriod({ view: period.view, date: period.date, timeZone, now: Date.now() });
     limit = 12;
     syncPeriodControls();
     writeUrl();

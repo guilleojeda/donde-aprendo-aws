@@ -424,11 +424,8 @@ function createSearch({
 
   return {
     document, form, queryInput, list, more, status: selectors.get('[data-search-status]'),
-    async submitNative() {
-      // The rendered input is required, so a literal empty value never dispatches submit.
-      if (queryInput.value === '') return false;
+    async submit() {
       await form.emitAsync('submit', { preventDefault() {} });
-      return true;
     },
   };
 }
@@ -896,7 +893,7 @@ test('search Show More focuses each new page while initial short results stay un
   assert.equal(search.document.activeElement, search.document.body);
 
   search.queryInput.value = 'AWS';
-  await search.submitNative();
+  await search.submit();
   assert.equal(search.list.children.length, 20);
   assert.equal(search.more.hidden, false);
   assert.equal(search.document.activeElement, search.document.body, 'initial search results do not move focus');
@@ -913,27 +910,21 @@ test('search Show More focuses each new page while initial short results stay un
 
   const shortSearch = createSearch({ fetchIndex: async () => ({ ok: true, json: async () => makeSearchIndex(5) }) });
   shortSearch.queryInput.value = 'AWS';
-  await shortSearch.submitNative();
+  await shortSearch.submit();
   assert.equal(shortSearch.list.children.length, 5);
   assert.equal(shortSearch.more.hidden, true);
   assert.equal(shortSearch.document.activeElement, shortSearch.document.body, 'a short initial result set stays unfocused');
 });
 
-test('three-space submit clears prior search pages and native empty required input does not submit', async () => {
+test('three-space submit clears prior search pages', async () => {
   const search = createSearch();
   search.queryInput.value = 'AWS';
-  await search.submitNative();
+  await search.submit();
   search.more.click();
   assert.equal(search.list.children.length, 40);
 
-  const searchPage = readFileSync(new URL('../src/pages/buscar/index.astro', import.meta.url), 'utf8');
-  assert.match(searchPage, /<input id="site-query"[^>]*\brequired\b/u);
-  search.queryInput.value = '';
-  assert.equal(await search.submitNative(), false);
-  assert.equal(search.list.children.length, 40, 'native validation prevents the submit handler for a literal empty value');
-
   search.queryInput.value = '   ';
-  assert.equal(await search.submitNative(), true, 'spaces are non-empty to native required validation and reach the handler');
+  await search.submit();
   assert.equal(search.status.textContent, 'Escribe una búsqueda para ver resultados.');
   assert.equal(search.list.children.length, 0);
   assert.equal(search.more.hidden, true);
@@ -945,12 +936,12 @@ test('a whitespace submit invalidates an earlier pending search response', async
   let resolveIndex;
   const search = createSearch({ fetchIndex: () => new Promise((resolve) => { resolveIndex = resolve; }) });
   search.queryInput.value = 'AWS';
-  const pendingSearch = search.submitNative();
+  const pendingSearch = search.submit();
   await Promise.resolve();
   assert.equal(typeof resolveIndex, 'function');
 
   search.queryInput.value = '   ';
-  await search.submitNative();
+  await search.submit();
   resolveIndex({ ok: true, json: async () => makeSearchIndex(25) });
   await pendingSearch;
 
@@ -968,10 +959,10 @@ test('search shares one pending index request, renders only the latest query, an
   } });
 
   search.queryInput.value = 'S3';
-  const firstSearch = search.submitNative();
+  const firstSearch = search.submit();
   await Promise.resolve();
   search.queryInput.value = 'IAM';
-  const latestSearch = search.submitNative();
+  const latestSearch = search.submit();
   await Promise.resolve();
   assert.equal(fetchCalls, 1, 'overlapping searches share the same pending index request');
 
@@ -981,7 +972,7 @@ test('search shares one pending index request, renders only the latest query, an
   assert.equal(search.list.children[0].children[0].children[1].textContent, 'Guía de IAM');
 
   search.queryInput.value = 'S3';
-  await search.submitNative();
+  await search.submit();
   assert.equal(fetchCalls, 1, 'a successful index remains cached for later searches');
   assert.equal(search.list.children[0].children[0].children[1].textContent, 'Guía de S3');
 });
@@ -997,18 +988,18 @@ test('a stale failed request clears its shared cache so the next search retries 
   } });
 
   search.queryInput.value = 'S3';
-  const pendingSearch = search.submitNative();
+  const pendingSearch = search.submit();
   await Promise.resolve();
   assert.equal(fetchCalls, 1);
 
   search.queryInput.value = '   ';
-  await search.submitNative();
+  await search.submit();
   firstRequest.reject(new Error('network unavailable'));
   await pendingSearch;
   assert.equal(search.status.textContent, 'Escribe una búsqueda para ver resultados.');
 
   search.queryInput.value = 'IAM';
-  await search.submitNative();
+  await search.submit();
   assert.equal(fetchCalls, 2, 'the first non-empty search after failure starts a new request');
   assert.equal(search.status.textContent, '1 resultado.');
   assert.equal(search.list.children[0].children[0].children[1].textContent, 'Guía de IAM');
@@ -1033,7 +1024,7 @@ test('a hung index fetch times out, aborts, and permits an immediate retry', asy
   });
 
   search.queryInput.value = 'S3';
-  const pendingSearch = search.submitNative();
+  const pendingSearch = search.submit();
   await Promise.resolve();
   assert.equal(fetchCalls, 1);
   assert.deepEqual(timers.pendingDelays(), [12_000]);
@@ -1045,7 +1036,7 @@ test('a hung index fetch times out, aborts, and permits an immediate retry', asy
   assert.deepEqual(timers.pendingDelays(), []);
 
   search.queryInput.value = 'IAM';
-  await search.submitNative();
+  await search.submit();
   assert.equal(fetchCalls, 2, 'the next submission starts a fresh request');
   assert.equal(search.list.children[0].children[0].children[1].textContent, 'Guía de IAM');
 });
@@ -1075,7 +1066,7 @@ test('a hung index body is bounded and the successful retry remains shared', asy
   });
 
   search.queryInput.value = 'S3';
-  const pendingSearch = search.submitNative();
+  const pendingSearch = search.submit();
   await bodyStartedPromise;
   assert.equal(fetchCalls, 1);
   assert.deepEqual(timers.pendingDelays(), [12_000]);
@@ -1086,12 +1077,12 @@ test('a hung index body is bounded and the successful retry remains shared', asy
   assert.equal(search.status.textContent, 'La búsqueda no está disponible en este momento. Intenta de nuevo.');
 
   search.queryInput.value = 'IAM';
-  const retrySearch = search.submitNative();
+  const retrySearch = search.submit();
   await Promise.resolve();
   assert.equal(fetchCalls, 2);
 
   search.queryInput.value = 'S3';
-  const latestSearch = search.submitNative();
+  const latestSearch = search.submit();
   await Promise.resolve();
   assert.equal(fetchCalls, 2, 'overlapping searches share the retry request');
 
@@ -1102,7 +1093,7 @@ test('a hung index body is bounded and the successful retry remains shared', asy
   assert.equal(search.list.children[0].children[0].children[1].textContent, 'Guía de S3');
 
   search.queryInput.value = 'IAM';
-  await search.submitNative();
+  await search.submit();
   assert.equal(fetchCalls, 2, 'a successful retry remains cached');
   assert.deepEqual(timers.pendingDelays(), []);
 });

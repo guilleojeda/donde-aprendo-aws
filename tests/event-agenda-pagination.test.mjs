@@ -783,7 +783,8 @@ test('the agenda controller admits both supported civil-year ends, disables only
 
   const upper = createAgenda({
     count: 1,
-    filter: '?view=month&date=9999-12-31&tz=UTC#event-last-civil-event',
+    filter: '?view=month&date=9999-12-31&tz=UTC',
+    hash: '#event-last-civil-event',
     events: [{
       id: 'last-civil-event',
       startsAt: '9999-12-31T00:00:00Z',

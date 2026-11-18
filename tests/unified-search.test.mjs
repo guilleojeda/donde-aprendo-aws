@@ -23,6 +23,9 @@ function downloadedSearchIndex(catalog) {
 const posts = [{
   id: 'seguridad-de-s3',
   data: { title: 'Seguridad de Amazon S3', description: 'Guía de buckets privados.', publishedAt: '2025-01-02' },
+  // Production indexing supplies this from the Astro-rendered article
+  // fragment. Keep the library tests independent of the Markdown source.
+  search: 'Políticas de acceso y & permisos',
   body: '<h2 id="example">Políticas de <strong>acceso</strong> y &amp; permisos</h2>',
 }];
 const resource = {

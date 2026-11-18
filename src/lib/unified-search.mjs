@@ -45,24 +45,6 @@ function hasSearchWord(fieldWords, word) {
   return false;
 }
 
-function markdownHeadings(body = '') {
-  const markdown = [...body.matchAll(/^#{1,6}\s+(.+)$/gm)]
-    .map(([, heading]) => heading.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/[\*_`#]/g, '').trim())
-    .filter(Boolean);
-  const html = [...body.matchAll(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/gi)]
-    .map(([, heading]) => heading.replace(/<[^>]*>/g, ' ')
-      .replace(/&(?:nbsp|amp|quot|lt|gt);|&#(?:x[0-9a-f]+|\d+);/gi, (entity) => {
-        const named = { '&nbsp;': ' ', '&amp;': '&', '&quot;': '"', '&lt;': '<', '&gt;': '>' };
-        if (named[entity.toLowerCase()]) return named[entity.toLowerCase()];
-        const code = entity[2].toLowerCase() === 'x'
-          ? Number.parseInt(entity.slice(3, -1), 16)
-          : Number.parseInt(entity.slice(2, -1), 10);
-        return Number.isInteger(code) && code <= 0x10ffff ? String.fromCodePoint(code) : ' ';
-      }).replace(/\s+/g, ' ').trim())
-    .filter(Boolean);
-  return [...markdown, ...html].join(' ');
-}
-
 function seriesForRecords(records) {
   const byId = new Map();
   for (const record of records) {
@@ -162,7 +144,10 @@ export function buildSearchIndex(posts, catalog, learningPaths = [], landingPage
       description: post.data.description,
       url: `/blog/${post.id}/`,
       meta: post.data.publishedAt,
-      search: markdownHeadings(post.body),
+      // The build endpoint supplies headings from Astro's rendered fragment.
+      // A missing value is an empty heading field; raw Markdown is not a
+      // production search source. Tests may provide `search` directly.
+      search: typeof post.search === 'string' ? post.search : '',
     }));
 
   const eventRecords = catalog.filter((record) => record.recordType === 'event');
