@@ -1176,6 +1176,66 @@ test('an invalid or unavailable initial predecessor has no publication authority
   );
 });
 
+test('a well-formed v2 row without a nonblank revision is not reusable or stale fallback authority', async () => {
+  for (const revision of [undefined, '']) {
+    const key = { profileId: `creator-missing-revision-${revision === '' ? 'blank' : 'absent'}`, period: 7, page: 1 };
+    const cached = cacheItemFor(key, envelope(reportFor(key)), { revision: revision ?? 'temporary-revision' });
+    if (revision === undefined) delete cached.revision;
+    const fixture = createDynamoStatisticsFixture({ initialItems: [cached] });
+    let providerCalls = 0;
+    const service = api()({
+      reader: {
+        async read() {
+          providerCalls += 1;
+          throw new Error('GA4 unavailable');
+        },
+      },
+      cache: fixture.cache,
+      now: () => INITIAL_NOW,
+    });
+
+    await assert.rejects(service.read(key), /GA4 unavailable/iu, `revision=${String(revision)}`);
+    assert.equal(providerCalls, 1);
+    assert.equal(fixture.putsForKind('page', key).length, 0);
+    assert.deepEqual(fixture.itemFor({ ...key, kind: 'page' }), cached);
+  }
+});
+
+test('legacy fallback samples retention after a delayed read before adopting the result', async () => {
+  const key = { profileId: 'creator-delayed-legacy', period: 7, page: 1 };
+  const retainUntil = INITIAL_NOW + SEVEN_DAYS;
+  const legacy = cacheItemFor(key, envelope(reportFor(key)), { version: 1 });
+  const fixture = createDynamoStatisticsFixture({ initialItems: [legacy] });
+  let clock = retainUntil - 1;
+  let expiresDuringRead = false;
+  fixture.setGetOverride(async ({ input }) => {
+    if (physicalCacheId(input.Key) !== physicalCacheId(legacy)) return {};
+    if (expiresDuringRead) {
+      await new Promise((resolve) => setImmediate(resolve));
+      clock = retainUntil;
+    }
+    return { Item: structuredClone(legacy) };
+  });
+  const service = api()({
+    reader: {
+      async read() {
+        throw new Error('GA4 unavailable');
+      },
+    },
+    cache: fixture.cache,
+    now: () => clock,
+  });
+
+  const beforeExpiry = await service.read(key);
+  assert.equal(beforeExpiry.freshness, 'stale');
+  assert.deepEqual(beforeExpiry.totals, legacy.report.totals);
+
+  expiresDuringRead = true;
+  await assert.rejects(service.read(key), /GA4 unavailable/iu);
+  assert.equal(clock, retainUntil);
+  assert.equal(fixture.calls.puts.length, 0);
+});
+
 test('independent summary service instances use the summary v2 kind and converge on the first conditional winner', async () => {
   for (const completionOrder of [['a', 'b'], ['b', 'a']]) {
     const race = await runSharedSummaryRace({ completionOrder });

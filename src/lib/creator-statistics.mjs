@@ -162,10 +162,11 @@ function validNow(now) {
   return value;
 }
 
-function validEnvelope(envelope, key, validator, now) {
+function validEnvelope(envelope, key, validator, now, { requireRevision = false } = {}) {
   if (!isObject(envelope)
     || envelope.invalid === true
     || envelope.schemaVersion !== SCHEMA_VERSION
+    || (requireRevision && (typeof envelope.revision !== 'string' || envelope.revision.trim() === ''))
     || !Number.isSafeInteger(envelope.updatedAt)
     || !Number.isSafeInteger(envelope.expiresAt)
     || !Number.isSafeInteger(envelope.retainUntil)
@@ -236,21 +237,12 @@ function combinePeriodAndLinks(period, links) {
   };
 }
 
-function authorityFor(raw, valid, readable = true) {
-  if (!readable) return false;
-  if (raw === undefined) return true;
-  if (!valid) return false;
-  return typeof raw.revision === 'string' && raw.revision.trim() !== '';
-}
-
 function observation(raw, key, validator, now, readable = true) {
-  const valid = validEnvelope(raw, key, validator, now);
+  const valid = validEnvelope(raw, key, validator, now, { requireRevision: true });
   return {
-    raw,
-    envelope: valid,
     valid,
-    authority: authorityFor(raw, valid, readable),
-    revision: valid && typeof raw?.revision === 'string' ? raw.revision : undefined,
+    authority: readable && (raw === undefined || valid !== null),
+    revision: valid?.revision,
   };
 }
 
@@ -289,24 +281,25 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
     }
   }
 
-  async function rereadWinner(key, validator, nowValue) {
+  async function rereadWinner(key, validator) {
     try {
       const raw = await cache.get(key);
       const checkedAt = validNow(now);
-      return observation(raw, key, validator, checkedAt).valid;
+      return validEnvelope(raw, key, validator, checkedAt, { requireRevision: true });
     } catch {
       return null;
     }
   }
 
-  async function legacyFallback(query, kind, nowValue) {
+  async function legacyFallback(query, kind) {
     if (typeof cache.readLegacy !== 'function') return null;
     const legacyKey = keyFor(query, 'page', query.page ?? 1);
     try {
       const raw = await cache.readLegacy(legacyKey);
+      const checkedAt = validNow(now);
       const pageKey = { profileId: query.profileId, period: query.period, page: query.page ?? 1 };
-      const envelope = validEnvelope(raw, pageKey, (report, key) => validFull(report, key), nowValue);
-      if (!envelope || nowValue >= envelope.retainUntil) return null;
+      const envelope = validEnvelope(raw, pageKey, (report, key) => validFull(report, key), checkedAt);
+      if (!envelope || checkedAt >= envelope.retainUntil) return null;
       if (kind === 'summary') return { report: summaryFromPeriod(envelope.report), updatedAt: envelope.updatedAt };
       return { report: envelope.report, updatedAt: envelope.updatedAt };
     } catch {
@@ -318,7 +311,7 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
     if (pageObservation.valid && nowValue < pageObservation.valid.retainUntil) {
       return response(pageObservation.valid.report, 'stale', pageObservation.valid.updatedAt);
     }
-    const legacy = await legacyFallback(query, 'page', nowValue);
+    const legacy = await legacyFallback(query, 'page');
     return legacy ? response(legacy.report, 'stale', legacy.updatedAt) : null;
   }
 
@@ -329,7 +322,7 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
     if (periodObservation.valid && nowValue < periodObservation.valid.retainUntil) {
       return response(summaryFromPeriod(periodObservation.valid.report), 'stale', periodObservation.valid.updatedAt);
     }
-    const legacy = await legacyFallback(query, 'summary', nowValue);
+    const legacy = await legacyFallback(query, 'summary');
     return legacy ? response(legacy.report, 'stale', legacy.updatedAt) : null;
   }
 
@@ -369,7 +362,7 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
     checkedAt = validNow(now);
     if (!isFreshAt(report, updatedAt, checkedAt)) return { [WINDOW_CHANGED]: true, report, updatedAt };
     if (publication === 'conflict') {
-      const winner = await rereadWinner(summaryKey, validSummary, checkedAt);
+      const winner = await rereadWinner(summaryKey, validSummary);
       if (winner && isFreshAt(winner.report, winner.updatedAt, validNow(now))) {
         return response(winner.report, 'fresh', winner.updatedAt);
       }
@@ -423,6 +416,9 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
     if (fullProvider) {
       const periodReport = periodFromFull(report);
       if (periodObservation.authority) {
+        // A period conflict does not invalidate this full candidate: its
+        // common fields and requested links were produced together. Keep that
+        // coherent result instead of mixing it with another period winner.
         await publish(periodKey, cacheEnvelope(periodReport, updatedAt), periodObservation);
         checkedAt = validNow(now);
         if (!isFreshAt(report, updatedAt, checkedAt)) return { [WINDOW_CHANGED]: true, report, updatedAt };
@@ -432,7 +428,7 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
         checkedAt = validNow(now);
         if (!isFreshAt(report, updatedAt, checkedAt)) return { [WINDOW_CHANGED]: true, report, updatedAt };
         if (pagePublication === 'conflict') {
-          const winner = await rereadWinner(pageKey, validFull, checkedAt);
+          const winner = await rereadWinner(pageKey, validFull);
           if (winner && isFreshAt(winner.report, winner.updatedAt, validNow(now))) {
             return response(winner.report, 'fresh', winner.updatedAt);
           }
@@ -444,7 +440,7 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
         checkedAt = validNow(now);
         if (!isFreshAt(report, updatedAt, checkedAt)) return { [WINDOW_CHANGED]: true, report, updatedAt };
         if (pagePublication === 'conflict') {
-          const winner = await rereadWinner(pageKey, validFull, checkedAt);
+          const winner = await rereadWinner(pageKey, validFull);
           if (winner && isFreshAt(winner.report, winner.updatedAt, validNow(now))) {
             return response(winner.report, 'fresh', winner.updatedAt);
           }
@@ -483,8 +479,7 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
       fingerprint,
       () => readDetailOnce(query),
       async (value) => {
-        const nowValue = validNow(now);
-        const fallback = await legacyFallback(query, 'page', nowValue);
+        const fallback = await legacyFallback(query, 'page');
         return fallback ? response(fallback.report, 'stale', fallback.updatedAt) : response(value.report, 'stale', value.updatedAt);
       },
     );
@@ -497,8 +492,7 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
       fingerprint,
       () => readSummaryOnce(query),
       async (value) => {
-        const nowValue = validNow(now);
-        const fallback = await legacyFallback(query, 'summary', nowValue);
+        const fallback = await legacyFallback(query, 'summary');
         return fallback ? response(fallback.report, 'stale', fallback.updatedAt) : response(value.report, 'stale', value.updatedAt);
       },
     );
