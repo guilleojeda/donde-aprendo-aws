@@ -67,6 +67,31 @@ test('month boundaries include leap day and navigation crosses year ends without
   assert.equal(shift(february, 1).date, '2024-03-29');
 });
 
+for (const [view, date, timeZone, start, end] of [
+  ['week', '0001-01-01', 'Etc/GMT-14', '0000-12-31T10:00:00.000Z', '0001-01-07T10:00:00.000Z'],
+  ['month', '0001-01-01', 'UTC', '0001-01-01T00:00:00.000Z', '0001-02-01T00:00:00.000Z'],
+  ['week', '9999-12-31', 'Etc/GMT+12', '9999-12-27T12:00:00.000Z', '+010000-01-03T12:00:00.000Z'],
+  ['month', '9999-12-31', 'UTC', '9999-12-01T00:00:00.000Z', '+010000-01-01T00:00:00.000Z'],
+]) {
+  test(`the ${view} of ${date} in ${timeZone} includes its complete civil period`, () => {
+    const create = periodFunction('createEventAgendaPeriod');
+    assert.deepEqual(create({ view, date, timeZone }), {
+      view, date, timeZone, start: Date.parse(start), end: Date.parse(end),
+    });
+  });
+}
+
+test('explicit and legacy URL dates outside supported civil years fall back to the selected zone’s current period', () => {
+  const parse = periodFunction('parseEventAgendaPeriod');
+  const period = parse('?view=week&date=0000-12-31&from=0000-12-25&to=10000-01-05&tz=Etc%2FGMT%2B12', {
+    timeZone: 'UTC', now: '2026-11-16T03:00:00Z',
+  });
+  assert.deepEqual(period, {
+    view: 'week', date: '2026-11-15', timeZone: 'Etc/GMT+12',
+    start: Date.parse('2026-11-09T12:00:00Z'), end: Date.parse('2026-11-16T12:00:00Z'),
+  });
+});
+
 test('weekly boundaries use local calendar days through daylight-saving transitions', () => {
   const create = periodFunction('createEventAgendaPeriod');
   const shift = periodFunction('shiftEventAgendaPeriod');

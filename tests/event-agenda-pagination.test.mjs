@@ -49,6 +49,7 @@ class MockElement {
     this.children = [];
     this.parentElement = null;
     this.listeners = new Map();
+    this._textContent = '';
     this.textContent = textContent;
     this.options = [];
     this.scrollIntoViewCalls = [];
@@ -64,8 +65,15 @@ class MockElement {
 
   get value() { return this._value; }
 
+  get textContent() { return this._textContent; }
+  set textContent(value) {
+    this.document?.domWrites?.push({ type: 'textContent', target: this, value: String(value ?? '') });
+    this._textContent = String(value ?? '');
+  }
+
   get hidden() { return this._hidden ?? false; }
   set hidden(value) {
+    this.document?.domWrites?.push({ type: 'hidden', target: this, value: Boolean(value) });
     this._hidden = Boolean(value);
     const focused = this.document?.activeElement;
     if (this._hidden && focused && (focused === this || this.children?.some((child) => child.contains(focused)))) {
@@ -91,6 +99,7 @@ class MockElement {
   }
 
   setAttribute(name, value) {
+    this.document?.domWrites?.push({ type: 'attribute', target: this, name, value: String(value) });
     this.attributes.set(name, String(value));
     if (name === 'href') this.href = String(value);
     if (name.startsWith('data-')) {
@@ -108,6 +117,7 @@ class MockElement {
   }
   getAttribute(name) { return name === 'href' ? this.href ?? null : this.attributes.get(name) ?? null; }
   removeAttribute(name) {
+    this.document?.domWrites?.push({ type: 'removeAttribute', target: this, name });
     this.attributes.delete(name);
     if (name === 'href') delete this.href;
     if (name.startsWith('data-')) {
@@ -117,6 +127,7 @@ class MockElement {
   }
 
   append(...children) {
+    this.document?.domWrites?.push({ type: 'append', target: this, children });
     for (const child of children) {
       if (child.parentElement) {
         const previousParent = child.parentElement;
@@ -325,7 +336,7 @@ function createAgenda({
   const timers = new Map();
   const storageCalls = [];
   const telemetryCalls = [];
-  const document = { activeElement: null, hidden: false, listeners: new Map() };
+  const document = { activeElement: null, hidden: false, listeners: new Map(), domWrites: [] };
   document.body = new MockElement(document, { tagName: 'BODY' });
   document.activeElement = document.body;
   const cards = createEventCards(count, {
@@ -672,7 +683,7 @@ function createAgenda({
     navigator, clipboardCalls, windowOpenCalls, setClipboard,
     get children() { return agenda.children; },
     viewButtons, previousPeriod, nextPeriod, periodLabel, zoneFilter, routeLinks, unrelatedRouteLink, window,
-    currentWeekButton,
+    currentWeekButton, domWrites: document.domWrites,
     includeEnded: includeEndedFilter, summary, historyEntries, history, location, storageCalls, telemetryCalls,
     advanceTime(ms) { clock += ms; },
     refreshVisibility() {
@@ -684,6 +695,9 @@ function createAgenda({
       timers.delete(timerId);
       timer.callback();
       return true;
+    },
+    nextTimerDelay() {
+      return [...timers.values()].sort((left, right) => left.delay - right.delay)[0]?.delay ?? null;
     },
     changeHash(hash) {
       location.hash = hash;
@@ -745,6 +759,55 @@ test('a new agenda chooses this week in the selected zone and falls back from in
   const fallbackQuery = new URLSearchParams(invalidVisitor.location.search);
   assert.equal(fallbackQuery.get('tz'), 'UTC', 'an invalid browser zone falls back to UTC');
   assert.equal(fallbackQuery.get('date'), '2026-01-01');
+});
+
+test('the agenda controller admits both supported civil-year ends, disables only the leaving arrow, and restores a boundary fragment through history', () => {
+  const lower = createAgenda({
+    count: 0,
+    filter: '?view=month&date=0001-01-01&tz=UTC',
+  });
+  let query = new URLSearchParams(lower.location.search);
+  assert.equal(query.get('date'), '0001-01-01');
+  assert.equal(lower.previousPeriod.disabled, true, 'the first civil month cannot navigate before year 0001');
+  assert.equal(lower.nextPeriod.disabled, false, 'the first civil month still has a valid next period');
+  const lowerHistoryLength = lower.historyEntries.length;
+  lower.previousPeriod.click();
+  assert.equal(lower.historyEntries.length, lowerHistoryLength, 'a disabled lower-bound arrow does not create history');
+  assert.equal(new URLSearchParams(lower.location.search).get('date'), '0001-01-01');
+  lower.nextPeriod.click();
+  assert.equal(new URLSearchParams(lower.location.search).get('date'), '0001-02-01');
+  lower.history.back();
+  assert.equal(new URLSearchParams(lower.location.search).get('date'), '0001-01-01');
+  assert.equal(lower.previousPeriod.disabled, true, 'Back restores the lower limit');
+  assert.equal(lower.nextPeriod.disabled, false);
+
+  const upper = createAgenda({
+    count: 1,
+    filter: '?view=month&date=9999-12-31&tz=UTC',
+    hash: '#event-last-civil-event',
+    events: [{
+      id: 'last-civil-event',
+      startsAt: '9999-12-31T00:00:00Z',
+      endsAt: '9999-12-31T01:00:00Z',
+    }],
+  });
+  query = new URLSearchParams(upper.location.search);
+  assert.equal(query.get('date'), '9999-12-31');
+  assert.equal(upper.nextPeriod.disabled, true, 'the last civil month cannot navigate after year 9999');
+  assert.equal(upper.previousPeriod.disabled, false, 'the last civil month still has a valid previous period');
+  assert.equal(upper.cards[0].hidden, false, 'an initial last-year fragment remains in the selected period');
+  assert.equal(upper.document.activeElement, upper.cards[0], 'the fragment focuses the revealed boundary card');
+  const upperHistoryLength = upper.historyEntries.length;
+  upper.previousPeriod.click();
+  assert.equal(new URLSearchParams(upper.location.search).get('date'), '9999-11-30');
+  upper.history.back();
+  query = new URLSearchParams(upper.location.search);
+  assert.equal(query.get('date'), '9999-12-31');
+  assert.equal(upper.location.hash, '#event-last-civil-event', 'history restores the original fragment');
+  assert.equal(upper.nextPeriod.disabled, true, 'Back restores the upper limit');
+  assert.equal(upper.previousPeriod.disabled, false);
+  assert.equal(upper.cards[0].hidden, false, 'Back restores the boundary event');
+  assert.ok(upper.historyEntries.length > upperHistoryLength, 'a valid boundary navigation remains a history action');
 });
 
 test('Semana actual uses the selected zone, preserves query and checkbox state, and participates in history', () => {
@@ -1876,11 +1939,15 @@ test('an event that ends stays visible when included and refreshes its status an
   assert.match(agenda.cards[0].registration.textContent, /Inscribirme/u);
   const beforeCount = agenda.countLabel.textContent;
   agenda.more.focus();
+  assert.equal(agenda.nextTimerDelay(), 200,
+    'the first automatic refresh is scheduled at the exact start boundary');
 
   agenda.advanceTime(200);
   assert.equal(agenda.fireNextTimer(), true, 'the scheduled expiry refresh runs at the temporal boundary');
   assert.equal(agenda.cards[0].status.textContent, 'En curso', 'the start transition is reflected in the visible state');
   assert.equal(agenda.document.activeElement, agenda.more, 'the start refresh does not move focus');
+  assert.equal(agenda.nextTimerDelay(), 300,
+    'the next automatic refresh is scheduled at the exact end boundary');
 
   agenda.advanceTime(301);
   assert.equal(agenda.fireNextTimer(), true);
@@ -3039,4 +3106,21 @@ test('a city alias preserves local hybrid participation and canonical selected U
   assert.equal(new URLSearchParams(agenda.location.search).get('city'), 'AR:Córdoba');
   assert.equal(agenda.cards[0].hidden, false);
   assert.equal(agenda.cards[0].members[0].participationLabel.textContent, 'Participación presencial y remota');
+});
+
+test('an empty retained selection performs no archive-card DOM writes on a zone refresh', () => {
+  const cardWriteCount = (agenda) => agenda.domWrites.filter(({ target }) =>
+    agenda.cards.some((card) => card.contains(target))).length;
+  const measure = (count) => {
+    const agenda = createAgenda({ count, filter: '?view=week&date=2026-10-05&tz=UTC&mode=online' });
+    agenda.domWrites.length = 0;
+    agenda.zoneFilter.value = 'America/Bogota';
+    agenda.zoneFilter.emit('change');
+    return cardWriteCount(agenda);
+  };
+
+  const small = measure(24);
+  const retained = measure(240);
+  assert.equal(small, 0, 'an unchanged empty selection does not rewrite retained card members');
+  assert.equal(retained, 0, 'DOM writes do not scale with an archive retained outside the selection');
 });

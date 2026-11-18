@@ -11,7 +11,7 @@
     "build": "node scripts/build.mjs",
     "verify:blog": "node scripts/verify-blog.mjs && node scripts/verify-responsive-images.mjs",
     "verify:images": "node scripts/verify-responsive-images.mjs",
-    "verify:site": "node scripts/verify-site.mjs && node --test tests/acceptance/site-themes.test.mjs tests/acceptance/compact-event-agenda.test.mjs tests/acceptance/compact-home.test.mjs tests/acceptance/compact-directories.test.mjs tests/acceptance/compact-blog.test.mjs tests/acceptance/article-index.test.mjs tests/acceptance/compact-learning-paths.test.mjs tests/acceptance/certifications-overview.test.mjs tests/acceptance/certification-details.test.mjs",
+    "verify:site": "node scripts/verify-site.mjs && node --test tests/acceptance/site-themes.test.mjs tests/acceptance/compact-event-agenda.test.mjs tests/acceptance/compact-home.test.mjs tests/acceptance/compact-directories.test.mjs tests/acceptance/compact-blog.test.mjs tests/acceptance/article-index.test.mjs tests/acceptance/blog-rendered-boundaries.test.mjs tests/acceptance/compact-learning-paths.test.mjs tests/acceptance/certifications-overview.test.mjs tests/acceptance/certification-details.test.mjs",
     "verify:hosting": "node scripts/verify-amplify-hosting.mjs",
     "preview": "node scripts/preview.mjs",
     "verify:preview": "node --test tests/built-preview.mjs",
@@ -41,6 +41,7 @@
     "csv-parse": "7.0.2",
     "google-auth-library": "11.3.1",
     "openid-client": "6.8.8",
+    "parse5": "8.1.1",
     "preact": "11.1.1",
     "sharp": "0.35.5",
     "twitter-text": "3.1.0"

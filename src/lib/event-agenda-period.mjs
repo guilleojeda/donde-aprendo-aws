@@ -15,6 +15,7 @@ function formatterFor(timeZone) {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
+      era: 'short',
       hourCycle: 'h23',
     });
     FORMATTERS.set(timeZone, formatter);
@@ -44,14 +45,17 @@ function utcTimestamp(year, month, day, hour = 0, minute = 0, second = 0) {
 function partsAt(timestamp, timeZone) {
   const parts = Object.fromEntries(formatterFor(timeZone).formatToParts(new Date(timestamp))
     .filter(({ type }) => type !== 'literal')
-    .map(({ type, value }) => [type, Number(value)]));
+    .map(({ type, value }) => [type, value]));
+  const year = Number(parts.year);
   return {
-    year: parts.year,
-    month: parts.month,
-    day: parts.day,
-    hour: parts.hour === 24 ? 0 : parts.hour,
-    minute: parts.minute,
-    second: parts.second,
+    // Intl exposes Gregorian years before the era as 1 BC, while Date and
+    // the agenda's civil arithmetic use astronomical year zero.
+    year: parts.era?.includes('BC') ? 1 - year : year,
+    month: Number(parts.month),
+    day: Number(parts.day),
+    hour: Number(parts.hour) === 24 ? 0 : Number(parts.hour),
+    minute: Number(parts.minute),
+    second: Number(parts.second),
   };
 }
 
@@ -66,19 +70,41 @@ function timezoneOffsetAt(timestamp, timeZone) {
 
 function localDateAt(timestamp, timeZone) {
   const { year, month, day } = partsAt(timestamp, timeZone);
-  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  return formatCivilDate({ year, month, day });
 }
 
-function validCivilDate(value) {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) return false;
-  const [year, month, day] = value.split('-').map(Number);
+function parseReferenceDate(value) {
+  if (typeof value !== 'string') return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
+  if (!match || match[0] !== value) return null;
+  const [, yearValue, monthValue, dayValue] = match;
+  const year = Number(yearValue);
+  const month = Number(monthValue);
+  const day = Number(dayValue);
+  if (year < 1) return null;
   const date = new Date(utcTimestamp(year, month, day));
-  return date.getUTCFullYear() === year && date.getUTCMonth() + 1 === month && date.getUTCDate() === day;
+  return date.getUTCFullYear() === year && date.getUTCMonth() + 1 === month && date.getUTCDate() === day
+    ? { year, month, day }
+    : null;
 }
 
-function requireCivilDate(value) {
-  if (!validCivilDate(value)) throw new RangeError(`Invalid agenda reference date: ${String(value)}`);
-  return value;
+export function isEventAgendaReferenceDate(value) {
+  return parseReferenceDate(value) !== null;
+}
+
+function formatCivilDate({ year, month, day }) {
+  const yearText = year > 9999
+    ? `+${String(year).padStart(6, '0')}`
+    : year < 0
+      ? `-${String(Math.abs(year)).padStart(6, '0')}`
+      : String(year).padStart(4, '0');
+  return `${yearText}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function requireReferenceParts(value) {
+  const parts = parseReferenceDate(value);
+  if (!parts) throw new RangeError(`Invalid agenda reference date: ${String(value)}`);
+  return parts;
 }
 
 function epochFromNow(now) {
@@ -93,29 +119,29 @@ function epochFromNow(now) {
   return timestamp;
 }
 
-function shiftCivilDate(date, amount) {
-  const [year, month, day] = requireCivilDate(date).split('-').map(Number);
+function shiftCivilDateParts({ year, month, day }, amount) {
   const shifted = new Date(utcTimestamp(year, month, day + amount));
-  return `${String(shifted.getUTCFullYear()).padStart(4, '0')}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`;
+  return {
+    year: shifted.getUTCFullYear(), month: shifted.getUTCMonth() + 1, day: shifted.getUTCDate(),
+  };
 }
 
 function daysInMonth(year, month) {
   return new Date(utcTimestamp(year, month + 1, 0)).getUTCDate();
 }
 
-function shiftCivilMonth(date, amount) {
-  const [year, month, day] = requireCivilDate(date).split('-').map(Number);
+function shiftCivilMonthParts({ year, month, day }, amount) {
   const firstOfMonth = new Date(utcTimestamp(year, month, 1));
   firstOfMonth.setUTCMonth(firstOfMonth.getUTCMonth() + amount);
   const targetYear = firstOfMonth.getUTCFullYear();
   const targetMonth = firstOfMonth.getUTCMonth() + 1;
   const targetDay = Math.min(day, daysInMonth(targetYear, targetMonth));
-  return `${String(targetYear).padStart(4, '0')}-${String(targetMonth).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
+  return { year: targetYear, month: targetMonth, day: targetDay };
 }
 
 /** Find the earliest matching wall time, or the first local time after a forward gap. */
-function localBoundary(date, timeZone) {
-  const [year, month, day] = requireCivilDate(date).split('-').map(Number);
+function localBoundary(parts, timeZone) {
+  const { year, month, day } = parts;
   const target = utcTimestamp(year, month, day);
   const offsets = new Set();
 
@@ -141,21 +167,19 @@ function localBoundary(date, timeZone) {
   if (exact.length) return Math.min(...exact);
   afterGap.sort((left, right) => left.difference - right.difference || left.candidate - right.candidate);
   if (afterGap.length) return afterGap[0].candidate;
-  throw new RangeError(`Cannot resolve agenda boundary for ${date} in ${timeZone}`);
+  throw new RangeError(`Cannot resolve agenda boundary for ${formatCivilDate(parts)} in ${timeZone}`);
 }
 
-function periodBoundaries(view, date, timeZone) {
+function periodBoundaries(view, parts, timeZone) {
   let startDate;
   let endDate;
   if (view === 'month') {
-    const [year, month] = date.split('-').map(Number);
-    startDate = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-01`;
-    endDate = shiftCivilMonth(startDate, 1);
+    startDate = { year: parts.year, month: parts.month, day: 1 };
+    endDate = shiftCivilMonthParts(startDate, 1);
   } else {
-    const [year, month, day] = date.split('-').map(Number);
-    const weekday = new Date(utcTimestamp(year, month, day)).getUTCDay();
-    startDate = shiftCivilDate(date, -((weekday + 6) % 7));
-    endDate = shiftCivilDate(startDate, 7);
+    const weekday = new Date(utcTimestamp(parts.year, parts.month, parts.day)).getUTCDay();
+    startDate = shiftCivilDateParts(parts, -((weekday + 6) % 7));
+    endDate = shiftCivilDateParts(startDate, 7);
   }
   return {
     start: localBoundary(startDate, timeZone),
@@ -167,19 +191,34 @@ function periodBoundaries(view, date, timeZone) {
 export function createEventAgendaPeriod(options = {}) {
   const timeZone = normalizedTimeZone(options.timeZone);
   const view = options.view === 'month' ? 'month' : 'week';
-  const date = options.date === undefined
-    ? localDateAt(epochFromNow(options.now), timeZone)
-    : requireCivilDate(options.date);
-  return { view, date, timeZone, ...periodBoundaries(view, date, timeZone) };
+  const date = options.date === undefined ? localDateAt(epochFromNow(options.now), timeZone) : options.date;
+  const { start, end } = periodBoundaries(view, requireReferenceParts(date), timeZone);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
+    throw new RangeError('Agenda period must have finite, ordered boundaries');
+  }
+  return { view, date, timeZone, start, end };
+}
+
+/** Resolve a user selection, using the current local period if its requested date cannot be represented.
+ * @param {{view?: string, date?: string, timeZone?: string, now?: Date | string | number}} options
+ */
+export function resolveEventAgendaPeriod(options) {
+  try {
+    return createEventAgendaPeriod(options);
+  } catch (error) {
+    if (!(error instanceof RangeError) || options.date === undefined) throw error;
+    return createEventAgendaPeriod({ ...options, date: undefined });
+  }
 }
 
 /** @param {EventAgendaPeriod} period @param {number} amount @returns {EventAgendaPeriod} */
 export function shiftEventAgendaPeriod(period, amount) {
   if (!Number.isSafeInteger(amount)) throw new RangeError('Agenda period shift must be an integer');
-  const date = period.view === 'month'
-    ? shiftCivilMonth(period.date, amount)
-    : shiftCivilDate(period.date, amount * 7);
-  return createEventAgendaPeriod({ view: period.view, date, timeZone: period.timeZone });
+  const parts = requireReferenceParts(period.date);
+  const shifted = period.view === 'month'
+    ? shiftCivilMonthParts(parts, amount)
+    : shiftCivilDateParts(parts, amount * 7);
+  return createEventAgendaPeriod({ view: period.view, date: formatCivilDate(shifted), timeZone: period.timeZone });
 }
 
 /** @param {{startsAt: string, endsAt: string}} event @param {EventAgendaPeriod} period */
@@ -205,13 +244,13 @@ export function parseEventAgendaPeriod(search, options = {}) {
   const query = new URLSearchParams(search);
   const fallbackTimeZone = normalizedTimeZone(options.timeZone);
   const timeZone = validTimeZone(query.get('tz')) ? query.get('tz') : fallbackTimeZone;
-  const explicitDate = validCivilDate(query.get('date')) ? query.get('date') : '';
+  const explicitDate = isEventAgendaReferenceDate(query.get('date')) ? query.get('date') : '';
   const legacyDate = !explicitDate
-    ? [query.get('from'), query.get('to')].find((value) => validCivilDate(value)) ?? ''
+    ? [query.get('from'), query.get('to')].find((value) => isEventAgendaReferenceDate(value)) ?? ''
     : '';
-  const date = explicitDate || legacyDate || localDateAt(epochFromNow(options.now), timeZone);
+  const date = explicitDate || legacyDate || undefined;
   const view = legacyDate ? 'week' : query.get('view') === 'month' ? 'month' : 'week';
-  return createEventAgendaPeriod({ view, date, timeZone });
+  return resolveEventAgendaPeriod({ view, date, timeZone, now: options.now });
 }
 
 /** @param {string | URLSearchParams} search @param {EventAgendaPeriod} period */

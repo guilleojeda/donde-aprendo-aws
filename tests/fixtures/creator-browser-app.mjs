@@ -18,7 +18,7 @@ const execFileAsync = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const LOOPBACK = '127.0.0.1';
 const COOKIE_NAME = 'da_session';
-const ENVIRONMENT_KEYS = ['ACCOUNT_ORIGIN', 'PUBLIC_SITE_ORIGIN', 'CATALOG_FIXTURE', 'CATALOG_TABLE', 'CREATOR_PROFILES_TABLE'];
+const ENVIRONMENT_KEYS = ['ACCOUNT_ORIGIN', 'PUBLIC_SITE_ORIGIN', 'PUBLIC_SUBMISSION_API_URL', 'CATALOG_FIXTURE', 'CATALOG_TABLE', 'CREATOR_PROFILES_TABLE'];
 
 function copy(value) {
   return value === undefined ? undefined : structuredClone(value);
@@ -50,7 +50,11 @@ function setEnvironment(values) {
   };
 }
 
-export async function startCreatorBrowserApp({ catalogFixture = path.join(ROOT, 'tests/fixtures/catalog.json'), hostname = LOOPBACK } = {}) {
+export async function startCreatorBrowserApp({
+  catalogFixture = path.join(ROOT, 'tests/fixtures/catalog.json'),
+  hostname = LOOPBACK,
+  submissionApiUrl,
+} = {}) {
   const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), 'donde-aprendo-creator-browser-'));
   let restoreEnv = () => {};
   let server;
@@ -71,6 +75,7 @@ export async function startCreatorBrowserApp({ catalogFixture = path.join(ROOT, 
     restoreEnv = setEnvironment({
       ACCOUNT_ORIGIN: origin,
       PUBLIC_SITE_ORIGIN: origin,
+      PUBLIC_SUBMISSION_API_URL: submissionApiUrl,
       CATALOG_FIXTURE: catalogFixture,
       CATALOG_TABLE: undefined,
       CREATOR_PROFILES_TABLE: undefined,

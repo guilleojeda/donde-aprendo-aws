@@ -285,19 +285,32 @@ function xText({ selection, period, filters, url, now }) {
 export function buildEventAgendaShare({ selection, period, filters, communityById = new Map(), url, now }) {
   const agendaUrl = canonicalAgendaUrl(url, period, filters);
   const text = copyText({ selection, period, filters, communityById, url: agendaUrl, now });
-  const linkedInFull = linkedinFullText({ selection, period, filters, communityById, url: agendaUrl, now });
-  const linkedInText = linkedInFull.length <= LINKEDIN_UTF16_LIMIT
-    ? linkedInFull
-    : linkedinSummary({ selection, period, filters, url: agendaUrl, now });
-  const xBody = xText({ selection, period, filters, url: agendaUrl, now });
-  const x = new URL(X_INTENT);
-  x.searchParams.set('text', xBody);
-  const linkedIn = new URL(LINKEDIN_INTENT);
-  linkedIn.searchParams.set('text', linkedInText);
+  let xHref = null;
+  try {
+    const xBody = xText({ selection, period, filters, url: agendaUrl, now });
+    const x = new URL(X_INTENT);
+    x.searchParams.set('text', xBody);
+    xHref = x.href;
+  } catch {
+    // A platform-specific limit must not make the agenda or its other
+    // sharing channels unavailable for the same selection.
+  }
+  let linkedInHref = null;
+  try {
+    const linkedInFull = linkedinFullText({ selection, period, filters, communityById, url: agendaUrl, now });
+    const linkedInText = linkedInFull.length <= LINKEDIN_UTF16_LIMIT
+      ? linkedInFull
+      : linkedinSummary({ selection, period, filters, url: agendaUrl, now });
+    const linkedIn = new URL(LINKEDIN_INTENT);
+    linkedIn.searchParams.set('text', linkedInText);
+    linkedInHref = linkedIn.href;
+  } catch {
+    // Keep copy and any independently valid channel available.
+  }
   return {
     url: agendaUrl,
     text,
-    xHref: x.href,
-    linkedInHref: linkedIn.href,
+    xHref,
+    linkedInHref,
   };
 }

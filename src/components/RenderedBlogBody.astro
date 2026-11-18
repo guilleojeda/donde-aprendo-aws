@@ -1,0 +1,13 @@
+---
+import { rewriteBlogArticleLinks } from '../lib/blog-links.mjs';
+
+interface Props {
+  linkContext: Parameters<typeof rewriteBlogArticleLinks>[1];
+}
+
+const { linkContext } = Astro.props as Props;
+const rendered = await Astro.slots.render('default');
+const articleHtml = rewriteBlogArticleLinks(rendered, linkContext);
+---
+
+<Fragment set:html={articleHtml} />

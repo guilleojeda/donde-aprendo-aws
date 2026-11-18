@@ -1,12 +1,57 @@
+import { isPublicCatalogResourceId } from '../lib/catalog-identity.mjs';
+
 const form = document.querySelector('[data-contribution-form]');
 
 if (form) {
+  const deliveryDeadlineMs = 12_000;
   const endpoint = form.dataset.apiUrl || '';
   const submitButton = form.querySelector('[data-contribution-submit]');
   const status = form.querySelector('[data-contribution-status]');
   const kindSelect = form.querySelector('[data-contribution-kind]');
   const formatSelect = form.querySelector('[data-contribution-format]');
   const topicBoxes = [...form.querySelectorAll('[data-contribution-topic]')];
+  let draftRevision = 0;
+  let activeAttempt;
+
+  const isValidReceiptDate = (value) => {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(value)) return false;
+    const date = new Date(value);
+    return !Number.isNaN(date.getTime()) && date.toISOString() === value;
+  };
+  const validReceipt = (value) => value && typeof value === 'object' && !Array.isArray(value)
+    && value.ok === true
+    && value.code === 'created'
+    && isPublicCatalogResourceId(value.id)
+    && isValidReceiptDate(value.submittedAt);
+  const resetFormatOptions = () => {
+    if (!formatSelect) return;
+    formatSelect.value = '';
+    for (const option of formatSelect.options) {
+      if (!option.value) continue;
+      option.hidden = true;
+      option.disabled = true;
+    }
+  };
+  const formSnapshot = () => {
+    const data = new FormData(form);
+    return {
+      email: data.get('email'),
+      full_name: data.get('full_name'),
+      title: data.get('title'),
+      url: data.get('url'),
+      text: data.get('text'),
+      kind: data.get('kind'),
+      format: data.get('format'),
+      topics: data.getAll('topics'),
+      website: data.get('website'),
+    };
+  };
+  const restoreSubmitControl = () => {
+    if (!submitButton) return;
+    submitButton.disabled = false;
+    submitButton.removeAttribute('aria-busy');
+    submitButton.textContent = 'Enviar para revisión';
+  };
   const fieldError = (field) => [...form.querySelectorAll('[data-contribution-error]')]
     .find((error) => error.id === `${field.id}-error`);
   const fieldMessage = (field) => {
@@ -71,107 +116,122 @@ if (form) {
     if (selected.length > 3) box.checked = false;
   }));
 
+  const uncertainMessage = 'No pudimos confirmar el resultado de tu envío. Conserva el formulario y revisa antes de intentarlo de nuevo.';
   const messages = {
     400: 'Revisa los datos del formulario e inténtalo de nuevo.',
-    409: 'Ese enlace ya está registrado o tiene un envío pendiente de revisión editorial. No hace falta enviarlo de nuevo.',
+    409: 'Ese enlace ya está registrado o pendiente de revisión. No hace falta enviarlo de nuevo.',
     413: 'La información enviada es demasiado larga. Reduce el texto e inténtalo de nuevo.',
     415: 'No pudimos procesar este envío. Inténtalo de nuevo.',
     429: 'Recibimos muchos envíos en poco tiempo. Espera unos minutos e inténtalo de nuevo.',
-    500: 'No pudimos guardar tu contenido. Inténtalo de nuevo más tarde.',
-    network: 'No pudimos conectar con el formulario. Revisa tu conexión e inténtalo de nuevo.',
-    unknown: 'No pudimos procesar tu envío. Inténtalo de nuevo más tarde.',
   };
 
-  const showStatus = (message, type) => {
+  const showStatus = (message, type, { focus = true } = {}) => {
     if (!status) return;
     status.textContent = message;
     status.dataset.status = type;
     status.hidden = false;
-    status.focus();
+    if (focus) status.focus();
   };
 
-  const showReceipt = ({ id, submittedAt } = {}) => {
+  const showReceipt = ({ id, submittedAt, title }, { focus }) => {
     if (!status) return;
 
     status.replaceChildren();
-    status.append('¡Gracias! Recibimos tu aporte. Quedó pendiente de revisión editorial antes de su posible publicación. ');
+    status.append('¡Gracias! Recibimos ');
+    const submittedTitle = document.createElement('strong');
+    submittedTitle.textContent = typeof title === 'string' && title.length > 0 ? `«${title}»` : 'tu aporte';
+    status.append(submittedTitle, '. Quedó pendiente de revisión editorial antes de su posible publicación. ');
 
     const referenceLabel = document.createElement('strong');
     referenceLabel.textContent = 'Referencia: ';
     status.append(referenceLabel);
 
     const reference = document.createElement('code');
-    reference.textContent = typeof id === 'string' && id.length > 0 ? id : 'no disponible';
+    reference.textContent = id;
     status.append(reference, document.createTextNode('.'));
 
-    if (typeof submittedAt === 'string' && submittedAt.length > 0) {
-      status.append(document.createTextNode(' Fecha de envío: '));
-      const time = document.createElement('time');
-      time.dateTime = submittedAt;
-      const date = new Date(submittedAt);
-      time.textContent = Number.isNaN(date.getTime())
-        ? submittedAt
-        : `${new Intl.DateTimeFormat('es-AR', {
-          dateStyle: 'medium',
-          timeStyle: 'short',
-          timeZone: 'UTC',
-        }).format(date)} UTC`;
-      status.append(time, document.createTextNode('.'));
-    }
+    status.append(document.createTextNode(' Fecha de envío: '));
+    const time = document.createElement('time');
+    time.dateTime = submittedAt;
+    time.textContent = `${new Intl.DateTimeFormat('es-AR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'UTC',
+    }).format(new Date(submittedAt))} UTC`;
+    status.append(time, document.createTextNode('.'));
 
     status.dataset.status = 'success';
     status.hidden = false;
-    status.focus();
+    if (focus) status.focus();
   };
+
+  const finishAttempt = (attempt) => {
+    if (activeAttempt !== attempt) return false;
+    activeAttempt = undefined;
+    clearTimeout(attempt.deadlineId);
+    restoreSubmitControl();
+    return true;
+  };
+
+  const showUncertain = (attempt) => {
+    showStatus(uncertainMessage, 'error', { focus: draftRevision === attempt.revision });
+  };
+
+  form.addEventListener('input', () => {
+    draftRevision += 1;
+  });
+  form.addEventListener('change', () => {
+    draftRevision += 1;
+  });
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
 
-    if (!form.reportValidity() || !endpoint || !submitButton) return;
+    if (activeAttempt || !form.reportValidity() || !endpoint || !submitButton) return;
 
     submitButton.disabled = true;
     submitButton.setAttribute('aria-busy', 'true');
     submitButton.textContent = 'Enviando…';
     if (status) status.hidden = true;
 
-    const formData = new FormData(form);
-    const payload = {
-      email: formData.get('email'),
-      full_name: formData.get('full_name'),
-      title: formData.get('title'),
-      url: formData.get('url'),
-      text: formData.get('text'),
-      kind: formData.get('kind'),
-      format: formData.get('format'),
-      topics: formData.getAll('topics'),
-      website: formData.get('website'),
+    const attempt = {
+      payload: formSnapshot(),
+      revision: draftRevision,
+      controller: new AbortController(),
     };
+    activeAttempt = attempt;
+    attempt.deadlineId = setTimeout(() => {
+      if (!finishAttempt(attempt)) return;
+      attempt.controller.abort();
+      showUncertain(attempt);
+    }, deliveryDeadlineMs);
 
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(attempt.payload),
+        signal: attempt.controller.signal,
       });
+      const receipt = response.status === 201 ? await response.json() : undefined;
+      if (!finishAttempt(attempt)) return;
 
-      if (response.status === 201) {
-        const receipt = await response.json().catch(() => ({}));
-        form.reset();
-        if (formatSelect) {
-          for (const option of formatSelect.options) {
-            if (option.value) { option.hidden = true; option.disabled = true; }
-          }
-        }
-        showReceipt(receipt);
-      } else {
-        showStatus(messages[response.status] || messages.unknown, 'error');
+      const unchanged = draftRevision === attempt.revision;
+      if (response.status !== 201) {
+        showStatus(messages[response.status] ?? uncertainMessage, 'error', { focus: unchanged });
+        return;
       }
+      if (!validReceipt(receipt)) {
+        showUncertain(attempt);
+        return;
+      }
+      if (unchanged) {
+        form.reset();
+        resetFormatOptions();
+      }
+      showReceipt({ id: receipt.id, submittedAt: receipt.submittedAt, title: attempt.payload.title }, { focus: unchanged });
     } catch {
-      showStatus(messages.network, 'error');
-    } finally {
-      submitButton.disabled = false;
-      submitButton.removeAttribute('aria-busy');
-      submitButton.textContent = 'Enviar para revisión';
+      if (finishAttempt(attempt)) showUncertain(attempt);
     }
   });
 }

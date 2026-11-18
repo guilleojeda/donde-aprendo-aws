@@ -81,6 +81,96 @@ async function expectAgendaDestination(page, pathname, eventId) {
   await expect.poll(() => new URL(page.url()).hash).toBe(`#event-${eventId}`);
 }
 
+representativeTest('Enter on an exactly empty query clears displayed results and pagination', async ({ app, page }) => {
+  await page.goto(`${app.origin}/buscar/`);
+  const input = page.getByLabel('¿Qué quieres aprender?');
+  const results = page.locator('[data-search-results] .search-results__result-link');
+  const more = page.getByRole('button', { name: /Mostrar \d+ más/u });
+  await page.locator('#site-type').selectOption('article');
+  await input.fill('aws');
+  await input.press('Enter');
+  await expect(results).toHaveCount(20);
+  await expect(more).toBeVisible();
+  const firstResultHref = await results.first().getAttribute('href');
+  await more.click();
+  await expect.poll(() => results.count()).toBeGreaterThan(20);
+
+  await input.fill('');
+  await input.press('Enter');
+  await expect(page.getByRole('status')).toHaveText('Escribe una búsqueda para ver resultados.');
+  await expect(results).toHaveCount(0);
+  await expect(page.locator('[data-search-more]')).toBeHidden();
+  await expect(input).toBeFocused();
+
+  await input.fill('aws');
+  await input.press('Enter');
+  await expect(results).toHaveCount(20);
+  await expect(results.first()).toHaveAttribute('href', firstResultHref);
+  await expect(more).toBeVisible();
+});
+
+representativeTest('Enter on an exactly empty query prevents a held real index from restoring stale results', async ({ app, page }) => {
+  await page.clock.setFixedTime(new Date('2100-01-01T11:30:00Z'));
+  await page.goto(`${app.origin}/buscar/`);
+  const loads = watchSearchIndex(page);
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const path = '**/search-index.json';
+  const holdIndex = async (route) => {
+    const response = await route.fetch();
+    entered.resolve(response.status());
+    await release.promise;
+    await route.fulfill({ response });
+  };
+  await page.route(path, holdIndex);
+  const input = page.getByLabel('¿Qué quieres aprender?');
+  const status = page.getByRole('status');
+  const results = page.locator('[data-search-results] .search-results__result-link');
+  try {
+    await page.locator('#site-type').selectOption('event');
+    await input.fill('Taller AWS');
+    await input.press('Enter');
+    assert.equal(await entered.promise, 200, 'the held response comes from the real index route');
+    await expect(status).toHaveText('Buscando…');
+
+    await input.fill('');
+    await page.evaluate(() => {
+      const target = document.querySelector('[data-search-results]');
+      window.staleSearchDestinations = [];
+      new MutationObserver((records) => {
+        for (const { addedNodes } of records) {
+          for (const node of addedNodes) {
+            if (node instanceof HTMLElement) {
+              window.staleSearchDestinations.push(...Array.from(node.querySelectorAll('a'), (link) => link.getAttribute('href')));
+            }
+          }
+        }
+      }).observe(target, { childList: true });
+    });
+    await input.press('Enter');
+    await expect.soft(status).toHaveText('Escribe una búsqueda para ver resultados.', { timeout: 2_000 });
+    await expect(results).toHaveCount(0);
+
+    const delivered = page.waitForResponse((response) => new URL(response.url()).pathname === '/search-index.json');
+    release.resolve();
+    const response = await delivered;
+    assert.equal(response.status(), 200);
+    assert.equal(await response.finished(), null);
+    await expect(status).toHaveText('Escribe una búsqueda para ver resultados.');
+    await expect(results).toHaveCount(0);
+    await expect(page.locator('[data-search-more]')).toBeHidden();
+
+    await submitSearch(page, 'Taller secreto', 'content', 1);
+    const expectedDestination = '/aprender/#resource-search-competitor';
+    await expect(results).toHaveAttribute('href', expectedDestination);
+    assert.deepEqual(await page.evaluate(() => window.staleSearchDestinations), [expectedDestination]);
+    assertOneIndexLoad(loads);
+  } finally {
+    release.resolve();
+    await page.unroute(path, holdIndex);
+  }
+});
+
 representativeTest('a surviving member destination resolves to its real agenda card', async ({ app, page }) => {
   await page.clock.setFixedTime(new Date('2100-01-01T11:30:00Z'));
   await page.goto(`${app.origin}/eventos/argentina/#event-event-z-current-representative`);
