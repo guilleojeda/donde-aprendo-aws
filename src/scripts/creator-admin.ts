@@ -543,7 +543,7 @@ async function finishAdminCompletion(
       announce(target, message, 'error');
       return;
     }
-    formState?.allowPausedSnapshot(submittedValues);
+    if (context.kind === 'claim') formState?.allowPausedSnapshot(submittedValues);
     syncBeforeUnload();
     const transition = uncertainReceipt
       ? context.kind === 'claim'

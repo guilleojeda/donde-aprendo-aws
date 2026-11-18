@@ -129,12 +129,19 @@ async function assertRelatedClaimPaused(page, relatedClaimId, relatedResourceId,
   await expect(unrelated.getByRole('button', { name: 'Vincular recursos seleccionados' })).toBeEnabled();
 }
 
-async function preserveDraftThroughVerifiedRefresh(page, draftId, originalCategory) {
+async function preserveDraftThroughVerifiedRefresh(page, draftId, originalCategory, uncertainTargetId, uncertainTargetCategory = 'Serverless') {
   const draft = row(page, draftId).getByLabel('Categoría');
   await expect(draft).toHaveValue('Borrador independiente');
+  const uncertainTarget = uncertainTargetId
+    ? row(page, uncertainTargetId).getByLabel('Categoría')
+    : null;
 
   await nativeDecision(page, () => root(page).locator('[data-refresh-view]').click(), 'dismiss');
   await expect(draft).toHaveValue('Borrador independiente', 'a cancelled native refresh retains the independent draft');
+  if (uncertainTarget) {
+    await expect(uncertainTarget).toHaveValue('Seguridad', 'a cancelled native refresh retains the uncertain submitted value');
+    await uncertainTarget.fill(uncertainTargetCategory);
+  }
 
   // Returning exactly to the server-rendered value must make the document clean.
   // This proves that the comparison baseline survived the uncertain command.
@@ -151,6 +158,7 @@ async function preserveDraftThroughVerifiedRefresh(page, draftId, originalCatego
     await freshDocument;
     assert.deepEqual(dialogs, [], 'Returning to the original baseline removes the native draft guard.');
     await expect(row(page, draftId).getByLabel('Categoría')).toHaveValue(originalCategory);
+    if (uncertainTarget) await expect(uncertainTarget).toHaveValue('Seguridad');
   } finally {
     page.off('dialog', collectDialog);
   }
@@ -191,7 +199,10 @@ test('lost classification delivery preserves the commit, pauses only its scope, 
     await expect(row(page, ids[2]).getByLabel('Categoría')).toHaveValue('Borrador independiente');
     await expect(root(page).locator('[data-refresh-view]')).toBeVisible();
 
-    await preserveDraftThroughVerifiedRefresh(page, ids[2], 'Serverless');
+    await preserveDraftThroughVerifiedRefresh(page, ids[2], 'Serverless', ids[0]);
+    assert.equal((await fixture.rawResource(ids[0])).category, 'Seguridad');
+    assert.equal((await fixture.rawResource(ids[0])).version, 2,
+      'verified Refresh preserves the real uncertain classification revision before the next command');
     const savedDraft = await saveDraftAndReload(page, ids[2], 'Certificaciones');
     assert.equal(savedDraft.status(), 200);
     assert.equal(JSON.parse(savedDraft.request().postData()).version, 1);

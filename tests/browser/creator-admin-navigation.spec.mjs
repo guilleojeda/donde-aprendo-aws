@@ -308,7 +308,16 @@ test('a reverted field is clean; own saves commit a baseline and late correction
     await nativeDecision(page, () => page.reload(), 'dismiss');
     await expect(category).toHaveValue('Cambio con guardado fallido');
 
-    await saveClassificationAndWaitForCleanReload(page, id);
+    assert.equal(writes.writes.length, 3, 'declining Refresh keeps the failed command from replaying');
+    await expect(row(page, id).getByRole('button', { name: 'Guardar clasificación' })).toBeDisabled();
+    assert.equal((await fixture.rawResource(id)).version, 3,
+      'the uncertain command leaves the previously verified stored revision intact');
+    await nativeDecision(page, () => root(page).locator('[data-refresh-view]').click(), 'accept');
+    await expect(category).toHaveValue('Valor enviado', 'confirmed Refresh reinstalls the persisted pre-failure value');
+    await category.fill('Cambio con guardado fallido');
+    const retry = await saveClassificationAndWaitForCleanReload(page, id);
+    assert.equal(JSON.parse(retry.request().postData()).version, 3,
+      'the explicit retry uses the verified revision after Refresh');
     assert.equal((await fixture.rawResource(id)).category, 'Cambio con guardado fallido',
       'a failed save remains manually retryable and the retry persists its correction');
     await expect(row(page, id).getByLabel('Categoría')).toHaveValue('Cambio con guardado fallido');

@@ -304,6 +304,35 @@ test('una validación nativa de Guardar y salir no autoriza la salida de un guar
   }
 });
 
+test('cerrar con Escape conserva el borrador para Guardar y salir sin cambiar la URL', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  await expect(page.locator('astro-island[component-url*="CreatorOwnerApp"]')).not.toHaveAttribute('ssr', '');
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByRole('heading', { name: 'Enlaces', exact: true })).toBeVisible();
+  const activeUrl = page.url();
+  await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
+  const form = page.locator('[data-owner-dialog] form[data-owner-form="datos"]');
+  const city = form.getByLabel(/Ciudad/u);
+  const savedCity = 'Guardado después de Escape';
+  await city.fill(savedCity);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  try {
+    await page.keyboard.press('Escape');
+    const prompt = page.locator('[data-owner-exit-prompt]');
+    await expect(prompt).toBeVisible();
+    await expect(page).toHaveURL(activeUrl);
+    await prompt.getByRole('button', { name: 'Guardar y salir', exact: true }).click();
+    await expect.poll(() => ownerWrites(capture)[0]?.status).toBe(200);
+    await expect(page.locator('[data-owner-dialog]')).not.toBeVisible();
+    await expect(page).toHaveURL(activeUrl, 'local Escape close has no departure target');
+    assert.equal((await fixture.rawOwner(cookie)).profile.city, savedCity);
+    assert.equal(ownerWrites(capture).length, 1, 'Save and exit performs one ordinary profile write');
+  } finally {
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+
 test('un Save fallido y su salida no navegan después de una comprobación: sólo una nueva decisión autoriza Back', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const initial = await fixture.rawOwner(cookie);

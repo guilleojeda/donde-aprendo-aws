@@ -469,8 +469,8 @@ export function creatorOwnerDraftIsDirty(editor: CreatorOwnerEditorDraft | undef
 }
 
 function cancelAuthorizedSaveTransition(location: CreatorOwnerLocation): CreatorOwnerLocation {
-  if (!location.transition || location.transitionAuthorization !== 'save') return location;
-  return { ...location, exitRequest: location.transition, transition: undefined, transitionAuthorization: undefined, prompt: 'exit' };
+  if (location.transitionAuthorization !== 'save') return location;
+  return { ...location, exitRequest: location.transition ?? location.exitRequest, transition: undefined, transitionAuthorization: undefined, prompt: 'exit' };
 }
 
 export function creatorOwnerLinkMoveContext(snapshot: CreatorOwnerSnapshotDTO, placementId: string): {
@@ -626,8 +626,8 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         ...(action.consumeEditor ? { editor: undefined } : {}),
         location: { ...state.location, focusAfterRender: action.focusAfterRender, ...navigation,
           ...(action.fact === 'acknowledged' && action.consumeEditor && !state.location.transition && !state.location.exitRequest
-            ? { transition: undefined, exitRequest: undefined, prompt: 'none' as const } : {}),
-          ...(action.fact === 'acknowledged' && !action.consumeEditor && state.location.transition
+            ? { transition: undefined, exitRequest: undefined, transitionAuthorization: undefined, prompt: 'none' as const } : {}),
+          ...(action.fact === 'acknowledged' && !action.consumeEditor
             && state.location.transitionAuthorization === 'save'
             ? { transition: undefined, transitionAuthorization: undefined } : {}),
           ...(action.fact === 'acknowledged' || action.fact === 'claims' ? { linksQueryError: undefined } : {}) },
@@ -675,16 +675,19 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
     case 'request-exit': return { ...state, location: { ...state.location, exitRequest: action.transition, transition: undefined, transitionAuthorization: undefined, prompt: 'exit' } };
     case 'clear-transition': return { ...state, location: { ...state.location, exitRequest: undefined, transition: undefined, transitionAuthorization: undefined, prompt: 'none' } };
     case 'resolve-transition': {
-      if (action.action === 'authorize') return state.location.exitRequest
-        ? { ...state, location: { ...state.location, transition: state.location.exitRequest, transitionAuthorization: 'save', exitRequest: undefined, prompt: 'none' } } : state;
+      if (action.action === 'authorize') {
+        const transition = state.location.exitRequest;
+        if (!transition && !(state.editor && state.location.prompt === 'exit')) return state;
+        return { ...state, location: { ...state.location, transition, transitionAuthorization: 'save', exitRequest: undefined, prompt: 'none' } };
+      }
       if (action.action === 'cancel-authorize') return state.location.transitionAuthorization === 'save'
         ? { ...state, location: { ...state.location, transition: undefined, transitionAuthorization: undefined, prompt: 'none' } } : state;
       if (action.action === 'continue') return { ...state, location: { ...state.location,
-        transition: undefined, exitRequest: undefined, prompt: 'none' } };
+        transition: undefined, exitRequest: undefined, transitionAuthorization: undefined, prompt: 'none' } };
       const operation = state.operation;
       const keepsConfirmedRead = creatorOwnerPreservesAcknowledgedRead(operation, state.location.exitRequest);
       return { ...state, editor: undefined, operation: keepsConfirmedRead ? operation : { status: 'idle' }, location: { ...state.location,
-        transition: state.location.exitRequest, transitionAuthorization: 'discard', exitRequest: undefined, prompt: 'none' } };
+        transition: state.location.exitRequest, transitionAuthorization: state.location.exitRequest ? 'discard' : undefined, exitRequest: undefined, prompt: 'none' } };
     }
     case 'set-prompt': return { ...state, location: { ...state.location, prompt: action.prompt } };
     case 'activity-loading': return action.sequence > state.activity.sequence ? { ...state, activity: { ...state.activity, period: action.period, sequence: action.sequence, status: 'loading', message: undefined } } : state;
