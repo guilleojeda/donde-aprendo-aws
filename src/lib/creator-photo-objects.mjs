@@ -33,11 +33,17 @@ function stopBody(body) {
   if (typeof body?.cancel === 'function') Promise.resolve(body.cancel()).catch(() => {});
 }
 
+function photoReadLimitExceeded(body) {
+  stopBody(body);
+  return Object.assign(new RangeError('creator photo object exceeds the read limit'), {
+    code: 'CREATOR_PHOTO_READ_LIMIT',
+  });
+}
+
 async function readBoundedBody(body, declaredLength, maxBytes) {
   if (!body) return null;
   if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
-    stopBody(body);
-    throw new RangeError('creator photo object exceeds the read limit');
+    throw photoReadLimitExceeded(body);
   }
 
   const chunks = [];
@@ -45,8 +51,7 @@ async function readBoundedBody(body, declaredLength, maxBytes) {
   for await (const chunk of body) {
     const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     if (size + bytes.length > maxBytes) {
-      stopBody(body);
-      throw new RangeError('creator photo object exceeds the read limit');
+      throw photoReadLimitExceeded(body);
     }
     chunks.push(bytes);
     size += bytes.length;

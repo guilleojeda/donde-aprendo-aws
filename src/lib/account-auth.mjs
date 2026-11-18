@@ -81,6 +81,26 @@ function cookieValue(request, name) {
   return undefined;
 }
 
+function cookieState(request, name) {
+  const header = request.headers.get('cookie');
+  if (!header) return { state: 'absent' };
+  let found;
+  for (const part of header.split(';')) {
+    const trimmed = part.trim();
+    const separator = part.indexOf('=');
+    if (separator < 0) {
+      if (trimmed === name) return { state: 'invalid' };
+      continue;
+    }
+    if (part.slice(0, separator).trim() !== name) continue;
+    if (found !== undefined) return { state: 'invalid' };
+    const value = part.slice(separator + 1).trim();
+    if (!TOKEN_PATTERN.test(value)) return { state: 'invalid' };
+    found = value;
+  }
+  return found === undefined ? { state: 'absent' } : { state: 'valid', value: found };
+}
+
 function constantTimeEqual(left, right) {
   if (typeof left !== 'string' || typeof right !== 'string') return false;
   const leftBuffer = Buffer.from(left);
@@ -245,8 +265,7 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
     throw new Error('could not create a unique login attempt');
   }
 
-  async function resolveSession(request) {
-    const rawSession = cookieValue(request, SESSION_COOKIE);
+  async function resolveSession(rawSession) {
     if (!rawSession) return { state: 'anonymous' };
 
     const record = await store.getSession(`SESSION#${sha256(rawSession)}`);
@@ -292,7 +311,7 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
   // the principal or accept it from a browser request.
   async function getRequestContext(request) {
     try {
-      const result = await resolveSession(request);
+      const result = await resolveSession(cookieValue(request, SESSION_COOKIE));
       let session;
       let principal;
       if (result.state === 'disabled') {
@@ -437,16 +456,65 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
     return redirect(logoutUrl.href, [clearCookie(SESSION_COOKIE)]);
   }
 
+  async function readLogoutForm(request, { singleField = false } = {}) {
+    const contentType = request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase();
+    const urlEncoded = contentType === 'application/x-www-form-urlencoded';
+    if (!singleField && !urlEncoded) {
+      return { error: new Response(null, { status: 400, headers: privateHeaders() }) };
+    }
+    const declaredLength = Number(request.headers.get('content-length'));
+    if (Number.isFinite(declaredLength) && declaredLength > 8192) {
+      return { error: new Response(null, { status: 413, headers: privateHeaders() }) };
+    }
+    const reader = request.body?.getReader();
+    if (!reader) return { error: new Response(null, { status: 403, headers: privateHeaders() }) };
+    const chunks = [];
+    let byteLength = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value.byteLength === 0) continue;
+        if (!urlEncoded) {
+          return { error: new Response(null, { status: 400, headers: privateHeaders() }) };
+        }
+        byteLength += value.byteLength;
+        if (byteLength > 8192) {
+          await reader.cancel().catch(() => {});
+          return { error: new Response(null, { status: 413, headers: privateHeaders() }) };
+        }
+        chunks.push(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    if (singleField && byteLength === 0) return { empty: true };
+    const body = Buffer.concat(chunks).toString('utf8');
+    const parameters = new URLSearchParams(body);
+    const csrfValues = parameters.getAll('csrfToken');
+    if (csrfValues.length !== 1 || (singleField && parameters.size !== 1) || !TOKEN_PATTERN.test(csrfValues[0])) {
+      return { error: new Response(null, { status: 403, headers: privateHeaders() }) };
+    }
+    return { csrfToken: csrfValues[0] };
+  }
+
   async function logout(request) {
     if (request.headers.get('origin') !== accountOrigin) {
       return new Response(null, { status: 403, headers: privateHeaders() });
     }
-    const rawSession = cookieValue(request, SESSION_COOKIE);
-    if (!rawSession) return redirect(`${accountOrigin}/cuenta/`, [clearCookie(SESSION_COOKIE)]);
+    const sessionCookieState = cookieState(request, SESSION_COOKIE);
+    if (sessionCookieState.state === 'invalid') {
+      return new Response(null, { status: 403, headers: privateHeaders() });
+    }
+    if (sessionCookieState.state === 'absent') {
+      const form = request.body ? await readLogoutForm(request, { singleField: true }) : { empty: true };
+      if (form.empty) return redirect(`${accountOrigin}/cuenta/`, [clearCookie(SESSION_COOKIE)]);
+      return form.error ?? finishProviderLogout();
+    }
 
     let current;
     try {
-      current = await resolveSession(request);
+      current = await resolveSession(sessionCookieState.value);
     } catch {
       return failure('no-disponible');
     }
@@ -456,21 +524,10 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
       // acknowledgement was lost. The retry must still close the provider SSO.
       return finishProviderLogout();
     }
-
-    const contentType = request.headers.get('content-type') ?? '';
-    if (!contentType.toLowerCase().startsWith('application/x-www-form-urlencoded')) {
-      return new Response(null, { status: 400, headers: privateHeaders() });
-    }
-    const declaredLength = Number(request.headers.get('content-length'));
-    if (Number.isFinite(declaredLength) && declaredLength > 8192) {
-      return new Response(null, { status: 413, headers: privateHeaders() });
-    }
-    const body = await request.text();
-    if (Buffer.byteLength(body) > 8192) return new Response(null, { status: 413, headers: privateHeaders() });
-    const parameters = new URLSearchParams(body);
-    const csrfValues = parameters.getAll('csrfToken');
-    if (csrfValues.length !== 1 || !TOKEN_PATTERN.test(current.csrfToken)
-      || !constantTimeEqual(csrfValues[0], current.csrfToken)) {
+    const form = await readLogoutForm(request);
+    if (form.error) return form.error;
+    if (!TOKEN_PATTERN.test(current.csrfToken)
+      || !constantTimeEqual(form.csrfToken, current.csrfToken)) {
       return new Response(null, { status: 403, headers: privateHeaders() });
     }
 

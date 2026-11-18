@@ -66,7 +66,6 @@ export interface CreatorOwnerIntent {
   target?: { resourceId?: string; placementId?: string; seriesId?: string };
   targetMissing?: true;
   base?: { resourceVersion?: number };
-  exitTransition?: CreatorOwnerTransition;
   acknowledgement?: {
     profileId: string | null;
     disposition: string;
@@ -111,6 +110,7 @@ export interface CreatorOwnerLocation {
   linksQueryError?: string;
   exitRequest?: CreatorOwnerTransition;
   transition?: CreatorOwnerTransition;
+  transitionAuthorization?: 'save' | 'discard';
   prompt: 'none' | 'exit';
   focusAfterRender?: string;
 }
@@ -192,7 +192,7 @@ export type CreatorOwnerAction = CreatorOwnerSessionPolicyAction
   | { type: 'clear-focus'; selector: string }
   | { type: 'request-exit'; transition: CreatorOwnerTransition }
   | { type: 'clear-transition' }
-  | { type: 'resolve-transition'; action: 'discard' | 'continue' }
+  | { type: 'resolve-transition'; action: 'discard' | 'continue' | 'authorize' | 'cancel-authorize' }
   | { type: 'set-prompt'; prompt: CreatorOwnerLocation['prompt'] }
   | { type: 'activity-loading'; period: 7 | 30; sequence: number }
   | { type: 'set-activity-period'; period: 7 | 30 }
@@ -376,6 +376,77 @@ export function creatorOwnerChapterRecoveryIsVisibleInDetail(state: CreatorOwner
     && operation.intent.target?.seriesId === seriesId && Boolean(state.observed.series[seriesId]);
 }
 
+export type CreatorOwnerRecoverySurface = 'none' | 'dialog' | 'identity' | 'series' | 'links' | 'claims' | 'owner';
+export type CreatorOwnerRecoveryActionKind = 'none' | 'pending' | 'session-check' | 'retry' | 'compare' | 'resolve';
+export interface CreatorOwnerRecoveryAction {
+  kind: CreatorOwnerRecoveryActionKind;
+  surface: CreatorOwnerRecoverySurface;
+  operation: CreatorOwnerOperation;
+}
+
+/**
+ * Derive the one recovery action and active interaction surface for the owner UI.
+ * Renderers may choose their copy and layout, but must not independently decide
+ * whether this operation is pending, retryable, comparable, or resolvable.
+ */
+export function deriveCreatorOwnerRecoveryAction(state: CreatorOwnerState): CreatorOwnerRecoveryAction {
+  const operation = state.operation;
+  if (operation.status === 'idle' || operation.status === 'sending') return { kind: 'none', surface: 'none', operation };
+  const intent = 'intent' in operation ? operation.intent : undefined;
+  let surface: CreatorOwnerRecoverySurface;
+  if (state.location.prompt === 'exit' || state.editor && state.editor.kind !== 'create-profile') surface = 'dialog';
+  else if (state.editor?.kind === 'create-profile' || intent?.action === 'publish-profile'
+    || intent?.action === 'save-profile' && !state.observed.profile) surface = 'identity';
+  else if (operation.status === 'reading' && operation.fact === 'claims' || state.location.view === 'solicitudes') surface = 'claims';
+  else if (state.location.view === 'series') surface = 'series';
+  else if (state.location.view === 'enlaces') surface = 'links';
+  else surface = 'owner';
+  if (state.session.state === 'recovery-required' || state.session.state === 'checking') return { kind: 'session-check', surface, operation };
+  if (operation.status === 'reading') return { kind: 'pending', surface, operation };
+  if (operation.status === 'refresh-failed') return { kind: 'retry', surface, operation };
+  if ((operation.status === 'unknown' || operation.status === 'conflict') && operation.readCompleted) return { kind: 'resolve', surface, operation };
+  if (operation.status === 'unknown' || operation.status === 'conflict') return { kind: 'compare', surface, operation };
+  return { kind: 'none', surface, operation };
+}
+
+const ownerRecoveryRetryFocus = '[data-owner-refresh-retry]';
+const ownerRecoveryCompareFocus = '[data-owner-check], [data-owner-compare]';
+const ownerRecoveryPublishCompareFocus = '[data-owner-publish-check]';
+const ownerRecoveryDecisionFocus = '[data-owner-conflict-save], [data-owner-use-saved], [data-owner-return-to-draft]';
+const ownerEditorDraftFocus = '[data-owner-dialog] form[data-owner-form]:not([hidden]) input:not([type="hidden"]), [data-owner-dialog] form[data-owner-form]:not([hidden]) textarea, [data-owner-dialog] form[data-owner-form]:not([hidden]) select, [data-owner-dialog] form[data-owner-form]:not([hidden]) button[type="submit"]:enabled';
+
+export function creatorOwnerEditorDraftFocus(editor: CreatorOwnerEditorDraft): string {
+  return editor.kind === 'create-profile' ? '#owner-create-name' : ownerEditorDraftFocus;
+}
+
+/**
+ * Derive the actionable control for a pending owner recovery. This remains
+ * independent of the session shell: while the session is blocked the shell
+ * owns focus, and the same selector becomes usable after renewal.
+ */
+export function deriveCreatorOwnerRecoveryFocus(state: CreatorOwnerState): string | undefined {
+  const action = deriveCreatorOwnerRecoveryAction(state);
+  const operation = action.operation;
+  const pendingAction = 'intent' in operation ? operation.intent?.action : undefined;
+  if (action.kind === 'retry' || action.kind === 'session-check' && operation.status === 'refresh-failed') return ownerRecoveryRetryFocus;
+  if (action.kind === 'compare' || action.kind === 'session-check' && operation.status === 'unknown' && !operation.readCompleted) {
+    return pendingAction === 'publish-profile' ? ownerRecoveryPublishCompareFocus : ownerRecoveryCompareFocus;
+  }
+  if (action.kind === 'resolve' || action.kind === 'session-check'
+    && (operation.status === 'unknown' || operation.status === 'conflict') && operation.readCompleted) return ownerRecoveryDecisionFocus;
+  return undefined;
+}
+
+export function creatorOwnerWriteRejectedFocus(state: CreatorOwnerState, intent: CreatorOwnerIntent): string {
+  if (state.editor && intent.editorKey && state.editor.key === intent.editorKey) return creatorOwnerEditorDraftFocus(state.editor);
+  if (intent.action === 'publish-profile') return '[data-owner-publish]';
+  if (intent.action === 'save-profile' && !state.observed.profile) return '#owner-create-name';
+  if (state.location.view === 'series') return '#owner-series-title';
+  if (state.location.view === 'enlaces') return '#owner-links-title';
+  if (state.location.view === 'solicitudes') return '#owner-claims-title';
+  return '#owner-profile-name';
+}
+
 function normalizeAfterRead(state: CreatorOwnerState, snapshot: CreatorOwnerSnapshotDTO) {
   const query = normalizeOwnerSeriesQuery(snapshot, state.location.query);
   const linksQuery = normalizeOwnerLinksQuery(snapshot, state.location.linksQuery);
@@ -433,6 +504,11 @@ export function creatorOwnerDraftIsDirty(editor: CreatorOwnerEditorDraft | undef
     case 'reference': return Boolean(editor.selected) || !editor.selectedForDirectory;
     case 'claim': return editor.selected.length > 0 || Boolean(editor.knownUrls.trim() || editor.evidence.trim());
   }
+}
+
+function cancelAuthorizedSaveTransition(location: CreatorOwnerLocation): CreatorOwnerLocation {
+  if (location.transitionAuthorization !== 'save') return location;
+  return { ...location, exitRequest: location.transition ?? location.exitRequest, transition: undefined, transitionAuthorization: undefined, prompt: 'exit' };
 }
 
 export function creatorOwnerLinkMoveContext(snapshot: CreatorOwnerSnapshotDTO, placementId: string): {
@@ -508,7 +584,12 @@ function updateEditor(state: CreatorOwnerState, update: (editor: CreatorOwnerEdi
 export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwnerAction): CreatorOwnerState {
   if (action.type === 'session-check-started' || action.type === 'session-evidence') {
     const result = reduceCreatorOwnerSessionPolicy(state, action);
-    return { ...state, session: result.session, sessionEvidence: result.sessionEvidence,
+    const nextState = { ...state, session: result.session, sessionEvidence: result.sessionEvidence };
+    const recoveryFocus = action.type === 'session-evidence' && action.source === 'session-check'
+      && action.outcome === 'renewed' && result.accepted && !state.location.focusAfterRender
+      ? deriveCreatorOwnerRecoveryFocus(nextState) : undefined;
+    return { ...nextState,
+      ...(recoveryFocus ? { location: { ...state.location, focusAfterRender: recoveryFocus } } : {}),
       ...(result.clearFeedback ? { message: state.message?.sessionDerived ? undefined : state.message } : result.feedback ? { message: result.feedback } : {}),
       ...(result.attemptFeedback && state.operation.status === 'unknown' ? { operation: { ...state.operation, message: result.attemptFeedback.text } } : {}) };
   }
@@ -563,10 +644,15 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       || state.operation.status === 'conflict' && state.operation.readCompleted && state.operation.intent.editorKey === action.intent.editorKey)
       && state.session.state === 'ready'
       ? { ...state, operation: { status: 'sending', intent: action.intent }, message: undefined } : state;
-    case 'operation-reading': return { ...state, operation: { status: 'reading', ...(action.intent ? { intent: action.intent } : {}), fact: action.fact, message: action.message } };
-    case 'operation-read-failed': return { ...state, operation: { status: 'refresh-failed', ...(action.intent ? { intent: { ...action.intent, exitTransition: undefined } } : {}), fact: action.fact, message: action.message },
-      location: { ...state.location, focusAfterRender: action.focusAfterRender },
+    case 'operation-reading': return { ...state, operation: { status: 'reading', ...(action.intent ? { intent: action.intent } : {}), fact: action.fact, message: action.message },
+      location: action.fact === 'unknown' || action.fact === 'conflict' ? cancelAuthorizedSaveTransition(state.location) : state.location };
+    case 'operation-read-failed': {
+      const operation: CreatorOwnerOperation = { status: 'refresh-failed', ...(action.intent ? { intent: action.intent } : {}), fact: action.fact, message: action.message };
+      const location = { ...cancelAuthorizedSaveTransition(state.location), focusAfterRender: action.focusAfterRender };
+      const recoveryFocus = action.focusAfterRender ?? deriveCreatorOwnerRecoveryFocus({ ...state, operation, location });
+      return { ...state, operation, location: recoveryFocus ? { ...location, focusAfterRender: recoveryFocus } : location,
       ...(action.suppressGlobalMessage ? { message: undefined } : { message: { text: action.message, kind: 'error' as const } }) };
+    }
     case 'operation-read-installed': {
       const snapshot = copyCreatorOwnerSnapshot(action.snapshot);
       const navigation = normalizeAfterRead(state, snapshot);
@@ -576,25 +662,47 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       else operation = { status: 'idle' };
       const publicationRecovery = action.intent?.action === 'publish-profile'
         && (action.fact === 'unknown' || action.fact === 'conflict');
+      const recoveryFocus = action.focusAfterRender ?? deriveCreatorOwnerRecoveryFocus({ ...state, operation });
       return { ...state, observed: snapshot, operation,
         ...(action.fact === 'claims' || action.fact === 'acknowledged' && !state.seriesQueryError ? { seriesQueryError: undefined } : {}),
         ...(action.consumeEditor ? { editor: undefined } : {}),
-        location: { ...state.location, focusAfterRender: action.focusAfterRender, ...navigation,
-          ...(action.fact === 'acknowledged' && action.consumeEditor ? { transition: action.intent?.exitTransition, exitRequest: undefined, prompt: 'none' as const } : {}),
+        location: { ...state.location, focusAfterRender: recoveryFocus, ...navigation,
+          ...(action.fact === 'acknowledged' && action.consumeEditor && !state.location.transition && !state.location.exitRequest
+            ? { transition: undefined, exitRequest: undefined, transitionAuthorization: undefined, prompt: 'none' as const } : {}),
+          ...(action.fact === 'acknowledged' && !action.consumeEditor
+            && state.location.transitionAuthorization === 'save'
+            ? { transition: undefined, transitionAuthorization: undefined } : {}),
           ...(action.fact === 'acknowledged' || action.fact === 'claims' ? { linksQueryError: undefined } : {}) },
         ...(publicationRecovery ? { message: undefined } : action.message ? { message: { text: action.message, kind: action.fact === 'acknowledged' || action.fact === 'claims' ? 'success' : 'info' } } : { message: undefined }) };
     }
-    case 'operation-unknown': return { ...state, operation: { status: 'unknown', intent: action.intent, message: action.message },
-      ...(action.intent.action === 'publish-profile' ? { message: undefined } : { message: { text: action.message, kind: 'error' as const } }) };
+    case 'operation-unknown': {
+      const operation: CreatorOwnerOperation = { status: 'unknown', intent: action.intent, message: action.message };
+      const location = cancelAuthorizedSaveTransition(state.location);
+      const recoveryFocus = deriveCreatorOwnerRecoveryFocus({ ...state, operation, location });
+      return { ...state, operation, location: recoveryFocus ? { ...location, focusAfterRender: recoveryFocus } : location,
+        ...(action.intent.action === 'publish-profile' ? { message: undefined } : { message: { text: action.message, kind: 'error' as const } }) };
+    }
     case 'operation-rejected': {
       const intent = operationMatches(state, action.intentId);
-      return intent ? { ...state, operation: { status: 'idle' }, message: { text: action.message, kind: 'error' } } : state;
+      const location = cancelAuthorizedSaveTransition(state.location);
+      const recoveryFocus = intent ? creatorOwnerWriteRejectedFocus({ ...state, location }, intent) : undefined;
+      return intent ? { ...state, operation: { status: 'idle' },
+        location: recoveryFocus ? { ...location, focusAfterRender: recoveryFocus } : location,
+        message: { text: action.message, kind: 'error' } } : state;
     }
     case 'resolve-operation': {
       if ((state.operation.status !== 'unknown' && state.operation.status !== 'conflict') || !state.operation.readCompleted) return state;
       const publicationAdopted = action.choice === 'saved' && state.operation.intent.action === 'publish-profile';
+      const editorRecoveryFocus = action.choice === 'saved'
+        ? state.location.view === 'series'
+          ? state.location.query.serie ? '#owner-chapter-search' : '#owner-series-search'
+          : state.location.view === 'enlaces' ? '#owner-link-search'
+            : state.location.view === 'solicitudes' ? '[data-claim-section-open]'
+              : '#owner-activity-title'
+        : undefined;
+      const draftFocus = action.choice === 'draft' && state.editor ? creatorOwnerEditorDraftFocus(state.editor) : undefined;
       return { ...state, operation: { status: 'idle' }, ...(action.choice === 'saved' ? { editor: undefined } : {}),
-        location: { ...state.location, focusAfterRender: publicationAdopted ? '#owner-profile-name' : state.location.focusAfterRender },
+        location: { ...state.location, focusAfterRender: publicationAdopted ? '#owner-profile-name' : editorRecoveryFocus ?? draftFocus ?? state.location.focusAfterRender },
         message: { text: action.choice === 'saved' ? 'Usaste el estado guardado. No repetimos la acción anterior.' : 'Conservamos el borrador. Guardarlo ahora será una acción nueva.', kind: 'info' } };
     }
     case 'set-message': return { ...state, message: { text: action.text, kind: action.kind ?? 'info' } };
@@ -613,15 +721,22 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
     case 'set-series-query-error': return { ...state, seriesQueryError: 'series' };
     case 'set-links-query-error': return { ...state, location: { ...state.location, linksQueryError: 'links' } };
     case 'clear-focus': return state.location.focusAfterRender === action.selector ? { ...state, location: { ...state.location, focusAfterRender: undefined } } : state;
-    case 'request-exit': return { ...state, location: { ...state.location, exitRequest: action.transition, transition: action.transition, prompt: 'exit' } };
-    case 'clear-transition': return { ...state, location: { ...state.location, exitRequest: undefined, transition: undefined, prompt: 'none' } };
+    case 'request-exit': return { ...state, location: { ...state.location, exitRequest: action.transition, transition: undefined, transitionAuthorization: undefined, prompt: 'exit' } };
+    case 'clear-transition': return { ...state, location: { ...state.location, exitRequest: undefined, transition: undefined, transitionAuthorization: undefined, prompt: 'none' } };
     case 'resolve-transition': {
+      if (action.action === 'authorize') {
+        const transition = state.location.exitRequest;
+        if (!transition && !(state.editor && state.location.prompt === 'exit')) return state;
+        return { ...state, location: { ...state.location, transition, transitionAuthorization: 'save', exitRequest: undefined, prompt: 'none' } };
+      }
+      if (action.action === 'cancel-authorize') return state.location.transitionAuthorization === 'save'
+        ? { ...state, location: { ...state.location, transition: undefined, transitionAuthorization: undefined, prompt: 'none' } } : state;
       if (action.action === 'continue') return { ...state, location: { ...state.location,
-        transition: undefined, exitRequest: undefined, prompt: 'none' } };
+        transition: undefined, exitRequest: undefined, transitionAuthorization: undefined, prompt: 'none' } };
       const operation = state.operation;
       const keepsConfirmedRead = creatorOwnerPreservesAcknowledgedRead(operation, state.location.exitRequest);
       return { ...state, editor: undefined, operation: keepsConfirmedRead ? operation : { status: 'idle' }, location: { ...state.location,
-        transition: state.location.exitRequest, exitRequest: undefined, prompt: 'none' } };
+        transition: state.location.exitRequest, transitionAuthorization: state.location.exitRequest ? 'discard' : undefined, exitRequest: undefined, prompt: 'none' } };
     }
     case 'set-prompt': return { ...state, location: { ...state.location, prompt: action.prompt } };
     case 'activity-loading': return action.sequence > state.activity.sequence ? { ...state, activity: { ...state.activity, period: action.period, sequence: action.sequence, status: 'loading', message: undefined } } : state;

@@ -57,6 +57,14 @@ function logoutRequest(sessionCookie, csrfToken, origin = ORIGIN) {
   });
 }
 
+function logoutRetryRequest(csrfToken, origin = ORIGIN) {
+  return makeRequest('/cuenta/salir/', {
+    method: 'POST',
+    headers: { origin },
+    body: new URLSearchParams({ csrfToken }),
+  });
+}
+
 function assertProviderLogout(response) {
   assert.equal(response.status, 303);
   assert.equal(location(response).origin, COGNITO_DOMAIN);
@@ -64,14 +72,23 @@ function assertProviderLogout(response) {
   assert.ok(responseCookies(response).some((cookie) => cookie.startsWith('da_session=;') && /Max-Age=0/.test(cookie)));
 }
 
-test('logout without a session cookie preserves the local account destination', async () => {
-  const harness = await createAccountHarness();
-  const response = await harness.auth.handle(makeRequest('/cuenta/salir/', {
-    method: 'POST', headers: { origin: ORIGIN },
-  }));
-  assert.equal(response.status, 303);
-  assert.equal(location(response).href, `${ORIGIN}/cuenta/`);
-  assert.equal(harness.store.calls.length, 0);
+test('logout without a session cookie preserves the local account destination for both empty body representations', async (t) => {
+  for (const [name, body] of [
+    ['absent stream', undefined],
+    ['empty form stream', new URLSearchParams()],
+    ['empty text stream', ''],
+  ]) {
+    await t.test(name, async () => {
+      const harness = await createAccountHarness();
+      const response = await harness.auth.handle(makeRequest('/cuenta/salir/', {
+        method: 'POST', headers: { origin: ORIGIN }, body,
+      }));
+      assert.equal(response.status, 303);
+      assert.equal(location(response).href, `${ORIGIN}/cuenta/`);
+      assert.match(responseCookies(response).join(''), /da_session=;.*Max-Age=0/u);
+      assert.equal(harness.store.calls.length, 0);
+    });
+  }
 });
 
 test('retry completes provider logout when deleting the session committed but its acknowledgement was lost', async () => {
@@ -92,6 +109,8 @@ test('retry completes provider logout when deleting the session committed but it
   assert.equal(location(first).searchParams.get('estado'), 'no-disponible');
   assert.equal(responseCookies(first).length, 0);
   assert.equal(store.sessions.size, 0);
+  assert.equal(store.calls.filter(({ operation }) => operation === 'deleteSession').length, 1,
+    'the lost acknowledgement does not replay local revocation');
   assert.equal((await harness.auth.getSession(sessionRequest(login.sessionCookie))).state, 'anonymous');
 
   const foreignRetry = await harness.auth.handle(logoutRequest(login.sessionCookie, session.csrfToken, 'https://other.invalid'));
@@ -99,10 +118,13 @@ test('retry completes provider logout when deleting the session committed but it
   assert.equal(foreignRetry.headers.has('location'), false);
   assert.equal(responseCookies(foreignRetry).length, 0);
 
-  const retry = await harness.auth.handle(logoutRequest(login.sessionCookie, session.csrfToken));
-  assertProviderLogout(retry);
+  const stillPresentCookieRetry = await harness.auth.handle(logoutRequest(login.sessionCookie, session.csrfToken));
+  assertProviderLogout(stillPresentCookieRetry);
   assert.equal((await harness.auth.getSession(sessionRequest(login.sessionCookie))).state, 'anonymous');
-  assertProviderLogout(await harness.auth.handle(logoutRequest(login.sessionCookie, session.csrfToken)));
+  const retry = await harness.auth.handle(logoutRetryRequest(session.csrfToken));
+  assertProviderLogout(retry);
+  assert.equal(store.calls.filter(({ operation }) => operation === 'deleteSession').length, 1,
+    'neither valid retry form performs a second local delete');
 });
 
 test('retry does not clear a cookie or contact logout when revocation cannot be confirmed', async () => {
@@ -114,4 +136,162 @@ test('retry does not clear a cookie or contact logout when revocation cannot be 
   assert.equal(location(response).searchParams.get('estado'), 'no-disponible');
   assert.equal(responseCookies(response).length, 0);
   assert.equal(harness.store.sessions.size, 1);
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'deleteSession').length, 0);
+});
+
+test('a malformed presented cookie is not treated as an anonymous provider-only retry', async (t) => {
+  const token = 'c'.repeat(43);
+  for (const [name, cookie] of [
+    ['invalid token', 'da_session=malformed-cookie'],
+    ['bare name', 'da_session'],
+    ['empty token', 'da_session='],
+    ['duplicate session cookies', `da_session=${token}; da_session=${token}`],
+  ]) {
+    await t.test(name, async () => {
+      const harness = await createAccountHarness();
+      const response = await harness.auth.handle(makeRequest('/cuenta/salir/', {
+        method: 'POST',
+        headers: { cookie, origin: ORIGIN },
+        body: new URLSearchParams({ csrfToken: token }),
+      }));
+      assert.equal(response.status, 403);
+      assert.equal(response.headers.has('location'), false);
+      assert.equal(responseCookies(response).length, 0);
+      assert.equal(harness.store.calls.filter(({ operation }) => operation === 'getSession').length, 0,
+        'a malformed token is rejected before a storage lookup');
+      assert.equal(harness.store.calls.filter(({ operation }) => operation === 'deleteSession').length, 0);
+    });
+  }
+});
+
+function noCookieFormRequest({ origin, body, headers = {} } = {}) {
+  const requestHeaders = new Headers(headers);
+  if (origin !== undefined) requestHeaders.set('origin', origin);
+  return makeRequest('/cuenta/salir/', {
+    method: 'POST',
+    headers: requestHeaders,
+    body,
+  });
+}
+
+test('no-cookie provider continuation rejects invalid origin and form shapes without redirect or mutation', async (t) => {
+  const token = 'c'.repeat(43);
+  const cases = [
+    {
+      name: 'foreign origin',
+      request: () => noCookieFormRequest({ origin: 'https://other.invalid', body: new URLSearchParams({ csrfToken: token }) }),
+      status: 403,
+    },
+    {
+      name: 'missing origin',
+      request: () => noCookieFormRequest({ body: new URLSearchParams({ csrfToken: token }) }),
+      status: 403,
+    },
+    {
+      name: 'duplicate csrfToken fields',
+      request: () => noCookieFormRequest({ origin: ORIGIN, body: new URLSearchParams([['csrfToken', token], ['csrfToken', token]]) }),
+      status: 403,
+    },
+    {
+      name: 'malformed csrfToken',
+      request: () => noCookieFormRequest({ origin: ORIGIN, body: new URLSearchParams({ csrfToken: 'not-a-token' }) }),
+      status: 403,
+    },
+    {
+      name: 'oversized declared form',
+      request: () => noCookieFormRequest({
+        origin: ORIGIN,
+        headers: { 'content-length': '9000' },
+        body: new URLSearchParams({ csrfToken: token }),
+      }),
+      status: 413,
+    },
+    {
+      name: 'oversized body without a declared length',
+      request: () => noCookieFormRequest({
+        origin: ORIGIN,
+        body: new URLSearchParams({ csrfToken: token.repeat(210) }),
+      }),
+      status: 413,
+    },
+    {
+      name: 'extraneous form field',
+      request: () => noCookieFormRequest({ origin: ORIGIN, body: new URLSearchParams({ csrfToken: token, extra: 'unexpected' }) }),
+      status: 403,
+    },
+  ];
+
+  for (const scenario of cases) {
+    await t.test(scenario.name, async () => {
+      const harness = await createAccountHarness();
+      const response = await harness.auth.handle(scenario.request());
+      const target = response.headers.get('location');
+      assert.equal(target ? new URL(target, ORIGIN).origin === COGNITO_DOMAIN : false, false);
+      assert.equal(responseCookies(response).length, 0);
+      assert.equal(harness.store.sessions.size, 0);
+      assert.equal(harness.store.calls.filter(({ operation }) => operation === 'deleteSession').length, 0);
+      assert.equal(response.status, scenario.status);
+    });
+  }
+});
+
+test('a still-live changed principal cannot reuse an old logout form, while a same-origin no-cookie retry only ends provider SSO', async () => {
+  const harness = await createAccountHarness();
+  const first = await completeLogin(harness);
+  const firstSession = await harness.auth.getSession(sessionRequest(first.sessionCookie));
+
+  const previousClaims = harness.state.oidc.claims;
+  harness.state.oidc.claims = { sub: 'second-user', email: 'second@example.invalid' };
+  let second;
+  try {
+    second = await completeLogin(harness);
+  } finally {
+    if (previousClaims === undefined) delete harness.state.oidc.claims;
+    else harness.state.oidc.claims = previousClaims;
+  }
+  assert.ok(second.sessionCookie);
+  assert.equal(harness.store.sessions.size, 2);
+
+  const changedPrincipal = await harness.auth.handle(logoutRequest(
+    second.sessionCookie, firstSession.csrfToken,
+  ));
+  assert.equal(changedPrincipal.status, 403);
+  assert.equal(changedPrincipal.headers.has('location'), false);
+  assert.equal(responseCookies(changedPrincipal).length, 0);
+  assert.equal(harness.store.sessions.size, 2);
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'deleteSession').length, 0);
+
+  const firstLogout = await harness.auth.handle(logoutRequest(first.sessionCookie, firstSession.csrfToken));
+  assertProviderLogout(firstLogout);
+  assert.equal(harness.store.sessions.size, 1);
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'deleteSession').length, 1);
+
+  const providerOnly = await harness.auth.handle(logoutRetryRequest(firstSession.csrfToken));
+  assertProviderLogout(providerOnly);
+  assert.equal(harness.store.sessions.size, 1, 'the provider-only continuation leaves the changed principal live');
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'deleteSession').length, 1);
+});
+
+test('a live session still requires its exact form and origin before local revocation', async () => {
+  const harness = await createAccountHarness();
+  const login = await completeLogin(harness);
+  const session = await harness.auth.getSession(sessionRequest(login.sessionCookie));
+  const badCsrf = `${session.csrfToken[0] === 'A' ? 'B' : 'A'}${session.csrfToken.slice(1)}`;
+
+  for (const request of [
+    logoutRequest(login.sessionCookie, badCsrf),
+    logoutRequest(login.sessionCookie, session.csrfToken, 'https://other.invalid'),
+    makeRequest('/cuenta/salir/', {
+      method: 'POST',
+      headers: { cookie: cookiePair(login.sessionCookie), origin: ORIGIN },
+      body: 'csrfToken=not-a-valid-form-token',
+    }),
+  ]) {
+    const response = await harness.auth.handle(request);
+    assert.equal(response.status, 403);
+    assert.equal(response.headers.has('location'), false);
+    assert.equal(responseCookies(response).length, 0);
+    assert.equal(harness.store.sessions.size, 1);
+  }
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'deleteSession').length, 0);
 });

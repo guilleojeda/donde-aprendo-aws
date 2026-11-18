@@ -62,11 +62,5 @@ export function createCreatorWriteGuard(root: HTMLElement) {
         applyDisabledState();
       }
     },
-    markStale(selector: string) {
-      root.querySelectorAll<WriteControl>(selector).forEach((control) => {
-        control.setAttribute('data-creator-stale', 'true');
-      });
-      applyDisabledState();
-    },
   };
 }

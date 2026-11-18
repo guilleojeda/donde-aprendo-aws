@@ -7,7 +7,7 @@ import {
 } from '../../lib/creator-owner-series';
 import { joinCreatorOwnerPlacements } from '../../lib/creator-owner-data';
 import { canonicalCreatorSeriesPath, isPublicCreatorSeries, visibleCreatorSeriesChapterCount } from '../../lib/creator-public.mjs';
-import { creatorOwnerChapterRecoveryIsVisibleInDetail, type CreatorOwnerState } from '../../lib/creator-owner-state';
+import { creatorOwnerChapterRecoveryIsVisibleInDetail, deriveCreatorOwnerRecoveryAction, type CreatorOwnerState } from '../../lib/creator-owner-state';
 
 interface Props {
   state: CreatorOwnerState;
@@ -48,9 +48,12 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
   const chapterPage = chapterSelection?.query.paginaCapitulos ?? 1;
   const chapterFilterPage = location.pendingChapterSearch !== query.buscarCapitulos || location.pendingMembership !== query.pertenencia
     ? 1 : chapterPage;
-  const chapterReadFailure = state.operation.status === 'refresh-failed' && creatorOwnerChapterRecoveryIsVisibleInDetail(state)
+  const recoveryAction = deriveCreatorOwnerRecoveryAction(state);
+  const chapterReadFailure = (recoveryAction.kind === 'retry' || recoveryAction.kind === 'session-check') && recoveryAction.surface === 'series'
+    && state.operation.status === 'refresh-failed' && creatorOwnerChapterRecoveryIsVisibleInDetail(state)
     ? state.operation : undefined;
-  const chapterReadPending = state.operation.status === 'reading' && creatorOwnerChapterRecoveryIsVisibleInDetail(state)
+  const chapterReadPending = recoveryAction.kind === 'pending' && recoveryAction.surface === 'series'
+    && state.operation.status === 'reading' && creatorOwnerChapterRecoveryIsVisibleInDetail(state)
     ? state.operation : undefined;
 
   return <section class="creator-owner__series" data-owner-series aria-labelledby="owner-series-title">

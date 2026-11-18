@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { after, mock, test } from 'node:test';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { getAccountAuth } from '../src/lib/account-runtime.mjs';
+import { creatorPageSessionBinding } from '../src/lib/creator-session-context.mjs';
 import { compileCreatorAstroRoutes } from './fixtures/creator-astro-route.mjs';
 import { createCreatorOwnerAstroContainer } from './fixtures/creator-owner-astro-container.mjs';
 
@@ -94,6 +95,7 @@ function reads() {
     session: gets.filter(({ input }) => input.Key?.pk?.startsWith('SESSION#')).length,
     account: gets.filter(({ input }) => input.Key?.pk?.startsWith('ACCOUNT#')).length,
     deletes: storageCalls.filter(({ commandName }) => commandName === 'DeleteCommand').length,
+    writes: storageCalls.filter(({ commandName }) => !['GetCommand', 'DeleteCommand'].includes(commandName)).length,
   };
 }
 
@@ -108,8 +110,9 @@ assert.ok(accountAuth, 'the production account runtime initializes with account-
 const compiled = await compileCreatorAstroRoutes({
   account: 'src/pages/cuenta/index.astro',
   logout: 'src/pages/cuenta/salir/index.astro',
+  creatorApi: 'src/pages/api/creador/[...path].ts',
 }, { siteOrigin: SITE_ORIGIN });
-const { account: accountRoute, logout: logoutRoute } = compiled.routes;
+const { account: accountRoute, logout: logoutRoute, creatorApi } = compiled.routes;
 const container = await createCreatorOwnerAstroContainer({ astroConfig: { site: SITE_ORIGIN } });
 
 after(async () => {
@@ -138,7 +141,7 @@ test('account entry, signed-in fallback, and actual logout work without creator 
   assert.match(entry.response.headers.get('cache-control') ?? '', /private.*no-store/i);
   assert.match(entry.html, /<h1>Tu cuenta<\/h1>/);
   assert.match(entry.html, /href="\/cuenta\/ingresar\/"/);
-  assert.deepEqual(reads(), { session: 0, account: 0, deletes: 0 });
+  assert.deepEqual(reads(), { session: 0, account: 0, deletes: 0, writes: 0 });
   assertCreatorAndAnalyticsSettingsAbsent();
 
   seedValidSession();
@@ -150,7 +153,7 @@ test('account entry, signed-in fallback, and actual logout work without creator 
     'a valid account session remains real even though owner data cannot load without creator configuration');
   assert.match(unavailableOwner.html, /No pudimos cargar tu página/);
   assert.doesNotMatch(unavailableOwner.html, /data-creator-owner/);
-  assert.deepEqual(reads(), { session: 1, account: 1, deletes: 0 });
+  assert.deepEqual(reads(), { session: 1, account: 1, deletes: 0, writes: 0 });
   assertCreatorAndAnalyticsSettingsAbsent();
 
   beginObservation();
@@ -173,7 +176,7 @@ test('account entry, signed-in fallback, and actual logout work without creator 
   assert.equal(destination.searchParams.get('client_id'), 'account-only-client');
   assert.equal(destination.searchParams.get('logout_uri'), `${SITE_ORIGIN}/cuenta/`);
   assert.match(logout.response.headers.get('set-cookie') ?? '', /da_session=;/);
-  assert.deepEqual(reads(), { session: 1, account: 1, deletes: 1 });
+  assert.deepEqual(reads(), { session: 1, account: 1, deletes: 1, writes: 0 });
   assert.equal(rows.has(sessionPk), false, 'the actual account store delete removed the physical session');
   assertCreatorAndAnalyticsSettingsAbsent();
 
@@ -183,6 +186,55 @@ test('account entry, signed-in fallback, and actual logout work without creator 
   });
   assert.equal(afterLogout.response.status, 200);
   assert.match(afterLogout.html, /<h1>Tu cuenta<\/h1>/);
-  assert.deepEqual(reads(), { session: 1, account: 0, deletes: 0 });
+  assert.deepEqual(reads(), { session: 1, account: 0, deletes: 0, writes: 0 });
+  assertCreatorAndAnalyticsSettingsAbsent();
+});
+
+test('the real Astro session GET uses only account configuration and rejects invalid bindings without writing', async () => {
+  assertCreatorAndAnalyticsSettingsAbsent();
+  seedValidSession();
+  const request = (headers = {}, method = 'GET') => new Request(`${SITE_ORIGIN}/api/creador/sesion/`, {
+    method,
+    headers,
+  });
+  const principal = await accountAuth.getPrincipal(request({ cookie: `da_session=${SESSION_TOKEN}` }));
+  assert.equal(principal.state, 'authenticated');
+  const binding = creatorPageSessionBinding(principal);
+  assert.equal(typeof binding, 'string');
+
+  beginObservation();
+  const positive = await creatorApi.ALL({ request: request({
+    cookie: `da_session=${SESSION_TOKEN}`,
+    'x-creator-page-binding': binding,
+  }) });
+  assert.equal(positive.status, 200);
+  assert.deepEqual(await positive.json(), { csrfToken: CSRF_TOKEN });
+  assert.deepEqual(reads(), { session: 1, account: 1, deletes: 0, writes: 0 });
+  assertCreatorAndAnalyticsSettingsAbsent();
+
+  beginObservation();
+  const wrongBinding = await creatorApi.ALL({ request: request({
+    cookie: `da_session=${SESSION_TOKEN}`,
+    'x-creator-page-binding': '0'.repeat(binding.length),
+  }) });
+  assert.equal(wrongBinding.status, 409);
+  assert.deepEqual(await wrongBinding.json(), { error: 'SESSION_CONTEXT_CHANGED' });
+  assert.deepEqual(reads(), { session: 1, account: 1, deletes: 0, writes: 0 });
+
+  beginObservation();
+  const method = await creatorApi.ALL({ request: request({
+    cookie: `da_session=${SESSION_TOKEN}`,
+    'x-creator-page-binding': binding,
+  }, 'POST') });
+  assert.equal(method.status, 405);
+  assert.equal(method.headers.get('allow'), 'GET');
+  assert.deepEqual(await method.json(), { error: 'METHOD_NOT_ALLOWED' });
+  assert.deepEqual(reads(), { session: 0, account: 0, deletes: 0, writes: 0 });
+
+  beginObservation();
+  const anonymous = await creatorApi.ALL({ request: request() });
+  assert.equal(anonymous.status, 401);
+  assert.deepEqual(await anonymous.json(), { error: 'AUTH_REQUIRED' });
+  assert.deepEqual(reads(), { session: 0, account: 0, deletes: 0, writes: 0 });
   assertCreatorAndAnalyticsSettingsAbsent();
 });

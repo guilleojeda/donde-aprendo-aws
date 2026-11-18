@@ -11,6 +11,7 @@ interface CreatorAdminState {
 
 type AdminEntity = 'resource' | 'profile';
 type AdminCommandKind = 'classification' | 'resource-action' | 'profile-action' | 'claim';
+type AdminOutcome = 'confirmed' | 'validation' | 'conflict' | 'uncertain';
 
 interface AdminTarget {
   entity: AdminEntity;
@@ -25,6 +26,7 @@ interface AdminCommandContext {
 }
 
 interface AdminCompletion {
+  outcome: AdminOutcome;
   payload: Record<string, unknown> | null;
   linkedIds: string[];
   claimReviewRequired: boolean;
@@ -346,7 +348,8 @@ function claimLinkedPrefix(
 
 async function completeAdminWrite(response: Response, context: AdminCommandContext): Promise<AdminCompletion> {
   const payload = await responsePayload(response);
-  const beforeGrantWrite = payload?.failureStage === 'before-grant-write' && typeof payload.error === 'string'
+  const beforeGrantWrite = context.kind === 'claim'
+    && payload?.failureStage === 'before-grant-write' && typeof payload.error === 'string'
     && payload.error !== 'PARTIAL_CLAIM_WRITE' && payload.error !== 'CLAIM_GRANT_UNCERTAIN'
     && !['linkedResourceIds', 'versionChanges', 'profileChanged', 'failedResourceId', 'uncertainResourceId']
       .some((field) => Object.hasOwn(payload, field));
@@ -360,7 +363,17 @@ async function completeAdminWrite(response: Response, context: AdminCommandConte
       || Boolean(payload && (Object.hasOwn(payload, 'failureStage') || Object.hasOwn(payload, 'uncertainResourceId')))
       || (Array.isArray(payload?.versionChanges) && payload.versionChanges.length > 0));
   if (!response.ok && !claimReviewRequired) {
-    return { payload, linkedIds: [], claimReviewRequired: false, receiptProblem: false, gaps: [] };
+    const definitelyNoWrite = [400, 401, 403, 404, 405, 413, 415, 422].includes(response.status);
+    const outcome: AdminOutcome = beforeGrantWrite || definitelyNoWrite
+      ? 'validation'
+      : response.status === 409
+        ? 'conflict'
+        : 'uncertain';
+    if (outcome === 'conflict' || outcome === 'uncertain') {
+      pauseAdminRows(context.targets);
+      pauseRelatedClaims(context);
+    }
+    return { outcome, payload, linkedIds: [], claimReviewRequired: false, receiptProblem: false, gaps: [] };
   }
 
   const changes = readCreatorVersionChanges(payload);
@@ -378,8 +391,9 @@ async function completeAdminWrite(response: Response, context: AdminCommandConte
     && singleTargetCanonicalIsValid(payload, changes ?? [], context);
   if (!usable) {
     pauseAdminRows(context.targets);
-    if (context.kind === 'claim') pauseRelatedClaims(context);
+    pauseRelatedClaims(context);
     return {
+      outcome: 'uncertain',
       payload,
       linkedIds,
       claimReviewRequired,
@@ -393,12 +407,14 @@ async function completeAdminWrite(response: Response, context: AdminCommandConte
   const uncertainTargets = uncertainResourceId === undefined ? [] : context.targets.filter(({ entity, id }) =>
     entity === 'profile' || (entity === 'resource' && id === uncertainResourceId));
   pauseAdminRows([...gaps, ...uncertainTargets]);
-  if (context.kind === 'claim') {
-    const statusScopeConfirmed = response.ok || payload?.failureStage === 'claim-status';
-    pauseRelatedClaims(context, [...gaps, ...uncertainTargets],
-      statusScopeConfirmed ? { statusScope: true } : undefined);
-  }
+  const statusScopeConfirmed = response.ok || payload?.failureStage === 'claim-status';
+  const relatedRecords = context.kind === 'claim' && claimReviewRequired
+    ? statusScopeConfirmed ? [] : context.targets.filter(({ entity }) => entity === 'resource')
+    : [...gaps, ...uncertainTargets];
+  pauseRelatedClaims(context, relatedRecords,
+    context.kind === 'claim' && statusScopeConfirmed ? { statusScope: true } : undefined);
   return {
+    outcome: response.ok && gaps.length === 0 ? 'confirmed' : 'uncertain',
     payload,
     linkedIds,
     claimReviewRequired,
@@ -406,6 +422,37 @@ async function completeAdminWrite(response: Response, context: AdminCommandConte
     receiptProblem: false,
     gaps,
   };
+}
+
+function unknownAdminWrite(context: AdminCommandContext): AdminCompletion {
+  pauseAdminRows(context.targets);
+  pauseRelatedClaims(context);
+  return {
+    outcome: 'uncertain',
+    payload: null,
+    linkedIds: [],
+    claimReviewRequired: context.kind === 'claim',
+    receiptProblem: false,
+    gaps: [],
+  };
+}
+
+function pauseAdminRows(
+  records: readonly Pick<CreatorVersionChange, 'entity' | 'id'>[],
+  controlSelector = 'button',
+) {
+  if (!root) return;
+  const rows = new Set<HTMLElement>();
+  uniqueRecords(records).forEach(({ entity, id }) => {
+    const selector = entity === 'resource' ? '[data-admin-resource]' : '[data-admin-profile]';
+    const datasetKey = entity === 'resource' ? 'adminResource' : 'adminProfile';
+    const expectedValue = entity === 'resource' ? resourceDomToken(id) : id;
+    const row = [...root.querySelectorAll<HTMLElement>(selector)]
+      .find((candidate) => candidate.dataset[datasetKey] === expectedValue);
+    if (row) rows.add(row);
+  });
+  const controls = [...rows].flatMap((row) => [...row.querySelectorAll<HTMLElement>(controlSelector)]);
+  controls.forEach((control) => control.setAttribute('data-creator-stale', 'true'));
 }
 
 async function responsePayload(response: Response): Promise<Record<string, unknown> | null> {
@@ -417,53 +464,10 @@ async function responsePayload(response: Response): Promise<Record<string, unkno
   }
 }
 
-function updateOwnedContent(payload: Record<string, unknown> | null, entity: 'classification' | 'resource-action' | 'profile-action' | undefined, id?: string) {
-  if (!state || !payload || !entity || !id) return;
-  if (entity === 'classification' && isRecord(payload.resource)) {
-    const returned = payload.resource;
-    const current = state.resources.find((item) => item.id === id);
-    if (current) {
-      for (const field of ['category', 'kind', 'format', 'topics']) {
-        if (Object.hasOwn(returned, field)) current[field] = returned[field];
-      }
-    }
-  }
-  if (entity === 'resource-action' && isRecord(payload.resource)) {
-    const returned = payload.resource;
-    const current = state.resources.find((item) => item.id === id);
-    if (current) {
-      for (const field of ['published', 'directoryApproval', 'directoryControl', 'hidden']) {
-        if (Object.hasOwn(returned, field)) current[field] = returned[field];
-      }
-    }
-  }
-  if (entity === 'profile-action' && isRecord(payload.profile)) {
-    const returned = payload.profile;
-    const current = state.profiles.find((item) => item.id === id);
-    if (current && Object.hasOwn(returned, 'hidden')) current.hidden = returned.hidden;
-  }
-}
-
-function markAdminActionsStale(selector: string, within: ParentNode = root as HTMLElement) {
-  within.querySelectorAll<HTMLElement>(selector).forEach((control) => {
-    control.setAttribute('data-creator-stale', 'true');
-  });
-  writeGuard?.markStale('[data-creator-stale]');
-}
-
-function pauseAdminRows(records: readonly Pick<CreatorVersionChange, 'entity' | 'id'>[]) {
-  if (!root) return;
-  for (const { entity, id } of records) {
-    const selector = entity === 'resource' ? '[data-admin-resource]'
-      : entity === 'profile' ? '[data-admin-profile]' : undefined;
-    const datasetKey = entity === 'resource' ? 'adminResource'
-      : entity === 'profile' ? 'adminProfile' : undefined;
-    if (!selector || !datasetKey) continue;
-    const expectedValue = entity === 'resource' ? resourceDomToken(id) : id;
-    const row = Array.from(root.querySelectorAll<HTMLElement>(selector))
-      .find((candidate) => candidate.dataset[datasetKey] === expectedValue);
-    if (row) markAdminActionsStale('button', row);
-  }
+function uniqueRecords(records: readonly Pick<CreatorVersionChange, 'entity' | 'id'>[]) {
+  const unique = new Map<string, Pick<CreatorVersionChange, 'entity' | 'id'>>();
+  records.forEach((record) => unique.set(targetKey(record.entity, record.id), record));
+  return [...unique.values()];
 }
 
 function pauseRelatedClaims(
@@ -471,14 +475,16 @@ function pauseRelatedClaims(
   records: readonly Pick<CreatorVersionChange, 'entity' | 'id'>[] = context.targets,
   { statusScope = false }: { statusScope?: boolean } = {},
 ) {
-  if (!root || !state || context.kind !== 'claim' || typeof context.accountId !== 'string') return;
-  const statusResourceIds = new Set(context.targets.filter(({ entity }) => entity === 'resource').map(({ id }) => id));
-  const dependencyResourceIds = new Set(records.filter(({ entity }) => entity === 'resource').map(({ id }) => id));
-  const profileIds = new Set(records.filter(({ entity }) => entity === 'profile').map(({ id }) => id));
+  if (!root || !state) return;
+  const statusResourceIds = new Set(context.kind === 'claim'
+    ? context.targets.filter(({ entity }) => entity === 'resource').map(({ id }) => id) : []);
+  const affected = uniqueRecords(records);
+  const dependencyResourceIds = new Set(affected.filter(({ entity }) => entity === 'resource').map(({ id }) => id));
+  const profileIds = new Set(affected.filter(({ entity }) => entity === 'profile').map(({ id }) => id));
   if ((!statusScope || statusResourceIds.size === 0)
     && dependencyResourceIds.size === 0 && profileIds.size === 0) return;
   const claims = state.claims.filter((claim) => {
-    const statusMatch = statusScope && claim.accountId === context.accountId
+    const statusMatch = statusScope && typeof context.accountId === 'string' && claim.accountId === context.accountId
         && Array.isArray(claim.resourceIds)
         && claim.resourceIds.some((id) => statusResourceIds.has(id));
     const dependencyMatch = (typeof claim.profileId === 'string' && profileIds.has(claim.profileId))
@@ -486,13 +492,17 @@ function pauseRelatedClaims(
     return statusMatch || dependencyMatch;
   });
   const claimIds = new Set(claims.map((claim) => claim.id).filter((id): id is string => typeof id === 'string'));
-  root.querySelectorAll<HTMLElement>('[data-admin-claim]').forEach((row) => {
+  const rows = [...root.querySelectorAll<HTMLElement>('[data-admin-claim]')].filter((row) => {
     const claimId = row.dataset.adminClaim;
-    if (!claimId || !claimIds.has(claimId)) return;
-    markAdminActionsStale(CLAIM_RESOLUTION_CONTROLS, row);
+    return Boolean(claimId && claimIds.has(claimId));
+  });
+  rows.forEach((row) => {
+    row.querySelectorAll<HTMLElement>(CLAIM_RESOLUTION_CONTROLS).forEach((control) => {
+      control.setAttribute('data-creator-stale', 'true');
+    });
     const form = row.querySelector<HTMLFormElement>('[data-claim-resolution]');
     // Frozen selections remain visible but can't be saved or reverted here.
-    if (form) formState?.commit(formState.capture(form));
+    if (form) formState?.allowPausedSnapshot(formState.capture(form));
   });
 }
 
@@ -508,22 +518,53 @@ async function finishAdminCompletion(
   target: Element | null | undefined,
   successMessage: string,
   submittedValues: FormValueSnapshot | undefined,
+  context: AdminCommandContext,
+  response?: Response,
+  requestError?: unknown,
   options: {
     structural?: boolean;
-    entity?: 'classification' | 'resource-action' | 'profile-action';
-    id?: string;
   } = {},
 ) {
   const receiptGap = completion.receiptProblem || completion.gaps.length > 0;
-  if (!receiptGap) updateOwnedContent(completion.payload, options.entity, options.id);
+  const uncertainReceipt = receiptGap || completion.outcome === 'uncertain';
+  if (completion.outcome !== 'confirmed' || receiptGap) {
+    const message = uncertainReceipt
+      ? context.kind === 'claim'
+        ? receiptGap
+          ? 'La vinculación se completó, pero el recibo no coincide con las versiones observadas. Actualiza la vista para revisar esta solicitud.'
+          : 'No pudimos confirmar el resultado de la vinculación. Actualiza la vista para revisar esta solicitud.'
+        : response
+          ? await responseErrorMessage(response, completion.payload)
+          : requestFailureMessage(requestError, 'No pudimos conectar con el servicio. Inténtalo de nuevo.')
+      : response
+        ? await responseErrorMessage(response, completion.payload)
+        : requestFailureMessage(requestError, 'No pudimos completar la acción. Revisa los datos e inténtalo de nuevo.');
+    if (completion.outcome === 'validation') {
+      announce(target, message, 'error');
+      return;
+    }
+    if (context.kind === 'claim') formState?.allowPausedSnapshot(submittedValues);
+    syncBeforeUnload();
+    const transition = uncertainReceipt
+      ? context.kind === 'claim'
+        ? message
+        : `${message} Actualiza la vista para comprobar el resultado antes de volver a intentarlo.`
+      : `${message} Actualiza la vista antes de volver a intentarlo.`;
+    showViewTransition(transition);
+    announce(target, message, 'error');
+    return;
+  }
+
+  if (options.structural) {
+    const actionSelector = context.kind === 'resource-action' ? '[data-resource-action]'
+      : context.kind === 'profile-action' ? '[data-profile-action]' : undefined;
+    if (actionSelector) pauseAdminRows(context.targets, actionSelector);
+  }
   formState?.commit(submittedValues);
   const hasPendingChanges = syncBeforeUnload();
   if (hasPendingChanges) {
     let message = `${successMessage} Conservamos los cambios que aún no enviaste; puedes seguir editándolos y guardarlos.`;
-    if (receiptGap) {
-      showViewTransition(`${successMessage} El recibo no coincide con las versiones que esta página observó. Conservamos tus campos; revisa cualquier conflicto antes de actualizar la vista. Guarda otros cambios válidos o revierte los pendientes. Si un formulario da conflicto, copia su corrección antes de actualizar.`);
-      message = `${successMessage} El recibo no coincide con una versión que esta página observó. Conservamos los cambios pendientes y habilitamos una actualización segura cuando los guardes o reviertas.`;
-    } else if (options.structural) {
+    if (options.structural) {
       showViewTransition(`${successMessage} Guarda o revierte los cambios pendientes; la página se actualizará cuando termines. Tus campos se conservan.`);
     }
     announce(target, message);
@@ -534,19 +575,18 @@ async function finishAdminCompletion(
 }
 
 async function finishAdminWrite(
-  response: Response,
+  response: Response | null,
   target: Element | null | undefined,
   successMessage: string,
   submittedValues: FormValueSnapshot | undefined,
   context: AdminCommandContext,
+  requestError?: unknown,
   options: {
     structural?: boolean;
-    entity?: 'classification' | 'resource-action' | 'profile-action';
-    id?: string;
   } = {},
 ) {
-  const completion = await completeAdminWrite(response, context);
-  await finishAdminCompletion(completion, target, successMessage, submittedValues, options);
+  const completion = response ? await completeAdminWrite(response, context) : unknownAdminWrite(context);
+  await finishAdminCompletion(completion, target, successMessage, submittedValues, context, response ?? undefined, requestError, options);
 }
 
 function busy(form: HTMLFormElement, value: boolean) {
@@ -592,13 +632,13 @@ if (root && state && csrfToken) {
       busy(form, true);
       try {
         const response = await api(adminResourceCommandUrl(resourceId), 'PATCH', body);
-        if (!response.ok) {
-          announce(itemStatus(item), await responseErrorMessage(response), 'error');
-          return;
-        }
-        await finishAdminWrite(response, itemStatus(item), 'Clasificación guardada.', submittedValues, context, { entity: 'classification', id: resourceId });
+        await finishAdminWrite(response, itemStatus(item), 'Clasificación guardada.', submittedValues, context);
       } catch (error) {
-        announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
+        if (error instanceof Error && error.message === REQUEST_TOO_LARGE) {
+          announce(itemStatus(item), requestFailureMessage(error, ''), 'error');
+        } else {
+          await finishAdminWrite(null, itemStatus(item), 'Clasificación guardada.', submittedValues, context, error);
+        }
       } finally {
         busy(form, false);
       }
@@ -614,30 +654,35 @@ if (root && state && csrfToken) {
       const resourceId = typeof resource?.id === 'string' ? resource.id : undefined;
       const action = button.dataset.resourceAction;
       if (resourceId === undefined || !resource || !['aprobar', 'revocar', 'ocultar', 'restaurar'].includes(action ?? '')) return;
+      const version = observedVersion(resource);
+      const context: AdminCommandContext = {
+        kind: 'resource-action',
+        targets: [{ entity: 'resource', id: resourceId, ...(version !== undefined ? { version } : {}) }],
+      };
       button.disabled = true;
       try {
-        const version = observedVersion(resource);
-        const context: AdminCommandContext = {
-          kind: 'resource-action',
-          targets: [{ entity: 'resource', id: resourceId, ...(version !== undefined ? { version } : {}) }],
-        };
         const response = await api(adminResourceCommandUrl(resourceId, action), 'POST', {
           ...(version === undefined ? {} : { version }),
         });
-        if (!response.ok) {
-          announce(itemStatus(item), await responseErrorMessage(response), 'error');
-          return;
-        }
-        if (item) markAdminActionsStale('[data-resource-action]', item);
         await finishAdminWrite(response, itemStatus(item), action === 'aprobar'
           ? 'Recurso aprobado para el directorio.'
           : action === 'revocar'
             ? 'Aprobación revocada. El enlace puede seguir visible en páginas de creadores.'
             : action === 'ocultar'
               ? 'Recurso oculto en las páginas públicas.'
-              : 'Recurso restaurado.', undefined, context, { structural: true, entity: 'resource-action', id: resourceId });
+              : 'Recurso restaurado.', undefined, context, undefined, { structural: true });
       } catch (error) {
-        announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
+        if (error instanceof Error && error.message === REQUEST_TOO_LARGE) {
+          announce(itemStatus(item), requestFailureMessage(error, ''), 'error');
+        } else {
+          await finishAdminWrite(null, itemStatus(item), action === 'aprobar'
+            ? 'Recurso aprobado para el directorio.'
+            : action === 'revocar'
+              ? 'Aprobación revocada. El enlace puede seguir visible en páginas de creadores.'
+              : action === 'ocultar'
+                ? 'Recurso oculto en las páginas públicas.'
+                : 'Recurso restaurado.', undefined, context, error, { structural: true });
+        }
       } finally {
         button.disabled = false;
       }
@@ -652,24 +697,23 @@ if (root && state && csrfToken) {
       if (!profileId || !['ocultar', 'restaurar'].includes(action ?? '')) return;
       const profile = state?.profiles.find((candidate) => candidate.id === profileId);
       if (!profile) return;
+      const version = observedVersion(profile);
+      const context: AdminCommandContext = {
+        kind: 'profile-action',
+        targets: [{ entity: 'profile', id: profileId, ...(version !== undefined ? { version } : {}) }],
+      };
       button.disabled = true;
       try {
-        const version = observedVersion(profile);
-        const context: AdminCommandContext = {
-          kind: 'profile-action',
-          targets: [{ entity: 'profile', id: profileId, ...(version !== undefined ? { version } : {}) }],
-        };
         const response = await api(`/api/admin/perfiles/${encodeURIComponent(profileId)}/${action}/`, 'POST', {
           ...(version === undefined ? {} : { version }),
         });
-        if (!response.ok) {
-          announce(itemStatus(item), await responseErrorMessage(response), 'error');
-          return;
-        }
-        if (item) markAdminActionsStale('[data-profile-action]', item);
-        await finishAdminWrite(response, itemStatus(item), action === 'ocultar' ? 'Perfil oculto.' : 'Perfil restaurado.', undefined, context, { structural: true, entity: 'profile-action', id: profileId });
+        await finishAdminWrite(response, itemStatus(item), action === 'ocultar' ? 'Perfil oculto.' : 'Perfil restaurado.', undefined, context, undefined, { structural: true });
       } catch (error) {
-        announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
+        if (error instanceof Error && error.message === REQUEST_TOO_LARGE) {
+          announce(itemStatus(item), requestFailureMessage(error, ''), 'error');
+        } else {
+          await finishAdminWrite(null, itemStatus(item), action === 'ocultar' ? 'Perfil oculto.' : 'Perfil restaurado.', undefined, context, error, { structural: true });
+        }
       } finally {
         button.disabled = false;
       }
@@ -724,7 +768,6 @@ if (root && state && csrfToken) {
       };
       selectionControls.forEach((control) => { control.disabled = true; });
       busy(form, true);
-      const pauseResolution = () => markAdminActionsStale(CLAIM_RESOLUTION_CONTROLS, item ?? form);
       try {
         const response = await api('/api/admin/reclamaciones/vincular/', 'POST', {
           accountId: claim.accountId,
@@ -732,11 +775,10 @@ if (root && state && csrfToken) {
           resourceIds: selectedIds,
         });
         const completion = await completeAdminWrite(response, context);
-        if (response.ok || completion.claimReviewRequired) pauseResolution();
         if (!response.ok) {
           const linkedIds = completion.linkedIds;
           if (completion.claimReviewRequired) {
-            formState?.commit(formState.capture(form));
+            formState?.allowPausedSnapshot(formState.capture(form));
             syncBeforeUnload();
             if (completion.payload?.error === 'CLAIM_GRANT_UNCERTAIN'
               || (completion.payload && Object.hasOwn(completion.payload, 'uncertainResourceId'))) {
@@ -780,17 +822,15 @@ if (root && state && csrfToken) {
           announce(itemStatus(item), await responseErrorMessage(response, completion.payload), 'error');
           return;
         }
-        await finishAdminCompletion(completion, itemStatus(item), 'Recursos vinculados a la cuenta.', submittedValues, {
+        await finishAdminCompletion(completion, itemStatus(item), 'Recursos vinculados a la cuenta.', submittedValues, context, response, undefined, {
           structural: true,
         });
       } catch (error) {
         if (error instanceof Error && error.message === REQUEST_TOO_LARGE) {
           announce(itemStatus(item), requestFailureMessage(error, ''), 'error');
         } else {
-          pauseResolution();
-          pauseAdminRows(context.targets);
-          pauseRelatedClaims(context);
-          formState?.commit(submittedValues);
+          unknownAdminWrite(context);
+          formState?.allowPausedSnapshot(submittedValues);
           syncBeforeUnload();
           const message = 'No pudimos confirmar el resultado de la vinculación. Actualiza la vista para revisar esta solicitud.';
           showViewTransition(message);

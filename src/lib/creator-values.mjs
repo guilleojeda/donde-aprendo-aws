@@ -45,6 +45,11 @@ export function isCreatorStateId(value) {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/u.test(value);
 }
 
+/** @param {unknown} value */
+export function isCreatorPhotoId(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/u.test(value);
+}
+
 export const CREATOR_PHOTO_MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 export const CREATOR_PHOTO_MAX_PIXELS = 40_000_000;
 export const CREATOR_PHOTO_FORMATS = Object.freeze(['jpeg', 'png', 'webp']);

@@ -1,5 +1,5 @@
 import type { CreatorClaimDTO } from '../../types/creators';
-import type { CreatorOwnerState } from '../../lib/creator-owner-state';
+import { deriveCreatorOwnerRecoveryAction, type CreatorOwnerState } from '../../lib/creator-owner-state';
 
 interface Props {
   state: CreatorOwnerState;
@@ -27,8 +27,11 @@ export default function CreatorOwnerClaimsPanel({ state, disabled, onOpen, onRef
   const titles = new Map<string, string>();
   for (const resource of state.observed.resources) titles.set(resource.id, resource.title);
   for (const resource of state.catalog.entries ?? []) if (!titles.has(resource.id)) titles.set(resource.id, resource.title);
-  const claimsReadPending = state.operation.status === 'reading' && state.operation.fact === 'claims';
-  const claimsReadFailure = state.operation.status === 'refresh-failed' && state.operation.fact === 'claims' ? state.operation : undefined;
+  const recoveryAction = deriveCreatorOwnerRecoveryAction(state);
+  const claimsReadPending = recoveryAction.kind === 'pending' && recoveryAction.surface === 'claims'
+    && state.operation.status === 'reading' && state.operation.fact === 'claims';
+  const claimsReadFailure = (recoveryAction.kind === 'retry' || recoveryAction.kind === 'session-check') && recoveryAction.surface === 'claims'
+    && state.operation.status === 'refresh-failed' && state.operation.fact === 'claims' ? state.operation : undefined;
 
   return <section class="creator-owner__claims" data-owner-claims aria-labelledby="owner-claims-title">
     <header class="creator-owner__section-heading creator-owner__claims-heading"><div>

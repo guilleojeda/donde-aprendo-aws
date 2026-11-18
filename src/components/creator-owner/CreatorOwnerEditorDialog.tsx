@@ -16,6 +16,7 @@ import {
   creatorOwnerLinkMoveContext,
   creatorOwnerMoveDestinationIsValid,
   creatorOwnerReferenceSubmissionStatus,
+  deriveCreatorOwnerRecoveryAction,
   type CreatorOwnerEditorDraft,
   type CreatorOwnerLinkDraft,
   type CreatorOwnerRecoveryChoice,
@@ -257,6 +258,7 @@ export default function CreatorOwnerEditorDialog({
           <a class="button button--outline" data-session-recovery-sign-in href="/cuenta/ingresar/" target="_blank" rel="noopener noreferrer">Ingresar en otra pestaña</a>
           <button class="button button--outline" type="button" data-session-recovery-check disabled={state.session.state === 'checking'} onClick={onCheckSession}>Comprobar sesión</button>
         </>}
+        {state.session.state === 'blocked' && <a class="button button--outline" data-session-recovery-sign-in href="/cuenta/ingresar/" target="_blank" rel="noopener noreferrer">Ingresar en otra pestaña</a>}
       </section>}
 
       {editorIsDialog && editor?.kind === 'profile' && editor.section === 'datos' && <form class="creator-owner__form" hidden={prompt} data-owner-form="datos" onSubmit={editorSubmit}>
@@ -430,7 +432,8 @@ export default function CreatorOwnerEditorDialog({
         <p id="owner-exit-copy">{operation.status === 'sending' ? 'La solicitud está en curso. Espera a que termine antes de salir.'
           : editor ? 'Puedes guardar esta corrección, descartarla o seguir editando.'
             : 'Comprueba el estado guardado o decide si sigues a la página solicitada.'}</p>
-        {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
+        {(matches || operation.status !== 'idle' && operation.status !== 'sending')
+          && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions">
           {editor && <button class="button button--dark" type="button" data-owner-exit-save disabled={!canSubmit} onClick={() => onExit('save')}>Guardar y salir</button>}
           <button id="owner-exit-discard" class="button button--outline" type="button" data-owner-exit-discard disabled={operation.status === 'sending'} onClick={() => onExit('discard')}>
@@ -452,7 +455,8 @@ function OperationFeedback({ state, rows, canSaveDraft, onRetryRead, onResolve, 
   onSaveDraft(): void;
 }) {
   const operation = state.operation;
-  if (operation.status === 'idle' || operation.status === 'sending') return null;
+  const recoveryAction = deriveCreatorOwnerRecoveryAction(state);
+  if (operation.status === 'idle' || operation.status === 'sending' || recoveryAction.kind === 'none') return null;
   const fact = operation.status === 'reading' || operation.status === 'refresh-failed' ? operation.fact : undefined;
   const claimIntent = (operation.status === 'unknown' || operation.status === 'conflict') && operation.intent.action === 'create-claim';
   const photoConflict = operation.status === 'conflict'
@@ -474,13 +478,13 @@ function OperationFeedback({ state, rows, canSaveDraft, onRetryRead, onResolve, 
     {photoConflict && <p data-owner-photo-recovery>Tu archivo sigue seleccionado. Puedes cargarlo con la versión actual del perfil.</p>}
     {claimIntent && operation.status === 'unknown' && <p>El historial puede mostrar solicitudes parecidas, pero no permite confirmar si este envío fue el original. Volver al borrador y enviarlo otra vez puede crear un duplicado.</p>}
     {rows && <div class="creator-owner__comparison" data-owner-comparison><ComparisonRows rows={rows} /></div>}
-    {operation.status === 'refresh-failed' && <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>}
-    {operation.status === 'unknown' && !operation.readCompleted && <button class="button button--outline" type="button" data-owner-check disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Comprobar estado guardado</button>}
-    {operation.status === 'unknown' && operation.readCompleted && <div class="creator-owner__dialog-actions">
+    {recoveryAction.kind === 'retry' && <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>}
+    {recoveryAction.kind === 'compare' && <button class="button button--outline" type="button" data-owner-check disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Comprobar estado guardado</button>}
+    {recoveryAction.kind === 'resolve' && operation.status === 'unknown' && <div class="creator-owner__dialog-actions">
       <button class="button button--outline" type="button" data-owner-use-saved onClick={() => onResolve('saved')}>Usar lo guardado</button>
       <button class="button button--outline" type="button" data-owner-return-to-draft onClick={() => onResolve('draft')}>Volver al borrador</button>
     </div>}
-    {operation.status === 'conflict' && operation.readCompleted && <div class="creator-owner__dialog-actions">
+    {recoveryAction.kind === 'resolve' && operation.status === 'conflict' && <div class="creator-owner__dialog-actions">
       {canSaveDraft && <button class="button button--dark" type="button" data-owner-conflict-save data-owner-photo-retry={photoConflict ? true : undefined} onClick={onSaveDraft}>{photoConflict ? 'Cargar de nuevo esta foto' : 'Guardar mi borrador'}</button>}
       {canReselect && <button class="button button--outline" type="button" data-owner-return-to-draft onClick={() => onResolve('draft')}>Volver al borrador</button>}
       {canCorrectMoveDraft && <button class="button button--outline" type="button" data-owner-return-to-draft data-owner-move-draft-correction onClick={() => onResolve('draft')}>Corregir posición</button>}

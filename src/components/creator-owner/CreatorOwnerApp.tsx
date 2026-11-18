@@ -31,6 +31,7 @@ import {
   creatorOwnerClaimSelectionIsCurrent,
   creatorOwnerLinkMoveContext,
   creatorOwnerPreservesAcknowledgedRead,
+  deriveCreatorOwnerRecoveryAction,
   creatorOwnerReferenceSubmissionStatus,
   creatorOwnerDraftIsDirty,
   creatorOwnerReducer,
@@ -41,7 +42,6 @@ import {
   type CreatorOwnerSocialsDraft,
   type CreatorOwnerIntent,
   type CreatorOwnerOperation,
-  type CreatorOwnerLocation,
   type CreatorOwnerState,
   type CreatorOwnerView,
   type CreatorOwnerReadFact,
@@ -149,18 +149,6 @@ function ownerResource(snapshot: CreatorOwnerSnapshotDTO, resourceId: string) {
 type ListRecoveryOperation = Extract<CreatorOwnerOperation,
   { status: 'reading' | 'refresh-failed' | 'unknown' | 'conflict' }> & { intent: CreatorOwnerIntent };
 
-function isListRecoveryOperation(operation: CreatorOwnerOperation): operation is ListRecoveryOperation {
-  if (operation.status === 'idle' || operation.status === 'sending' || !operation.intent) return false;
-  return ['delete-series', 'add-chapter', 'remove-chapter', 'remove-link', 'reinclude-link']
-    .includes(operation.intent.action);
-}
-
-function isAcknowledgedReadRecovery(operation: CreatorOwnerOperation): operation is Extract<CreatorOwnerOperation, { status: 'reading' | 'refresh-failed' }> & { intent: CreatorOwnerIntent } {
-  return (operation.status === 'reading' || operation.status === 'refresh-failed')
-    && operation.fact === 'acknowledged' && Boolean(operation.intent?.acknowledgement)
-    && operation.intent?.action !== 'publish-profile';
-}
-
 function isWriteActive(state: CreatorOwnerState): boolean {
   return state.operation.status === 'sending';
 }
@@ -248,6 +236,7 @@ function usableOwnerFocusTarget(target: HTMLElement | null | undefined): target 
 }
 
 const sessionRecoveryFocus = '[data-session-recovery-check]';
+const sessionTerminalFocus = '[data-session-recovery-new], [data-session-recovery-sign-in]';
 const retryReadFocus = '[data-owner-refresh-retry]';
 const recoveryDecisionFocus = '[data-owner-conflict-save], [data-owner-use-saved], [data-owner-return-to-draft]';
 
@@ -288,7 +277,6 @@ export default function CreatorOwnerApp(props: Props) {
   const sessionPolicyRef = useRef<CreatorOwnerSessionPolicyState>({ session: state.session, sessionEvidence: state.sessionEvidence });
   const sessionOperationIdRef = useRef(0);
   // requestSubmit dispatches submit synchronously, and only after native validation.
-  const exitSubmitTransitionRef = useRef<CreatorOwnerLocation['transition']>(undefined);
   const linksHydrationAppliedRef = useRef(false);
   const handledTransitionRef = useRef<string | undefined>(undefined);
   const previousEditorKeyRef = useRef<string | undefined>(undefined);
@@ -570,15 +558,17 @@ export default function CreatorOwnerApp(props: Props) {
 
   useEffect(() => {
     const requested = state.location.focusAfterRender;
-    const sessionNeedsFocus = state.session.state === 'recovery-required' && !hasUsableOwnerActiveFocus();
-    const selector = requested ?? (sessionNeedsFocus ? sessionRecoveryFocus : undefined);
+    const sessionNeedsFocus = (state.session.state === 'recovery-required' || state.session.state === 'blocked')
+      && !hasUsableOwnerActiveFocus();
+    const selector = sessionNeedsFocus ? state.session.state === 'blocked' ? sessionTerminalFocus : sessionRecoveryFocus : requested;
     if (!selector || stateRef.current.location.focusAfterRender !== requested) return;
     const root = rootRef.current;
     const target = visibleOwnerFocusTarget(root, selector);
     const clearRequestedFocus = () => {
-      if (requested) dispatch({ type: 'clear-focus', selector: requested });
+      if (requested && selector === requested) dispatch({ type: 'clear-focus', selector: requested });
     };
     if (!root || !target) {
+      if (sessionNeedsFocus || requested && state.session.state !== 'ready') return;
       clearRequestedFocus();
       return;
     }
@@ -593,8 +583,10 @@ export default function CreatorOwnerApp(props: Props) {
         clearRequestedFocus();
         return;
       }
-      const recoveryFocusTarget = latestTarget.matches(`${retryReadFocus}, ${sessionRecoveryFocus}, ${recoveryDecisionFocus}`);
-      if (recoveryFocusTarget && document.activeElement !== latestTarget && hasUsableOwnerActiveFocus()) {
+      const recoveryFocusTarget = latestTarget.matches(`${retryReadFocus}, ${sessionRecoveryFocus}, ${recoveryDecisionFocus}, [data-owner-check], [data-owner-compare], [data-owner-publish-check]`)
+        || selector.includes('[data-owner-dialog] form[data-owner-form]') || selector === '#owner-create-name';
+      const preserveUsableFocus = recoveryFocusTarget || state.message?.sessionDerived === true;
+      if (preserveUsableFocus && document.activeElement !== latestTarget && hasUsableOwnerActiveFocus()) {
         clearRequestedFocus();
         return;
       }
@@ -620,8 +612,7 @@ export default function CreatorOwnerApp(props: Props) {
     if (openDialog && !openDialog.contains(target)) {
       const onClose = () => {
         const current = stateRef.current;
-        if (current.location.focusAfterRender !== requested || current.location.prompt !== 'none'
-          || (!requested && current.session.state !== 'recovery-required')) return;
+        if (current.location.focusAfterRender !== requested || current.location.prompt !== 'none') return;
         focusTarget();
       };
       openDialog.addEventListener('close', onClose, { once: true });
@@ -923,8 +914,7 @@ export default function CreatorOwnerApp(props: Props) {
     return { id: nextId(action), ...(options.editor ? { editorKey: options.editor.key } : {}),
       action, profileId: latest.observed.profile?.id ?? null, creatorVersion: latest.observed.creatorVersion,
       ...(options.target ? { target: options.target } : {}),
-      ...(options.resourceVersion !== undefined ? { base: { resourceVersion: options.resourceVersion } } : {}),
-      ...(exitSubmitTransitionRef.current ? { exitTransition: exitSubmitTransitionRef.current } : {}), fields };
+      ...(options.resourceVersion !== undefined ? { base: { resourceVersion: options.resourceVersion } } : {}), fields };
   }
 
   function removeOwnerLink(placementId: string) {
@@ -1030,7 +1020,7 @@ export default function CreatorOwnerApp(props: Props) {
     }
     if (acknowledgement.claimId && acknowledgement.claimVersion !== undefined) {
       const claim = snapshot.claims.find(({ id }) => id === acknowledgement.claimId);
-      if (claim?.version !== undefined && claim.version < acknowledgement.claimVersion) return false;
+      if (!claim || claim.version === undefined || claim.version < acknowledgement.claimVersion) return false;
     }
     return true;
   }
@@ -1377,14 +1367,24 @@ export default function CreatorOwnerApp(props: Props) {
     return undefined;
   }
 
-  function submitCurrentEditor() {
+  function submitCurrentEditor(): boolean {
     const latest = stateRef.current;
     const editor = latest.editor;
-    if (!editor) return;
-    if (editor.kind === 'photo') { void startPhotoUpload(editor); return; }
-    if (editor.kind === 'profile' && editor.section === 'redes' && !validateSocialUrls(editor)) return;
+    if (!editor) return false;
+    if (editor.kind === 'photo') {
+      const profile = latest.observed.profile;
+      if (!editor.file || !profile || editor.key !== `photo:${profile.id}`
+        || !CREATOR_PHOTO_MIME_TYPES.includes(editor.file.type) || editor.file.size > CREATOR_PHOTO_MAX_UPLOAD_BYTES) {
+        if (editor.file) setMessage('Elige una imagen JPEG, PNG o WebP de hasta 15 MiB.', 'error');
+        return false;
+      }
+      void startPhotoUpload(editor); return true;
+    }
+    if (editor.kind === 'profile' && editor.section === 'redes' && !validateSocialUrls(editor)) return false;
     const intent = intentForEditor(editor);
-    if (intent) void startCommand(intent, latest.operation.status === 'conflict' && Boolean(latest.operation.readCompleted));
+    if (!intent) return false;
+    void startCommand(intent, latest.operation.status === 'conflict' && Boolean(latest.operation.readCompleted));
+    return true;
   }
 
   async function startPhotoUpload(editor: Extract<CreatorOwnerEditorDraft, { kind: 'photo' }>) {
@@ -1402,7 +1402,7 @@ export default function CreatorOwnerApp(props: Props) {
     }
     const intent: CreatorOwnerIntent = { id: nextId('photo'), editorKey: editor.key, action: 'photo-authorize',
       profileId: profile.id, creatorVersion: latest.observed.creatorVersion,
-      ...(exitSubmitTransitionRef.current ? { exitTransition: exitSubmitTransitionRef.current } : {}) };
+    };
     const generation = ++operationGenerationRef.current;
     const operationId = nextSessionOperationId();
     const binding = latest.sessionBinding;
@@ -1573,14 +1573,16 @@ export default function CreatorOwnerApp(props: Props) {
     }
   }
 
-  function submitCreateProfile() {
+  function submitCreateProfile(): boolean {
     const latest = stateRef.current;
     const editor = latest.editor;
-    if (editor?.kind !== 'create-profile') return;
+    if (editor?.kind !== 'create-profile') return false;
     const form = rootRef.current?.querySelector<HTMLFormElement>('[data-owner-form="crear"]');
-    if (!form?.reportValidity()) return;
+    if (!form?.reportValidity()) return false;
     const intent = intentForEditor(editor);
-    if (intent) void startCommand(intent, latest.operation.status === 'conflict' && Boolean(latest.operation.readCompleted));
+    if (!intent) return false;
+    void startCommand(intent, latest.operation.status === 'conflict' && Boolean(latest.operation.readCompleted));
+    return true;
   }
 
   function createProfile() {
@@ -1609,15 +1611,17 @@ export default function CreatorOwnerApp(props: Props) {
     dispatch({ type: 'update-series-draft', value, ...(manuallyEditedSlug ? { manuallyEditedSlug: true } : {}) });
   }
 
-  function submitEditorForm() {
+  function submitEditorForm(): boolean {
     const editor = stateRef.current.editor;
-    if (!editor) return;
+    if (!editor) return false;
     const selector = editor.kind === 'create-profile' ? '[data-owner-form="crear"]'
       : '[data-owner-dialog] form[data-owner-form]:not([hidden])';
     const form = rootRef.current?.querySelector<HTMLFormElement>(selector);
     const submitter = form?.querySelector<HTMLButtonElement>('button[type="submit"]:enabled');
+    const generation = operationGenerationRef.current;
     if (form && submitter) form.requestSubmit(submitter);
     else submitCurrentEditor();
+    return operationGenerationRef.current !== generation;
   }
 
   function saveRecoveryDraft() {
@@ -1673,15 +1677,12 @@ export default function CreatorOwnerApp(props: Props) {
       return;
     }
     const editor = latest.editor;
-    const transition = latest.location.exitRequest;
-    dispatch({ type: 'resolve-transition', action: 'continue' });
+    dispatch({ type: 'resolve-transition', action: 'authorize' });
     if (!editor) return;
     window.requestAnimationFrame(() => {
       const current = stateRef.current;
       if (current.editor !== editor || current.location.prompt !== 'none') return;
-      exitSubmitTransitionRef.current = transition;
-      submitEditorForm();
-      exitSubmitTransitionRef.current = undefined;
+      if (!submitEditorForm()) dispatch({ type: 'resolve-transition', action: 'cancel-authorize' });
     });
   }
 
@@ -1703,10 +1704,12 @@ export default function CreatorOwnerApp(props: Props) {
     setMessage(copied ? 'Copiaste el enlace público.' : 'No pudimos copiar el enlace. Puedes copiarlo desde la dirección de tu página.', copied ? 'success' : 'error');
   }
 
-  const operation = state.operation;
   const chapterRecoveryInDetail = creatorOwnerChapterRecoveryIsVisibleInDetail(state);
+  const recoveryAction = deriveCreatorOwnerRecoveryAction(state);
   const listOperation = !state.editor && !chapterRecoveryInDetail
-    && (isListRecoveryOperation(operation) || isAcknowledgedReadRecovery(operation)) ? operation : undefined;
+    && ['series', 'links', 'owner'].includes(recoveryAction.surface) && recoveryAction.kind !== 'none'
+    && 'intent' in recoveryAction.operation && recoveryAction.operation.intent
+    ? recoveryAction.operation as ListRecoveryOperation : undefined;
   const listRecoveryKind = listOperation
     ? listOperation.status === 'reading' || listOperation.status === 'refresh-failed' ? listOperation.fact : listOperation.status
     : undefined;

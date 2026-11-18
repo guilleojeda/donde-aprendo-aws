@@ -3,7 +3,7 @@ import {
 } from './creator-session-context.mjs';
 import { parseHttpsOrigin } from './account-origin.mjs';
 import { CreatorStateError } from './creator-state.mjs';
-import { CREATOR_CONTRACT_HEADER, CREATOR_CONTRACT_VERSION } from './creator-values.mjs';
+import { CREATOR_CONTRACT_HEADER, CREATOR_CONTRACT_VERSION, isCreatorPhotoId } from './creator-values.mjs';
 
 const PRIVATE_HEADERS = {
   'content-type': 'application/json; charset=utf-8',
@@ -26,7 +26,7 @@ function sessionJson(value, status = 200, additionalHeaders = {}) {
   });
 }
 
-async function creatorSessionContext(request, auth) {
+export async function creatorSessionContext(request, auth) {
   if (request.method !== 'GET') {
     return sessionJson({ error: 'METHOD_NOT_ALLOWED' }, 405, { allow: 'GET' });
   }
@@ -81,8 +81,6 @@ async function smallJson(request) {
 }
 
 function photoErrorStatus(error) {
-  if (error instanceof CreatorStateError) return error.status;
-  if (error instanceof TypeError || error instanceof RangeError) return 422;
   if (error?.code === 'PROFILE_VERSION_CONFLICT') return 409;
   if (['PROFILE_NOT_FOUND', 'UPLOAD_NOT_FOUND'].includes(error?.code)) return 404;
   if (['UPLOAD_EXPIRED', 'UPLOAD_NOT_PENDING', 'TEMPORARY_PHOTO_NOT_FOUND'].includes(error?.code)) return 409;
@@ -128,7 +126,8 @@ export function createCreatorHttpHandler({ service, photos, auth, store, origin 
       }
       const owner = await store.get(`account-profile:${principal.accountId}`);
       if (!owner) return json({ error: 'PROFILE_NOT_FOUND' }, 404);
-      if (typeof owner.profileId !== 'string' || !owner.profileId) return json({ error: 'INVALID_OWNER' }, 503);
+      if (!isCreatorPhotoId(owner.profileId)) return json({ error: 'INVALID_OWNER' }, 503);
+      if (!isAuthorization && !isCreatorPhotoId(body.uploadId)) return json({ error: 'INVALID_PHOTO_REQUEST' }, 422);
       const input = { profileId: owner.profileId, expectedVersion: body.creatorVersion };
       if (isAuthorization) {
         const result = await photos.beginUpload(input);
@@ -151,11 +150,10 @@ export function createCreatorHttpHandler({ service, photos, auth, store, origin 
         disposition: 'finalized',
       });
     } catch (error) {
+      if (error instanceof CreatorStateError) return json({ error: error.code }, error.status);
+      if (error?.code === 'CREATOR_PHOTO_READ_LIMIT') return json({ error: 'INVALID_PHOTO_REQUEST' }, 422);
       const status = photoErrorStatus(error);
-      const code = error instanceof CreatorStateError
-        ? error.code
-        : status === 503 ? 'PHOTO_UNAVAILABLE' : error.code ?? 'INVALID_PHOTO_REQUEST';
-      return json({ error: code }, status);
+      return json({ error: status === 503 ? 'PHOTO_UNAVAILABLE' : error.code }, status);
     }
   };
 }

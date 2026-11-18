@@ -404,6 +404,7 @@ test('ACCOUNT_DISABLED on a regular profile save enters a terminal state and pre
     await expect(form.getByLabel('Nombre visible')).toHaveValue('Draft retained for disabled account');
     await expect(page.locator('[data-owner-dialog][open] [data-session-recovery-status]')).toContainText('Esta cuenta está desactivada.');
     await expect(sessionCheck(page)).toHaveCount(0);
+    await expect(page.locator('[data-owner-dialog][open] [data-session-recovery-sign-in]')).toBeFocused();
     await expect(form.getByRole('button', { name: 'Guardar datos' })).toBeDisabled();
     assert.equal(capture.writes().length, 1, 'the real disabled response is not retried');
     fixture.accountStore.seedAccount(account);
