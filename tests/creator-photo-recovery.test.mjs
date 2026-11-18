@@ -1059,6 +1059,75 @@ test('the actual HTTP handler returns a real finalization receipt and retains tr
   }
 });
 
+test('an arbitrary post-CAS TypeError or RangeError with failed confirmation is an uncertain HTTP result and later historical confirmation does not replay the write', async (t) => {
+  for (const Fault of [TypeError, RangeError]) {
+    await t.test(`${Fault.name} after commit`, async () => {
+  const { jpeg } = await rasterPhotoFixtures();
+  const harness = await createCreatorPhotoHarness();
+  await seedHttpOwner(harness);
+  const upload = await startUpload(harness, jpeg);
+  const uploadKey = UPLOAD_KEY(upload.uploadId);
+  harness.objects.seed(upload.post.fields.key, jpeg);
+
+  const transact = harness.store.transact.bind(harness.store);
+  const get = harness.store.get.bind(harness.store);
+  let committed = false;
+  let failConfirmation = true;
+  harness.store.transact = async (input) => {
+    const result = await transact(input);
+    if (result === true && completionPut(input, upload.uploadId) && !committed) {
+      committed = true;
+      throw new Fault('post-CAS acknowledgement failed');
+    }
+    return result;
+  };
+  harness.store.get = async (key) => {
+    if (key === uploadKey && committed && failConfirmation) {
+      failConfirmation = false;
+      throw new Error('confirmation read unavailable');
+    }
+    return get(key);
+  };
+
+  const handler = photoHttpHandler(harness);
+  const uncertain = await handler(finalizeRequest(upload));
+  assert.equal(uncertain.status, 503);
+  assert.deepEqual(await uncertain.json(), { error: 'PHOTO_UNAVAILABLE' });
+
+  const savedProfile = await harness.store.get(profileStoreKey('creator-a'));
+  const savedUpload = await harness.store.get(uploadKey);
+  assert.equal(savedProfile.version, 2, 'the profile CAS committed before the acknowledgement fault');
+  assert.deepEqual(savedProfile.photo, {
+    version: upload.uploadId,
+    url: `/media/fotos/creator-a/${upload.uploadId}.webp`,
+  });
+  assert.equal(savedUpload.state, 'complete', 'the upload receipt committed before the acknowledgement fault');
+  const immutable = await harness.service.readPhoto({ profileId: 'creator-a', version: upload.uploadId });
+  assert.ok(immutable && Buffer.isBuffer(immutable.body) && immutable.body.length > 0,
+    'the committed immutable WebP remains readable after the uncertain response');
+
+  const retry = await handler(finalizeRequest(upload));
+  assert.equal(retry.status, 200);
+  assert.deepEqual(await retry.json(), {
+    schemaVersion: 2,
+    operation: 'finalize-photo',
+    profileId: 'creator-a',
+    uploadId: upload.uploadId,
+    creatorVersion: 2,
+    photo: {
+      version: upload.uploadId,
+      url: `/media/fotos/creator-a/${upload.uploadId}.webp`,
+    },
+    disposition: 'finalized',
+  }, 'the same exact manual confirmation returns the historical receipt');
+  assert.equal(transactionsCompleting(harness, upload.uploadId).length, 1,
+    'historical confirmation does not replay the completion transaction');
+  assert.equal(harness.objects.calls.filter(({ operation }) => operation === 'put').length, 1,
+    'historical confirmation does not rewrite the immutable variant');
+    });
+  }
+});
+
 test('photo authorization fails closed for malformed aggregate state without signing or creating an upload', async () => {
   const harness = await createCreatorPhotoHarness();
   await seedHttpOwner(harness);

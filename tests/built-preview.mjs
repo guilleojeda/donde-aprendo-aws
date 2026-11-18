@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { once } from 'node:events';
+import { createServer } from 'node:http';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
@@ -153,6 +156,144 @@ test('a fresh real packaged Compute boots using only its packaged release config
   assert.equal(account.status, 200, 'The same fresh Compute serves the account entry.');
   assert.match(await account.text(), /<h1\b[^>]*>Tu cuenta<\/h1>/u);
   await configured.stop();
+});
+
+function assertPrivateCache(response) {
+  const directives = (response.headers.get('cache-control') ?? '').toLowerCase().split(',').map((part) => part.trim());
+  assert.ok(directives.includes('private') && directives.includes('no-store'), `Private cache policy for ${response.url}`);
+}
+
+function assertPrivateApi(response) {
+  assertPrivateCache(response);
+  assert.match(response.headers.get('x-robots-tag') ?? '', /\bnoindex\b/iu, `Private indexing policy for ${response.url}`);
+}
+
+test('packaged private routes preserve their result and cache/robots policy across success, denial and fallback', async (t) => {
+  const accountsTable = 'phase5-privacy-local-accounts';
+  const token = createHash('sha256').update('phase5-local-private-session').digest('base64url');
+  const csrfToken = 'phase5-local-csrf';
+  const identity = {
+    issuer: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_preview',
+    sub: 'disposable-privacy-owner',
+  };
+  const sha = (value, encoding) => createHash('sha256').update(value).digest(encoding);
+  const accountId = sha(JSON.stringify([identity.issuer, identity.sub]), 'base64url');
+  const binding = sha(JSON.stringify(['creator-page-recovery-v1', accountId, false]), 'hex');
+  const issued = Date.now() - 60_000;
+  // CI moves node_modules into Compute before running this outer HTTP test.
+  // Keep the small provider fixture in DynamoDB's wire format.
+  const wireIdentity = { M: { issuer: { S: identity.issuer }, sub: { S: identity.sub } } };
+  const rows = new Map([
+    [`SESSION#${sha(token, 'base64url')}`, {
+      identity: wireIdentity,
+      csrfToken: { S: csrfToken },
+      epoch: { N: '0' },
+      createdAt: { N: String(issued) },
+      expiresAt: { N: String(issued + 900_000) },
+    }],
+    [`ACCOUNT#${accountId}`, {
+      identity: wireIdentity,
+      email: { S: 'privacy@example.invalid' },
+      active: { BOOL: true },
+      epoch: { N: '0' },
+      authValidAfter: { N: '0' },
+    }],
+    [`PROFILE_OWNER#${sha(accountId, 'hex')}`, undefined],
+  ]);
+  const reads = [];
+  const unexpected = [];
+  const dynamo = createServer(async (request, response) => {
+    response.setHeader('content-type', 'application/x-amz-json-1.0');
+    try {
+      assert.equal(request.headers['x-amz-target'], 'DynamoDB_20120810.GetItem');
+      const chunks = [];
+      for await (const chunk of request) chunks.push(chunk);
+      const input = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      assert.equal(input.TableName, accountsTable);
+      const pk = input.Key?.pk?.S;
+      assert.ok(rows.has(pk), 'The fixture accepts only the known disposable account keys.');
+      reads.push(pk);
+      const row = rows.get(pk);
+      response.end(JSON.stringify(row ? { Item: { pk: { S: pk }, ...row } } : {}));
+    } catch (error) {
+      unexpected.push(error.message);
+      response.writeHead(400).end(JSON.stringify({ __type: 'ValidationException' }));
+    }
+  });
+  dynamo.listen(0, '127.0.0.1');
+  await once(dynamo, 'listening');
+  t.after(() => new Promise((done) => dynamo.close(done)));
+  const env = {
+    ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
+    ...dummyCredentials,
+    AWS_EC2_METADATA_DISABLED: 'true',
+    AWS_MAX_ATTEMPTS: '1',
+    AWS_ENDPOINT_URL_DYNAMODB: `http://127.0.0.1:${dynamo.address().port}`,
+    ACCOUNT_ORIGIN: 'https://dondeaprendoaws.com',
+    COGNITO_ISSUER: identity.issuer,
+    ACCOUNTS_TABLE: accountsTable,
+    CATALOG_TABLE: 'phase5-privacy-local-catalog',
+  };
+  const preview = await startMixedPreview(t, { root, env });
+  const get = (path, headers = {}) => fetch(new URL(path, preview.origin), {
+    redirect: 'manual', headers, signal: AbortSignal.timeout(5_000),
+  });
+  const auth = { cookie: `da_session=${token}`, 'x-creator-page-binding': binding };
+  const owner = await get('/api/creador/perfil/', auth);
+  assert.equal(owner.status, 200, JSON.stringify({ reads, unexpected }));
+  const ownerState = await owner.json();
+  assert.equal(ownerState.profile, null);
+  assert.equal(ownerState.creatorVersion, null);
+  assert.deepEqual(new Set(reads), new Set(rows.keys()), 'The actual account and creator readers observed the fixture keys.');
+  assert.deepEqual(unexpected, []);
+  await t.test('successful owner read', () => assertPrivateApi(owner));
+
+  for (const { name, path, headers, status, error } of [
+    { name: 'owner authentication denial', path: '/api/creador/perfil/', status: 401, error: 'AUTH_REQUIRED' },
+    { name: 'administrator role denial', path: '/api/admin/recursos/', headers: auth, status: 403, error: 'ADMIN_REQUIRED' },
+    { name: 'photo method rejection', path: '/api/creador/foto/autorizar/', status: 405, error: 'METHOD_NOT_ALLOWED' },
+    { name: 'statistics authentication denial', path: '/api/creador/estadisticas/', status: 401, error: 'AUTH_REQUIRED' },
+    { name: 'unrecognized private API path', path: '/api/creador/prueba-de-ruta-inexistente/', headers: auth, status: 404, error: 'NOT_FOUND' },
+  ]) {
+    await t.test(name, async () => {
+      const response = await get(path, headers);
+      assert.equal(response.status, status);
+      assert.equal((await response.json()).error, error);
+      assertPrivateApi(response);
+    });
+  }
+
+  const context = process.env.RELEASE_CONTEXT_FILE
+    ? JSON.parse(readFileSync(resolve(process.env.RELEASE_CONTEXT_FILE), 'utf8')) : null;
+  const analyticsScript = /<script\b[^>]*\bsrc=["']\/assets\/analytics\.js["']/iu;
+  if (context?.mode === 'production-fixture') {
+    const publicHome = await get('/');
+    assert.equal(publicHome.status, 200);
+    assert.match(await publicHome.text(), analyticsScript, 'Production-shaped public HTML enables the analytics bootstrap.');
+  }
+
+  for (const [name, path, status] of [
+    ['account HTML', '/cuenta/', 200],
+    ['private HTML fallback', '/cuenta/prueba-de-ruta-inexistente/', 404],
+  ]) {
+    await t.test(name, async () => {
+      const response = await get(path);
+      assert.equal(response.status, status);
+      assertPrivateCache(response);
+      const html = await response.text();
+      assert.match(html, /<meta name="robots" content="noindex\b/iu);
+      assert.doesNotMatch(html, analyticsScript);
+    });
+  }
+
+  const outage = await startMixedPreview(t, { root, env: { ...env, CREATOR_PROFILES_TABLE: '' } });
+  await t.test('creator initialization failure', async () => {
+    const response = await fetch(new URL('/api/creador/perfil/', outage.origin), { signal: AbortSignal.timeout(5_000) });
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { error: 'SERVICE_UNAVAILABLE' });
+    assertPrivateApi(response);
+  });
+  assert.deepEqual(unexpected, []);
 });
 
 test('the built artifact excludes the dummy credentials supplied during the fixture build', () => {

@@ -274,7 +274,7 @@ async function failNextOwnerRead(page) {
   };
 }
 
-test('una lectura fallida cancela la salida aunque después se confirme el guardado', async ({ fixture, page }) => {
+test('una lectura fallida cancela la autorización de salir y conserva la decisión de Back', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
   const destination = page.url();
@@ -294,7 +294,8 @@ test('una lectura fallida cancela la salida aunque después se confirme el guard
     await read.entered;
     await expect.poll(() => ownerWrites(capture)[0]?.status).toBe(200);
     await expect(form.getByLabel(/Ciudad/u)).toHaveValue('Córdoba');
-    const retry = page.getByRole('button', { name: 'Reintentar actualización', exact: true });
+    await expect(prompt).toBeVisible();
+    const retry = prompt.getByRole('button', { name: 'Reintentar actualización', exact: true });
     await expect(retry).toBeVisible();
     await back;
     await expect(page).toHaveURL(startingUrl);
@@ -302,12 +303,13 @@ test('una lectura fallida cancela la salida aunque después se confirme el guard
     await read.remove();
     await retry.click();
     await expect(form).toHaveCount(0);
+    await expect(prompt).toBeVisible();
     await expect(page).toHaveURL(startingUrl);
     const saved = await api(fixture, cookie, '/api/creador/perfil/');
     assert.equal(saved.body.profile.city, 'Córdoba');
     assert.equal(ownerWrites(capture).length, 1, 'retrying the read does not save again');
-    await page.goBack();
-    await expect(page).toHaveURL(destination);
+    await prompt.getByRole('button', { name: 'Seguir a la página solicitada', exact: true }).click();
+    await expect(page).toHaveURL(destination, 'only a new decision resumes the original Back');
   } finally {
     await read.remove();
     await capture.stop({ skipErrorBodies: true });

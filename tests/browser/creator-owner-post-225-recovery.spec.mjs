@@ -474,13 +474,16 @@ test('un reintento de lectura desde la salida usa el control visible y permite c
     await page.locator(`[data-chapter-row="${second.placementId}"] [data-chapter-move]`).click();
     const dialog = page.locator('[data-owner-dialog][open]');
     const form = dialog.locator('[data-chapter-move-form]');
-    await form.getByLabel('Posición en esta serie').fill('1');
+    const position = form.getByLabel('Posición en esta serie');
+    await position.fill('1');
     await form.getByRole('button', { name: 'Guardar posición', exact: true }).click();
     await expect(form.locator('[data-owner-refresh-retry]')).toBeVisible();
     await expect(form.locator('[data-owner-refresh-retry]')).toBeFocused();
+    await expect(position).toHaveValue('1');
     await page.keyboard.press('Escape');
     const prompt = dialog.locator('[data-owner-exit-prompt]');
     await expect(prompt).toBeVisible();
+    await expect(form).toBeHidden();
     const retry = prompt.locator('[data-owner-refresh-retry]');
     const continueEditing = prompt.locator('[data-owner-exit-continue]');
     await expect(continueEditing).toBeFocused();

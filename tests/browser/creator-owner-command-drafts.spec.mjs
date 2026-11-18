@@ -564,6 +564,87 @@ test('un fallo del proveedor antes del finalize retiene el archivo y la foto act
   }
 });
 
+test('un TypeError después del CAS deja la foto incierta, conserva el candidato y comprueba lo guardado sin repetir la carga', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const initial = await readOwner(fixture, cookie);
+  const profileId = initial.profile.id;
+  const images = await rasterPhotoFixtures();
+  const provider = installPhotoProvider(page, fixture, images);
+  await provider.install();
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const originalTransact = fixture.creatorStore.transact.bind(fixture.creatorStore);
+  const originalGet = fixture.creatorStore.get.bind(fixture.creatorStore);
+  let committed = false;
+  let uploadKey;
+  let failConfirmation = true;
+  fixture.creatorStore.transact = async (input) => {
+    const result = await originalTransact(input);
+    const completed = input.puts?.find(({ value }) => value?.state === 'complete');
+    if (result === true && completed && !committed) {
+      committed = true;
+      uploadKey = completed.key;
+      throw new TypeError('post-CAS acknowledgement failed');
+    }
+    return result;
+  };
+  fixture.creatorStore.get = async (key) => {
+    if (key === uploadKey && committed && failConfirmation) {
+      failConfirmation = false;
+      throw new Error('confirmation read unavailable');
+    }
+    return originalGet(key);
+  };
+
+  try {
+    await openView(page, fixture, 'series');
+    await page.getByRole('button', { name: 'Editar foto', exact: true }).click();
+    const form = photoForm(page);
+    const file = form.getByLabel('Elegir una foto');
+    await file.setInputFiles({ name: 'phase5-post-cas.png', mimeType: 'image/png', buffer: images.png });
+    const selectedFile = await file.evaluateHandle((input) => input.files[0]);
+    await form.getByRole('button', { name: 'Subir y guardar foto', exact: true }).click();
+
+    const authorization = await waitForRecord(capture, 'POST', AUTHORIZE_PHOTO_PATH, 0, 200);
+    const uploadId = authorization.responseBody.uploadId;
+    const uncertain = await waitForRecord(capture, 'POST', FINALIZE_PHOTO_PATH, 0, 503);
+    assert.equal(uncertain.responseBody, undefined, 'the browser receives the unavailable result without trusting a body as a receipt');
+    assert.equal(committed, true, 'the real service crossed the profile/upload CAS before the injected fault');
+    assert.equal(uploadKey, `photo-upload:${uploadId}`);
+    assert.equal(records(capture, 'POST', AUTHORIZE_PHOTO_PATH).length, 1);
+    assert.equal(records(capture, 'POST', FINALIZE_PHOTO_PATH).length, 1);
+    await expect(form.getByRole('button', { name: 'Comprobar estado guardado', exact: true })).toBeVisible();
+    await expect(file).toBeDisabled();
+    assert.equal(await file.evaluate((input, candidate) => input.files[0] === candidate, selectedFile), true,
+      'the exact native File remains selected while the finalize result is uncertain');
+
+    const beforeCheck = ownerReads(capture).length;
+    await form.getByRole('button', { name: 'Comprobar estado guardado', exact: true }).click();
+    const observed = await waitForOwnerRead(capture, beforeCheck, 200);
+    assert.equal(observed.responseBody.profile.photo.version, uploadId,
+      'the explicit read-only recovery observes the committed photo');
+    assert.equal(records(capture, 'POST', AUTHORIZE_PHOTO_PATH).length, 1);
+    assert.equal(records(capture, 'POST', FINALIZE_PHOTO_PATH).length, 1,
+      'checking saved state never replays finalize');
+    await expect(form.getByRole('button', { name: 'Usar lo guardado', exact: true })).toBeVisible();
+    assert.equal(await file.evaluate((input, candidate) => input.files[0] === candidate, selectedFile), true,
+      'the candidate remains available until the owner explicitly resolves the uncertainty');
+
+    const media = await page.request.get(`${fixture.origin}/media/fotos/${encodeURIComponent(profileId)}/${encodeURIComponent(String(uploadId))}.webp`);
+    assert.equal(media.status(), 200);
+    assert.ok((await media.body()).length > 0, 'the recovered immutable media is readable through the application route');
+    assert.match(media.headers()['cache-control'] ?? '', /immutable/iu);
+
+    await form.getByRole('button', { name: 'Usar lo guardado', exact: true }).click();
+    await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0);
+    assert.equal(records(capture, 'POST', AUTHORIZE_PHOTO_PATH).length, 1);
+    assert.equal(records(capture, 'POST', FINALIZE_PHOTO_PATH).length, 1,
+      'adopting the recovered photo closes the candidate without a write replay');
+  } finally {
+    await provider.remove();
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+
 test('los campos de texto llegan crudos al servicio, las ausencias se conservan y los vacíos se envían como intención de borrar', async ({ fixture, page }) => {
   await loggedInOwner(fixture, page, {
     profileFields: { city: 'Córdoba', bio: 'Presentación que no se edita', socials: { website: 'https://saved.example/about' } },
