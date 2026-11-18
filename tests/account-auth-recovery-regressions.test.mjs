@@ -72,14 +72,23 @@ function assertProviderLogout(response) {
   assert.ok(responseCookies(response).some((cookie) => cookie.startsWith('da_session=;') && /Max-Age=0/.test(cookie)));
 }
 
-test('logout without a session cookie preserves the local account destination', async () => {
-  const harness = await createAccountHarness();
-  const response = await harness.auth.handle(makeRequest('/cuenta/salir/', {
-    method: 'POST', headers: { origin: ORIGIN },
-  }));
-  assert.equal(response.status, 303);
-  assert.equal(location(response).href, `${ORIGIN}/cuenta/`);
-  assert.equal(harness.store.calls.length, 0);
+test('logout without a session cookie preserves the local account destination for both empty body representations', async (t) => {
+  for (const [name, body] of [
+    ['absent stream', undefined],
+    ['empty form stream', new URLSearchParams()],
+    ['empty text stream', ''],
+  ]) {
+    await t.test(name, async () => {
+      const harness = await createAccountHarness();
+      const response = await harness.auth.handle(makeRequest('/cuenta/salir/', {
+        method: 'POST', headers: { origin: ORIGIN }, body,
+      }));
+      assert.equal(response.status, 303);
+      assert.equal(location(response).href, `${ORIGIN}/cuenta/`);
+      assert.match(responseCookies(response).join(''), /da_session=;.*Max-Age=0/u);
+      assert.equal(harness.store.calls.length, 0);
+    });
+  }
 });
 
 test('retry completes provider logout when deleting the session committed but its acknowledgement was lost', async () => {

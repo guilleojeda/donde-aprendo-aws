@@ -458,7 +458,8 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
 
   async function readLogoutForm(request, { singleField = false } = {}) {
     const contentType = request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase();
-    if (contentType !== 'application/x-www-form-urlencoded') {
+    const urlEncoded = contentType === 'application/x-www-form-urlencoded';
+    if (!singleField && !urlEncoded) {
       return { error: new Response(null, { status: 400, headers: privateHeaders() }) };
     }
     const declaredLength = Number(request.headers.get('content-length'));
@@ -473,6 +474,10 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        if (value.byteLength === 0) continue;
+        if (!urlEncoded) {
+          return { error: new Response(null, { status: 400, headers: privateHeaders() }) };
+        }
         byteLength += value.byteLength;
         if (byteLength > 8192) {
           await reader.cancel().catch(() => {});
@@ -483,6 +488,7 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
     } finally {
       reader.releaseLock();
     }
+    if (singleField && byteLength === 0) return { empty: true };
     const body = Buffer.concat(chunks).toString('utf8');
     const parameters = new URLSearchParams(body);
     const csrfValues = parameters.getAll('csrfToken');
@@ -501,8 +507,8 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
       return new Response(null, { status: 403, headers: privateHeaders() });
     }
     if (sessionCookieState.state === 'absent') {
-      if (!request.body) return redirect(`${accountOrigin}/cuenta/`, [clearCookie(SESSION_COOKIE)]);
-      const form = await readLogoutForm(request, { singleField: true });
+      const form = request.body ? await readLogoutForm(request, { singleField: true }) : { empty: true };
+      if (form.empty) return redirect(`${accountOrigin}/cuenta/`, [clearCookie(SESSION_COOKIE)]);
       return form.error ?? finishProviderLogout();
     }
 
