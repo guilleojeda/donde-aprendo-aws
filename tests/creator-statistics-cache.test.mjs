@@ -142,12 +142,17 @@ function makeCache() {
   const calls = { gets: [], puts: [] };
   let getError;
   let putError;
+  let revision = 0;
   return {
     values,
     calls,
     failGet(error) { getError = error; },
     failPut(error) { putError = error; },
-    seed(query, envelope) { values.set(identity(query), structuredClone(envelope)); },
+    seed(query, envelope) {
+      const value = structuredClone(envelope);
+      if (value.schemaVersion === 1) value.revision = `seed-revision-${revision += 1}`;
+      values.set(identity(query), value);
+    },
     async get(query) {
       calls.gets.push(structuredClone(query));
       if (getError) throw getError;
@@ -157,7 +162,9 @@ function makeCache() {
     async put(key, envelope) {
       calls.puts.push({ key: structuredClone(key), envelope: structuredClone(envelope) });
       if (putError) throw putError;
-      values.set(identity(key), structuredClone(envelope));
+      const value = structuredClone(envelope);
+      value.revision = `memory-revision-${revision += 1}`;
+      values.set(identity(key), value);
     },
   };
 }
@@ -579,15 +586,23 @@ test('an authenticated request after property midnight does not join a fresh res
   const getGate = new Promise((resolve) => { releaseGet = resolve; });
   let cacheGetStarted;
   const getStarted = new Promise((resolve) => { cacheGetStarted = resolve; });
-  let cacheGets = 0;
+  let pageCacheGets = 0;
+  let periodCacheGets = 0;
   const query = { profileId: 'fixture-id-1', period: 7, page: 1 };
   const previous = reportFor(query, beforeMidnight, { timeZone: 'America/Buenos_Aires' });
   const cache = {
-    async get() {
-      cacheGets += 1;
+    async get(key) {
+      if (key.kind === 'period') {
+        periodCacheGets += 1;
+        return undefined;
+      }
+      pageCacheGets += 1;
       cacheGetStarted();
       await getGate;
-      return envelope(previous, { updatedAt: beforeMidnight - 10 * 60 * 1000 });
+      return {
+        ...envelope(previous, { updatedAt: beforeMidnight - 10 * 60 * 1000 }),
+        revision: 'midnight-page-revision',
+      };
     },
     async put() {},
   };
@@ -650,7 +665,8 @@ test('an authenticated request after property midnight does not join a fresh res
   assert.equal(second.freshness, 'fresh');
   assert.equal(first.range.endDate, '2026-10-25');
   assert.equal(second.range.endDate, '2026-10-25');
-  assert.equal(cacheGets, 1, 'both authenticated requests should coalesce the same cache read');
+  assert.equal(pageCacheGets, 1, 'both authenticated requests should coalesce the exact page read');
+  assert.equal(periodCacheGets, 1, 'the shared period predecessor is settled once after the page miss');
   assert.deepEqual(providerReads, [query], 'the prior-day cache value must trigger one current-window provider read');
 });
 
@@ -659,13 +675,15 @@ test('a cache write that crosses property midnight gets one coalesced current-wi
   const afterMidnight = Date.parse('2026-10-25T03:00:00.001Z');
   let clock = beforeMidnight;
   let cachePuts = 0;
+  let pageCachePuts = 0;
   const { calls, reader } = makeReader((input) => reportFor(input, clock, {
     timeZone: 'America/Buenos_Aires',
   }));
   const cache = {
     async get() { return undefined; },
-    async put() {
+    async put(key) {
       cachePuts += 1;
+      if (key.kind === 'page') pageCachePuts += 1;
       if (cachePuts === 1) clock = afterMidnight;
     },
   };
@@ -674,7 +692,7 @@ test('a cache write that crosses property midnight gets one coalesced current-wi
   const result = await service.read({ profileId: 'creator-a', period: 7 });
 
   assert.equal(calls.length, 2, 'only one bounded re-read should follow the midnight-crossing cache write');
-  assert.equal(cachePuts, 2);
+  assert.equal(pageCachePuts, 1, 'the obsolete pre-rollover period publication must not publish a page');
   assert.equal(result.freshness, 'fresh');
   assert.equal(result.range.endDate, '2026-10-25');
 });
@@ -812,6 +830,7 @@ test('mismatched cached creator, period, page or schema is never returned to the
     envelope(reportFor(query, INITIAL_NOW, { period: 30 })),
     envelope(reportFor(query, INITIAL_NOW, { page: 2 })),
     { ...envelope(reportFor(query)), schemaVersion: 2 },
+    { ...envelope(reportFor(query)), invalid: true },
   ];
 
   for (const invalid of badEnvelopes) {

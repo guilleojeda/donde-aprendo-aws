@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 const ANALYTICS_READONLY_SCOPE = 'https://www.googleapis.com/auth/analytics.readonly';
 const UNAVAILABLE_MESSAGE = 'GA4 authentication is unavailable.';
 const TOKEN_TRANSPORT_TIMEOUT_MS = 3_000;
@@ -26,6 +28,28 @@ async function createGoogleAuthClient({ credentials, scopes }) {
   });
 }
 
+function signingIdentity({ client_email, private_key }) {
+  const normalizedKey = private_key.replaceAll('\r\n', '\n').trim();
+  return createHash('sha256').update(JSON.stringify([client_email.trim(), normalizedKey])).digest('hex');
+}
+
+function isRejectedSigningKey(error) {
+  const response = error?.response;
+  const description = response?.data?.error_description;
+  // The OAuth endpoint also uses invalid_grant for invalid claims and clock skew.
+  return response?.status === 400
+    && response.data?.error === 'invalid_grant'
+    && typeof description === 'string'
+    && /^Invalid JWT Signature\.?$/iu.test(description.trim());
+}
+
+async function accessToken(client) {
+  const response = await client.getAccessToken();
+  const token = typeof response === 'string' ? response : response?.token;
+  if (typeof token !== 'string' || token.trim() === '') throw new Error(UNAVAILABLE_MESSAGE);
+  return token;
+}
+
 /**
  * Creates a lazy GA4 service-account token provider.
  *
@@ -40,52 +64,46 @@ export function createGA4TokenProvider({ loadCredentials, createAuth = createGoo
     throw new TypeError('createAuth must be a function.');
   }
 
-  let authClient;
-  let authClientPromise;
+  let generation;
+  let pendingToken;
 
-  async function getAuthClient() {
-    if (authClient) return authClient;
-    if (authClientPromise) return authClientPromise;
+  async function loadGeneration(rejectedIdentity) {
+    const credentials = await loadCredentials();
+    if (!isServiceAccountCredentials(credentials)) throw new Error(UNAVAILABLE_MESSAGE);
+    const identity = signingIdentity(credentials);
+    if (identity === rejectedIdentity) throw new Error(UNAVAILABLE_MESSAGE);
 
-    const pending = (async () => {
-      const credentials = await loadCredentials();
-      if (!isServiceAccountCredentials(credentials)) {
-        throw new Error(UNAVAILABLE_MESSAGE);
-      }
+    const client = await createAuth({
+      credentials,
+      scopes: [ANALYTICS_READONLY_SCOPE],
+    });
+    if (!client || typeof client.getAccessToken !== 'function') throw new Error(UNAVAILABLE_MESSAGE);
+    return { client, identity };
+  }
 
-      const client = await createAuth({
-        credentials,
-        scopes: [ANALYTICS_READONLY_SCOPE],
-      });
-      if (!client || typeof client.getAccessToken !== 'function') {
-        throw new Error(UNAVAILABLE_MESSAGE);
-      }
-      return client;
-    })();
-
-    authClientPromise = pending;
+  async function readToken() {
+    generation ??= await loadGeneration();
     try {
-      authClient = await pending;
-      return authClient;
-    } catch {
-      if (authClientPromise === pending) authClientPromise = undefined;
-      throw new Error(UNAVAILABLE_MESSAGE);
+      return await accessToken(generation.client);
+    } catch (error) {
+      if (!isRejectedSigningKey(error)) throw error;
+      const rejectedIdentity = generation.identity;
+      generation = undefined;
+      const replacement = await loadGeneration(rejectedIdentity);
+      const token = await accessToken(replacement.client);
+      generation = replacement;
+      return token;
     }
   }
 
   return Object.freeze({
-    async getAccessToken() {
-      try {
-        const client = await getAuthClient();
-        const response = await client.getAccessToken();
-        const token = typeof response === 'string' ? response : response?.token;
-        if (typeof token !== 'string' || token.trim() === '') {
-          throw new Error(UNAVAILABLE_MESSAGE);
-        }
-        return token;
-      } catch {
+    getAccessToken() {
+      pendingToken ??= readToken().catch(() => {
         throw new Error(UNAVAILABLE_MESSAGE);
-      }
+      }).finally(() => {
+        pendingToken = undefined;
+      });
+      return pendingToken;
     },
   });
 }

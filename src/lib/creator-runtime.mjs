@@ -22,31 +22,39 @@ function required(name) {
 
 function lazyStatistics(region, profilesTableName) {
   let statistics;
+  function getStatistics() {
+    if (statistics) return statistics;
+    const propertyId = required('GA4_PROPERTY_ID');
+    const tokens = createGA4TokenProvider({
+      loadCredentials: async () => {
+        const client = new SecretsManagerClient({ region });
+        const secret = await client.send(new GetSecretValueCommand({
+          SecretId: required('GA4_CREDENTIALS_SECRET_ARN'),
+        }));
+        if (typeof secret.SecretString !== 'string') throw new Error('GA4 credentials are unavailable');
+        return JSON.parse(secret.SecretString);
+      },
+    });
+    statistics = createCachedCreatorStatistics({
+      reader: createGA4StatisticsReader({
+        propertyId,
+        captureStartedAt: required('CREATOR_ANALYTICS_CAPTURE_STARTED_AT'),
+        getAccessToken: () => tokens.getAccessToken(),
+      }),
+      cache: createCreatorStatisticsStore({ profilesTableName, propertyId, region }),
+    });
+    return statistics;
+  }
+
   return {
     async read(query) {
       // The editor and login remain available when Analytics is not configured.
-      if (!statistics) {
-        const propertyId = required('GA4_PROPERTY_ID');
-        const tokens = createGA4TokenProvider({
-          loadCredentials: async () => {
-            const client = new SecretsManagerClient({ region });
-            const secret = await client.send(new GetSecretValueCommand({
-              SecretId: required('GA4_CREDENTIALS_SECRET_ARN'),
-            }));
-            if (typeof secret.SecretString !== 'string') throw new Error('GA4 credentials are unavailable');
-            return JSON.parse(secret.SecretString);
-          },
-        });
-        statistics = createCachedCreatorStatistics({
-          reader: createGA4StatisticsReader({
-            propertyId,
-            captureStartedAt: required('CREATOR_ANALYTICS_CAPTURE_STARTED_AT'),
-            getAccessToken: () => tokens.getAccessToken(),
-          }),
-          cache: createCreatorStatisticsStore({ profilesTableName, propertyId, region }),
-        });
-      }
-      return statistics.read(query);
+      return getStatistics().read(query);
+    },
+    async readSummary(query) {
+      // Summary reads use the same lazy provider and credentials as detail reads.
+      // The editor remains available when Analytics is not configured.
+      return getStatistics().readSummary(query);
     },
   };
 }

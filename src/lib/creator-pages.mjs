@@ -2109,27 +2109,61 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
   }
 
-  async function readCreatorStatistics(context, { period, page } = {}) {
+  async function readCreatorStatisticsForOwner(context, { period, page, summary = false } = {}) {
     const principal = requireAuthenticatedContext(context);
     if (period !== 7 && period !== 30) fail(400, 'INVALID_STATISTICS_PERIOD', 'periodo must be 7 or 30');
-    if (!Number.isSafeInteger(page) || page < 1) fail(400, 'INVALID_STATISTICS_PAGE', 'pagina must be a positive integer');
+    if (!summary && (!Number.isSafeInteger(page) || page < 1)) fail(400, 'INVALID_STATISTICS_PAGE', 'pagina must be a positive integer');
 
     const { profile } = await ownerProfile(principal);
-    if (!profile) return { state: 'no-profile', period, page };
+    if (!profile) return { state: 'no-profile', period, ...(summary ? {} : { page }) };
     if (typeof profile.published !== 'boolean') fail(503, 'INVALID_PROFILE', 'profile publication state is malformed');
-    if (!profile.published) return { state: 'not-published', period, page };
-    if (!statistics || typeof statistics.read !== 'function') {
+    if (!profile.published) return { state: 'not-published', period, ...(summary ? {} : { page }) };
+    const method = summary ? 'readSummary' : 'read';
+    if (!statistics || typeof statistics[method] !== 'function') {
       fail(503, 'STATISTICS_UNAVAILABLE', 'statistics are temporarily unavailable');
     }
 
     let report;
     try {
-      report = await statistics.read({ profileId: profile.id, period, page });
+      report = await statistics[method]({ profileId: profile.id, period, ...(summary ? {} : { page }) });
     } catch {
       fail(503, 'STATISTICS_UNAVAILABLE', 'statistics are temporarily unavailable');
     }
     if (!isRecord(report)) fail(503, 'STATISTICS_UNAVAILABLE', 'statistics are temporarily unavailable');
     return report;
+  }
+
+  async function readCreatorStatistics(context, { period, page } = {}) {
+    if (!Number.isSafeInteger(page) || page < 1) fail(400, 'INVALID_STATISTICS_PAGE', 'pagina must be a positive integer');
+    return readCreatorStatisticsForOwner(context, { period, page });
+  }
+
+  async function readCreatorStatisticsSummary(context, { period } = {}) {
+    return readCreatorStatisticsForOwner(context, { period, summary: true });
+  }
+
+  function readStatisticsQuery(searchParams, { detail = false } = {}) {
+    const allowedParameters = new Set(detail ? ['periodo', 'pagina'] : ['periodo']);
+    for (const name of searchParams.keys()) {
+      if (!allowedParameters.has(name)) fail(400, 'INVALID_STATISTICS_QUERY', 'query contains an unsupported parameter');
+    }
+    const periods = searchParams.getAll('periodo');
+    if (periods.length > 1) fail(400, 'INVALID_STATISTICS_QUERY', 'query parameters must not be repeated');
+    const rawPeriod = periods[0] ?? '7';
+    if (rawPeriod !== '7' && rawPeriod !== '30') {
+      fail(400, 'INVALID_STATISTICS_PERIOD', 'periodo must be 7 or 30');
+    }
+    if (!detail) return { period: Number(rawPeriod) };
+
+    const pages = searchParams.getAll('pagina');
+    if (pages.length > 1) fail(400, 'INVALID_STATISTICS_QUERY', 'query parameters must not be repeated');
+    const rawPage = pages[0] ?? '1';
+    if (!/^\d+$/.test(rawPage)) fail(400, 'INVALID_STATISTICS_PAGE', 'pagina must be a positive integer');
+    const page = Number(rawPage);
+    if (!Number.isSafeInteger(page) || page < 1) {
+      fail(400, 'INVALID_STATISTICS_PAGE', 'pagina must be a positive integer');
+    }
+    return { period: Number(rawPeriod), page };
   }
 
   async function route(request, principal, context) {
@@ -2138,31 +2172,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
     if (path === '/api/creador/estadisticas') {
       requireMethod(request, 'GET');
+      return jsonResponse(await readCreatorStatistics(context, readStatisticsQuery(url.searchParams, { detail: true })));
+    }
 
-      const allowedParameters = new Set(['periodo', 'pagina']);
-      for (const name of url.searchParams.keys()) {
-        if (!allowedParameters.has(name)) fail(400, 'INVALID_STATISTICS_QUERY', 'query contains an unsupported parameter');
-      }
-
-      const periods = url.searchParams.getAll('periodo');
-      const pages = url.searchParams.getAll('pagina');
-      if (periods.length > 1 || pages.length > 1) {
-        fail(400, 'INVALID_STATISTICS_QUERY', 'query parameters must not be repeated');
-      }
-
-      const rawPeriod = periods[0] ?? '7';
-      if (rawPeriod !== '7' && rawPeriod !== '30') {
-        fail(400, 'INVALID_STATISTICS_PERIOD', 'periodo must be 7 or 30');
-      }
-      const period = Number(rawPeriod);
-      const rawPage = pages[0] ?? '1';
-      if (!/^\d+$/.test(rawPage)) fail(400, 'INVALID_STATISTICS_PAGE', 'pagina must be a positive integer');
-      const page = Number(rawPage);
-      if (!Number.isSafeInteger(page) || page < 1) {
-        fail(400, 'INVALID_STATISTICS_PAGE', 'pagina must be a positive integer');
-      }
-
-      return jsonResponse(await readCreatorStatistics(context, { period, page }));
+    if (path === '/api/creador/estadisticas/resumen') {
+      requireMethod(request, 'GET');
+      return jsonResponse(await readCreatorStatisticsSummary(context, readStatisticsQuery(url.searchParams)));
     }
 
     // Retired owner paths must reject obsolete open documents consistently,
@@ -2361,6 +2376,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     readAdminProfiles,
     readAdminClaims,
     readCreatorStatistics,
+    readCreatorStatisticsSummary,
     readPublicProfile,
     readPublicSeries,
   };

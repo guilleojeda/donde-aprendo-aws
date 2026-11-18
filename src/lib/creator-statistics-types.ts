@@ -5,11 +5,9 @@ export interface CreatorStatisticsWarning {
   code: string;
 }
 
-export interface CreatorStatisticsReady {
-  state: 'ready';
+export interface CreatorStatisticsCommonReady {
   creatorId: string;
   period: 7 | 30;
-  page: number;
   range: {
     startDate: string;
     endDate: string;
@@ -20,6 +18,15 @@ export interface CreatorStatisticsReady {
     visitors: number | null;
     clicks: number | null;
   };
+  warnings: CreatorStatisticsWarning[];
+  captureStartedAt: string;
+  freshness: CreatorStatisticsFreshness;
+  updatedAt: string;
+}
+
+export interface CreatorStatisticsReady extends CreatorStatisticsCommonReady {
+  state: 'ready';
+  page: number;
   daily: Array<{
     date: string;
     views: number | null;
@@ -38,10 +45,10 @@ export interface CreatorStatisticsReady {
     sourceMedium: string;
     views: number | null;
   }>;
-  warnings: CreatorStatisticsWarning[];
-  captureStartedAt: string;
-  freshness: CreatorStatisticsFreshness;
-  updatedAt: string;
+}
+
+export interface CreatorStatisticsSummaryReady extends CreatorStatisticsCommonReady {
+  state: 'ready';
 }
 
 export type CreatorStatisticsApiState = 'no-profile' | 'not-published';
@@ -52,4 +59,7 @@ export interface CreatorStatisticsStateResponse {
   page: number;
 }
 
+export type CreatorStatisticsSummaryStateResponse = Omit<CreatorStatisticsStateResponse, 'page'>;
+
 export type CreatorStatisticsResponse = CreatorStatisticsReady | CreatorStatisticsStateResponse;
+export type CreatorStatisticsSummaryResponse = CreatorStatisticsSummaryReady | CreatorStatisticsSummaryStateResponse;

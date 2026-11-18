@@ -1,4 +1,9 @@
-import type { CreatorStatisticsReady, CreatorStatisticsWarning } from './creator-statistics-types';
+import type {
+  CreatorStatisticsCommonReady,
+  CreatorStatisticsReady,
+  CreatorStatisticsSummaryReady,
+  CreatorStatisticsWarning,
+} from './creator-statistics-types';
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -30,33 +35,67 @@ function warning(value: unknown): CreatorStatisticsWarning | undefined {
     : undefined;
 }
 
-export function parseCreatorStatisticsReady(value: unknown, period: 7 | 30, page: number, creatorId: string): CreatorStatisticsReady | undefined {
+function parseCommonReady(value: unknown, period: 7 | 30, creatorId: string): CreatorStatisticsCommonReady | undefined {
   const item = record(value);
   const range = record(item?.range);
   const totals = record(item?.totals);
-  const links = record(item?.links);
-  if (item?.state !== 'ready' || item.creatorId !== creatorId
-    || item.period !== period || item.page !== page || !range || !totals || !links
+  if (item?.state !== 'ready' || item.creatorId !== creatorId || item.period !== period
+    || !range || !totals || !Array.isArray(item.warnings)
     || !isoDate(range.startDate) || !isoDate(range.endDate) || typeof range.timeZone !== 'string'
-    || !Array.isArray(item.daily) || item.daily.length !== period
-    || !Array.isArray(links.rows) || links.page !== page || links.pageSize !== 100
-    || integer(links.totalRows) === null || !Array.isArray(item.sources) || !Array.isArray(item.warnings)
     || !isoTimestamp(item.captureStartedAt) || (item.freshness !== 'fresh' && item.freshness !== 'stale')
     || !isoTimestamp(item.updatedAt)) return undefined;
-  const totalRows = integer(links.totalRows);
-  if (totalRows === null) return undefined;
 
   try {
     new Intl.DateTimeFormat('es', { timeZone: range.timeZone });
   } catch {
     return undefined;
   }
+  const start = new Date(`${range.startDate}T00:00:00.000Z`);
+  const end = new Date(`${range.endDate}T00:00:00.000Z`);
+  if (end.getTime() < start.getTime()
+    || Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1 !== period) return undefined;
+
   const expectedViews = integer(totals.views, true);
   const expectedVisitors = integer(totals.visitors, true);
   const expectedClicks = integer(totals.clicks, true);
   if (expectedViews === null && totals.views !== null
     || expectedVisitors === null && totals.visitors !== null
     || expectedClicks === null && totals.clicks !== null) return undefined;
+  const warnings = item.warnings.map(warning);
+  if (warnings.some((entry) => entry === undefined)) return undefined;
+  return {
+    creatorId: item.creatorId,
+    period,
+    range: { startDate: range.startDate, endDate: range.endDate, timeZone: range.timeZone },
+    totals: { views: expectedViews, visitors: expectedVisitors, clicks: expectedClicks },
+    warnings: warnings.filter((entry): entry is CreatorStatisticsWarning => entry !== undefined),
+    captureStartedAt: item.captureStartedAt,
+    freshness: item.freshness,
+    updatedAt: item.updatedAt,
+  };
+}
+
+export function parseCreatorStatisticsSummaryReady(value: unknown, period: 7 | 30, creatorId: string): CreatorStatisticsSummaryReady | undefined {
+  const common = parseCommonReady(value, period, creatorId);
+  if (!common) return undefined;
+  const item = record(value);
+  if (!item || Object.hasOwn(item, 'page') || Object.hasOwn(item, 'daily') || Object.hasOwn(item, 'links') || Object.hasOwn(item, 'sources')) return undefined;
+  return { state: 'ready', ...common };
+}
+
+export function parseCreatorStatisticsReady(value: unknown, period: 7 | 30, page: number, creatorId: string): CreatorStatisticsReady | undefined {
+  const common = parseCommonReady(value, period, creatorId);
+  if (!common) return undefined;
+  const item = record(value);
+  const range = record(item?.range);
+  const links = record(item?.links);
+  if (!item || item.page !== page || !range || !links
+    || !Array.isArray(item.daily) || item.daily.length !== period
+    || !Array.isArray(links.rows) || links.page !== page || links.pageSize !== 100
+    || integer(links.totalRows) === null || !Array.isArray(item.sources)
+  ) return undefined;
+  const totalRows = integer(links.totalRows);
+  if (totalRows === null) return undefined;
 
   const daily: CreatorStatisticsReady['daily'] = [];
   for (let index = 0; index < item.daily.length; index += 1) {
@@ -90,22 +129,13 @@ export function parseCreatorStatisticsReady(value: unknown, period: 7 | 30, page
     if (typeof source?.sourceMedium !== 'string' || views === null && source.views !== null) return undefined;
     sources.push({ sourceMedium: source.sourceMedium, views });
   }
-  const warnings = item.warnings.map(warning);
-  if (warnings.some((entry) => entry === undefined)) return undefined;
-
   return {
+    ...common,
     state: 'ready',
-    creatorId: item.creatorId,
-    period,
     page,
-    range: { startDate: range.startDate, endDate: range.endDate, timeZone: range.timeZone },
-    totals: { views: expectedViews, visitors: expectedVisitors, clicks: expectedClicks },
     daily,
     links: { page, pageSize: 100, totalRows, rows: linkRows },
     sources,
-    warnings: warnings.filter((entry): entry is CreatorStatisticsWarning => entry !== undefined),
-    captureStartedAt: item.captureStartedAt,
-    freshness: item.freshness,
-    updatedAt: item.updatedAt,
+    warnings: common.warnings,
   };
 }

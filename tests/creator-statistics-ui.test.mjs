@@ -192,6 +192,7 @@ test('explicit empty limited GA4 results stay unknown through the authenticated 
     }),
   ];
   let cached;
+  let revision = 0;
   let providerReads = 0;
   const now = Date.parse('2026-10-24T15:00:00.000Z');
   const reader = createGA4StatisticsReader({
@@ -209,7 +210,9 @@ test('explicit empty limited GA4 results stay unknown through the authenticated 
     now: () => now,
     cache: {
       async get() { return cached === undefined ? undefined : structuredClone(cached); },
-      async put(_key, value) { cached = structuredClone(value); },
+      async put(_key, value) {
+        cached = { ...structuredClone(value), revision: `memory-revision-${revision += 1}` };
+      },
     },
   });
   const harness = await createCreatorPagesHarness({ statistics });

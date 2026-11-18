@@ -39,6 +39,7 @@ export function createBrowserCreatorStatistics() {
   const requests = [];
   let currentNow = CREATOR_STATISTICS_NOW;
   let providerResponder;
+  let revision = 0;
   const cacheIdentity = (key) => {
     const kind = key.kind ?? (Object.hasOwn(key, 'page') ? 'page' : 'summary');
     return JSON.stringify({
@@ -54,7 +55,10 @@ export function createBrowserCreatorStatistics() {
       return value === undefined ? undefined : structuredClone(value);
     },
     async put(key, envelope) {
-      values.set(cacheIdentity(key), structuredClone(envelope));
+      values.set(cacheIdentity(key), {
+        ...structuredClone(envelope),
+        revision: `memory-revision-${revision += 1}`,
+      });
     },
   };
   const reader = createGA4StatisticsReader({

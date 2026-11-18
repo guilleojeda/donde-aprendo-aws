@@ -131,7 +131,7 @@ export interface CreatorOwnerState {
     period: 7 | 30;
     sequence: number;
     status: 'idle' | 'loading' | 'ready' | 'error';
-    report?: import('./creator-statistics-types').CreatorStatisticsReady;
+    report?: import('./creator-statistics-types').CreatorStatisticsSummaryReady;
     message?: string;
   };
   catalog: {
@@ -197,7 +197,7 @@ export type CreatorOwnerAction = CreatorOwnerSessionPolicyAction
   | { type: 'activity-loading'; period: 7 | 30; sequence: number }
   | { type: 'set-activity-period'; period: 7 | 30 }
   | { type: 'activity-retry' }
-  | { type: 'activity-ready'; period: 7 | 30; sequence: number; report: import('./creator-statistics-types').CreatorStatisticsReady }
+  | { type: 'activity-ready'; period: 7 | 30; sequence: number; report: import('./creator-statistics-types').CreatorStatisticsSummaryReady }
   | { type: 'activity-failed'; period: 7 | 30; sequence: number; message: string };
 
 export type CreatorOwnerSessionPolicyState = Pick<CreatorOwnerState, 'session' | 'sessionEvidence'>;

@@ -78,6 +78,7 @@ function cacheIdentity(key) {
 function createCache() {
   const values = new Map();
   const calls = { gets: [], puts: [] };
+  let revision = 0;
   return {
     values,
     calls,
@@ -88,7 +89,10 @@ function createCache() {
     },
     async put(key, envelope) {
       calls.puts.push({ key: structuredClone(key), envelope: structuredClone(envelope) });
-      values.set(cacheIdentity(key), structuredClone(envelope));
+      values.set(cacheIdentity(key), {
+        ...structuredClone(envelope),
+        revision: `memory-revision-${revision += 1}`,
+      });
     },
   };
 }
