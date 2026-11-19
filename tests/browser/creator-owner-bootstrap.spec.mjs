@@ -130,9 +130,9 @@ test('el HTML privado de Series escapa la identidad, ofrece navegación real y p
     await expect(ssr.getByRole('heading', { name: displayName, exact: true })).toBeVisible();
     await expect(ssr.locator('[data-owner-injection]')).toHaveCount(0);
     const navigation = ssr.getByRole('navigation', { name: 'Secciones de Tu página' });
-    await expect(navigation.getByRole('link', { name: 'Enlaces', exact: true })).toHaveAttribute('href', '/cuenta/?vista=enlaces');
-    await expect(navigation.getByRole('link', { name: 'Estadísticas', exact: true })).toHaveAttribute('href', '/cuenta/?vista=estadisticas&periodo=30&pagina=1');
-    await expect(navigation.getByRole('link', { name: 'Solicitudes', exact: true })).toHaveAttribute('href', '/cuenta/?vista=solicitudes');
+    await expect(navigation.getByRole('link', { name: 'Enlaces', exact: true })).toHaveAttribute('href', '/cuenta/?vista=enlaces#owner-links-title');
+    await expect(navigation.getByRole('link', { name: 'Estadísticas', exact: true })).toHaveAttribute('href', '/cuenta/?vista=estadisticas&periodo=30&pagina=1#owner-activity-title');
+    await expect(navigation.getByRole('link', { name: 'Solicitudes', exact: true })).toHaveAttribute('href', '/cuenta/?vista=solicitudes#owner-claims-title');
     await ssr.getByRole('searchbox', { name: 'Buscar series', exact: true }).fill('Lambda');
     await ssr.getByRole('button', { name: 'Aplicar búsqueda', exact: true }).click();
     await expect(ssr).toHaveURL(/buscarSeries=Lambda/);

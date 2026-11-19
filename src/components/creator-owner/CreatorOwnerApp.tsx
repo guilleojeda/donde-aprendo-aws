@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useReducer, useRef } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import type { CreatorOwnerSnapshotDTO } from '../../types/creators';
 import { readCreatorOwnerSnapshot } from '../../lib/creator-owner-data';
@@ -229,6 +229,17 @@ function hasNativeSkipFocus(): boolean {
   return window.location.hash === '#contenido' && document.activeElement?.id === 'contenido';
 }
 
+function ownerNavigationTarget(hash: string): string | undefined {
+  switch (hash) {
+    case '#owner-series-title': return '#owner-series-title';
+    case '#owner-links-title': return '#owner-links-title';
+    case '#owner-activity-title': return '#owner-activity-title';
+    case '#creator-statistics-title': return '#creator-statistics-title';
+    case '#owner-claims-title': return '#owner-claims-title';
+    default: return undefined;
+  }
+}
+
 const sessionRecoveryFocus = '[data-session-recovery-check]';
 const sessionTerminalFocus = '[data-session-recovery-new], [data-session-recovery-sign-in]';
 const retryReadFocus = '[data-owner-refresh-retry]';
@@ -253,6 +264,7 @@ function ownerQueryWasValid(state: unknown, view: 'enlaces' | 'series'): boolean
 
 export default function CreatorOwnerApp(props: Props) {
   const [state, dispatch] = useReducer(creatorOwnerReducer, props, createInitialState);
+  const [copyFeedback, setCopyFeedback] = useState<{ text: string; kind: 'success' | 'error' } | undefined>();
   const stateRef = useRef(state);
   stateRef.current = state;
   const rootRef = useRef<HTMLDivElement>(null);
@@ -549,6 +561,21 @@ export default function CreatorOwnerApp(props: Props) {
   useLayoutEffect(() => {
     reconcileCurrentLocation();
   }, [state.observed]);
+
+  useEffect(() => {
+    if (!state.runtimeReady) return;
+    const selector = ownerNavigationTarget(window.location.hash);
+    if (!selector) return;
+    const target = rootRef.current?.querySelector<HTMLElement>(selector);
+    if (!target) return;
+    if (!target.matches('a, button, input, select, textarea, [tabindex]')) target.tabIndex = -1;
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+  }, [state.runtimeReady, props.view]);
+
+  useEffect(() => {
+    setCopyFeedback(undefined);
+  }, [state.observed.profile?.slug]);
 
   useEffect(() => {
     const requested = state.location.focusAfterRender;
@@ -1680,11 +1707,16 @@ export default function CreatorOwnerApp(props: Props) {
   }
 
   function copyLink(url: string) {
-    if (navigator.clipboard) {
-      void navigator.clipboard.writeText(url).then(() => setMessage('Copiaste el enlace público.', 'success'))
-        .catch(() => setMessage('No pudimos copiar el enlace. Puedes copiarlo desde la dirección de tu página.', 'error'));
+    setCopyFeedback(undefined);
+    const success = 'Enlace copiado.';
+    const failure = 'No pudimos copiar el enlace. Puedes copiarlo desde la dirección de tu página.';
+    if (navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(url)
+        .then(() => setCopyFeedback({ text: success, kind: 'success' }))
+        .catch(() => setCopyFeedback({ text: failure, kind: 'error' }));
       return;
     }
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
     const input = document.createElement('textarea');
     input.value = url;
     input.setAttribute('readonly', '');
@@ -1692,9 +1724,15 @@ export default function CreatorOwnerApp(props: Props) {
     input.style.opacity = '0';
     document.body.append(input);
     input.select();
-    const copied = document.execCommand('copy');
+    let copied = false;
+    try {
+      copied = document.execCommand('copy');
+    } catch {
+      copied = false;
+    }
     input.remove();
-    setMessage(copied ? 'Copiaste el enlace público.' : 'No pudimos copiar el enlace. Puedes copiarlo desde la dirección de tu página.', copied ? 'success' : 'error');
+    returnFocus?.focus({ preventScroll: true });
+    setCopyFeedback({ text: copied ? success : failure, kind: copied ? 'success' : 'error' });
   }
 
   const chapterRecoveryInDetail = creatorOwnerChapterRecoveryIsVisibleInDetail(state);
@@ -1726,6 +1764,7 @@ export default function CreatorOwnerApp(props: Props) {
       onResolveRecovery={resolveRecovery}
       onSaveRecoveryDraft={saveRecoveryDraft}
       onCopyLink={copyLink}
+      copyFeedback={copyFeedback}
     >
       {listOperation && <section class="creator-owner__conflict" data-owner-recovery data-owner-stale={listOperation.status === 'refresh-failed' ? 'true' : undefined} data-recovery-kind={listRecoveryKind}
         data-owner-list-recovery={['remove-link', 'reinclude-link'].includes(listOperation.intent.action) ? 'links'

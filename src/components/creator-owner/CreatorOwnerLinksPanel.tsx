@@ -99,7 +99,7 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
 
       <div class="creator-owner__table-scroll" tabIndex={0} aria-label="Tabla de enlaces">
         <table class="creator-owner__link-table">
-          <thead><tr><th scope="col">Contenido</th><th scope="col">Series</th><th scope="col">Directorio</th><th scope="col">Destacado</th><th scope="col">Acciones</th></tr></thead>
+          <thead><tr><th scope="col">Contenido</th><th scope="col">Series</th><th scope="col">Visibilidad en tu página</th><th scope="col">Directorio</th><th scope="col">Destacado</th><th scope="col">Acciones</th></tr></thead>
           <tbody data-link-rows>{selection.rows.map((link) => {
             const editable = link.metadataEditable;
             const seriesNames = link.series.map(({ seriesId }) => data.series.find(({ id }) => id === seriesId)?.name).filter((name): name is string => Boolean(name));
@@ -111,8 +111,11 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
             return <tr data-link-row={link.placementId} data-placement-id={link.placementId} key={link.placementId}>
               <th scope="row"><span class="creator-owner__link-title" data-link-title>{link.title}</span><span class="creator-owner__link-url">{domain}</span></th>
               <td data-label="Series">{seriesNames.length ? seriesNames.join(', ') : 'Sin serie'}</td>
-              <td class="creator-owner__link-status" data-label="Directorio"><span>{link.selectedForDirectory ? 'Propuesta al directorio' : 'No propuesta'}</span>
-                <span>{DIRECTORY_LABELS[link.directoryApproval] ?? 'Sin revisión'}</span><span>{visibility}</span></td>
+              <td class="creator-owner__link-status" data-label="Visibilidad en tu página"><span>{visibility}</span></td>
+              <td class="creator-owner__link-status" data-label="Directorio">
+                <span>Selección: {link.selectedForDirectory ? 'Propuesta al directorio' : 'No propuesta'}</span>
+                <span>Aprobación del recurso: {DIRECTORY_LABELS[link.directoryApproval] ?? 'Sin revisión'}</span>
+              </td>
               <td data-label="Destacado">{link.featured ? 'Destacado' : 'Sin destacar'}</td>
               <td class="creator-owner__link-actions" data-label="Acciones">
                 <button class="button button--outline" type="button" data-link-edit data-placement-id={link.placementId} disabled={disabled} onClick={() => onEditLink(link.placementId)}>{editable ? 'Editar ficha' : 'Editar opciones'}</button>

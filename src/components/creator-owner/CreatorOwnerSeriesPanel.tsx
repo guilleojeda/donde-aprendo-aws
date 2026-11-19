@@ -55,6 +55,7 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
   const chapterReadPending = recoveryAction.kind === 'pending' && recoveryAction.surface === 'series'
     && state.operation.status === 'reading' && creatorOwnerChapterRecoveryIsVisibleInDetail(state)
     ? state.operation : undefined;
+  const canCreateSeries = Boolean(snapshot.profile) && !disabled;
 
   return <section class="creator-owner__series" data-owner-series aria-labelledby="owner-series-title">
     <header class="creator-owner__section-heading">
@@ -62,8 +63,12 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
         <p class="creator-owner__eyebrow">Rutas de aprendizaje</p>
         <h2 id="owner-series-title" tabIndex={-1}>Series</h2>
       </div>
-      <button class="button button--dark" type="button" data-series-create-open disabled={disabled} onClick={onCreate}>Crear serie</button>
+      <button class="button button--dark" type="button" data-series-create-open disabled={!canCreateSeries} onClick={onCreate}>Crear serie</button>
     </header>
+
+    {!snapshot.profile && <p class="creator-owner__status" data-series-create-requirement role="status">
+      Primero prepara tu página para crear una serie.
+    </p>}
 
     {state.seriesQueryError && <p class="creator-owner__status creator-owner__status--error" data-series-query-error role="alert">
       La consulta de series no es válida. Revisa la serie, el filtro o la página seleccionada.

@@ -187,6 +187,15 @@
   margin-inline: auto;
 }
 
+/* The no-profile view has no shared grid wrapper, so keep its cards and
+   section navigation visibly separate at every viewport width. */
+.creator-owner__main > .creator-owner__create + .creator-owner__activity,
+.creator-owner__main > .creator-owner__create + .creator-owner__link-tools,
+.creator-owner__main > .creator-owner__activity + .creator-owner__link-tools,
+.creator-owner__main > .creator-owner__link-tools + :is(.creator-owner__series, .creator-owner__links, .creator-owner__claims, .creator-statistics) {
+  margin-top: 18px;
+}
+
 .creator-owner__links-heading .creator-owner__link-actions {
   display: flex;
   flex-wrap: wrap;
@@ -815,6 +824,17 @@
   flex: 1 1 100%;
   margin: 0;
   color: var(--color-text-muted);
+}
+
+.creator-owner__public .creator-owner__copy-status {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--color-accent-text);
+  font-weight: 700;
+}
+
+.creator-owner__public .creator-owner__copy-status[role="alert"] {
+  color: var(--color-error-text);
 }
 
 .creator-owner__public [hidden],

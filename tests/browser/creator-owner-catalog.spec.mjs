@@ -260,6 +260,9 @@ test('el catálogo público carga con reintento y busca por título y URL entre 
   await expect(page.getByRole('list', { name: 'Resultados del cat\u00e1logo' }).getByRole('radio')).toHaveCount(0);
   await page.getByRole('button', { name: /Reintentar.*cat\u00e1logo/i }).click();
   await expect(catalogRadio(page, event.title)).toBeVisible();
+  await expect(page.locator('[data-catalog-index-status]')).toHaveCount(0,
+    'the ready picker keeps its result count in one dedicated live region');
+  await expect(page.locator('[data-catalog-count]')).toHaveCount(1);
   assert.equal(index.reads.length, 2, 'one failed public-index read and the explicit retry reached the provider boundary');
 
   const search = catalogSearch(page);
@@ -550,6 +553,7 @@ test('un RESOURCE_CONFLICT exige actualizar el índice, revisar la URL actual y 
   await page.getByRole('button', { name: 'Volver al borrador', exact: true }).click();
   const refreshCatalog = page.getByRole('button', { name: 'Actualizar catálogo', exact: true });
   await expect(refreshCatalog).toBeVisible();
+  await expect(page.locator('[data-catalog-index-status]')).toContainText('Actualiza el catálogo');
   assert.equal(linkWrites(capture).length, 1, 'the rejected pair was not silently converted or resent');
 
   index.replace([currentItem]);

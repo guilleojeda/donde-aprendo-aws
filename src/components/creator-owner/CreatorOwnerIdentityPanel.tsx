@@ -26,6 +26,7 @@ interface Props {
   onResolveRecovery(choice: CreatorOwnerRecoveryChoice): void;
   onSaveRecoveryDraft(): void;
   onCopyLink(url: string): void;
+  copyFeedback?: { text: string; kind: 'success' | 'error' };
 }
 
 function socialLabel(value: string | undefined): string {
@@ -38,17 +39,20 @@ function ComparisonRows({ rows }: { rows: Array<[string, string, string]> }) {
   </div>)}</dl>;
 }
 
-function OwnerSectionNavigation({ view, period }: { view: CreatorOwnerState['location']['view']; period: 7 | 30 }) {
+function OwnerSectionNavigation({ view, period, statisticsTarget }: { view: CreatorOwnerState['location']['view']; period: 7 | 30; statisticsTarget: 'summary' | 'detail' }) {
+  const sectionHref = (path: string, target: string) => `${path}#${target}`;
+  const statisticsTargetId = statisticsTarget === 'detail' ? 'creator-statistics-title' : 'owner-activity-title';
   return <nav class="creator-owner__link-tools" aria-label="Secciones de Tu página">
-    <a class="button button--outline" data-owner-navigation aria-current={view === 'series' ? 'page' : undefined} href="/cuenta/?vista=series">Series</a>
-    <a class="button button--outline" data-owner-navigation aria-current={view === 'enlaces' ? 'page' : undefined} href="/cuenta/?vista=enlaces">Enlaces</a>
-    <a class="button button--outline" data-owner-navigation aria-current={view === 'estadisticas' ? 'page' : undefined} href={`/cuenta/?vista=estadisticas&periodo=${period}&pagina=1`}>Estadísticas</a>
-    <a class="button button--outline" data-owner-navigation aria-current={view === 'solicitudes' ? 'page' : undefined} href="/cuenta/?vista=solicitudes">Solicitudes</a>
+    <a class="button button--outline" data-owner-navigation aria-current={view === 'series' ? 'page' : undefined} href={sectionHref('/cuenta/?vista=series', 'owner-series-title')}>Series</a>
+    <a class="button button--outline" data-owner-navigation aria-current={view === 'enlaces' ? 'page' : undefined} href={sectionHref('/cuenta/?vista=enlaces', 'owner-links-title')}>Enlaces</a>
+    <a class="button button--outline" data-owner-navigation aria-current={view === 'estadisticas' ? 'page' : undefined} href={sectionHref(`/cuenta/?vista=estadisticas&periodo=${period}&pagina=1`, statisticsTargetId)}>Estadísticas</a>
+    <a class="button button--outline" data-owner-navigation aria-current={view === 'solicitudes' ? 'page' : undefined} href={sectionHref('/cuenta/?vista=solicitudes', 'owner-claims-title')}>Solicitudes</a>
   </nav>;
 }
 
-export default function CreatorOwnerIdentityPanel({ state, children, logout, showActivitySummary = true, disabled, onOpenProfile, onCreateProfile, onPublish, onActivityPeriod, onRetryActivity, onCreateProfileInput, onRetryRead, onCheckSession, onResolveRecovery, onSaveRecoveryDraft, onCopyLink }: Props) {
+export default function CreatorOwnerIdentityPanel({ state, children, logout, showActivitySummary = true, disabled, onOpenProfile, onCreateProfile, onPublish, onActivityPeriod, onRetryActivity, onCreateProfileInput, onRetryRead, onCheckSession, onResolveRecovery, onSaveRecoveryDraft, onCopyLink, copyFeedback }: Props) {
   const profile = state.observed.profile;
+  const statisticsTarget = profile?.published ? 'detail' : 'summary';
   const isPublic = isPublicCreator(profile);
   const operation = state.operation;
   const recoveryAction = deriveCreatorOwnerRecoveryAction(state);
@@ -176,7 +180,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
         </header>
         <p class="creator-owner__activity-empty" data-owner-activity-empty>La actividad empieza cuando publiques tu página.</p>
       </section>}
-      {!profile && <OwnerSectionNavigation view={state.location.view} period={activity.period} />}
+      {!profile && <OwnerSectionNavigation view={state.location.view} period={activity.period} statisticsTarget={statisticsTarget} />}
 
       {profile && <div class="creator-owner__profile" data-owner-profile>
         <section class="creator-owner__identity" aria-labelledby="owner-profile-name">
@@ -205,6 +209,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
               if (!canonicalUrl) return;
               onCopyLink(canonicalUrl);
             }}>Copiar enlace</button>
+            {copyFeedback && <p class="creator-owner__copy-status" data-owner-copy-status role={copyFeedback.kind === 'error' ? 'alert' : 'status'} aria-live="polite">{copyFeedback.text}</p>}
           </>}
           {profile.hidden && <p data-owner-hidden-copy>La página está oculta por administración. Puedes editar tus datos; sólo administración puede cambiar su visibilidad.</p>}
           {!profile.published && <>
@@ -233,7 +238,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
           data-owner-activity-initial-period={activity.period} aria-labelledby="owner-activity-title">
           <header class="creator-owner__section-heading">
             <div><p class="creator-owner__eyebrow">Actividad</p><h2 id="owner-activity-title">Estadísticas de tu página</h2></div>
-            {canReadActivity && <a class="creator-owner__activity-detail" data-owner-activity-detail data-owner-navigation href={`/cuenta/?vista=estadisticas&periodo=${activity.period}&pagina=1`}>Ver detalle</a>}
+            {canReadActivity && <a class="creator-owner__activity-detail" data-owner-activity-detail data-owner-navigation href={`/cuenta/?vista=estadisticas&periodo=${activity.period}&pagina=1#creator-statistics-title`}>Ver detalle</a>}
           </header>
           {canReadActivity ? <div class="creator-owner__activity-content" data-owner-activity-content>
             <div class="creator-owner__activity-totals" data-owner-activity-total-group aria-label={`Totales de los últimos ${activity.period} días`}>
@@ -262,7 +267,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
           </div> : <p class="creator-owner__activity-empty" data-owner-activity-empty>La actividad empieza cuando publiques tu página.</p>}
         </section>}
 
-        <OwnerSectionNavigation view={state.location.view} period={activity.period} />
+        <OwnerSectionNavigation view={state.location.view} period={activity.period} statisticsTarget={statisticsTarget} />
 
         <section class="creator-owner__details" aria-labelledby="owner-details-title">
           <div class="creator-owner__section-heading"><div><p class="creator-owner__eyebrow">Tu identidad</p><h2 id="owner-details-title">Sobre ti</h2></div></div>

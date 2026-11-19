@@ -151,14 +151,14 @@ test('el resumen real de 7 y 30 días abre cada informe privado con los mismos d
   await expect(summary.locator('[data-owner-activity-period="30"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(summary.locator('[data-owner-activity-total-group]'))
     .toHaveAttribute('aria-label', 'Totales de los últimos 30 días');
-  await expect(summary.locator('[data-owner-activity-detail]')).toHaveAttribute('href', '/cuenta/?vista=estadisticas&periodo=30&pagina=1');
+  await expect(summary.locator('[data-owner-activity-detail]')).toHaveAttribute('href', '/cuenta/?vista=estadisticas&periodo=30&pagina=1#creator-statistics-title');
 
   const beforeSevenDayAction = summaryResponses.length;
   await summary.locator('[data-owner-activity-period="7"]').click();
   await expect(summary.locator('[data-owner-activity-period="7"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(summary.locator('[data-owner-activity-total-group]'))
     .toHaveAttribute('aria-label', 'Totales de los últimos 7 días');
-  await expect(summary.locator('[data-owner-activity-detail]')).toHaveAttribute('href', '/cuenta/?vista=estadisticas&periodo=7&pagina=1');
+  await expect(summary.locator('[data-owner-activity-detail]')).toHaveAttribute('href', '/cuenta/?vista=estadisticas&periodo=7&pagina=1#creator-statistics-title');
   await expect(summary.locator('[data-owner-activity-total="views"]')).toHaveText('5');
   const sevenDayReports = summaryResponses.slice(beforeSevenDayAction).filter(({ period }) => period === 7);
   assert.ok(sevenDayReports.length > 0, 'selecting 7 days issued a real statistics request');
@@ -332,7 +332,7 @@ test('la respuesta anterior no reemplaza el período elegido aunque su JSON term
   await expect(summary.locator('[data-owner-activity-total="visitors"]')).toHaveText('3');
   await expect(summary.locator('[data-owner-activity-total="clicks"]')).toHaveText('8');
   await expect(summary.locator('[data-owner-activity-detail]'))
-    .toHaveAttribute('href', '/cuenta/?vista=estadisticas&periodo=7&pagina=1');
+    .toHaveAttribute('href', '/cuenta/?vista=estadisticas&periodo=7&pagina=1#creator-statistics-title');
 
   const providerPeriods = fixture.statistics.requests.flatMap(({ requests }) => requests.map(queryDays));
   assert.ok(providerPeriods.includes(7));
@@ -561,7 +561,7 @@ test('ningún perfil o borrador consulta GA y publicar desde el detalle de 7 dí
       assert.equal(page.url(), pageUrlBeforePublish, `${state}: publication updates activity in the owner document`);
       await expect(summary.locator('[data-owner-activity-period="7"]')).toHaveAttribute('aria-pressed', 'true');
       await expect(summary.locator('[data-owner-activity-detail]'))
-        .toHaveAttribute('href', '/cuenta/?vista=estadisticas&periodo=7&pagina=1');
+        .toHaveAttribute('href', '/cuenta/?vista=estadisticas&periodo=7&pagina=1#creator-statistics-title');
       const writes = capture.writes().filter(({ method, path }) => method === 'POST' && path === '/api/creador/perfil/publicar');
       assert.equal(writes.length, state === 'none' ? 1 : 2, `${state}: one explicit publication request is sent`);
       assert.equal(writes.at(-1).status, 200);

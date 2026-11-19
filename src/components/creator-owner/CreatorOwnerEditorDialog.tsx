@@ -321,7 +321,7 @@ export default function CreatorOwnerEditorDialog({
       </form>}
 
       {editorIsDialog && editor?.kind === 'series' && <form class="creator-owner__form" hidden={prompt} data-owner-form="serie" data-series-form onSubmit={editorSubmit}>
-        <p class="creator-owner__form-context">{editor.seriesId ? `Editas «${state.observed.series[editor.seriesId]?.name ?? 'esta serie'}».` : 'Esta serie se crea como borrador; puedes agregar capítulos después.'}</p>
+        <p class="creator-owner__form-context">{editor.seriesId ? `Editas «${state.observed.series[editor.seriesId]?.name ?? 'esta serie'}».` : 'La serie será pública cuando tu página esté publicada y visible y tenga al menos un capítulo visible.'}</p>
         <div class="creator-owner__field"><label htmlFor="owner-series-name">Nombre de la serie</label><input id="owner-series-name" name="name" value={editor.draft.name} maxLength={CREATOR_FIELD_LIMITS.name} required data-series-name-suggestion readOnly={locked}
           onInput={(event) => onUpdateSeries({ name: (event.currentTarget as HTMLInputElement).value })} /></div>
         <div class="creator-owner__field"><label htmlFor="owner-series-slug">Dirección de la serie</label>
@@ -532,7 +532,8 @@ function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onP
   const loadLabel = catalog.status === 'loading' ? 'Cargando el catálogo…'
     : catalog.status === 'error' ? catalog.message ?? 'No pudimos cargar el catálogo.'
       : catalog.needsRefresh ? catalog.message ?? 'Actualiza el catálogo antes de continuar.'
-        : catalog.status === 'ready' ? `${selection.matches.length} ${selection.matches.length === 1 ? 'resultado' : 'resultados'}` : 'Busca contenido existente por título o URL.';
+        : 'Busca contenido existente por título o URL.';
+  const showCatalogStatus = catalog.status !== 'ready' || catalog.needsRefresh;
 
   useLayoutEffect(() => {
     const request = pageFocusRequestRef.current;
@@ -562,7 +563,7 @@ function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onP
       <button class="button button--outline" type="button" data-catalog-search-submit disabled={disabled || catalog.status !== 'ready' || catalog.needsRefresh}
         onClick={() => { updateSearch(catalog.search); resultsRef.current?.focus(); }}>Buscar</button>
     </div>
-    <p class="creator-owner__status" data-catalog-index-status role={catalog.status === 'error' ? 'alert' : 'status'} aria-live="polite">{loadLabel}</p>
+    {showCatalogStatus && <p class="creator-owner__status" data-catalog-index-status role={catalog.status === 'error' ? 'alert' : 'status'} aria-live="polite">{loadLabel}</p>}
     {canRefresh && <button class="button button--outline" type="button" data-catalog-retry disabled={disabled} onClick={onRetry}>{catalog.status === 'error' ? 'Reintentar carga del catálogo' : 'Actualizar catálogo'}</button>}
     {catalog.status === 'ready' && !catalog.needsRefresh && <>
       <p data-catalog-count aria-live="polite">{selection.matches.length} {selection.matches.length === 1 ? 'resultado' : 'resultados'}</p>
