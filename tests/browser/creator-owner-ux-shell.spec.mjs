@@ -175,6 +175,28 @@ test('la navegación de secciones mantiene GET y llega con foco al contenido', a
   }
 });
 
+test('desde capítulos la navegación Series enfoca el encabezado de la sección', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const series = await createSeries(fixture, cookie, { name: 'Serie con capítulos para navegación', slug: 'serie-con-capitulos-navegacion' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+  await page.locator(`[data-owner-series-row="${series.id}"]`)
+    .getByRole('link', { name: 'Gestionar capítulos', exact: true }).click();
+  await expect(page.locator('[data-owner-series-chapters]')).toBeVisible();
+
+  const seriesLink = page.getByRole('navigation', { name: 'Secciones de Tu página' })
+    .getByRole('link', { name: 'Series', exact: true });
+  await expect(seriesLink).toHaveAttribute('href', '/cuenta/?vista=series#owner-series-title');
+  await seriesLink.click();
+  await expect(page).toHaveURL((url) => url.searchParams.get('vista') === 'series'
+    && !url.searchParams.has('serie') && url.hash === '#owner-series-title');
+  const heading = page.getByRole('heading', { name: 'Series', exact: true });
+  await expect(heading).toBeFocused();
+  const box = await heading.boundingBox();
+  assert.ok(box && box.y >= 0 && box.y + box.height <= 844,
+    `series heading is in the viewport: ${JSON.stringify(box)}`);
+});
+
 test('el detalle de estadísticas vuelve a Enlaces con foco en su contenido', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const before = await readOwnerSnapshot(fixture, cookie);

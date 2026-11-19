@@ -420,8 +420,9 @@ export default function CreatorOwnerApp(props: Props) {
     if (keepNativeSkipEntry) target.hash = window.location.hash;
     const destination = resolveDestination(target);
     if (!isListDisplayQueryTransition(destination) && blockForExit({ href: target.href, kind })) return true;
-    return destination ? commitDestination(destination, keepNativeSkipEntry ? 'replace' : 'push',
-      keepNativeSkipEntry ? undefined : queryFocus(destination, linkFocus, kind)) : false;
+    const anchorFocus = kind === 'anchor' ? ownerNavigationTarget(target.hash) : undefined;
+    const focusSelector = !destination || keepNativeSkipEntry ? undefined : anchorFocus ?? queryFocus(destination, linkFocus, kind);
+    return destination ? commitDestination(destination, keepNativeSkipEntry ? 'replace' : 'push', focusSelector) : false;
   }
 
   const currentProfile = state.observed.profile;
