@@ -1516,6 +1516,10 @@
     flex-direction: column;
   }
 
+  .creator-owner__section-requirement p {
+    flex: 0 1 auto;
+  }
+
   .creator-owner__section-requirement .button {
     width: 100%;
   }
