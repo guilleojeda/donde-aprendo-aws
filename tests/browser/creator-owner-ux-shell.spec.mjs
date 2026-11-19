@@ -183,18 +183,20 @@ test('el detalle de estadísticas vuelve a Enlaces con foco en su contenido', as
   });
   assert.equal(published.response.status, 200, JSON.stringify(published.body));
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`${fixture.origin}/cuenta/?vista=estadisticas&periodo=7&pagina=1`);
-  const back = page.getByRole('link', { name: 'Volver a Enlaces', exact: true });
-  await expect(back).toHaveAttribute('href', '/cuenta/?vista=enlaces#owner-links-title');
-  await back.click();
-  await expect(page).toHaveURL((url) => url.searchParams.get('vista') === 'enlaces' && url.hash === '#owner-links-title');
-  const heading = page.getByRole('heading', { name: 'Enlaces', exact: true });
-  await expect(heading).toBeFocused();
-  const box = await heading.boundingBox();
-  assert.ok(box, 'the links heading has a layout box');
-  const viewportBottom = await page.evaluate(() => innerHeight);
-  assert.ok(box.y >= 0 && box.y + box.height <= viewportBottom,
-    `links heading is in the viewport: ${JSON.stringify({ box, viewportBottom })}`);
+  for (const name of ['Volver a Enlaces', 'Gestionar enlaces y series']) {
+    await page.goto(`${fixture.origin}/cuenta/?vista=estadisticas&periodo=7&pagina=1`);
+    const back = page.getByRole('link', { name, exact: true });
+    await expect(back).toHaveAttribute('href', '/cuenta/?vista=enlaces#owner-links-title');
+    await back.click();
+    await expect(page).toHaveURL((url) => url.searchParams.get('vista') === 'enlaces' && url.hash === '#owner-links-title');
+    const heading = page.getByRole('heading', { name: 'Enlaces', exact: true });
+    await expect(heading).toBeFocused();
+    const box = await heading.boundingBox();
+    assert.ok(box, 'the links heading has a layout box');
+    const viewportBottom = await page.evaluate(() => innerHeight);
+    assert.ok(box.y >= 0 && box.y + box.height <= viewportBottom,
+      `links heading is in the viewport: ${JSON.stringify({ name, box, viewportBottom })}`);
+  }
 });
 
 test('Copiar enlace llama al portapapeles y muestra feedback accesible junto al control', async ({ fixture, page }) => {
