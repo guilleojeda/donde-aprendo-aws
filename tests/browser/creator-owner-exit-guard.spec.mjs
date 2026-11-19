@@ -55,7 +55,7 @@ test('valid photo exit submits through native form validation before following B
     await route.fulfill({ status: 204, headers });
   };
   await page.route('https://creator-photos.example.invalid/**', upload);
-  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=preparacion-historial`);
   await hydrated(page);
   const destination = page.url();
   await page.locator('#owner-link-order').selectOption('titulo-desc');
@@ -107,7 +107,7 @@ test('a photo confirmed during guarded Back waits for an explicit exit choice', 
     await route.fulfill({ status: 204, headers });
   };
   await page.route('https://creator-photos.example.invalid/**', upload);
-  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=preparacion-historial`);
   await hydrated(page);
   const destination = page.url();
   await page.locator('#owner-link-order').selectOption('titulo-desc');
@@ -181,7 +181,7 @@ test('a photo confirmed during guarded Back waits for an explicit exit choice', 
 
 test('invalid profile fields retain native focus and do not authorize the proposed Back', async ({ fixture, page }) => {
   await loggedInOwner(fixture, page);
-  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=preparacion-historial`);
   await hydrated(page);
   await page.locator('#owner-link-order').selectOption('titulo-desc');
   await expect(page).toHaveURL((url) => url.searchParams.get('orden') === 'titulo-desc');

@@ -276,7 +276,7 @@ async function failNextOwnerRead(page) {
 
 test('una lectura fallida cancela la autorización de salir y conserva la decisión de Back', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
-  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=preparacion-historial`);
   const destination = page.url();
   await page.locator('#owner-link-order').selectOption('titulo-desc');
   await expect(page).toHaveURL(/orden=titulo-desc/u);
@@ -1382,7 +1382,7 @@ test('Volver al borrador desde el aviso de salida cancela Back y devuelve el foc
   let lost;
   let save;
   try {
-    await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+    await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=preparacion-historial`);
     await page.locator('#owner-link-order').selectOption('titulo-asc');
     await page.locator('#owner-link-order').selectOption('pagina');
     const editorUrl = page.url();

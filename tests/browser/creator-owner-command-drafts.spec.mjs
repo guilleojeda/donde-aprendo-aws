@@ -49,8 +49,8 @@ function photoForm(page) {
   return page.locator('[data-owner-dialog][open] form[data-owner-form="foto"]');
 }
 
-async function openView(page, fixture, view) {
-  await page.goto(fixture.origin + '/cuenta/?vista=' + encodeURIComponent(view));
+async function openView(page, fixture, view, query = '') {
+  await page.goto(fixture.origin + '/cuenta/?vista=' + encodeURIComponent(view) + query);
   await expect(page.locator('astro-island[component-url*="CreatorOwnerApp"]')).not.toHaveAttribute('ssr', '');
   await page.waitForLoadState('networkidle');
 }
@@ -112,7 +112,7 @@ function installPhotoProvider(page, fixture, images, { failPngOnce = false, paus
 
 test('el alta ya presente conserva todos los campos crudos y no consume la salida pendiente', async ({ fixture, page }) => {
   await loggedInOwner(fixture, page);
-  await openView(page, fixture, 'enlaces');
+  await openView(page, fixture, 'enlaces', '&buscar=preparacion-historial');
   await page.locator('#owner-link-order').selectOption('titulo-desc');
   const activeUrl = page.url();
   const capture = await captureCreatorApi(page);
