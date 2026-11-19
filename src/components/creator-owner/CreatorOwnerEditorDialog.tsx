@@ -65,6 +65,16 @@ function inputLabel(value: string): string {
   return value || '—';
 }
 
+function referenceFeedback(state: CreatorOwnerState, status: ReturnType<typeof creatorOwnerReferenceSubmissionStatus>, feedback: string): string {
+  if (state.catalog.status === 'error') return state.catalog.message ?? 'No pudimos cargar el catálogo. Puedes volver a intentarlo.';
+  if (state.catalog.needsRefresh) return state.catalog.message ?? 'Actualiza el catálogo y vuelve a elegir una ficha vigente.';
+  if (state.catalog.status === 'loading') return '';
+  if (status === 'needs-selection') return 'Elige una ficha del catálogo para agregarla a tu página.';
+  if (status === 'rejected') return 'La ficha seleccionada ya no está vigente. Actualiza el catálogo y elige otra.';
+  if (status === 'refresh') return 'Actualiza el catálogo y vuelve a elegir una ficha vigente.';
+  return feedback;
+}
+
 function comparisonSavedLabel(label: string): string {
   switch (label) {
     case 'Posición guardada': return label;
@@ -247,6 +257,7 @@ export default function CreatorOwnerEditorDialog({
     ? 'message' in operation ? operation.message : 'Guardando la acción iniciada. Espera a que termine antes de salir.'
     : state.message?.text ?? '';
   const referenceStatus = editor?.kind === 'reference' ? creatorOwnerReferenceSubmissionStatus(state, editor.selected) : 'ready';
+  const referenceStatusMessage = referenceFeedback(state, referenceStatus, feedback);
   const moveChapterSequence = editor?.kind === 'move-chapter' ? state.observed.series[editor.seriesId]?.chapters ?? [] : [];
   const moveChapterContext = editor?.kind === 'move-chapter'
     ? (() => {
@@ -416,7 +427,7 @@ export default function CreatorOwnerEditorDialog({
         {editor.selected && <label class="creator-owner__link-checkbox creator-owner__catalog-directory"><input id="owner-link-directory-option" type="checkbox" name="selectedForDirectory" checked={editor.selectedForDirectory} disabled={locked}
           onChange={(event) => onUpdateReference({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>}
         {editor.selected && <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Agregar una referencia no concede permiso para editar la ficha compartida.</p></details>}
-        <p class="creator-owner__status" data-catalog-status role="status" aria-live="polite">{feedback || state.catalog.message || (referenceStatus === 'ready' ? '' : 'Actualiza el catálogo y elige una referencia vigente.')}</p>
+        <p class="creator-owner__status" data-catalog-status role="status" aria-live="polite">{referenceStatusMessage}</p>
         {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" data-catalog-reference disabled={!canSubmit}>Agregar a mi página</button><button class="button button--outline" type="button" data-owner-cancel data-catalog-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}

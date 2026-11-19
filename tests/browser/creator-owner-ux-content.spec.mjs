@@ -3,6 +3,51 @@ import {
   test, expect, api, loggedInOwner, readOwnerSnapshot,
 } from '../fixtures/creator-browser-test.mjs';
 
+test('Enlaces muestra los valores completos de los filtros y no desborda en móvil', async ({ fixture, page }) => {
+  await loggedInOwner(fixture, page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  await expect(page.getByRole('heading', { name: 'Enlaces', exact: true })).toBeVisible();
+
+  const filters = page.locator('form[data-link-filters]');
+  await page.evaluate(() => document.fonts.ready);
+  const desktopWidths = await filters.locator('select').evaluateAll((selects) => Object.fromEntries(
+    selects.map((select) => {
+      const style = getComputedStyle(select);
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('canvas text measurement unavailable');
+      context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const label = select.selectedOptions[0]?.textContent ?? '';
+      const textWidth = context.measureText(label).width;
+      const padding = Number.parseFloat(style.paddingInlineStart) + Number.parseFloat(style.paddingInlineEnd);
+      // Chromium's native select affordance needs a small reserved area in
+      // addition to the actual padding; measure against the loaded UI font.
+      const requiredWidth = Math.ceil(textWidth + padding + 28);
+      return [select.id, { width: Math.round(select.getBoundingClientRect().width), requiredWidth }];
+    }),
+  ));
+  for (const [id, metrics] of Object.entries(desktopWidths)) {
+    expect(metrics.width, `${id} must fit its selected label`).toBeGreaterThanOrEqual(metrics.requiredWidth);
+  }
+  await expect(filters.locator('#owner-link-series')).toHaveValue('todos');
+  await expect(filters.locator('#owner-link-directory')).toHaveValue('todos');
+  await expect(filters.locator('#owner-link-order')).toHaveValue('pagina');
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Enlaces', exact: true })).toBeVisible();
+    const geometry = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      filtersWidth: document.querySelector('form[data-link-filters]')?.getBoundingClientRect().width ?? 0,
+    }));
+    expect(geometry.documentWidth, `document overflow at ${width}px`).toBeLessThanOrEqual(geometry.viewport);
+    expect(geometry.filtersWidth).toBeLessThanOrEqual(geometry.viewport);
+  }
+});
+
 test('Crear serie explica que la publicación depende de la página y del primer capítulo visible', async ({ fixture, page }) => {
   await loggedInOwner(fixture, page);
   await page.goto(`${fixture.origin}/cuenta/?vista=series`);

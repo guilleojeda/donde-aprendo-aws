@@ -1159,7 +1159,7 @@
 
 .creator-owner__link-filters {
   display: grid;
-  grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(130px, 1fr)) auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: end;
   gap: 12px;
 }

@@ -73,6 +73,43 @@ async function openOwnerCatalog(page, fixture) {
   await expect(page.getByRole('dialog')).toBeVisible();
 }
 
+test('un catálogo listo invita a seleccionar y reserva Actualiza para una selección invalidada', async ({ fixture, page }) => {
+  await loggedInOwner(fixture, page);
+  const item = catalogEntry({
+    id: 'phase11-ready-copy',
+    title: 'Referencia lista para seleccionar',
+    url: 'https://catalog.example.invalid/ready-copy',
+  });
+  const index = await serveSelectionIndex(page, [item]);
+  await openOwnerCatalog(page, fixture);
+
+  const form = page.locator('form[data-catalog-reference-form]');
+  await expect(form.locator('[data-catalog-status]')).toHaveText('Elige una ficha del catálogo para agregarla a tu página.');
+  await expect(form.locator('[data-catalog-status]')).not.toContainText(/actualiza|desactualiz/i);
+
+  await catalogRadio(page, item.title).check();
+  await expect(form.locator('[data-catalog-status]')).toHaveText('');
+  await expect(page.locator('[data-catalog-reference]')).toBeEnabled();
+
+  // A failed reference write is the real invalidation path; it must still
+  // expose the refresh action and stale-catalog explanation after the fix.
+  const invalidateReference = async (route) => {
+    const pathname = new URL(route.request().url()).pathname.replace(/\/$/u, '');
+    if (route.request().method() !== 'POST' || pathname !== '/api/creador/referencias') return route.continue();
+    return route.fulfill({
+      status: 409,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'RESOURCE_CONFLICT' }),
+    });
+  };
+  await page.route('**/api/creador/**', invalidateReference);
+  await page.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Actualizar catálogo', exact: true })).toBeVisible();
+  await expect(page.locator('[data-catalog-index-status]')).toContainText('Actualiza el catálogo');
+  await page.unroute('**/api/creador/**', invalidateReference).catch(() => {});
+  assert.equal(index.reads.length, 1, 'the ready-state copy uses the initial index read only');
+});
+
 test('el estado migrado conserva una red opcional vacía en SSR sin mostrarla en público', async ({ fixture, page, publicPage }) => {
   const cookie = await loggedInOwner(fixture, page);
   let stored = await fixture.rawOwner(cookie);
