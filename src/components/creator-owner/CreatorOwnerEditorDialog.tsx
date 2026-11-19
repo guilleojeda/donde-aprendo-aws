@@ -173,18 +173,13 @@ function operationMatchesEditor(state: CreatorOwnerState, editor: CreatorOwnerEd
   return operation.status !== 'idle' && 'intent' in operation && operation.intent?.editorKey === editor.key;
 }
 
-// The shared predicate covers target usability; the prompt boundary is the
-// dialog-specific ownership rule that keeps an open exit decision modal.
-function hasUsableExitFocus(target: Element | null, prompt: Element): target is HTMLElement {
-  return target instanceof HTMLElement && prompt.contains(target) && usableCreatorOwnerFocusTarget(target);
-}
-
 export default function CreatorOwnerEditorDialog({
   state, onUpdateProfile, onUpdateSocial, onUpdateSeries, onUpdateMove, onUpdateLink, onUpdateAddLink,
   onUpdateMoveLink, onUpdateReference, onUpdateClaim, onCatalogSearch, onCatalogPage, onCatalogRetry,
   onSetPhoto, onSubmit, onRequestClose, onRetryRead, onResolveRecovery, onSaveRecoveryDraft, onExit, onCheckSession,
 }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const wasExitPromptOpen = useRef(false);
   const editor = state.editor;
   const editorIsDialog = Boolean(editor && editor.kind !== 'create-profile');
   const prompt = state.location.prompt === 'exit';
@@ -217,18 +212,22 @@ export default function CreatorOwnerEditorDialog({
     ? operation.readCompleted === true : false;
   const comparison = editor && rows.length > 0 && comparisonReady
     ? rows : undefined;
+
   useLayoutEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
+    const continuingExitPrompt = dialog.open && wasExitPromptOpen.current;
+    wasExitPromptOpen.current = shouldOpenDialog && prompt;
     if (shouldOpenDialog) {
       if (!dialog.open) dialog.showModal();
       if (prompt) {
-        const exitPrompt = dialog.querySelector<HTMLElement>('[data-owner-exit-prompt]');
-        const requestedFocus = state.location.focusAfterRender
-          ? dialog.querySelector<HTMLElement>(state.location.focusAfterRender)
-          : undefined;
-        if (!usableCreatorOwnerFocusTarget(requestedFocus)
-          && (!exitPrompt || !hasUsableExitFocus(document.activeElement, exitPrompt))) {
+        const active = document.activeElement;
+        // Once the prompt is open, the whole modal is the active focus surface.
+        if (continuingExitPrompt && active instanceof HTMLElement && dialog.contains(active)
+          && usableCreatorOwnerFocusTarget(active)) return;
+        const requestedFocus = state.location.focusAfterRender;
+        if (!requestedFocus || !Array.from(dialog.querySelectorAll<HTMLElement>(requestedFocus))
+          .some(usableCreatorOwnerFocusTarget)) {
           const selector = !editor && operation.status === 'idle' ? '[data-owner-exit-discard]'
             : '[data-owner-exit-save]:enabled, [data-owner-exit-continue]';
           dialog.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });

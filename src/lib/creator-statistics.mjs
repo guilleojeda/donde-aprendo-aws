@@ -252,9 +252,12 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
     return legacy ? response(legacy.report, 'stale', legacy.updatedAt) : null;
   }
 
-  async function fallbackSummary(query, summaryObservation, nowValue) {
+  async function fallbackSummary(query, summaryObservation, periodObservation, nowValue) {
     if (summaryObservation.valid && nowValue < summaryObservation.valid.retainUntil) {
       return response(summaryObservation.valid.report, 'stale', summaryObservation.valid.updatedAt);
+    }
+    if (periodObservation.valid && nowValue < periodObservation.valid.retainUntil) {
+      return response(summaryFromPeriod(periodObservation.valid.report), 'stale', periodObservation.valid.updatedAt);
     }
     const legacy = await legacyFallback(query, 'summary');
     return legacy ? response(legacy.report, 'stale', legacy.updatedAt) : null;
@@ -287,7 +290,7 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
       if (!validSummary(report, query)) throw new Error('statistics reader returned an invalid summary');
     } catch (error) {
       checkedAt = validNow(now);
-      return (await fallbackSummary(query, summaryObservation, checkedAt)) ?? Promise.reject(error);
+      return (await fallbackSummary(query, summaryObservation, periodObservation, checkedAt)) ?? Promise.reject(error);
     }
 
     const updatedAt = validNow(now);

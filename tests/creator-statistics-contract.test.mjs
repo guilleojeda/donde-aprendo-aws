@@ -176,6 +176,16 @@ for (const [kind, malformed, operation] of [
   ['summary', summary({ warnings: badWarning }), summaryOperation],
   ['page', badPage, detailOperation],
 ]) {
+  test(`a malformed expired ${kind} cannot authorize a write during a successful refresh`, async () => {
+    const data = fixture([storedRow(kind, malformed, STALE)]);
+    const decoded = operation.decode(await operation.run(data.service));
+    assert.ok(decoded);
+    assert.equal(decoded.freshness, 'fresh');
+    assert.deepEqual(decoded.totals, operation.valid.totals);
+    assert.equal(data.providerReads(), 1);
+    assert.equal(data.puts.some(({ Item }) => Item.kind === kind), false);
+  });
+
   test(`outage fallback serves only a usable retained ${kind}`, async () => {
     const unavailable = new Error('provider unavailable');
     const bad = fixture([storedRow(kind, malformed, STALE)], { unavailable });
@@ -213,3 +223,43 @@ for (const [kind, malformed, operation] of [
     }
   });
 }
+
+test('a summary can recover from a usable retained period created by a detail visit', async () => {
+  const unavailable = new Error('provider unavailable');
+  const storage = dynamoCache([]);
+  let now = STALE;
+  let summaryReads = 0;
+  const service = createCachedCreatorStatistics({
+    cache: storage.cache,
+    now: () => now,
+    reader: {
+      read: async () => detail({ warnings: [
+        { section: 'visits', code: 'limited-coverage' },
+        { section: 'sources', code: 'limited-coverage' },
+      ] }),
+      readSummary: async () => {
+        summaryReads += 1;
+        throw unavailable;
+      },
+    },
+  });
+  assert.ok(detailOperation.decode(await service.read(QUERY)));
+  assert.deepEqual(storage.puts.map(({ Item }) => Item.kind).sort(), ['page', 'period']);
+  now = NOW;
+  const recovered = summaryOperation.decode(await service.readSummary(QUERY));
+  assert.ok(recovered);
+  assert.equal(recovered.freshness, 'stale');
+  assert.equal(recovered.updatedAt, new Date(STALE).toISOString());
+  assert.deepEqual(recovered.totals, detailOperation.valid.totals);
+  assert.deepEqual(recovered.warnings, [{ section: 'visits', code: 'limited-coverage' }]);
+  assert.equal(summaryReads, 1);
+  assert.equal(storage.puts.length, 2, 'serving the retained period does not write');
+});
+
+test('a malformed retained period cannot satisfy a summary during a provider outage', async () => {
+  const unavailable = new Error('provider unavailable');
+  const data = fixture([storedRow('period', periodReport({ warnings: badWarning }), STALE)], { unavailable });
+  await assert.rejects(data.service.readSummary(QUERY), unavailable);
+  assert.equal(data.providerReads(), 1);
+  assert.equal(data.puts.length, 0);
+});
