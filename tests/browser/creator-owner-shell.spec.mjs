@@ -218,7 +218,9 @@ test('Enlaces móvil:0,1 y50 filas conservan búsqueda, validación nativa, edic
   await page.setViewportSize({ width: 390, height: 844 });
   try {
     await page.goto(fixture.origin + '/cuenta/?vista=enlaces');
-    await expect(page.locator('[data-link-count]')).toHaveText('0 coincidencias de 0 enlaces');
+    await expect(page.locator('[data-link-count]')).toHaveCount(0);
+    await expect(page.locator('[data-link-empty]')).toHaveText('Todavía no agregaste enlaces.');
+    await expect(page.locator('[data-link-filters], [data-link-pagination], [data-link-rows], .creator-owner__table-scroll')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Agregar enlace', exact: true })).toBeVisible();
     await expect(page.locator('[data-link-move]')).toHaveCount(0);
     const title = 'Destino largo móvil '.padEnd(200, 'x');

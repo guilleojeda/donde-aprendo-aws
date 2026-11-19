@@ -66,6 +66,20 @@ async function openOwnerClaims(page, fixture) {
   await expect(page.getByRole('heading', { name: 'Solicitudes', exact: true })).toBeVisible();
 }
 
+test('Solicitudes sin página explica el requisito y mantiene la acción protegida', async ({ fixture, page }) => {
+  await loggedInOwner(fixture, page, { profile: false });
+  await openOwnerClaims(page, fixture);
+  const requestButton = page.getByRole('button', { name: 'Solicitar edición', exact: true });
+  await expect(requestButton).toBeDisabled();
+  await expect(requestButton).toHaveAttribute('aria-describedby', 'creator-owner-claims-requirement');
+  await expect(page.locator('[data-claims-create-requirement]')).toContainText('Primero prepara tu página para solicitar edición.');
+  await expect(page.locator('[data-claims-create-requirement] a')).toHaveAttribute('href', '#owner-create-name');
+  const prepareLink = page.getByRole('link', { name: 'Preparar tu página', exact: true });
+  await prepareLink.focus();
+  await prepareLink.press('Enter');
+  await expect(page.locator('#owner-create-name')).toBeFocused();
+});
+
 async function openClaimComposer(page) {
   await page.getByRole('button', { name: 'Solicitar edición', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();

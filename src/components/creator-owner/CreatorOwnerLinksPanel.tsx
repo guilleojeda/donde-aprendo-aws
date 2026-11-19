@@ -30,6 +30,9 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
   const selectedCount = selection.totalMatches;
   const showFilterNote = selection.query.serie !== 'todos' || selection.query.directorio !== 'todos'
     || selection.query.destacado !== 'todos' || selection.query.orden !== 'pagina';
+  const hasAppliedQuery = Boolean(selection.query.buscar.trim()) || showFilterNote || selection.query.paginaEnlaces > 1;
+  const showTrueEmptyState = selection.totalLinks === 0 && !hasAppliedQuery;
+
 
   function submit(event: SubmitEvent) {
     event.preventDefault();
@@ -60,17 +63,24 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
 
   return <section class="creator-owner__links" data-owner-links aria-labelledby="owner-links-title" data-links-count={data.links.length}>
     <header class="creator-owner__section-heading creator-owner__links-heading">
-      <div><p class="creator-owner__eyebrow">Contenido de tu página</p><h2 id="owner-links-title" tabIndex={-1}>Enlaces</h2><p data-link-count>{creatorOwnerLinksCountLabel(selectedCount, selection.totalLinks)}</p></div>
+      <div><p class="creator-owner__eyebrow">Contenido de tu página</p><h2 id="owner-links-title" tabIndex={-1}>Enlaces</h2></div>
       {snapshot.profile && <div class="creator-owner__link-actions">
         <button class="button button--outline" type="button" data-catalog-open disabled={disabled} onClick={onCatalog}>Buscar en el catálogo</button>
         <button class="button button--dark" type="button" data-link-add-open disabled={disabled} onClick={onAdd}>Agregar enlace</button>
       </div>}
     </header>
 
+    {!snapshot.profile && <div class="creator-owner__section-requirement" data-links-create-requirement role="status">
+      <p>Primero prepara tu página para agregar enlaces.</p>
+      <a class="button button--outline" href="#owner-create-name">Preparar tu página</a>
+    </div>}
+
     {location.linksQueryError ? <div class="creator-owner__links-error" role="alert" data-links-query-error>
       <p>La búsqueda o los filtros de la URL no son válidos. No mostramos la colección como si estuviera vacía.</p>
       <a class="button button--outline" href="/cuenta/?vista=enlaces">Limpiar búsqueda y filtros</a>
-    </div> : <>
+    </div> : showTrueEmptyState ? snapshot.profile ? <p class="creator-owner__empty" data-link-empty>
+      Todavía no agregaste enlaces.
+    </p> : null : <>
       <form class="creator-owner__link-filters" method="get" action="/cuenta/" data-link-filters onSubmit={submit}>
         <input type="hidden" name="vista" value="enlaces" />
         <input type="hidden" name="paginaEnlaces" value={selection.query.paginaEnlaces} />
@@ -95,7 +105,7 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
         <button class="button button--outline creator-owner__filter-submit" type="submit">Aplicar filtros</button>
       </form>
       {showFilterNote && <p class="creator-owner__filter-note">El orden de consulta sólo organiza esta tabla; no cambia el orden público de tu página.</p>}
-      <p class="creator-owner__series-count" data-link-count-summary aria-live="polite">{creatorOwnerLinksCountLabel(selectedCount, selection.totalLinks)}</p>
+      <p class="creator-owner__series-count" data-link-count data-link-count-summary aria-live="polite">{creatorOwnerLinksCountLabel(selectedCount, selection.totalLinks)}</p>
 
       <div class="creator-owner__table-scroll" tabIndex={0} aria-label="Tabla de enlaces">
         <table class="creator-owner__link-table">
@@ -128,7 +138,7 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
         </table>
       </div>
       <p class="creator-owner__empty" data-link-empty hidden={selection.rows.length > 0}>
-        {selection.totalMatches ? 'No hay enlaces en esta página de resultados.' : data.links.length ? 'No hay enlaces que coincidan con estos filtros.' : 'Todavía no agregaste enlaces.'}
+        {selection.totalMatches ? 'No hay enlaces en esta página de resultados.' : 'No hay enlaces que coincidan con estos filtros.'}
       </p>
       <nav id="owner-link-pagination" class="creator-owner__link-pagination" aria-label="Páginas de enlaces" data-link-pagination tabIndex={-1}>
         <span>Página {selection.query.paginaEnlaces} de {selection.pageCount}</span>
