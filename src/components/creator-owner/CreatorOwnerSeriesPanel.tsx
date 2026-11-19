@@ -45,6 +45,7 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
   const seriesCount = `${seriesSelection.totalMatches} ${seriesSelection.totalMatches === 1 ? 'serie' : 'series'}`;
   const chapterCount = `${chapterSelection?.totalMatches ?? 0} ${(chapterSelection?.totalMatches ?? 0) === 1 ? 'coincidencia' : 'coincidencias'} de ${links.length} ${links.length === 1 ? 'enlace' : 'enlaces'}`;
   const seriesPage = seriesSelection.query.paginaSeries;
+  const hasAppliedSeriesSearch = Boolean(seriesSelection.query.buscarSeries.trim());
   const chapterPage = chapterSelection?.query.paginaCapitulos ?? 1;
   const chapterFilterPage = location.pendingChapterSearch !== query.buscarCapitulos || location.pendingMembership !== query.pertenencia
     ? 1 : chapterPage;
@@ -179,7 +180,8 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
         })}
       </ul>
       <p class="creator-owner__empty" data-series-empty hidden={seriesSelection.rows.length > 0}>
-        {seriesSelection.totalMatches ? 'No hay series en esta página.' : 'No hay series que coincidan con la búsqueda.'}
+        {seriesSelection.totalMatches ? 'No hay series en esta página.'
+          : hasAppliedSeriesSearch ? 'No hay series que coincidan con la búsqueda.' : 'Todavía no creaste ninguna serie.'}
       </p>
       <nav class="creator-owner__pagination" data-series-pagination aria-label="Páginas de series">
         <span>Página {seriesPage} de {seriesSelection.pageCount}</span>

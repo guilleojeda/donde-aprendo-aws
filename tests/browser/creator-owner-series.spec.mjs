@@ -1,9 +1,36 @@
 import assert from 'node:assert/strict';
 import {
-  test, expect, api, readOwnerSnapshot, createSeries, addLink, addChapter, captureCreatorApi,
+  test, expect, addCookie, api, readOwnerSnapshot, createSeries, addLink, addChapter, captureCreatorApi,
   seriesForm, seriesRow, openSeriesView, loggedInOwner,
 } from '../fixtures/creator-browser-test.mjs';
 import process from 'node:process';
+
+test('Series distingue el primer uso vacío de una búsqueda aplicada sin coincidencias', async ({ fixture, page, browser }) => {
+  const cookie = await loggedInOwner(fixture, page, { profile: false });
+  const noJsContext = await browser.newContext({ javaScriptEnabled: false, ignoreHTTPSErrors: true });
+  try {
+    await addCookie(noJsContext, fixture, cookie);
+    const ssr = await noJsContext.newPage();
+    const response = await ssr.goto(`${fixture.origin}/cuenta/?vista=series`);
+    assert.equal(response?.status(), 200);
+    await expect(ssr.locator('[data-series-empty]')).toHaveText('Todavía no creaste ninguna serie.');
+  } finally {
+    await noJsContext.close();
+  }
+
+  await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+  await expect(page.getByRole('heading', { name: 'Series', exact: true })).toBeVisible();
+  await expect(page.locator('[data-series-create-requirement]')).toHaveText('Primero prepara tu página para crear una serie.');
+  await expect(page.locator('[data-series-empty]')).toHaveText('Todavía no creaste ninguna serie.');
+
+  // The pending field must not change the applied empty-state explanation.
+  await page.locator('[data-series-search]').fill('búsqueda todavía no aplicada');
+  await expect(page.locator('[data-series-empty]')).toHaveText('Todavía no creaste ninguna serie.');
+
+  await page.getByRole('button', { name: 'Aplicar búsqueda', exact: true }).click();
+  await expect(page).toHaveURL((url) => url.searchParams.get('buscarSeries') === 'búsqueda todavía no aplicada');
+  await expect(page.locator('[data-series-empty]')).toHaveText('No hay series que coincidan con la búsqueda.');
+});
 
 const writtenMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -166,7 +193,7 @@ test('Series: 0, 1 y 50 capítulos conservan búsqueda, paginación, contexto y 
   const cookie = await loggedInOwner(fixture, page);
   await openSeriesView(page, fixture);
   await expect(page.locator('[data-series-count]')).toHaveText('0 series');
-  await expect(page.locator('[data-series-empty]')).toBeVisible();
+  await expect(page.locator('[data-series-empty]')).toHaveText('Todavía no creaste ninguna serie.');
   await expect(page.getByRole('button', { name: 'Crear serie' })).toBeVisible();
 
   const series = await createSeries(fixture, cookie, { name: 'Ruta de cincuenta capítulos', slug: 'ruta-cincuenta' });
