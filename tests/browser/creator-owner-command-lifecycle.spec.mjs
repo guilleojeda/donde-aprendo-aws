@@ -639,7 +639,7 @@ async function recoverChapterAfterBack({ fixture, page, operation, malformedBack
     if (malformedBack) {
       await page.goto(`${fixture.origin}/cuenta/?vista=series&paginaSeries=0`);
       await expect(page.locator('[data-series-query-error]')).toBeVisible();
-      await page.locator('[data-owner-navigation][href="/cuenta/?vista=series"]').click();
+      await page.locator('[data-owner-navigation][href="/cuenta/?vista=series#owner-series-title"]').click();
       await expect(page.locator('[data-owner-series-list-view]')).toBeVisible();
       await expect(page).toHaveURL((url) => url.searchParams.get('vista') === 'series'
         && !url.searchParams.has('paginaSeries') && !url.searchParams.has('serie'));

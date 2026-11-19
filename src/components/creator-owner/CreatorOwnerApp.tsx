@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useReducer, useRef } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import type { CreatorOwnerSnapshotDTO } from '../../types/creators';
 import { readCreatorOwnerSnapshot } from '../../lib/creator-owner-data';
@@ -229,6 +229,17 @@ function hasNativeSkipFocus(): boolean {
   return window.location.hash === '#contenido' && document.activeElement?.id === 'contenido';
 }
 
+function ownerNavigationTarget(hash: string): string | undefined {
+  switch (hash) {
+    case '#owner-series-title': return '#owner-series-title';
+    case '#owner-links-title': return '#owner-links-title';
+    case '#owner-activity-title': return '#owner-activity-title';
+    case '#creator-statistics-title': return '#creator-statistics-title';
+    case '#owner-claims-title': return '#owner-claims-title';
+    default: return undefined;
+  }
+}
+
 const sessionRecoveryFocus = '[data-session-recovery-check]';
 const sessionTerminalFocus = '[data-session-recovery-new], [data-session-recovery-sign-in]';
 const retryReadFocus = '[data-owner-refresh-retry]';
@@ -251,8 +262,14 @@ function ownerQueryWasValid(state: unknown, view: 'enlaces' | 'series'): boolean
   return (state as Record<string, unknown>)[key] === true;
 }
 
+function creatorCopyIdentity(profile: CreatorOwnerSnapshotDTO['profile']): string {
+  return profile ? `${profile.id}:${profile.slug}` : '';
+}
+
 export default function CreatorOwnerApp(props: Props) {
   const [state, dispatch] = useReducer(creatorOwnerReducer, props, createInitialState);
+  const [copyFeedback, setCopyFeedback] = useState<{ text: string; kind: 'success' | 'error' } | undefined>();
+  const copyRequestRef = useRef(0);
   const stateRef = useRef(state);
   stateRef.current = state;
   const rootRef = useRef<HTMLDivElement>(null);
@@ -403,8 +420,9 @@ export default function CreatorOwnerApp(props: Props) {
     if (keepNativeSkipEntry) target.hash = window.location.hash;
     const destination = resolveDestination(target);
     if (!isListDisplayQueryTransition(destination) && blockForExit({ href: target.href, kind })) return true;
-    return destination ? commitDestination(destination, keepNativeSkipEntry ? 'replace' : 'push',
-      keepNativeSkipEntry ? undefined : queryFocus(destination, linkFocus, kind)) : false;
+    const anchorFocus = kind === 'anchor' ? ownerNavigationTarget(target.hash) : undefined;
+    const focusSelector = !destination || keepNativeSkipEntry ? undefined : anchorFocus ?? queryFocus(destination, linkFocus, kind);
+    return destination ? commitDestination(destination, keepNativeSkipEntry ? 'replace' : 'push', focusSelector) : false;
   }
 
   const currentProfile = state.observed.profile;
@@ -421,7 +439,15 @@ export default function CreatorOwnerApp(props: Props) {
       if (!anchor || !isOrdinaryLinkClick(event, anchor)) return;
       const url = new URL(anchor.href);
       const current = new URL(window.location.href);
-      if (url.hash && url.origin === current.origin && url.pathname === current.pathname && url.search === current.search) return;
+      if (url.hash && url.origin === current.origin && url.pathname === current.pathname && url.search === current.search) {
+        const selector = ownerNavigationTarget(url.hash);
+        if (!selector || rootRef.current?.querySelector(selector)) return;
+        const documentUrl = new URL(url.href);
+        documentUrl.hash = '';
+        event.preventDefault();
+        if (!blockForExit({ href: documentUrl.href, kind: 'anchor' })) window.location.assign(documentUrl.href);
+        return;
+      }
       const focusSelector = anchor.matches('[data-link-page]') ? '#owner-link-pagination' : '#owner-links-title';
       if (navigateOwner(url, 'anchor', focusSelector)) event.preventDefault();
     };
@@ -549,6 +575,22 @@ export default function CreatorOwnerApp(props: Props) {
   useLayoutEffect(() => {
     reconcileCurrentLocation();
   }, [state.observed]);
+
+  useEffect(() => {
+    if (!state.runtimeReady) return;
+    const selector = ownerNavigationTarget(window.location.hash)
+      ?? (props.view === 'estadisticas' && props.hasStatisticsDetail && !window.location.hash ? '#creator-statistics-title' : undefined);
+    if (!selector) return;
+    const target = rootRef.current?.querySelector<HTMLElement>(selector);
+    if (!target) return;
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+  }, [state.runtimeReady, props.view, props.hasStatisticsDetail]);
+
+  useEffect(() => {
+    copyRequestRef.current += 1;
+    setCopyFeedback(undefined);
+  }, [state.observed.profile?.id, state.observed.profile?.slug]);
 
   useEffect(() => {
     const requested = state.location.focusAfterRender;
@@ -1680,11 +1722,24 @@ export default function CreatorOwnerApp(props: Props) {
   }
 
   function copyLink(url: string) {
-    if (navigator.clipboard) {
-      void navigator.clipboard.writeText(url).then(() => setMessage('Copiaste el enlace público.', 'success'))
-        .catch(() => setMessage('No pudimos copiar el enlace. Puedes copiarlo desde la dirección de tu página.', 'error'));
+    const requestId = copyRequestRef.current + 1;
+    copyRequestRef.current = requestId;
+    const identity = creatorCopyIdentity(stateRef.current.observed.profile);
+    const applyCopyFeedback = (feedback: { text: string; kind: 'success' | 'error' }) => {
+      if (copyRequestRef.current !== requestId
+        || creatorCopyIdentity(stateRef.current.observed.profile) !== identity) return;
+      setCopyFeedback(feedback);
+    };
+    setCopyFeedback(undefined);
+    const success = 'Enlace copiado.';
+    const failure = 'No pudimos copiar el enlace. Puedes copiarlo desde la dirección de tu página.';
+    if (navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(url)
+        .then(() => applyCopyFeedback({ text: success, kind: 'success' }))
+        .catch(() => applyCopyFeedback({ text: failure, kind: 'error' }));
       return;
     }
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
     const input = document.createElement('textarea');
     input.value = url;
     input.setAttribute('readonly', '');
@@ -1692,9 +1747,15 @@ export default function CreatorOwnerApp(props: Props) {
     input.style.opacity = '0';
     document.body.append(input);
     input.select();
-    const copied = document.execCommand('copy');
+    let copied = false;
+    try {
+      copied = document.execCommand('copy');
+    } catch {
+      copied = false;
+    }
     input.remove();
-    setMessage(copied ? 'Copiaste el enlace público.' : 'No pudimos copiar el enlace. Puedes copiarlo desde la dirección de tu página.', copied ? 'success' : 'error');
+    returnFocus?.focus({ preventScroll: true });
+    applyCopyFeedback({ text: copied ? success : failure, kind: copied ? 'success' : 'error' });
   }
 
   const chapterRecoveryInDetail = creatorOwnerChapterRecoveryIsVisibleInDetail(state);
@@ -1726,6 +1787,7 @@ export default function CreatorOwnerApp(props: Props) {
       onResolveRecovery={resolveRecovery}
       onSaveRecoveryDraft={saveRecoveryDraft}
       onCopyLink={copyLink}
+      copyFeedback={copyFeedback}
     >
       {listOperation && <section class="creator-owner__conflict" data-owner-recovery data-owner-stale={listOperation.status === 'refresh-failed' ? 'true' : undefined} data-recovery-kind={listRecoveryKind}
         data-owner-list-recovery={['remove-link', 'reinclude-link'].includes(listOperation.intent.action) ? 'links'

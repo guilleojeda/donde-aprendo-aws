@@ -35,7 +35,7 @@ export default function CreatorOwnerClaimsPanel({ state, disabled, onOpen, onRef
 
   return <section class="creator-owner__claims" data-owner-claims aria-labelledby="owner-claims-title">
     <header class="creator-owner__section-heading creator-owner__claims-heading"><div>
-      <p class="creator-owner__eyebrow">Acceso de edición</p><h2 id="owner-claims-title">Solicitudes</h2>
+      <p class="creator-owner__eyebrow">Acceso de edición</p><h2 id="owner-claims-title" tabIndex={-1}>Solicitudes</h2>
       <p>Solicitar acceso no agrega contenido a tu página ni concede permiso para editar.</p>
     </div><button class="button button--dark" type="button" data-claim-open data-claim-section-open disabled={disabled || !state.observed.profile} onClick={onOpen}>Solicitar edición</button></header>
     {claimsReadPending && <p class="creator-owner__status" data-claim-index-status role="status" aria-live="polite">Actualizando solicitudes…</p>}
