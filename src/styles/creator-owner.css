@@ -444,6 +444,14 @@
   gap: 12px;
 }
 
+.creator-owner__series > header [data-series-create-open]:disabled {
+  border-color: var(--color-border-control);
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
 .creator-owner__series h2,
 .creator-owner__series h3,
 .creator-owner__series h4 {
