@@ -438,7 +438,15 @@ export default function CreatorOwnerApp(props: Props) {
       if (!anchor || !isOrdinaryLinkClick(event, anchor)) return;
       const url = new URL(anchor.href);
       const current = new URL(window.location.href);
-      if (url.hash && url.origin === current.origin && url.pathname === current.pathname && url.search === current.search) return;
+      if (url.hash && url.origin === current.origin && url.pathname === current.pathname && url.search === current.search) {
+        const selector = ownerNavigationTarget(url.hash);
+        if (!selector || rootRef.current?.querySelector(selector)) return;
+        const documentUrl = new URL(url.href);
+        documentUrl.hash = '';
+        event.preventDefault();
+        if (!blockForExit({ href: documentUrl.href, kind: 'anchor' })) window.location.assign(documentUrl.href);
+        return;
+      }
       const focusSelector = anchor.matches('[data-link-page]') ? '#owner-link-pagination' : '#owner-links-title';
       if (navigateOwner(url, 'anchor', focusSelector)) event.preventDefault();
     };
@@ -569,14 +577,14 @@ export default function CreatorOwnerApp(props: Props) {
 
   useEffect(() => {
     if (!state.runtimeReady) return;
-    const selector = ownerNavigationTarget(window.location.hash);
+    const selector = ownerNavigationTarget(window.location.hash)
+      ?? (props.view === 'estadisticas' && props.hasStatisticsDetail && !window.location.hash ? '#creator-statistics-title' : undefined);
     if (!selector) return;
     const target = rootRef.current?.querySelector<HTMLElement>(selector);
     if (!target) return;
-    if (!target.matches('a, button, input, select, textarea, [tabindex]')) target.tabIndex = -1;
     target.focus({ preventScroll: true });
     target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
-  }, [state.runtimeReady, props.view]);
+  }, [state.runtimeReady, props.view, props.hasStatisticsDetail]);
 
   useEffect(() => {
     copyRequestRef.current += 1;

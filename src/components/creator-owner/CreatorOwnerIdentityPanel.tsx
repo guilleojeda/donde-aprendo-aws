@@ -178,7 +178,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
       {!profile && showActivitySummary && <section class="creator-owner__activity" data-owner-activity data-owner-profile-state="none" data-owner-creator-id=""
         data-owner-activity-initial-period={activity.period} aria-labelledby="owner-activity-title">
         <header class="creator-owner__section-heading">
-          <div><p class="creator-owner__eyebrow">Actividad</p><h2 id="owner-activity-title">Estadísticas de tu página</h2></div>
+          <div><p class="creator-owner__eyebrow">Actividad</p><h2 id="owner-activity-title" tabIndex={-1}>Estadísticas de tu página</h2></div>
         </header>
         <p class="creator-owner__activity-empty" data-owner-activity-empty>La actividad empieza cuando publiques tu página.</p>
       </section>}
@@ -239,7 +239,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
         {showActivitySummary && <section class="creator-owner__activity" data-owner-activity data-owner-profile-state={profile.hidden ? 'hidden' : profile.published ? 'published' : 'draft'} data-owner-creator-id={profile.id}
           data-owner-activity-initial-period={activity.period} aria-labelledby="owner-activity-title">
           <header class="creator-owner__section-heading">
-            <div><p class="creator-owner__eyebrow">Actividad</p><h2 id="owner-activity-title">Estadísticas de tu página</h2></div>
+            <div><p class="creator-owner__eyebrow">Actividad</p><h2 id="owner-activity-title" tabIndex={-1}>Estadísticas de tu página</h2></div>
             {canReadActivity && <a class="creator-owner__activity-detail" data-owner-activity-detail data-owner-navigation href={`/cuenta/?vista=estadisticas&periodo=${activity.period}&pagina=1#creator-statistics-title`}>Ver detalle</a>}
           </header>
           {canReadActivity ? <div class="creator-owner__activity-content" data-owner-activity-content>

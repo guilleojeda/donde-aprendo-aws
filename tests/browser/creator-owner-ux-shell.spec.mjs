@@ -76,6 +76,57 @@ test('sin perfil Estadísticas apunta al resumen visible y enfoca su encabezado'
     `summary heading is in the viewport: ${JSON.stringify({ box, viewportBottom })}`);
 });
 
+test('publicar desde el resumen de Estadísticas exige GET al detalle y enfoca su encabezado', async ({ fixture, page }) => {
+  await loggedInOwner(fixture, page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${fixture.origin}/cuenta/?vista=estadisticas&periodo=7&pagina=1`);
+  await expect(page.locator('[data-owner-activity]')).toBeVisible();
+  await page.getByRole('button', { name: 'Publicar página', exact: true }).click();
+  await expect(page.locator('[data-owner-activity-content]')).toBeVisible();
+
+  const navigation = page.getByRole('navigation', { name: 'Secciones de Tu página' });
+  const statisticsLink = navigation.getByRole('link', { name: 'Estadísticas', exact: true });
+  const detailHref = '/cuenta/?vista=estadisticas&periodo=7&pagina=1#creator-statistics-title';
+  const documentHref = '/cuenta/?vista=estadisticas&periodo=7&pagina=1';
+  await expect(statisticsLink).toHaveAttribute('href', detailHref);
+  await expect(page.locator('[data-owner-activity-detail]')).toHaveAttribute('href', detailHref);
+
+  const documentRequest = page.waitForRequest((request) => {
+    const url = new URL(request.url());
+    return request.method() === 'GET' && request.resourceType() === 'document'
+      && url.pathname === '/cuenta/' && url.search === '?vista=estadisticas&periodo=7&pagina=1';
+  });
+  await statisticsLink.click();
+  const request = await documentRequest;
+  assert.equal(request.url(), new URL(documentHref, fixture.origin).href);
+  await expect(page).toHaveURL((url) => url.searchParams.get('vista') === 'estadisticas' && url.hash === '');
+  await expect(page.locator('[data-owner-statistics]')).toBeVisible();
+  const heading = page.getByRole('heading', { name: 'Estadísticas de tu página', exact: true }).last();
+  await expect(heading).toBeFocused();
+  const box = await heading.boundingBox();
+  assert.ok(box && box.y >= 0 && box.y + box.height <= 844,
+    `detail heading is focused in the viewport: ${JSON.stringify(box)}`);
+});
+
+test('Solicitudes directa sin hash enfoca el encabezado al activar su misma sección', async ({ fixture, page, browser }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const context = await browser.newContext({ javaScriptEnabled: false, ignoreHTTPSErrors: true });
+  try {
+    await addCookie(context, fixture, cookie);
+    const ssr = await context.newPage();
+    await ssr.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+    const navigation = ssr.getByRole('navigation', { name: 'Secciones de Tu página' });
+    const claimsLink = navigation.getByRole('link', { name: 'Solicitudes', exact: true });
+    await expect(claimsLink).toHaveAttribute('href', '/cuenta/?vista=solicitudes#owner-claims-title');
+    await claimsLink.click();
+    await expect(ssr).toHaveURL((url) => url.searchParams.get('vista') === 'solicitudes' && url.hash === '#owner-claims-title');
+    const heading = ssr.getByRole('heading', { name: 'Solicitudes', exact: true });
+    await expect(heading).toBeFocused();
+  } finally {
+    await context.close();
+  }
+});
+
 test('la navegación de secciones mantiene GET y llega con foco al contenido', async ({ fixture, page, browser }) => {
   const cookie = await loggedInOwner(fixture, page, {
     profileFields: {
