@@ -25,6 +25,7 @@ import {
 } from '../../lib/creator-owner-state';
 import { creatorOwnerNavigationLists } from '../../lib/creator-owner-presentation';
 import { pageCreatorOwnerCatalog } from '../../lib/creator-owner-catalog';
+import { usableCreatorOwnerFocusTarget } from '../../lib/creator-owner-focus';
 
 interface Props {
   state: CreatorOwnerState;
@@ -178,6 +179,7 @@ export default function CreatorOwnerEditorDialog({
   onSetPhoto, onSubmit, onRequestClose, onRetryRead, onResolveRecovery, onSaveRecoveryDraft, onExit, onCheckSession,
 }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const wasExitPromptOpen = useRef(false);
   const editor = state.editor;
   const editorIsDialog = Boolean(editor && editor.kind !== 'create-profile');
   const prompt = state.location.prompt === 'exit';
@@ -214,12 +216,22 @@ export default function CreatorOwnerEditorDialog({
   useLayoutEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
+    const continuingExitPrompt = dialog.open && wasExitPromptOpen.current;
+    wasExitPromptOpen.current = shouldOpenDialog && prompt;
     if (shouldOpenDialog) {
       if (!dialog.open) dialog.showModal();
       if (prompt) {
-        const selector = !editor && operation.status === 'idle' ? '[data-owner-exit-discard]'
-          : '[data-owner-exit-save]:enabled, [data-owner-exit-continue]';
-        dialog.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+        const active = document.activeElement;
+        // Once the prompt is open, the whole modal is the active focus surface.
+        if (continuingExitPrompt && active instanceof HTMLElement && dialog.contains(active)
+          && usableCreatorOwnerFocusTarget(active)) return;
+        const requestedFocus = state.location.focusAfterRender;
+        if (!requestedFocus || !Array.from(dialog.querySelectorAll<HTMLElement>(requestedFocus))
+          .some(usableCreatorOwnerFocusTarget)) {
+          const selector = !editor && operation.status === 'idle' ? '[data-owner-exit-discard]'
+            : '[data-owner-exit-save]:enabled, [data-owner-exit-continue]';
+          dialog.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+        }
       }
       else if (editorIsDialog) {
         const selector = editor?.kind === 'photo' ? 'input[type="file"]'

@@ -198,11 +198,12 @@ async function openClaims(page, fixture, candidate) {
   return form;
 }
 
-for (const [choice, label] of [
-  ['stay', 'Quedarme aquí'],
-  ['leave', 'Seguir a la página solicitada'],
+for (const [choice, outcome] of [
+  ['stay', 'quedarse'],
+  ['close', 'cerrar la decisión'],
+  ['leave', 'salir'],
 ]) {
-  test(`un Save confirmado mantiene la decisión de Back abierta hasta ${choice === 'stay' ? 'quedarse' : 'salir'}`, async ({ fixture, page }) => {
+  test(`un Save confirmado mantiene la decisión de Back abierta hasta ${outcome}`, async ({ fixture, page }) => {
     const cookie = await loggedInOwner(fixture, page);
     await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
     await expect(page.locator('astro-island[component-url*="CreatorOwnerApp"]')).not.toHaveAttribute('ssr', '');
@@ -228,6 +229,15 @@ for (const [choice, label] of [
       const prompt = page.locator('[data-owner-exit-prompt]');
       await expect(prompt).toBeVisible();
       await expect(page).toHaveURL(activeUrl, 'the real Back remains on the active owner entry while the read is pending');
+      const dialog = page.locator('[data-owner-dialog]');
+      const keyboardControl = choice === 'close'
+        ? dialog.getByRole('button', { name: 'Cerrar edición', exact: true })
+        : prompt.locator('[data-owner-exit-continue]');
+      if (choice !== 'leave') {
+        await page.keyboard.press('Shift+Tab');
+        await page.keyboard.press(choice === 'close' ? 'Shift+Tab' : 'Tab');
+        await expect(keyboardControl).toBeFocused();
+      }
 
       read.release();
       await save;
@@ -235,12 +245,20 @@ for (const [choice, label] of [
       assert.equal(read.actual.status, 200, 'the held read is the real successful full owner GET after Save');
       assert.equal(read.actual.body.profile.city, submittedCity, 'the held full read contains the submitted city');
       assert.equal((await fixture.rawOwner(cookie)).profile.city, submittedCity, 'the real Save persists the submitted city');
+      await expect(dialog).toHaveAttribute('data-owner-operation', 'idle');
       await expect(prompt).toBeVisible();
       await expect(page).toHaveURL(activeUrl, 'adopting the acknowledged full read does not choose the pending navigation');
       assert.equal(ownerWrites(capture).length, 1, 'the delayed read never replays the ordinary Save');
-      await expect(prompt.getByRole('button', { name: label, exact: true })).toBeVisible();
-      await prompt.getByRole('button', { name: label, exact: true }).click();
-      if (choice === 'stay') {
+      if (choice !== 'leave') {
+        await expect(keyboardControl).toBeEnabled();
+        await expect(keyboardControl).toBeFocused();
+        await page.keyboard.press('Enter');
+      } else {
+        const decision = prompt.getByRole('button', { name: 'Seguir a la página solicitada', exact: true });
+        await expect(decision).toBeVisible();
+        await decision.click();
+      }
+      if (choice !== 'leave') {
         await expect(prompt).toHaveCount(0);
         await expect(page).toHaveURL(activeUrl);
         await page.goBack();

@@ -1,8 +1,8 @@
+import { isCreatorStatisticsReport } from './creator-statistics-contract.mjs';
+
 const SCHEMA_VERSION = 1;
 const FRESHNESS_MS = 60 * 60 * 1000;
 const RETENTION_MS = 7 * 24 * FRESHNESS_MS;
-const LINK_PAGE_SIZE = 100;
-const COUNTERS = ['views', 'visitors', 'clicks'];
 const WINDOW_CHANGED = Symbol('statistics window changed');
 
 function isObject(value) {
@@ -30,23 +30,6 @@ function keyFor(query, kind, page) {
   };
 }
 
-function dateValue(value) {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) return null;
-  const milliseconds = Date.parse(`${value}T00:00:00.000Z`);
-  if (!Number.isFinite(milliseconds) || new Date(milliseconds).toISOString().slice(0, 10) !== value) return null;
-  return milliseconds;
-}
-
-function isoValue(value) {
-  return typeof value === 'string'
-    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/u.test(value)
-    && Number.isFinite(Date.parse(value));
-}
-
-function countValue(value) {
-  return value === null || (Number.isSafeInteger(value) && value >= 0);
-}
-
 function localDate(timeZone, milliseconds) {
   try {
     const parts = new Intl.DateTimeFormat('en', {
@@ -63,16 +46,6 @@ function localDate(timeZone, milliseconds) {
   }
 }
 
-function validRange(range, period) {
-  if (!isObject(range) || typeof range.timeZone !== 'string' || range.timeZone === '') return false;
-  const start = dateValue(range.startDate);
-  const end = dateValue(range.endDate);
-  if (start === null || end === null || end < start
-    || Math.round((end - start) / 86_400_000) + 1 !== period
-    || localDate(range.timeZone, end) === null) return false;
-  return true;
-}
-
 function sameRange(left, right) {
   return isObject(left) && isObject(right)
     && left.startDate === right.startDate
@@ -80,70 +53,30 @@ function sameRange(left, right) {
     && left.timeZone === right.timeZone;
 }
 
-function validWarnings(warnings) {
-  return Array.isArray(warnings) && warnings.every(isObject);
-}
-
 function validSummary(report, key) {
-  if (!isObject(report)
-    || report.creatorId !== key.profileId
-    || report.period !== key.period
-    || !validRange(report.range, key.period)
-    || !isObject(report.totals)
-    || !validWarnings(report.warnings)
-    || !isoValue(report.captureStartedAt)) return false;
-  return COUNTERS.every((field) => countValue(report.totals[field]));
-}
-
-function validCommon(report, key) {
-  if (!validSummary(report, key)
-    || !Array.isArray(report.daily)
-    || !Array.isArray(report.sources)
-    || report.daily.length !== key.period) return false;
-  const start = dateValue(report.range.startDate);
-  for (let index = 0; index < report.daily.length; index += 1) {
-    const day = report.daily[index];
-    if (!isObject(day) || dateValue(day.date) !== start + index * 86_400_000
-      || !countValue(day.views) || !countValue(day.clicks)) return false;
-  }
-  return report.sources.every((source) => isObject(source)
-    && typeof source.sourceMedium === 'string'
-    && countValue(source.views));
-}
-
-function validLinks(links, page) {
-  if (!isObject(links)
-    || links.page !== page
-    || links.pageSize !== LINK_PAGE_SIZE
-    || !Number.isSafeInteger(links.totalRows)
-    || links.totalRows < 0
-    || !Array.isArray(links.rows)
-    || links.rows.length > LINK_PAGE_SIZE) return false;
-  return links.rows.every((row) => isObject(row)
-    && typeof row.linkId === 'string'
-    && row.linkId !== ''
-    && countValue(row.clicks));
+  return isCreatorStatisticsReport(report, {
+    kind: 'summary',
+    profileId: key.profileId,
+    period: key.period,
+  });
 }
 
 function validFull(report, key) {
-  return validCommon(report, key)
-    && report.page === key.page
-    && validLinks(report.links, key.page);
-}
-
-function validPeriod(report, key) {
-  return validCommon(report, key);
+  return isCreatorStatisticsReport(report, {
+    kind: 'page',
+    profileId: key.profileId,
+    period: key.period,
+    page: key.page,
+  });
 }
 
 function validLinkPart(report, key) {
-  return isObject(report)
-    && report.creatorId === key.profileId
-    && report.period === key.period
-    && report.page === key.page
-    && validRange(report.range, key.period)
-    && validLinks(report.links, key.page)
-    && validWarnings(report.warnings)
-    && isoValue(report.captureStartedAt);
+  return isCreatorStatisticsReport(report, {
+    kind: 'links',
+    profileId: key.profileId,
+    period: key.period,
+    page: key.page,
+  });
 }
 
 function isCurrentWindow(report, milliseconds) {
@@ -162,7 +95,7 @@ function validNow(now) {
   return value;
 }
 
-function validEnvelope(envelope, key, validator, now, { requireRevision = false } = {}) {
+function validEnvelope(envelope, key, now, { requireRevision = false } = {}) {
   if (!isObject(envelope)
     || envelope.invalid === true
     || envelope.schemaVersion !== SCHEMA_VERSION
@@ -174,7 +107,12 @@ function validEnvelope(envelope, key, validator, now, { requireRevision = false 
     || envelope.updatedAt > now
     || envelope.expiresAt !== envelope.updatedAt + FRESHNESS_MS
     || envelope.retainUntil !== envelope.updatedAt + RETENTION_MS
-    || !validator(envelope.report, key)) return null;
+    || !isCreatorStatisticsReport(envelope.report, {
+      kind: key.kind,
+      profileId: key.profileId,
+      period: key.period,
+      page: key.page,
+    })) return null;
   return envelope;
 }
 
@@ -237,8 +175,8 @@ function combinePeriodAndLinks(period, links) {
   };
 }
 
-function observation(raw, key, validator, now, readable = true) {
-  const valid = validEnvelope(raw, key, validator, now, { requireRevision: true });
+function observation(raw, key, now, readable = true) {
+  const valid = validEnvelope(raw, key, now, { requireRevision: true });
   return {
     valid,
     authority: readable && (raw === undefined || valid !== null),
@@ -261,14 +199,14 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
 
   const inFlight = new Map();
 
-  async function observe(key, validator) {
+  async function observe(key) {
     let raw;
     try {
       raw = await cache.get(key);
     } catch {
-      return observation(undefined, key, validator, validNow(now), false);
+      return observation(undefined, key, validNow(now), false);
     }
-    return observation(raw, key, validator, validNow(now));
+    return observation(raw, key, validNow(now));
   }
 
   async function publish(key, envelope, predecessor) {
@@ -281,11 +219,11 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
     }
   }
 
-  async function rereadWinner(key, validator) {
+  async function rereadWinner(key) {
     try {
       const raw = await cache.get(key);
       const checkedAt = validNow(now);
-      return validEnvelope(raw, key, validator, checkedAt, { requireRevision: true });
+      return validEnvelope(raw, key, checkedAt, { requireRevision: true });
     } catch {
       return null;
     }
@@ -297,8 +235,7 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
     try {
       const raw = await cache.readLegacy(legacyKey);
       const checkedAt = validNow(now);
-      const pageKey = { profileId: query.profileId, period: query.period, page: query.page ?? 1 };
-      const envelope = validEnvelope(raw, pageKey, (report, key) => validFull(report, key), checkedAt);
+      const envelope = validEnvelope(raw, legacyKey, checkedAt);
       if (!envelope || checkedAt >= envelope.retainUntil) return null;
       if (kind === 'summary') return { report: summaryFromPeriod(envelope.report), updatedAt: envelope.updatedAt };
       return { report: envelope.report, updatedAt: envelope.updatedAt };
@@ -329,12 +266,12 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
   async function readSummaryOnce(query) {
     const summaryKey = keyFor(query, 'summary');
     const periodKey = keyFor(query, 'period');
-    const summaryObservation = await observe(summaryKey, validSummary);
+    const summaryObservation = await observe(summaryKey);
     let checkedAt = validNow(now);
     if (summaryObservation.valid && isFreshAt(summaryObservation.valid.report, summaryObservation.valid.updatedAt, checkedAt)) {
       return response(summaryObservation.valid.report, 'fresh', summaryObservation.valid.updatedAt);
     }
-    const periodObservation = await observe(periodKey, validPeriod);
+    const periodObservation = await observe(periodKey);
     if (periodObservation.valid && isFreshAt(periodObservation.valid.report, periodObservation.valid.updatedAt, checkedAt)) {
       const report = summaryFromPeriod(periodObservation.valid.report);
       checkedAt = validNow(now);
@@ -362,7 +299,7 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
     checkedAt = validNow(now);
     if (!isFreshAt(report, updatedAt, checkedAt)) return { [WINDOW_CHANGED]: true, report, updatedAt };
     if (publication === 'conflict') {
-      const winner = await rereadWinner(summaryKey, validSummary);
+      const winner = await rereadWinner(summaryKey);
       if (winner && isFreshAt(winner.report, winner.updatedAt, validNow(now))) {
         return response(winner.report, 'fresh', winner.updatedAt);
       }
@@ -373,12 +310,12 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
   async function readDetailOnce(query) {
     const pageKey = keyFor(query, 'page');
     const periodKey = keyFor(query, 'period');
-    const pageObservation = await observe(pageKey, validFull);
+    const pageObservation = await observe(pageKey);
     let checkedAt = validNow(now);
     if (pageObservation.valid && isFreshAt(pageObservation.valid.report, pageObservation.valid.updatedAt, checkedAt)) {
       return response(pageObservation.valid.report, 'fresh', pageObservation.valid.updatedAt);
     }
-    const periodObservation = await observe(periodKey, validPeriod);
+    const periodObservation = await observe(periodKey);
     checkedAt = validNow(now);
 
     let report;
@@ -423,27 +360,15 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
         checkedAt = validNow(now);
         if (!isFreshAt(report, updatedAt, checkedAt)) return { [WINDOW_CHANGED]: true, report, updatedAt };
       }
-      if (pageObservation.authority) {
-        const pagePublication = await publish(pageKey, cacheEnvelope(report, updatedAt), pageObservation);
-        checkedAt = validNow(now);
-        if (!isFreshAt(report, updatedAt, checkedAt)) return { [WINDOW_CHANGED]: true, report, updatedAt };
-        if (pagePublication === 'conflict') {
-          const winner = await rereadWinner(pageKey, validFull);
-          if (winner && isFreshAt(winner.report, winner.updatedAt, validNow(now))) {
-            return response(winner.report, 'fresh', winner.updatedAt);
-          }
-        }
-      }
-    } else {
-      if (pageObservation.authority) {
-        const pagePublication = await publish(pageKey, cacheEnvelope(report, updatedAt), pageObservation);
-        checkedAt = validNow(now);
-        if (!isFreshAt(report, updatedAt, checkedAt)) return { [WINDOW_CHANGED]: true, report, updatedAt };
-        if (pagePublication === 'conflict') {
-          const winner = await rereadWinner(pageKey, validFull);
-          if (winner && isFreshAt(winner.report, winner.updatedAt, validNow(now))) {
-            return response(winner.report, 'fresh', winner.updatedAt);
-          }
+    }
+    if (pageObservation.authority) {
+      const publication = await publish(pageKey, cacheEnvelope(report, updatedAt), pageObservation);
+      checkedAt = validNow(now);
+      if (!isFreshAt(report, updatedAt, checkedAt)) return { [WINDOW_CHANGED]: true, report, updatedAt };
+      if (publication === 'conflict') {
+        const winner = await rereadWinner(pageKey);
+        if (winner && isFreshAt(winner.report, winner.updatedAt, validNow(now))) {
+          return response(winner.report, 'fresh', winner.updatedAt);
         }
       }
     }
