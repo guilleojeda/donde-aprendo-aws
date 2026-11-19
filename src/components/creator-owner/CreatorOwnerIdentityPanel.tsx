@@ -73,6 +73,8 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
     ? `/media/fotos/${encodeURIComponent(profile.id)}/${encodeURIComponent(String(profile.photo.version))}.webp`
     : undefined;
   const canonicalPath = profile ? canonicalCreatorPath(profile.slug) : undefined;
+  const copyButtonLabel = copyFeedback?.kind === 'success' ? 'Enlace copiado'
+    : copyFeedback?.kind === 'error' ? 'No se pudo copiar' : 'Copiar enlace';
   let canonicalUrl: string | undefined;
   if (canonicalPath) {
     try { canonicalUrl = new URL(canonicalPath, state.publicOrigin).href; } catch { canonicalUrl = canonicalPath; }
@@ -208,8 +210,8 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
             <button class="button button--outline" type="button" data-owner-copy onClick={() => {
               if (!canonicalUrl) return;
               onCopyLink(canonicalUrl);
-            }}>Copiar enlace</button>
-            {copyFeedback && <p class="creator-owner__copy-status" data-owner-copy-status role={copyFeedback.kind === 'error' ? 'alert' : 'status'} aria-live="polite">{copyFeedback.text}</p>}
+            }}>{copyButtonLabel}</button>
+            {copyFeedback && <p class={`creator-owner__copy-status${copyFeedback.kind === 'success' ? ' sr-only' : ''}`} data-owner-copy-status role={copyFeedback.kind === 'error' ? 'alert' : 'status'} aria-live="polite">{copyFeedback.text}</p>}
           </>}
           {profile.hidden && <p data-owner-hidden-copy>La página está oculta por administración. Puedes editar tus datos; sólo administración puede cambiar su visibilidad.</p>}
           {!profile.published && <>

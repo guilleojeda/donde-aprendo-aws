@@ -262,9 +262,14 @@ function ownerQueryWasValid(state: unknown, view: 'enlaces' | 'series'): boolean
   return (state as Record<string, unknown>)[key] === true;
 }
 
+function creatorCopyIdentity(profile: CreatorOwnerSnapshotDTO['profile']): string {
+  return profile ? `${profile.id}:${profile.slug}` : '';
+}
+
 export default function CreatorOwnerApp(props: Props) {
   const [state, dispatch] = useReducer(creatorOwnerReducer, props, createInitialState);
   const [copyFeedback, setCopyFeedback] = useState<{ text: string; kind: 'success' | 'error' } | undefined>();
+  const copyRequestRef = useRef(0);
   const stateRef = useRef(state);
   stateRef.current = state;
   const rootRef = useRef<HTMLDivElement>(null);
@@ -574,8 +579,9 @@ export default function CreatorOwnerApp(props: Props) {
   }, [state.runtimeReady, props.view]);
 
   useEffect(() => {
+    copyRequestRef.current += 1;
     setCopyFeedback(undefined);
-  }, [state.observed.profile?.slug]);
+  }, [state.observed.profile?.id, state.observed.profile?.slug]);
 
   useEffect(() => {
     const requested = state.location.focusAfterRender;
@@ -1707,13 +1713,21 @@ export default function CreatorOwnerApp(props: Props) {
   }
 
   function copyLink(url: string) {
+    const requestId = copyRequestRef.current + 1;
+    copyRequestRef.current = requestId;
+    const identity = creatorCopyIdentity(stateRef.current.observed.profile);
+    const applyCopyFeedback = (feedback: { text: string; kind: 'success' | 'error' }) => {
+      if (copyRequestRef.current !== requestId
+        || creatorCopyIdentity(stateRef.current.observed.profile) !== identity) return;
+      setCopyFeedback(feedback);
+    };
     setCopyFeedback(undefined);
     const success = 'Enlace copiado.';
     const failure = 'No pudimos copiar el enlace. Puedes copiarlo desde la dirección de tu página.';
     if (navigator.clipboard?.writeText) {
       void navigator.clipboard.writeText(url)
-        .then(() => setCopyFeedback({ text: success, kind: 'success' }))
-        .catch(() => setCopyFeedback({ text: failure, kind: 'error' }));
+        .then(() => applyCopyFeedback({ text: success, kind: 'success' }))
+        .catch(() => applyCopyFeedback({ text: failure, kind: 'error' }));
       return;
     }
     const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
@@ -1732,7 +1746,7 @@ export default function CreatorOwnerApp(props: Props) {
     }
     input.remove();
     returnFocus?.focus({ preventScroll: true });
-    setCopyFeedback({ text: copied ? success : failure, kind: copied ? 'success' : 'error' });
+    applyCopyFeedback({ text: copied ? success : failure, kind: copied ? 'success' : 'error' });
   }
 
   const chapterRecoveryInDetail = creatorOwnerChapterRecoveryIsVisibleInDetail(state);

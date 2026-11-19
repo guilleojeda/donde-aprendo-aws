@@ -124,6 +124,28 @@ test('la navegación de secciones mantiene GET y llega con foco al contenido', a
   }
 });
 
+test('el detalle de estadísticas vuelve a Enlaces con foco en su contenido', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const before = await readOwnerSnapshot(fixture, cookie);
+  const published = await api(fixture, cookie, '/api/creador/perfil/publicar', {
+    method: 'POST', body: { creatorVersion: before.creatorVersion },
+  });
+  assert.equal(published.response.status, 200, JSON.stringify(published.body));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${fixture.origin}/cuenta/?vista=estadisticas&periodo=7&pagina=1`);
+  const back = page.getByRole('link', { name: 'Volver a Enlaces', exact: true });
+  await expect(back).toHaveAttribute('href', '/cuenta/?vista=enlaces#owner-links-title');
+  await back.click();
+  await expect(page).toHaveURL((url) => url.searchParams.get('vista') === 'enlaces' && url.hash === '#owner-links-title');
+  const heading = page.getByRole('heading', { name: 'Enlaces', exact: true });
+  await expect(heading).toBeFocused();
+  const box = await heading.boundingBox();
+  assert.ok(box, 'the links heading has a layout box');
+  const viewportBottom = await page.evaluate(() => innerHeight);
+  assert.ok(box.y >= 0 && box.y + box.height <= viewportBottom,
+    `links heading is in the viewport: ${JSON.stringify({ box, viewportBottom })}`);
+});
+
 test('Copiar enlace llama al portapapeles y muestra feedback accesible junto al control', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const before = await readOwnerSnapshot(fixture, cookie);
@@ -134,22 +156,32 @@ test('Copiar enlace llama al portapapeles y muestra feedback accesible junto al 
 
   await page.addInitScript(() => {
     window.__copyWrites = [];
-    window.__copyShouldFail = false;
+    window.__copyPending = [];
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: {
         writeText(value) {
           window.__copyWrites.push(value);
-          return window.__copyShouldFail ? Promise.reject(new Error('clipboard unavailable')) : Promise.resolve();
+          return new Promise((resolve, reject) => window.__copyPending.push({ resolve, reject }));
         },
       },
     });
   });
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
-  const button = page.getByRole('button', { name: 'Copiar enlace', exact: true });
+  const button = page.locator('[data-owner-copy]');
   const expectedUrl = `${fixture.origin}/c/ana-browser/`;
+  await button.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    window.scrollTo({ top: Math.max(0, box.top + window.scrollY - window.innerHeight + box.height + 4), behavior: 'instant' });
+  });
+  const beforeCopyBox = await button.boundingBox();
+  assert.ok(beforeCopyBox && beforeCopyBox.y + beforeCopyBox.height <= 844 && beforeCopyBox.y + beforeCopyBox.height >= 832,
+    `copy control is near the viewport edge before the click: ${JSON.stringify(beforeCopyBox)}`);
   await button.click();
+  await page.evaluate(() => window.__copyPending.shift()?.resolve());
   await expect(page.locator('[data-owner-copy-status]')).toHaveText('Enlace copiado.');
+  await expect(button).toHaveText('Enlace copiado');
   assert.deepEqual(await page.evaluate(() => window.__copyWrites), [expectedUrl]);
 
   await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
@@ -159,9 +191,20 @@ test('Copiar enlace llama al portapapeles y muestra feedback accesible junto al 
   await expect(profileForm).not.toBeVisible();
   await expect(page.locator('[data-owner-copy-status]')).toHaveCount(0);
 
-  await page.evaluate(() => { window.__copyShouldFail = true; });
   await button.click();
+  await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
+  const secondProfileForm = page.locator('[data-owner-dialog] form[data-owner-form="datos"]');
+  await secondProfileForm.getByLabel('Dirección de tu página', { exact: true }).fill('ana-browser-final');
+  await secondProfileForm.getByRole('button', { name: 'Guardar datos', exact: true }).click();
+  await expect(secondProfileForm).not.toBeVisible();
+  await page.evaluate(() => window.__copyPending.shift()?.resolve());
+  await expect(page.locator('[data-owner-copy-status]')).toHaveCount(0);
+
+  await button.click();
+  await page.evaluate(() => window.__copyPending.shift()?.reject(new Error('clipboard unavailable')));
   await expect(page.locator('[data-owner-copy-status]')).toHaveText('No pudimos copiar el enlace. Puedes copiarlo desde la dirección de tu página.');
+  await expect(button).toHaveText('No se pudo copiar');
+  await expect(page.locator('[data-owner-copy-status]')).toBeVisible();
 
   await page.evaluate(() => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
