@@ -18,6 +18,27 @@ async function openLinksView(page, fixture) {
   await expect(page.getByRole('heading', { name: 'Enlaces', exact: true })).toBeVisible();
 }
 
+test('Enlaces sin página explica el primer paso y no presenta una tabla vacía', async ({ fixture, page }) => {
+  await loggedInOwner(fixture, page, { profile: false });
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  await expect(page.locator('[data-links-create-requirement]')).toBeVisible();
+  await expect(page.locator('[data-links-create-requirement]')).toContainText('Primero prepara tu página para agregar enlaces.');
+  await expect(page.locator('[data-links-create-requirement] a')).toHaveAttribute('href', '#owner-create-name');
+  await expect(page.locator('[data-link-empty]')).toHaveCount(0);
+  await expect(page.locator('[data-link-count], [data-link-filters], [data-link-pagination], [data-link-rows], .creator-owner__table-scroll')).toHaveCount(0);
+  const prepareLink = page.getByRole('link', { name: 'Preparar tu página', exact: true });
+  await prepareLink.focus();
+  await prepareLink.press('Enter');
+  await expect(page.locator('#owner-create-name')).toBeFocused();
+
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=sin-resultados`);
+  await expect(page.locator('[data-link-filters]')).toBeVisible();
+  await expect(page.locator('[data-link-count]')).toHaveText('0 coincidencias de 0 enlaces');
+  await expect(page.locator('[data-link-count]')).toHaveCount(1);
+  await expect(page.locator('[data-link-empty]')).toHaveText('No hay enlaces que coincidan con estos filtros.');
+  await expect(page.locator('[data-link-pagination]')).toBeVisible();
+});
+
 function addLinkForm(page) {
   return page.locator('[data-owner-dialog] form[data-owner-form="alta-enlace"]');
 }

@@ -8,28 +8,32 @@ import process from 'node:process';
 test('Series distingue el primer uso vacío de una búsqueda aplicada sin coincidencias', async ({ fixture, page, browser }) => {
   const cookie = await loggedInOwner(fixture, page, { profile: false });
   const noJsContext = await browser.newContext({ javaScriptEnabled: false, ignoreHTTPSErrors: true });
+  let ssr;
   try {
     await addCookie(noJsContext, fixture, cookie);
-    const ssr = await noJsContext.newPage();
+    ssr = await noJsContext.newPage();
     const response = await ssr.goto(`${fixture.origin}/cuenta/?vista=series`);
     assert.equal(response?.status(), 200);
-    await expect(ssr.locator('[data-series-empty]')).toHaveText('Todavía no creaste ninguna serie.');
+    await expect(ssr.locator('[data-series-create-requirement]')).toHaveText('Primero prepara tu página para crear una serie.');
+    await expect(ssr.locator('[data-series-empty]')).toHaveCount(0);
+    await expect(ssr.locator('[data-series-filters], [data-series-pagination]')).toHaveCount(0);
   } finally {
+    await ssr?.close();
     await noJsContext.close();
   }
 
   await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+  await page.goto(`${fixture.origin}/cuenta/?vista=series`);
   await expect(page.getByRole('heading', { name: 'Series', exact: true })).toBeVisible();
   await expect(page.locator('[data-series-create-requirement]')).toHaveText('Primero prepara tu página para crear una serie.');
-  await expect(page.locator('[data-series-empty]')).toHaveText('Todavía no creaste ninguna serie.');
+  await expect(page.locator('[data-series-empty]')).toHaveCount(0);
+  await expect(page.locator('[data-series-filters], [data-series-pagination]')).toHaveCount(0);
 
-  // The pending field must not change the applied empty-state explanation.
-  await page.locator('[data-series-search]').fill('búsqueda todavía no aplicada');
-  await expect(page.locator('[data-series-empty]')).toHaveText('Todavía no creaste ninguna serie.');
-
-  await page.getByRole('button', { name: 'Aplicar búsqueda', exact: true }).click();
-  await expect(page).toHaveURL((url) => url.searchParams.get('buscarSeries') === 'búsqueda todavía no aplicada');
+  // An explicit query remains distinguishable from the first-use empty state.
+  await page.goto(`${fixture.origin}/cuenta/?vista=series&buscarSeries=búsqueda%20aplicada`);
+  await expect(page).toHaveURL((url) => url.searchParams.get('buscarSeries') === 'búsqueda aplicada');
   await expect(page.locator('[data-series-empty]')).toHaveText('No hay series que coincidan con la búsqueda.');
+  await expect(page.locator('[data-series-filters]')).toBeVisible();
 });
 
 const writtenMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -192,8 +196,9 @@ async function seedSeriesChapters(fixture, cookie, seriesId, count, longTitleInd
 test('Series: 0, 1 y 50 capítulos conservan búsqueda, paginación, contexto y foco, también en móvil', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   await openSeriesView(page, fixture);
-  await expect(page.locator('[data-series-count]')).toHaveText('0 series');
+  await expect(page.locator('[data-series-count]')).toHaveCount(0);
   await expect(page.locator('[data-series-empty]')).toHaveText('Todavía no creaste ninguna serie.');
+  await expect(page.locator('[data-series-filters], [data-series-pagination]')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Crear serie' })).toBeVisible();
 
   const series = await createSeries(fixture, cookie, { name: 'Ruta de cincuenta capítulos', slug: 'ruta-cincuenta' });
@@ -210,6 +215,7 @@ test('Series: 0, 1 y 50 capítulos conservan búsqueda, paginación, contexto y 
   await expect(oneRow.locator('[data-chapter-add]')).toBeVisible();
   await oneRow.locator('[data-chapter-add]').click();
   await expect(oneRow.locator('[data-chapter-remove]')).toBeVisible();
+  await expect(oneRow.locator('[data-chapter-move]')).toHaveCount(0);
 
   const seeded = await seedSeriesChapters(fixture, cookie, series.id, 49, 37);
   await page.goto(`${fixture.origin}/cuenta/?vista=series&serie=${encodeURIComponent(series.id)}`);
@@ -236,6 +242,7 @@ test('Series: 0, 1 y 50 capítulos conservan búsqueda, paginación, contexto y 
   await page.getByRole('button', { name: 'Aplicar filtros' }).click();
   await expect(page.locator('[data-chapter-count]')).toHaveText('1 coincidencia de 50 enlaces');
   await expect(targetRow.locator('h4')).toHaveText(seeded.longTitle);
+  await expect(targetRow.locator('[data-chapter-move]')).toBeVisible();
   await expect(page).toHaveURL(/buscarCapitulos=BUSQUEDA-UNICA-LARGA-37/u);
 
   await page.setViewportSize({ width: 390, height: 844 });

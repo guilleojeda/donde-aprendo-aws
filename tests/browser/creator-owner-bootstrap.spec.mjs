@@ -294,9 +294,10 @@ test('el DOM SSR sin JavaScript muestra el estado vacío de Enlaces y el alta gu
     const first = await ssr.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
     await assertPrivate(first, ssr);
     await expect(ssr.locator('[data-owner-links]')).toBeVisible();
-    await expect(ssr.locator('[data-link-count]')).toHaveText('0 coincidencias de 0 enlaces');
+    await expect(ssr.locator('[data-link-count]')).toHaveCount(0);
     await expect(ssr.locator('[data-link-row]')).toHaveCount(0);
     await expect(ssr.locator('[data-link-empty]')).toBeVisible();
+    await expect(ssr.locator('[data-link-filters], [data-link-pagination], [data-link-rows], .creator-owner__table-scroll')).toHaveCount(0);
 
     const created = await addLink(fixture, cookie, { title, url });
     const saved = await readOwnerSnapshot(fixture, cookie);

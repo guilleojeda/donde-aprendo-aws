@@ -230,7 +230,7 @@ const sourcesEmptyMessage = report && (hasSectionWarning('sources') || report.to
         <div class="creator-statistics__table-wrap" role="region" aria-label="Tabla de visitas y clics por día; desplazamiento horizontal disponible" tabindex="0">
           <table class="creator-statistics__table">
             <caption>Actividad diaria</caption>
-            <thead><tr><th scope="col">Fecha ({report.range.timeZone})</th><th scope="col">Visitas</th><th scope="col">Clics</th></tr></thead>
+            <thead><tr><th scope="col" aria-label={`Fecha (${report.range.timeZone})`}>Fecha</th><th scope="col">Visitas</th><th scope="col">Clics</th></tr></thead>
             <tbody>
               {report.daily.map((day) => (
                 <tr>

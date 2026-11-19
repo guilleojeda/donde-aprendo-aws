@@ -46,6 +46,7 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
   const chapterCount = `${chapterSelection?.totalMatches ?? 0} ${(chapterSelection?.totalMatches ?? 0) === 1 ? 'coincidencia' : 'coincidencias'} de ${links.length} ${links.length === 1 ? 'enlace' : 'enlaces'}`;
   const seriesPage = seriesSelection.query.paginaSeries;
   const hasAppliedSeriesSearch = Boolean(seriesSelection.query.buscarSeries.trim());
+  const showTrueEmptySeriesState = Object.keys(snapshot.series).length === 0 && !hasAppliedSeriesSearch;
   const chapterPage = chapterSelection?.query.paginaCapitulos ?? 1;
   const chapterFilterPage = location.pendingChapterSearch !== query.buscarCapitulos || location.pendingMembership !== query.pertenencia
     ? 1 : chapterPage;
@@ -57,6 +58,7 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
     && state.operation.status === 'reading' && creatorOwnerChapterRecoveryIsVisibleInDetail(state)
     ? state.operation : undefined;
   const canCreateSeries = Boolean(snapshot.profile) && !disabled;
+  const canMoveChapter = (chapterSelection?.completeOrder.length ?? 0) > 1;
 
   return <section class="creator-owner__series" data-owner-series aria-labelledby="owner-series-title">
     <header class="creator-owner__section-heading">
@@ -128,7 +130,7 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
             </div>
             <div class="creator-owner__chapter-actions">
               {included ? <>
-                <button class="button button--outline" type="button" data-chapter-move data-placement-id={link.placementId} disabled={disabled} onClick={() => onMoveChapter(link.placementId)}>Mover capítulo</button>
+                {canMoveChapter && <button class="button button--outline" type="button" data-chapter-move data-placement-id={link.placementId} disabled={disabled} onClick={() => onMoveChapter(link.placementId)}>Mover capítulo</button>}
                 <button class="button button--outline" type="button" data-chapter-remove data-placement-id={link.placementId} disabled={disabled} onClick={() => onRemoveChapter(link.placementId)}>Quitar capítulo</button>
               </> : <button class="button button--outline" type="button" data-chapter-add data-placement-id={link.placementId} disabled={disabled} onClick={() => onAddChapter(link.placementId)}>Agregar capítulo</button>}
             </div>
@@ -145,7 +147,11 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
       </nav>
     </section>
 
-    <section class="creator-owner__series-list-view" data-owner-series-list-view hidden={Boolean(state.seriesQueryError) || Boolean(query.serie)}>
+    {showTrueEmptySeriesState && snapshot.profile && !state.seriesQueryError && !query.serie && <p class="creator-owner__empty" data-series-empty>
+      Todavía no creaste ninguna serie.
+    </p>}
+
+    {!showTrueEmptySeriesState && <section class="creator-owner__series-list-view" data-owner-series-list-view hidden={Boolean(state.seriesQueryError) || Boolean(query.serie)}>
       <form class="creator-owner__series-filters" method="get" action="/cuenta/" data-series-filters>
         <input type="hidden" name="vista" value="series" />
         <div class="creator-owner__field">
@@ -179,15 +185,14 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
           </li>;
         })}
       </ul>
-      <p class="creator-owner__empty" data-series-empty hidden={seriesSelection.rows.length > 0}>
-        {seriesSelection.totalMatches ? 'No hay series en esta página.'
-          : hasAppliedSeriesSearch ? 'No hay series que coincidan con la búsqueda.' : 'Todavía no creaste ninguna serie.'}
-      </p>
+      {!showTrueEmptySeriesState && <p class="creator-owner__empty" data-series-empty hidden={seriesSelection.rows.length > 0}>
+        {seriesSelection.totalMatches ? 'No hay series en esta página.' : 'No hay series que coincidan con la búsqueda.'}
+      </p>}
       <nav class="creator-owner__pagination" data-series-pagination aria-label="Páginas de series">
         <span>Página {seriesPage} de {seriesSelection.pageCount}</span>
         {seriesPage > 1 && <a class="button button--outline" data-series-page href={pageHref(seriesSelection.query, seriesPage - 1)}>Anterior</a>}
         {seriesPage < seriesSelection.pageCount && <a class="button button--outline" data-series-page href={pageHref(seriesSelection.query, seriesPage + 1)}>Siguiente</a>}
       </nav>
-    </section>
+    </section>}
   </section>;
 }

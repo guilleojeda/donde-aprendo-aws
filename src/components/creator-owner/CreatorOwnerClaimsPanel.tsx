@@ -37,7 +37,13 @@ export default function CreatorOwnerClaimsPanel({ state, disabled, onOpen, onRef
     <header class="creator-owner__section-heading creator-owner__claims-heading"><div>
       <p class="creator-owner__eyebrow">Acceso de edición</p><h2 id="owner-claims-title" tabIndex={-1}>Solicitudes</h2>
       <p>Solicitar acceso no agrega contenido a tu página ni concede permiso para editar.</p>
-    </div><button class="button button--dark" type="button" data-claim-open data-claim-section-open disabled={disabled || !state.observed.profile} onClick={onOpen}>Solicitar edición</button></header>
+    </div><button class="button button--dark" type="button" data-claim-open data-claim-section-open
+      aria-describedby={!state.observed.profile ? 'creator-owner-claims-requirement' : undefined}
+      disabled={disabled || !state.observed.profile} onClick={onOpen}>Solicitar edición</button></header>
+    {!state.observed.profile && <div class="creator-owner__section-requirement" data-claims-create-requirement role="status">
+      <p id="creator-owner-claims-requirement">Primero prepara tu página para solicitar edición.</p>
+      <a class="button button--outline" href="#owner-create-name">Preparar tu página</a>
+    </div>}
     {claimsReadPending && <p class="creator-owner__status" data-claim-index-status role="status" aria-live="polite">Actualizando solicitudes…</p>}
     {claimsReadFailure && <p class="creator-owner__status creator-owner__status--error" data-claim-index-status data-owner-stale role="alert" aria-live="polite">{claimsReadFailure.message}</p>}
     {state.catalog.status === 'loading' && <p class="creator-owner__status" data-claim-catalog-status role="status" aria-live="polite">Cargando el catálogo público de contenido…</p>}

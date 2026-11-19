@@ -205,7 +205,7 @@ for (const [choice, outcome] of [
 ]) {
   test(`un Save confirmado mantiene la decisión de Back abierta hasta ${outcome}`, async ({ fixture, page }) => {
     const cookie = await loggedInOwner(fixture, page);
-    await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+    await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=preparacion-historial`);
     await expect(page.locator('astro-island[component-url*="CreatorOwnerApp"]')).not.toHaveAttribute('ssr', '');
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('heading', { name: 'Enlaces', exact: true })).toBeVisible();
@@ -282,7 +282,7 @@ for (const [choice, outcome] of [
 test('una validación nativa de Guardar y salir no autoriza la salida de un guardado posterior', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const initial = await fixture.rawOwner(cookie);
-  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=preparacion-historial`);
   await expect(page.locator('astro-island[component-url*="CreatorOwnerApp"]')).not.toHaveAttribute('ssr', '');
   const destination = page.url();
   await page.locator('#owner-link-order').selectOption('titulo-desc');
@@ -354,7 +354,7 @@ test('cerrar con Escape conserva el borrador para Guardar y salir sin cambiar la
 test('un Save fallido y su salida no navegan después de una comprobación: sólo una nueva decisión autoriza Back', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const initial = await fixture.rawOwner(cookie);
-  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=preparacion-historial`);
   await expect(page.locator('astro-island[component-url*="CreatorOwnerApp"]')).not.toHaveAttribute('ssr', '');
   await page.waitForLoadState('networkidle');
   const destination = page.url();

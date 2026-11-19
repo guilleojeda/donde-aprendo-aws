@@ -1,15 +1,17 @@
 import assert from 'node:assert/strict';
 import {
-  test, expect, api, loggedInOwner, readOwnerSnapshot,
+  test, expect, addLink, api, loggedInOwner, readOwnerSnapshot,
 } from '../fixtures/creator-browser-test.mjs';
 
 test('Enlaces muestra los valores completos de los filtros y no desborda en móvil', async ({ fixture, page }) => {
-  await loggedInOwner(fixture, page);
+  const cookie = await loggedInOwner(fixture, page);
+  await addLink(fixture, cookie);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
   await expect(page.getByRole('heading', { name: 'Enlaces', exact: true })).toBeVisible();
 
   const filters = page.locator('form[data-link-filters]');
+  await expect(filters).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   const desktopWidths = await filters.locator('select').evaluateAll((selects) => Object.fromEntries(
     selects.map((select) => {
@@ -38,6 +40,7 @@ test('Enlaces muestra los valores completos de los filtros y no desborda en móv
     await page.setViewportSize({ width, height: 844 });
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Enlaces', exact: true })).toBeVisible();
+    await expect(filters).toBeVisible();
     const geometry = await page.evaluate(() => ({
       viewport: document.documentElement.clientWidth,
       documentWidth: document.documentElement.scrollWidth,
