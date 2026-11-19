@@ -25,6 +25,7 @@ import {
 } from '../../lib/creator-owner-state';
 import { creatorOwnerNavigationLists } from '../../lib/creator-owner-presentation';
 import { pageCreatorOwnerCatalog } from '../../lib/creator-owner-catalog';
+import { usableCreatorOwnerFocusTarget } from '../../lib/creator-owner-focus';
 
 interface Props {
   state: CreatorOwnerState;
@@ -172,6 +173,12 @@ function operationMatchesEditor(state: CreatorOwnerState, editor: CreatorOwnerEd
   return operation.status !== 'idle' && 'intent' in operation && operation.intent?.editorKey === editor.key;
 }
 
+// The shared predicate covers target usability; the prompt boundary is the
+// dialog-specific ownership rule that keeps an open exit decision modal.
+function hasUsableExitFocus(target: Element | null, prompt: Element): target is HTMLElement {
+  return target instanceof HTMLElement && prompt.contains(target) && usableCreatorOwnerFocusTarget(target);
+}
+
 export default function CreatorOwnerEditorDialog({
   state, onUpdateProfile, onUpdateSocial, onUpdateSeries, onUpdateMove, onUpdateLink, onUpdateAddLink,
   onUpdateMoveLink, onUpdateReference, onUpdateClaim, onCatalogSearch, onCatalogPage, onCatalogRetry,
@@ -210,16 +217,22 @@ export default function CreatorOwnerEditorDialog({
     ? operation.readCompleted === true : false;
   const comparison = editor && rows.length > 0 && comparisonReady
     ? rows : undefined;
-
   useLayoutEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (shouldOpenDialog) {
       if (!dialog.open) dialog.showModal();
       if (prompt) {
-        const selector = !editor && operation.status === 'idle' ? '[data-owner-exit-discard]'
-          : '[data-owner-exit-save]:enabled, [data-owner-exit-continue]';
-        dialog.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+        const exitPrompt = dialog.querySelector<HTMLElement>('[data-owner-exit-prompt]');
+        const requestedFocus = state.location.focusAfterRender
+          ? dialog.querySelector<HTMLElement>(state.location.focusAfterRender)
+          : undefined;
+        if (!usableCreatorOwnerFocusTarget(requestedFocus)
+          && (!exitPrompt || !hasUsableExitFocus(document.activeElement, exitPrompt))) {
+          const selector = !editor && operation.status === 'idle' ? '[data-owner-exit-discard]'
+            : '[data-owner-exit-save]:enabled, [data-owner-exit-continue]';
+          dialog.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+        }
       }
       else if (editorIsDialog) {
         const selector = editor?.kind === 'photo' ? 'input[type="file"]'

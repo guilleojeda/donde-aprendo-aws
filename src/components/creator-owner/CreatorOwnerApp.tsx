@@ -19,6 +19,7 @@ import {
 } from '../../lib/creator-session-response';
 import { parseCreatorStatisticsSummaryReady } from '../../lib/creator-statistics-response';
 import { CREATOR_CONTRACT_HEADER, CREATOR_CONTRACT_VERSION, CREATOR_FIELD_LIMITS, CREATOR_PHOTO_MAX_UPLOAD_BYTES, CREATOR_PHOTO_MIME_TYPES, CREATOR_SOCIALS } from '../../lib/creator-values.mjs';
+import { usableCreatorOwnerFocusTarget } from '../../lib/creator-owner-focus';
 import { creatorOwnerNavigationLists } from '../../lib/creator-owner-presentation';
 import { safeCreatorSocialUrl } from '../../lib/creator-public.mjs';
 import type { CreatorOwnerSeriesMembership } from '../../lib/creator-owner-series';
@@ -228,13 +229,6 @@ function hasNativeSkipFocus(): boolean {
   return window.location.hash === '#contenido' && document.activeElement?.id === 'contenido';
 }
 
-function usableOwnerFocusTarget(target: HTMLElement | null | undefined): target is HTMLElement {
-  return Boolean(target?.isConnected
-    && target.getClientRects().length > 0
-    && !target.matches(':disabled, [aria-disabled="true"]')
-    && !target.closest('[hidden], [inert]'));
-}
-
 const sessionRecoveryFocus = '[data-session-recovery-check]';
 const sessionTerminalFocus = '[data-session-recovery-new], [data-session-recovery-sign-in]';
 const retryReadFocus = '[data-owner-refresh-retry]';
@@ -242,13 +236,13 @@ const recoveryDecisionFocus = '[data-owner-conflict-save], [data-owner-use-saved
 
 function hasUsableOwnerActiveFocus(): boolean {
   const active = document.activeElement;
-  return active instanceof HTMLElement && active !== document.body && usableOwnerFocusTarget(active);
+  return active instanceof HTMLElement && active !== document.body && usableCreatorOwnerFocusTarget(active);
 }
 
 function visibleOwnerFocusTarget(root: ParentNode | null | undefined, selector: string): HTMLElement | undefined {
   const dialog = root?.querySelector('[data-owner-dialog][open]');
-  return Array.from(dialog?.querySelectorAll<HTMLElement>(selector) ?? []).find(usableOwnerFocusTarget)
-    ?? Array.from(root?.querySelectorAll<HTMLElement>(selector) ?? []).find(usableOwnerFocusTarget);
+  return Array.from(dialog?.querySelectorAll<HTMLElement>(selector) ?? []).find(usableCreatorOwnerFocusTarget)
+    ?? Array.from(root?.querySelectorAll<HTMLElement>(selector) ?? []).find(usableCreatorOwnerFocusTarget);
 }
 
 function ownerQueryWasValid(state: unknown, view: 'enlaces' | 'series'): boolean {
@@ -653,7 +647,7 @@ export default function CreatorOwnerApp(props: Props) {
       const focusReturnedFromEditor = active === document.body || active === requested
         || !(active instanceof HTMLElement) || !active.isConnected;
       if (focusReturnedFromEditor) {
-          const destination = usableOwnerFocusTarget(requested) ? requested : usableOwnerFocusTarget(fallback) ? fallback : undefined;
+        const destination = usableCreatorOwnerFocusTarget(requested) ? requested : usableCreatorOwnerFocusTarget(fallback) ? fallback : undefined;
         if (destination) {
           destination.focus({ preventScroll: true });
           if (destination === fallback && destination.matches('#owner-chapter-search, #owner-series-search, #owner-link-search')) {

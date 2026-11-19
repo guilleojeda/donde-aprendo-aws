@@ -228,6 +228,12 @@ for (const [choice, label] of [
       const prompt = page.locator('[data-owner-exit-prompt]');
       await expect(prompt).toBeVisible();
       await expect(page).toHaveURL(activeUrl, 'the real Back remains on the active owner entry while the read is pending');
+      if (choice === 'stay') {
+        const independentStay = prompt.locator('[data-owner-exit-continue]');
+        await page.keyboard.press('Shift+Tab');
+        await page.keyboard.press('Tab');
+        await expect(independentStay).toBeFocused();
+      }
 
       read.release();
       await save;
@@ -238,8 +244,16 @@ for (const [choice, label] of [
       await expect(prompt).toBeVisible();
       await expect(page).toHaveURL(activeUrl, 'adopting the acknowledged full read does not choose the pending navigation');
       assert.equal(ownerWrites(capture).length, 1, 'the delayed read never replays the ordinary Save');
-      await expect(prompt.getByRole('button', { name: label, exact: true })).toBeVisible();
-      await prompt.getByRole('button', { name: label, exact: true }).click();
+      if (choice === 'stay') {
+        const independentStay = prompt.locator('[data-owner-exit-continue]');
+        await expect(independentStay).toBeEnabled();
+        await expect(independentStay).toBeFocused();
+        await page.keyboard.press('Enter');
+      } else {
+        const decision = prompt.getByRole('button', { name: label, exact: true });
+        await expect(decision).toBeVisible();
+        await decision.click();
+      }
       if (choice === 'stay') {
         await expect(prompt).toHaveCount(0);
         await expect(page).toHaveURL(activeUrl);
