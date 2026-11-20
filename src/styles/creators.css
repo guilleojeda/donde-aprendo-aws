@@ -6,6 +6,7 @@
 .creator-profile {
   width: min(100%, 900px);
   margin-inline: auto;
+  overflow-wrap: anywhere;
 }
 
 .creator-profile__header {
@@ -620,6 +621,7 @@
 .creator-public-series {
   width: min(100%, 900px);
   margin-inline: auto;
+  overflow-wrap: anywhere;
 }
 
 .creator-public-series__breadcrumbs {

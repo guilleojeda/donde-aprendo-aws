@@ -97,9 +97,42 @@ test('photo HTTP limits request bodies and preserves service and media failure s
   const f = fixture();
   assert.equal((await f.handle(f.request('/api/creador/foto/autorizar/', { creatorVersion: 1, extra: 'x'.repeat(5000) }))).status, 422);
   assert.equal(await (await f.handle(new Request(`${origin}/api/creador/perfil/`))).text(), 'domain');
-  assert.equal((await creatorPhotoResponse({ readPhoto: async () => null }, 'p', 'v')).status, 404);
-  assert.equal((await creatorPhotoResponse({ readPhoto: async () => { throw new Error('S3 unavailable'); } }, 'p', 'v')).status, 503);
-  const photo = await creatorPhotoResponse({ readPhoto: async () => ({ body: Buffer.from([1, 2]), contentType: 'image/webp', headers: { 'cache-control': 'public, max-age=31536000, immutable' } }) }, 'p', 'v');
+  const request = new Request(`${origin}/media/fotos/p/v.webp`);
+  const anonymous = { getRequestContext: async () => ({ principal: { state: 'anonymous' } }) };
+  assert.equal((await creatorPhotoResponse({ readPhoto: async () => null }, 'p', 'v', { request, auth: anonymous })).status, 404);
+  assert.equal((await creatorPhotoResponse({ readPhoto: async () => { throw new Error('S3 unavailable'); } }, 'p', 'v', { request, auth: anonymous })).status, 503);
+  let authCalls = 0;
+  const photo = await creatorPhotoResponse({
+    readPhoto: async () => ({ body: Buffer.from([1, 2]), contentType: 'image/webp', headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } }),
+  }, 'p', 'v', {
+    request,
+    auth: { getRequestContext: async () => { authCalls += 1; return { principal: { state: 'anonymous' } }; } },
+  });
   assert.equal(photo.headers.get('content-type'), 'image/webp');
+  assert.equal(photo.headers.get('cache-control'), 'private, no-store');
+  assert.equal(authCalls, 0, 'a visible public photo does not resolve a session');
   assert.deepEqual(new Uint8Array(await photo.arrayBuffer()), new Uint8Array([1, 2]));
+});
+
+test('private photo reads authenticate only after the public current-photo check and never cache bytes', async () => {
+  const calls = [];
+  const request = new Request(`${origin}/media/fotos/draft-profile/draft-v1.webp`);
+  const response = await creatorPhotoResponse({
+    readPhoto: async (input) => {
+      calls.push(input);
+      return input.access === 'owner'
+        ? { body: Buffer.from([3, 4]), contentType: 'image/webp', headers: { 'Cache-Control': 'public, immutable' } }
+        : null;
+    },
+  }, 'draft-profile', 'draft-v1', {
+    request,
+    auth: { getRequestContext: async () => ({ principal: { state: 'authenticated', accountId: 'owner-account' } }) },
+  });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('cache-control'), 'private, no-store');
+  assert.deepEqual(calls, [
+    { profileId: 'draft-profile', version: 'draft-v1', access: 'public' },
+    { profileId: 'draft-profile', version: 'draft-v1', access: 'owner', accountId: 'owner-account' },
+  ]);
+  assert.deepEqual(new Uint8Array(await response.arrayBuffer()), new Uint8Array([3, 4]));
 });

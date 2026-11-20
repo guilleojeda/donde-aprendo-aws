@@ -1,7 +1,97 @@
 import assert from 'node:assert/strict';
 import {
-  test, expect, addLink, api, loggedInOwner, readOwnerSnapshot,
+  test, expect, addChapter, addLink, api, createProfile, createSeries, loggedInOwner, readOwnerSnapshot,
 } from '../fixtures/creator-browser-test.mjs';
+
+async function expectTextWithinPage(page, selector, context) {
+  await page.evaluate(() => document.fonts.ready);
+  const geometry = await page.locator(selector).evaluateAll((elements) => ({
+    viewport: document.documentElement.clientWidth,
+    documentWidth: document.documentElement.scrollWidth,
+    text: elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return {
+        text: element.textContent,
+        width: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        outside: [...range.getClientRects()].some((rect) => rect.left < box.left - 1 || rect.right > box.right + 1),
+      };
+    }),
+  }));
+  expect(geometry.documentWidth, `${context}: document overflow`).toBeLessThanOrEqual(geometry.viewport);
+  expect(geometry.text.length, `${context}: text must be rendered`).toBeGreaterThan(0);
+  for (const text of geometry.text) {
+    expect(text.scrollWidth, `${context}: ${text.text}`).toBeLessThanOrEqual(text.width + 1);
+    expect(text.outside, `${context}: text must wrap within its box`).toBe(false);
+  }
+}
+
+for (const { label, displayName, city, country } of [
+  { label: 'nombre de 43 caracteres', displayName: 'CreatorHandleWithoutAnyWordBreaks1234567890', city: 'Córdoba', country: 'Argentina' },
+  { label: 'nombre y ubicación máximos', displayName: 'A'.repeat(120), city: 'C'.repeat(100), country: 'P'.repeat(100) },
+]) {
+  test(`Perfil y serie públicos ajustan texto sin espacios: ${label}`, async ({ fixture, page, publicPage }) => {
+    const cookie = await fixture.login();
+    await createProfile(fixture, cookie, { displayName, city, country });
+    const series = await createSeries(fixture, cookie, { name: 'S'.repeat(120), slug: 'texto-sin-espacios' });
+    const link = await addLink(fixture, cookie);
+    await addChapter(fixture, cookie, series.id, link.placementId);
+    const published = await api(fixture, cookie, '/api/creador/perfil/publicar', {
+      method: 'POST', body: { creatorVersion: (await readOwnerSnapshot(fixture, cookie)).creatorVersion },
+    });
+    assert.equal(published.response.status, 200, JSON.stringify(published.body));
+
+    for (const publicView of [page, publicPage]) {
+      for (const colorScheme of ['light', 'dark']) {
+        await publicView.emulateMedia({ colorScheme });
+        for (const width of [320, 390, 1280]) {
+          await publicView.setViewportSize({ width, height: 844 });
+          const context = `${label}, ${colorScheme}, ${width}px`;
+          const profileResponse = await publicView.goto(`${fixture.origin}/c/ana-browser/`);
+          expect(profileResponse?.status()).toBe(200);
+          await expect(publicView.getByRole('heading', { name: displayName, exact: true })).toBeVisible();
+          await expect(publicView.locator('.creator-profile__location')).toHaveText(`${city}, ${country}`);
+          await expect(publicView.locator('#creator-series-title')).toHaveText(`Series de ${displayName}`);
+          await expect(publicView.locator('#creator-links-title')).toHaveText(`Enlaces de ${displayName}`);
+          await expectTextWithinPage(publicView, '#creator-name, .creator-profile__location, .creator-profile__section-heading h2', context);
+
+          const seriesResponse = await publicView.goto(`${fixture.origin}/c/ana-browser/series/texto-sin-espacios/`);
+          expect(seriesResponse?.status()).toBe(200);
+          await expect(publicView.getByRole('heading', { name: series.name, exact: true })).toBeVisible();
+          await expect(publicView.getByRole('link', { name: `Volver al perfil de ${displayName}`, exact: true })).toBeVisible();
+          await expect(publicView.locator('.creator-public-series__creator a')).toHaveText(displayName);
+          await expectTextWithinPage(publicView, '.creator-public-series__breadcrumbs, .creator-public-series__header > p, #creator-public-series-title', context);
+          expect(await publicView.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe(colorScheme);
+        }
+      }
+    }
+  });
+}
+
+test('Enlaces ajusta nombres de Series sin espacios dentro de la celda y conserva la tabla de escritorio', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const link = await addLink(fixture, cookie);
+  const seriesNames = ['S'.repeat(120), 'T'.repeat(120)];
+  for (const [index, name] of seriesNames.entries()) {
+    const series = await createSeries(fixture, cookie, { name, slug: `serie-larga-${index}` });
+    await addChapter(fixture, cookie, series.id, link.placementId);
+  }
+  for (const colorScheme of ['light', 'dark']) {
+    await page.emulateMedia({ colorScheme });
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+      const cell = page.locator(`[data-link-row="${link.placementId}"] td[data-label="Series"]`);
+      await expect(cell).toHaveText(seriesNames.join(', '));
+      await expectTextWithinPage(page, `[data-link-row="${link.placementId}"] td[data-label="Series"]`, `${colorScheme}, ${width}px`);
+      expect(await page.locator('.creator-owner__link-table').evaluate((table) => getComputedStyle(table).display))
+        .toBe(width === 1280 ? 'table' : 'block');
+      expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe(colorScheme);
+    }
+  }
+});
 
 test('Enlaces muestra los valores completos de los filtros y no desborda en móvil', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);

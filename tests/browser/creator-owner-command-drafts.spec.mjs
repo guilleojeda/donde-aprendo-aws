@@ -3,7 +3,7 @@ import {
   test, expect, api, captureCreatorApi, loggedInOwner, addCookie,
 } from '../fixtures/creator-browser-test.mjs';
 import { seedResource } from '../fixtures/creator-pages.mjs';
-import { rasterPhotoFixtures } from '../fixtures/creator-photos.mjs';
+import { rasterPhotoFixtures, readStoredPhoto } from '../fixtures/creator-photos.mjs';
 
 const OWNER_PATH = '/api/creador/perfil';
 const LINKS_PATH = '/api/creador/enlaces';
@@ -450,7 +450,7 @@ test('un finalize confirmado con lectura fallida conserva la foto y permite recu
     assert.equal(records(capture, 'POST', FINALIZE_PHOTO_PATH).length, 1);
     assert.equal(provider.uploads.length, 1);
 
-    const firstStored = await fixture.photos.readPhoto({ profileId, version: firstPhotoVersion });
+    const firstStored = await readStoredPhoto(fixture, { version: firstPhotoVersion });
     assert.ok(Buffer.isBuffer(firstStored.body));
     assert.equal(firstStored.contentType, 'image/webp');
     if (!(await form.isVisible())) {
@@ -474,13 +474,12 @@ test('un finalize confirmado con lectura fallida conserva la foto y permite recu
     const final = finalRead.responseBody;
     assert.notEqual(final.profile.photo.version, firstPhotoVersion,
       'the next explicit upload becomes current without rewriting the earlier photo');
-    const stillReadable = await fixture.photos.readPhoto({ profileId, version: firstPhotoVersion });
+    const stillReadable = await readStoredPhoto(fixture, { version: firstPhotoVersion });
     assert.deepEqual(stillReadable.body, firstStored.body, 'the first immutable photo bytes survive the later current photo');
     const historicalHttp = await page.request.get(fixture.origin + '/media/fotos/'
       + encodeURIComponent(profileId) + '/' + encodeURIComponent(String(firstPhotoVersion)) + '.webp');
-    assert.equal(historicalHttp.status(), 200);
-    assert.deepEqual(await historicalHttp.body(), firstStored.body);
-    assert.match(historicalHttp.headers()['cache-control'] ?? '', /immutable/iu);
+    assert.equal(historicalHttp.status(), 404, 'a superseded photo URL is no longer served');
+    assert.match(historicalHttp.headers()['cache-control'] ?? '', /no-store/iu);
     assert.deepEqual(provider.uploads.map((upload) => upload.bytes), [images.jpeg, images.png]);
     assert.equal(records(capture, 'POST', AUTHORIZE_PHOTO_PATH).length, 2);
     assert.equal(records(capture, 'POST', FINALIZE_PHOTO_PATH).length, 2);
@@ -515,7 +514,7 @@ test('un fallo del proveedor antes del finalize retiene el archivo y la foto act
     assert.equal(records(capture, 'POST', AUTHORIZE_PHOTO_PATH).length, 1);
     assert.equal(records(capture, 'POST', FINALIZE_PHOTO_PATH).length, 1);
     const oldUploadId = oldOwner.profile.photo.version;
-    const oldBytes = await fixture.photos.readPhoto({ profileId, version: oldUploadId });
+    const oldBytes = await readStoredPhoto(fixture, { version: oldUploadId });
 
     if (!(await form.isVisible())) {
       await page.getByRole('button', { name: 'Editar foto', exact: true }).click();
@@ -548,12 +547,12 @@ test('un fallo del proveedor antes del finalize retiene el archivo y la foto act
     const finalRead = await waitForOwnerRead(capture, beforeRetryRead, 200);
     const finalOwner = finalRead.responseBody;
     assert.notEqual(finalOwner.profile.photo.version, oldUploadId);
-    assert.equal((await fixture.photos.readPhoto({ profileId, version: oldUploadId })).body.equals(oldBytes.body), true,
+    assert.equal((await readStoredPhoto(fixture, { version: oldUploadId })).body.equals(oldBytes.body), true,
       'successful replacement keeps the earlier immutable photo readable');
     const historicalHttp = await page.request.get(fixture.origin + '/media/fotos/'
       + encodeURIComponent(profileId) + '/' + encodeURIComponent(String(oldUploadId)) + '.webp');
-    assert.equal(historicalHttp.status(), 200);
-    assert.deepEqual(await historicalHttp.body(), oldBytes.body);
+    assert.equal(historicalHttp.status(), 404, 'a superseded photo URL is no longer served');
+    assert.match(historicalHttp.headers()['cache-control'] ?? '', /no-store/iu);
     assert.equal(records(capture, 'POST', AUTHORIZE_PHOTO_PATH).length, 3,
       'only the original upload, failed explicit upload, and manual retry were authorized');
     assert.equal(records(capture, 'POST', FINALIZE_PHOTO_PATH).length, 2,
@@ -632,7 +631,7 @@ test('un TypeError después del CAS deja la foto incierta, conserva el candidato
     const media = await page.request.get(`${fixture.origin}/media/fotos/${encodeURIComponent(profileId)}/${encodeURIComponent(String(uploadId))}.webp`);
     assert.equal(media.status(), 200);
     assert.ok((await media.body()).length > 0, 'the recovered immutable media is readable through the application route');
-    assert.match(media.headers()['cache-control'] ?? '', /immutable/iu);
+    assert.match(media.headers()['cache-control'] ?? '', /no-store/iu);
 
     await form.getByRole('button', { name: 'Usar lo guardado', exact: true }).click();
     await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0);

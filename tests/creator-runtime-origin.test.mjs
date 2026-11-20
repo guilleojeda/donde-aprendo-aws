@@ -323,7 +323,7 @@ test('accepted configured origins reach real account, creator, admin, and photo 
         assert.ok(photoObjects.calls.some(({ operation }) => operation === 'put'), 'processed photo bytes reach the object store');
         const persistedProfile = await creatorStore.get(`profile:${savedProfile.id}`);
         assert.deepEqual(persistedProfile.photo, photoResult.photo);
-        const retrievedPhoto = await runtime.photos.readPhoto({ profileId: savedProfile.id, version: upload.uploadId });
+        const retrievedPhoto = await runtime.photos.readPhoto({ profileId: savedProfile.id, version: upload.uploadId, access: 'owner', accountId: owner.accountId });
         assert.equal(retrievedPhoto.contentType, 'image/webp');
         assert.ok(retrievedPhoto.body.length > 0, 'a fresh runtime read observes the persisted photo object');
 

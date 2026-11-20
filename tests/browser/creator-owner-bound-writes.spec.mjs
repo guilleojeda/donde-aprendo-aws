@@ -5,7 +5,7 @@ import {
   captureCreatorApi,
   loggedInOwner,
 } from '../fixtures/creator-browser-test.mjs';
-import { rasterPhotoFixtures } from '../fixtures/creator-photos.mjs';
+import { rasterPhotoFixtures, readStoredPhoto } from '../fixtures/creator-photos.mjs';
 import { creatorPageSessionBinding } from '../../src/lib/creator-session-context.mjs';
 
 const ownerPath = '/api/creador/perfil';
@@ -371,10 +371,7 @@ test('la finalización de foto rechazada conserva la foto activa y el archivo ha
     assert.deepEqual(apiEntries(capture, 'POST', '/api/creador/foto/finalizar').map(({ status }) => status), [409, 200]);
     assert.deepEqual(boundRequests.requests.map(({ headers }) => headers['x-creator-page-binding']),
       Array(4).fill(creatorPageSessionBinding(original.principal)));
-    const storedPhoto = await fixture.photos.readPhoto({
-      profileId: original.owner.profileId,
-      version: final.profile.photo.version,
-    });
+    const storedPhoto = await readStoredPhoto(fixture, { version: final.profile.photo.version });
     assert.equal(storedPhoto.contentType, 'image/webp');
     assert.equal(storedPhoto.body.toString('ascii', 0, 4), 'RIFF', 'the manually uploaded replacement is readable from storage');
   } finally {

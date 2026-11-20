@@ -15,7 +15,7 @@ export const TEST_NOW = Date.UTC(2026, 9, 23, 12);
  *   createCreatorPhotoService({ store, objects, signPost, now, createId })
  *   service.beginUpload({ profileId, expectedVersion }) -> { uploadId, post }
  *   service.finalizeUpload({ profileId, uploadId, expectedVersion })
- *   service.readPhoto({ profileId, version }) -> photo response or null
+ *   service.readPhoto({ profileId, version, access, accountId }) -> currently authorized photo response or null
  *
  * The logical creator-state document is stored at `profile:<id>` and carries
  * its integer `version` plus an optional `photo` reference. This is an adapter
@@ -51,6 +51,21 @@ export function profileStoreKey(profileId) {
   return `profile:${profileId}`;
 }
 
+/** Inspect retained bytes without bypassing the served-photo authorization contract. */
+export async function readStoredPhoto(harness, { version } = {}) {
+  const store = harness.store ?? harness.creatorStore;
+  const upload = await store.get(`photo-upload:${version}`);
+  if (!upload?.finalKey) return null;
+  const objects = harness.objects ?? harness.photoObjects;
+  const bytes = await objects?.get(upload.finalKey);
+  if (!Buffer.isBuffer(bytes)) return null;
+  return {
+    body: bytes,
+    contentType: 'image/webp',
+    headers: { 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff' },
+  };
+}
+
 export async function createPhotoStore(initialProfiles = []) {
   const store = createDocumentStore();
   for (const profile of initialProfiles) {
@@ -64,7 +79,9 @@ export async function createPhotoStore(initialProfiles = []) {
       slug: 'test-creator',
       programs: [],
       socials: {},
-      published: false,
+      // Photo algorithm tests use public reads by default; draft/hidden access
+      // is covered explicitly with an unpublished profile and owner mapping.
+      published: true,
       hidden: false,
       createdAt: TEST_NOW,
       updatedAt: TEST_NOW,
