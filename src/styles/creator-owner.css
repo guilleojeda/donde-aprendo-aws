@@ -864,6 +864,10 @@
   color: var(--color-heading);
 }
 
+.creator-owner__public .button {
+  scroll-margin-block: 8px;
+}
+
 .creator-owner__public .creator-owner__copy-status {
   flex: 1 1 100%;
   margin: 0;
