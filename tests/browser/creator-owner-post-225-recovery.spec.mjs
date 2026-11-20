@@ -466,7 +466,7 @@ test('un 401 en la escritura enfoca la comprobación y permite publicar con otra
   }
 });
 
-test('un reintento de lectura desde la salida usa el control visible y permite completar con teclado', async ({ fixture, page }) => {
+test('una nueva decisión de salida deja accesible el reintento de lectura con teclado en móvil', async ({ fixture, page }) => {
   await page.setViewportSize({ width: 390, height: 450 });
   const cookie = await loggedInOwner(fixture, page);
   const series = await createSeries(fixture, cookie, { name: 'Serie de reintento visible', slug: 'serie-reintento-visible' });
@@ -475,6 +475,7 @@ test('un reintento de lectura desde la salida usa el control visible y permite c
   await addChapter(fixture, cookie, series.id, first.placementId);
   await addChapter(fixture, cookie, series.id, second.placementId);
   await page.goto(`${fixture.origin}/cuenta/?vista=series&serie=${encodeURIComponent(series.id)}&pertenencia=incluidos`);
+  const activeUrl = page.url();
   const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
   let readCount = 0;
@@ -503,26 +504,39 @@ test('un reintento de lectura desde la salida usa el control visible y permite c
     await page.keyboard.press('Escape');
     const prompt = dialog.locator('[data-owner-exit-prompt]');
     await expect(prompt).toBeVisible();
-    await expect(form).toBeHidden();
-    const retry = prompt.locator('[data-owner-refresh-retry]');
-    const continueEditing = prompt.locator('[data-owner-exit-continue]');
-    await expect(continueEditing).toBeFocused();
-    await page.keyboard.press('Shift+Tab');
-    await page.keyboard.press('Shift+Tab');
+    await expect(form).toBeVisible();
+    await expect(position).toBeVisible();
+    await expect(position).toHaveValue('1');
+    const retry = form.getByRole('button', { name: 'Reintentar actualización', exact: true });
+    await expect(dialog.getByRole('button', { name: 'Reintentar actualización', exact: true })).toHaveCount(1);
+    for (let tab = 0; tab < 8 && !await retry.evaluate((button) => button === document.activeElement); tab += 1) {
+      await page.keyboard.press('Shift+Tab');
+    }
     await expect(retry).toBeFocused();
     await page.keyboard.press('Enter');
     await expect.poll(() => readCount).toBe(2);
     await expect(retry).toBeEnabled();
     await expect(retry).toBeVisible();
     await expect(retry).toBeFocused();
-    await assertWithinViewport(page, retry, 'the retry inside the guarded exit prompt');
+    await expect(prompt).toBeVisible();
+    await assertWithinViewport(page, retry, 'the editor retry while the new exit choice is visible');
     await page.keyboard.press('Enter');
     await expect.poll(() => readCount).toBe(3);
+    await expect(dialog).toHaveAttribute('data-owner-operation', 'idle');
+    await expect(form).toHaveCount(0);
+    await expect(prompt).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Reintentar actualización', exact: true })).toHaveCount(0);
+    await expect(page).toHaveURL(activeUrl);
+    await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
+    const returnedFocus = page.locator(':is([data-owner-root], [data-owner-root] *):focus');
+    await expect(returnedFocus).toBeVisible();
+    await expect(returnedFocus).toBeEnabled();
     await expect(page.locator(`[data-chapter-row="${second.placementId}"]`)).toContainText('Incluido en la posición 1 de 2');
     await expect(page.locator(`[data-chapter-row="${first.placementId}"]`)).toContainText('Incluido en la posición 2 de 2');
     const persisted = await readOwnerSnapshot(fixture, cookie);
     assert.deepEqual(persisted.series[series.id].chapters, [second.placementId, first.placementId]);
+    await expect(page).toHaveURL(activeUrl);
     assert.equal(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin);
     assert.equal(capture.writes().filter(({ method, path }) => method === 'POST' && path.endsWith('/mover')).length, 1);
   } finally {

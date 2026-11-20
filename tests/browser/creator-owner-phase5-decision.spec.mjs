@@ -228,14 +228,16 @@ for (const [choice, outcome] of [
       back = page.goBack();
       const prompt = page.locator('[data-owner-exit-prompt]');
       await expect(prompt).toBeVisible();
+      await expect(form).toBeVisible();
       await expect(page).toHaveURL(activeUrl, 'the real Back remains on the active owner entry while the read is pending');
       const dialog = page.locator('[data-owner-dialog]');
       const keyboardControl = choice === 'close'
         ? dialog.getByRole('button', { name: 'Cerrar edición', exact: true })
         : prompt.locator('[data-owner-exit-continue]');
       if (choice !== 'leave') {
-        await page.keyboard.press('Shift+Tab');
-        await page.keyboard.press(choice === 'close' ? 'Shift+Tab' : 'Tab');
+        for (let tab = 0; tab < 16 && !await keyboardControl.evaluate((control) => control === document.activeElement); tab += 1) {
+          await page.keyboard.press('Shift+Tab');
+        }
         await expect(keyboardControl).toBeFocused();
       }
 
@@ -382,17 +384,20 @@ test('un Save fallido y su salida no navegan después de una comprobación: sól
   try {
     back = page.goBack();
     const prompt = page.locator('[data-owner-exit-prompt]');
+    const editor = page.locator('[data-owner-dialog][open]');
     await expect(prompt).toBeVisible();
     await prompt.getByRole('button', { name: 'Guardar y salir', exact: true }).click();
     await expect.poll(() => ownerWrites(capture)[0]?.status).toBe(503);
-    await expect(prompt).toBeVisible('a failed Save keeps the original undecided Back surface available');
+    const compare = editor.getByRole('button', { name: 'Comprobar estado guardado', exact: true });
+    await expect(compare).toBeVisible();
+    await expect(prompt).toBeHidden('a failed Guardar y salir cancels the original Back decision');
+    await expect(form).toBeVisible();
     await expect(city).toHaveValue(draftCity);
-    await expect(prompt.getByRole('button', { name: 'Comprobar estado guardado', exact: true })).toBeVisible();
     await expect(page).toHaveURL(activeUrl);
     await page.unroute('**/api/creador/**', failSave);
 
     const readsBeforeCompare = ownerReads(capture).length;
-    await prompt.getByRole('button', { name: 'Comprobar estado guardado', exact: true }).click();
+    await compare.click();
     await expect.poll(() => ownerReads(capture).length).toBe(readsBeforeCompare + 1);
     const comparison = ownerReads(capture).at(-1);
     await expect.poll(() => comparison.status).toBe(200);
@@ -400,14 +405,18 @@ test('un Save fallido y su salida no navegan después de una comprobación: sól
       'the real compare read retains the original saved city after the failed Save');
     assert.equal((await fixture.rawOwner(cookie)).profile.city, initial.profile.city,
       'the failed Save leaves the stored city unchanged before the explicit discard');
-    await expect(prompt).toBeVisible();
-    await expect(prompt.getByRole('button', { name: 'Volver al borrador', exact: true })).toBeVisible();
+    await expect(prompt).toBeHidden();
+    await expect(editor.getByRole('button', { name: 'Volver al borrador', exact: true })).toBeVisible();
     await expect(city).toHaveValue(draftCity);
     await expect(page).toHaveURL(activeUrl, 'a failed Save does not consume the already requested history destination');
     assert.equal(ownerWrites(capture).length, 1, 'checking saved state never retries the failed Save');
 
-    await prompt.getByRole('button', { name: 'Descartar cambios', exact: true }).click();
     await back;
+    const newBack = page.goBack();
+    await expect(prompt).toBeVisible();
+    await expect(page).toHaveURL(activeUrl);
+    await prompt.getByRole('button', { name: 'Descartar cambios', exact: true }).click();
+    await newBack;
     await expect(page).toHaveURL(destination);
     assert.equal((await fixture.rawOwner(cookie)).profile.city, initial.profile.city,
       'discarding the failed draft does not change the stored city');
