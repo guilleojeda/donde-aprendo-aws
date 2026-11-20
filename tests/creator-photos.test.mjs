@@ -25,10 +25,17 @@ async function profileRecord(harness, profileId = 'creator-a') {
   return harness.store.get(profileStoreKey(profileId));
 }
 
+async function mapPhotoOwner(harness, accountId = 'owner-account', profileId = 'creator-a') {
+  assert.equal(await harness.store.transact({
+    checks: [{ key: `account-profile:${accountId}`, version: null }],
+    puts: [{ key: `account-profile:${accountId}`, value: { profileId } }],
+  }), true);
+}
+
 async function currentPhoto(harness, profileId = 'creator-a') {
   const profile = await profileRecord(harness, profileId);
   if (!profile?.photo?.version) return null;
-  return harness.service.readPhoto({ profileId, version: profile.photo.version });
+  return harness.service.readPhoto({ profileId, version: profile.photo.version, access: 'public' });
 }
 
 function responseHeader(photo, name) {
@@ -42,8 +49,7 @@ function assertPublishedPhoto(photo) {
   assert.ok(Buffer.isBuffer(photo.body), 'readPhoto returns the final bytes');
   assert.equal(photo.contentType, 'image/webp');
   assert.equal(responseHeader(photo, 'X-Content-Type-Options'), 'nosniff');
-  assert.match(responseHeader(photo, 'Cache-Control') ?? '', /max-age=\d+/);
-  assert.match(responseHeader(photo, 'Cache-Control') ?? '', /immutable/);
+  assert.equal(responseHeader(photo, 'Cache-Control'), null, 'the service leaves cache policy to the dynamic HTTP boundary');
 }
 
 test('real JPEG, PNG, and WebP inputs become bounded WebP rasters without cropping', async () => {
@@ -147,13 +153,61 @@ test('a signed upload is exact, short-lived, size-limited, and publishes only a 
   const photo = await currentPhoto(harness);
   assertPublishedPhoto(photo);
   assert.notDeepEqual(photo.body, jpeg, 'the public bytes are the processed variant, not the uploaded original');
-  assert.equal(await harness.service.readPhoto({ profileId: 'creator-a', version: upload.post.fields.key }), null);
-  assert.equal(await harness.service.readPhoto({ profileId: 'creator-a', version: 'missing-version' }), null);
+  assert.equal(await harness.service.readPhoto({ profileId: 'creator-a', version: upload.post.fields.key, access: 'public' }), null);
+  assert.equal(await harness.service.readPhoto({ profileId: 'creator-a', version: 'missing-version', access: 'public' }), null);
 
   const finalPuts = harness.objects.calls.filter(({ operation }) => operation === 'put');
   assert.equal(finalPuts.length, 1);
   assert.notEqual(finalPuts[0].key, upload.post.fields.key);
   assert.deepEqual(finalPuts[0].bytes, photo.body);
+});
+
+test('served photos require the current version, public visibility, or the exact signed-in owner', async () => {
+  const { jpeg, png } = await rasterPhotoFixtures();
+  const harness = await createCreatorPhotoHarness({ profiles: [{ id: 'creator-a', version: 1, published: false }] });
+  const first = await startUpload(harness, 'creator-a', 1, jpeg);
+  await harness.service.finalizeUpload({ profileId: 'creator-a', uploadId: first.uploadId, expectedVersion: 1 });
+  await mapPhotoOwner(harness);
+
+  assert.equal(await harness.service.readPhoto({ profileId: 'creator-a', version: first.uploadId, access: 'public' }), null,
+    'a draft photo is not public');
+  assert.ok(await harness.service.readPhoto({ profileId: 'creator-a', version: first.uploadId, access: 'owner', accountId: 'owner-account' }),
+    'the owner can preview a current draft photo');
+  assert.equal(await harness.service.readPhoto({ profileId: 'creator-a', version: first.uploadId, access: 'owner', accountId: 'other-account' }), null,
+    'another account cannot preview the draft photo');
+
+  let profile = await profileRecord(harness);
+  assert.equal(await harness.store.transact({
+    checks: [{ key: profileStoreKey('creator-a'), version: profile.version }],
+    puts: [{ key: profileStoreKey('creator-a'), value: { ...profile, version: profile.version + 1, published: true } }],
+  }), true);
+  assert.ok(await harness.service.readPhoto({ profileId: 'creator-a', version: first.uploadId, access: 'public' }),
+    'the current photo becomes public after publication');
+
+  profile = await profileRecord(harness);
+  assert.equal(await harness.store.transact({
+    checks: [{ key: profileStoreKey('creator-a'), version: profile.version }],
+    puts: [{ key: profileStoreKey('creator-a'), value: { ...profile, version: profile.version + 1, hidden: true } }],
+  }), true);
+  assert.equal(await harness.service.readPhoto({ profileId: 'creator-a', version: first.uploadId, access: 'public' }), null,
+    'moderation hiding removes the photo from public reads');
+  assert.ok(await harness.service.readPhoto({ profileId: 'creator-a', version: first.uploadId, access: 'owner', accountId: 'owner-account' }),
+    'the owner can still preview the current hidden photo');
+
+  profile = await profileRecord(harness);
+  assert.equal(await harness.store.transact({
+    checks: [{ key: profileStoreKey('creator-a'), version: profile.version }],
+    puts: [{ key: profileStoreKey('creator-a'), value: { ...profile, version: profile.version + 1, hidden: false } }],
+  }), true);
+  profile = await profileRecord(harness);
+  const second = await startUpload(harness, 'creator-a', profile.version, png);
+  await harness.service.finalizeUpload({ profileId: 'creator-a', uploadId: second.uploadId, expectedVersion: profile.version });
+  assert.equal(await harness.service.readPhoto({ profileId: 'creator-a', version: first.uploadId, access: 'public' }), null,
+    'a superseded URL stops serving even to the owner');
+  assert.equal(await harness.service.readPhoto({ profileId: 'creator-a', version: first.uploadId, access: 'owner', accountId: 'owner-account' }), null,
+    'a superseded URL remains unavailable with owner credentials');
+  assert.ok(await harness.service.readPhoto({ profileId: 'creator-a', version: second.uploadId, access: 'public' }),
+    'the replacement is the only current public photo');
 });
 
 test('photo finalization and recovered acknowledgement return the original committed creator revision', async () => {
@@ -351,7 +405,7 @@ test('an abandoned temporary upload stays unreadable and does not disturb the pu
   const previousPhoto = await currentPhoto(harness);
 
   const abandoned = await startUpload(harness, 'creator-a', previousProfile.version, png);
-  assert.equal(await harness.service.readPhoto({ profileId: 'creator-a', version: abandoned.post.fields.key }), null);
+  assert.equal(await harness.service.readPhoto({ profileId: 'creator-a', version: abandoned.post.fields.key, access: 'public' }), null);
   assert.deepEqual((await profileRecord(harness)).photo, previousProfile.photo);
   assert.deepEqual((await currentPhoto(harness)).body, previousPhoto.body);
   assert.equal(harness.objects.calls.filter(({ operation }) => operation === 'put').length, 1);

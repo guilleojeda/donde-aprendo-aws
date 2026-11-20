@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import sharp from 'sharp';
 import { prepareCreatorStateWrite, readCreatorState } from './creator-state.mjs';
+import { isPublicCreator } from './creator-public.mjs';
 import {
   CREATOR_PHOTO_FORMATS,
   CREATOR_PHOTO_MAX_PIXELS,
@@ -18,7 +19,6 @@ const PROFILE_KEY = (profileId) => `profile:${profileId}`;
 const UPLOAD_KEY = (uploadId) => `photo-upload:${uploadId}`;
 const TEMPORARY_PREFIX = (profileId) => `photos/tmp/${profileId}/`;
 const FINAL_PREFIX = (profileId) => `photos/final/${profileId}/`;
-const CACHE_CONTROL = 'public, max-age=31536000, immutable';
 const PHOTO_MIME_TYPE_BY_FORMAT = Object.freeze(Object.fromEntries(
   CREATOR_PHOTO_FORMATS.map((format, index) => [format, CREATOR_PHOTO_MIME_TYPES[index]]),
 ));
@@ -156,10 +156,13 @@ function photoResult(bytes) {
     body: bytes,
     contentType: PHOTO_MIME_TYPE_BY_FORMAT.webp,
     headers: {
-      'Cache-Control': CACHE_CONTROL,
       'X-Content-Type-Options': 'nosniff',
     },
   };
+}
+
+function isCurrentPhoto(profile, version) {
+  return profile?.photo && String(profile.photo.version) === version;
 }
 
 function assertPost(post, key) {
@@ -171,6 +174,32 @@ function assertPost(post, key) {
 export function createCreatorPhotoService(dependencies) {
   requireDependencies(dependencies);
   const { store, objects, signPost, now, createId } = dependencies;
+
+  async function readStoredPhoto(profileId, version) {
+    const upload = await store.get(UPLOAD_KEY(version));
+    if (!upload || upload.profileId !== profileId || upload.state !== 'complete'
+      || upload.photo?.version !== version
+      || !isExpectedFinalKey(profileId, version, upload.finalKey)) return null;
+
+    const bytes = await objects.get(upload.finalKey);
+    if (!Buffer.isBuffer(bytes)) return null;
+    return photoResult(bytes);
+  }
+
+  async function readCurrentPhoto({ profileId, version, accountId, publicOnly = false } = {}) {
+    if (!isCreatorPhotoId(profileId) || !isCreatorPhotoId(version)) return null;
+    const stored = await store.get(PROFILE_KEY(profileId));
+    if (!stored) return null;
+    const profile = readCreatorState(stored, profileId);
+    if (!isCurrentPhoto(profile, version)) return null;
+    if (publicOnly && !isPublicCreator(profile)) return null;
+    if (accountId !== undefined) {
+      if (typeof accountId !== 'string' || accountId.length === 0) return null;
+      const owner = await store.get(`account-profile:${accountId}`);
+      if (owner?.profileId !== profileId) return null;
+    }
+    return readStoredPhoto(profileId, version);
+  }
 
   async function getCreatorState(profileId) {
     const state = await store.get(PROFILE_KEY(profileId));
@@ -324,16 +353,13 @@ export function createCreatorPhotoService(dependencies) {
       }
     },
 
-    async readPhoto({ profileId: rawProfileId, version: rawVersion } = {}) {
-      if (!isCreatorPhotoId(rawProfileId) || !isCreatorPhotoId(rawVersion)) return null;
-      const upload = await store.get(UPLOAD_KEY(rawVersion));
-      if (!upload || upload.profileId !== rawProfileId || upload.state !== 'complete'
-        || upload.photo?.version !== rawVersion
-        || !isExpectedFinalKey(rawProfileId, rawVersion, upload.finalKey)) return null;
-
-      const bytes = await objects.get(upload.finalKey);
-      if (!Buffer.isBuffer(bytes)) return null;
-      return photoResult(bytes);
+    /** Read only the current photo allowed by the explicit caller access mode. */
+    async readPhoto({ profileId, version, access = 'public', accountId } = {}) {
+      if (access === 'public') return readCurrentPhoto({ profileId, version, publicOnly: true });
+      if (access === 'owner' && typeof accountId === 'string' && accountId.length > 0) {
+        return readCurrentPhoto({ profileId, version, accountId });
+      }
+      return null;
     },
   };
 }

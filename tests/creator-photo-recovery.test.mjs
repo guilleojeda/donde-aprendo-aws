@@ -84,7 +84,7 @@ async function assertStoredWinner(harness, upload) {
   assert.equal(record.expectedVersion, 1);
   assert.equal(profile.version, 2);
   assert.deepEqual(profile.photo, record.photo);
-  const photo = await harness.service.readPhoto({ profileId: 'creator-a', version: upload.uploadId });
+  const photo = await harness.service.readPhoto({ profileId: 'creator-a', version: upload.uploadId, access: 'public' });
   assert.ok(photo && Buffer.isBuffer(photo.body) && photo.body.length > 0, 'the immutable selected variant is readable');
   return { record, profile, photo };
 }
@@ -170,7 +170,7 @@ test('a lost commit acknowledgement and failed confirmation cannot delete a sele
   const profile = await h.store.get('profile:creator-a');
   assert.equal(profile.photo.version, upload.uploadId);
   assert.equal(profile.version, 2);
-  const photo = await h.service.readPhoto({ profileId: 'creator-a', version: upload.uploadId });
+  const photo = await h.service.readPhoto({ profileId: 'creator-a', version: upload.uploadId, access: 'public' });
   assert.ok(photo?.body.length > 0, 'the committed profile still has its immutable WebP');
   const retry = await h.service.finalizeUpload(input);
   assert.deepEqual(retry.photo, profile.photo, 'retry recovers the committed result without replacing it');
@@ -300,7 +300,7 @@ test('a temporary-object failure after the winner returns its historical receipt
       assert.equal((await harness.store.get(profileStoreKey('creator-a'))).version, 3);
       assert.equal(getsOf(harness, UPLOAD_KEY(upload.uploadId), start).length, 3);
       assert.equal(transactionsCompleting(harness, upload.uploadId, start).length, 1);
-      const immutable = await harness.service.readPhoto({ profileId: 'creator-a', version: upload.uploadId });
+      const immutable = await harness.service.readPhoto({ profileId: 'creator-a', version: upload.uploadId, access: 'public' });
       assert.ok(immutable && Buffer.isBuffer(immutable.body) && immutable.body.length > 0);
     });
   }
@@ -547,7 +547,7 @@ test('only a definitive false with a different validated winner may delete the d
           assert.equal(uploadReadCount, 3, 'cleanup failure does not trigger another confirmation');
         }
       }
-      const selected = await harness.service.readPhoto({ profileId: 'creator-a', version: upload.uploadId });
+      const selected = await harness.service.readPhoto({ profileId: 'creator-a', version: upload.uploadId, access: 'public' });
       assert.ok(selected?.body.length > 0, 'the winning immutable bytes remain readable');
     });
   }
@@ -889,7 +889,7 @@ test('a different upload winning the same profile preserves the original conflic
   assert.equal(transactionsCompleting(harness, pending.uploadId, start).length, 0);
   assert.equal(transactionsCompleting(harness, competing.uploadId, start).length, 1);
   assert.equal(harness.objects.calls.filter(({ operation }) => operation === 'put').length, 1);
-  const selected = await harness.service.readPhoto({ profileId: 'creator-a', version: competing.uploadId });
+  const selected = await harness.service.readPhoto({ profileId: 'creator-a', version: competing.uploadId, access: 'public' });
   assert.ok(selected?.body.length > 0);
 });
 
@@ -962,8 +962,8 @@ test('a real false CAS with malformed same-upload confirmation keeps the output 
   const profile = await harness.store.get(profileStoreKey('creator-a'));
   assert.equal(profile.version, 2);
   assert.equal(profile.photo.version, competitor.uploadId);
-  assert.equal((await harness.service.readPhoto({ profileId: 'creator-a', version: competitor.uploadId }))?.body.length > 0, true);
-  assert.equal(await harness.service.readPhoto({ profileId: 'creator-a', version: target.uploadId }), null);
+  assert.equal((await harness.service.readPhoto({ profileId: 'creator-a', version: competitor.uploadId, access: 'public' }))?.body.length > 0, true);
+  assert.equal(await harness.service.readPhoto({ profileId: 'creator-a', version: target.uploadId, access: 'public' }), null);
 });
 
 test('the actual HTTP handler returns a real finalization receipt and retains truthful failure statuses', async (t) => {
@@ -988,7 +988,7 @@ test('the actual HTTP handler returns a real finalization receipt and retains tr
       disposition: 'finalized',
     });
     assert.equal((await harness.store.get(profileStoreKey('creator-a'))).version, 2);
-    const photo = await harness.service.readPhoto({ profileId: 'creator-a', version: upload.uploadId });
+    const photo = await harness.service.readPhoto({ profileId: 'creator-a', version: upload.uploadId, access: 'public' });
     assert.ok(photo?.body.length > 0);
   });
 
@@ -1102,7 +1102,7 @@ test('an arbitrary post-CAS TypeError or RangeError with failed confirmation is 
     url: `/media/fotos/creator-a/${upload.uploadId}.webp`,
   });
   assert.equal(savedUpload.state, 'complete', 'the upload receipt committed before the acknowledgement fault');
-  const immutable = await harness.service.readPhoto({ profileId: 'creator-a', version: upload.uploadId });
+  const immutable = await harness.service.readPhoto({ profileId: 'creator-a', version: upload.uploadId, access: 'public' });
   assert.ok(immutable && Buffer.isBuffer(immutable.body) && immutable.body.length > 0,
     'the committed immutable WebP remains readable after the uncertain response');
 

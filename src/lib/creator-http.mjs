@@ -158,14 +158,27 @@ export function createCreatorHttpHandler({ service, photos, auth, store, origin 
   };
 }
 
-export async function creatorPhotoResponse(photos, profileId, version) {
+export async function creatorPhotoResponse(photos, profileId, version, { request, auth } = {}) {
+  const notFound = () => new Response(null, { status: 404, headers: { 'cache-control': 'no-store' } });
+  const serviceUnavailable = () => new Response(null, { status: 503, headers: { 'cache-control': 'no-store' } });
+  const imageResponse = (photo) => {
+    const headers = new Headers(photo.headers);
+    headers.set('cache-control', 'private, no-store');
+    headers.set('content-type', photo.contentType);
+    return new Response(new Uint8Array(photo.body), { headers });
+  };
+
   try {
-    const photo = await photos.readPhoto({ profileId, version });
-    if (!photo) return new Response(null, { status: 404, headers: { 'cache-control': 'no-store' } });
-    return new Response(new Uint8Array(photo.body), {
-      headers: { ...photo.headers, 'content-type': photo.contentType },
-    });
+    const publicPhoto = await photos.readPhoto({ profileId, version, access: 'public' });
+    if (publicPhoto) return imageResponse(publicPhoto);
+
+    if (!auth || !request || typeof auth.getRequestContext !== 'function') return serviceUnavailable();
+    const principal = (await auth.getRequestContext(request))?.principal;
+    if (principal?.state === 'unavailable') return serviceUnavailable();
+    if (principal?.state !== 'authenticated') return notFound();
+    const ownerPhoto = await photos.readPhoto({ profileId, version, access: 'owner', accountId: principal.accountId });
+    return ownerPhoto ? imageResponse(ownerPhoto) : notFound();
   } catch {
-    return new Response(null, { status: 503, headers: { 'cache-control': 'no-store' } });
+    return serviceUnavailable();
   }
 }
