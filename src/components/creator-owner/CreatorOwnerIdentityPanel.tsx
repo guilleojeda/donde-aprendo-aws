@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import type { CreatorSocial } from '../../types/creators';
 import { canonicalCreatorPath, isPublicCreator, safeCreatorSocialUrl } from '../../lib/creator-public.mjs';
-import { CREATOR_FIELD_LIMITS, CREATOR_SLUG_MIN_LENGTH, CREATOR_SLUG_PATTERN, CREATOR_SOCIALS } from '../../lib/creator-values.mjs';
+import { CREATOR_FIELD_LIMITS, CREATOR_SLUG_MIN_LENGTH, CREATOR_SLUG_PATTERN, CREATOR_SOCIALS, isCreatorSlug } from '../../lib/creator-values.mjs';
 import { creatorOwnerCanSubmitEditor, deriveCreatorOwnerRecoveryAction, type CreatorOwnerRecoveryChoice, type CreatorOwnerState } from '../../lib/creator-owner-state';
 
 const SOCIAL_LABELS: Record<CreatorSocial, string> = {
@@ -72,7 +72,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
   const photoPath = profile?.photo?.version !== undefined
     ? `/media/fotos/${encodeURIComponent(profile.id)}/${encodeURIComponent(String(profile.photo.version))}.webp`
     : undefined;
-  const canonicalPath = profile ? canonicalCreatorPath(profile.slug) : undefined;
+  const canonicalPath = profile && isCreatorSlug(profile.slug) ? canonicalCreatorPath(profile.slug) : undefined;
   const copyButtonLabel = copyFeedback?.kind === 'success' ? 'Enlace copiado'
     : copyFeedback?.kind === 'error' ? 'No se pudo copiar' : 'Copiar enlace';
   let canonicalUrl: string | undefined;
@@ -192,7 +192,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
             <div class="creator-owner__identity-copy">
               <p class="creator-owner__eyebrow">Identidad pública</p>
               <h2 id="owner-profile-name" data-owner-name tabIndex={-1}>{profile.displayName}</h2>
-              <p class="creator-owner__slug" data-owner-slug>{canonicalPath}</p>
+              <p class="creator-owner__slug" data-owner-slug>{canonicalPath ?? 'Sin dirección válida todavía.'}</p>
               {(profile.hidden || !profile.published) && <span class="creator-owner__badge" data-owner-state>{profile.hidden ? 'Oculta' : 'Borrador'}</span>}
             </div>
           </div>
@@ -203,21 +203,18 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
           </div>
         </section>
 
-        <section class="creator-owner__public" aria-label="Página pública" data-owner-public>
-          {isPublic && <>
-            <p data-owner-public-copy>Tu página está publicada y visible.</p>
-            <a class="button button--outline" data-owner-public-link href={canonicalUrl} target="_blank" rel="noopener noreferrer" aria-label="Ver página pública (abre en otra pestaña)">Ver página pública <span aria-hidden="true">↗</span></a>
-            <button class="button button--outline" type="button" data-owner-copy onClick={() => {
-              if (!canonicalUrl) return;
-              onCopyLink(canonicalUrl);
-            }}>{copyButtonLabel}</button>
+        <section class="creator-owner__public" aria-labelledby="owner-public-title" data-owner-public>
+          <h2 id="owner-public-title">Enlace de tu página</h2>
+          {canonicalUrl ? <>
+            <p class="creator-owner__public-url" data-owner-public-url>{canonicalUrl}</p>
+            {isPublic && <p data-owner-public-copy>Tu página está publicada y visible.</p>}
+            {profile.hidden && <p data-owner-hidden-copy>La página está oculta por administración. Puedes copiar esta dirección, pero todavía no está disponible para visitantes. Sólo administración puede cambiar su visibilidad.</p>}
+            {!profile.published && !profile.hidden && <p data-owner-draft-copy>Tu página está en borrador. Puedes copiar esta dirección, pero todavía no está disponible para visitantes. Completa el perfil y publícala cuando esté lista.</p>}
+            {isPublic && <a class="button button--outline" data-owner-public-link href={canonicalUrl} target="_blank" rel="noopener noreferrer" aria-label="Ver página pública (abre en otra pestaña)">Ver página pública <span aria-hidden="true">↗</span></a>}
+            <button class="button button--outline" type="button" data-owner-copy onClick={() => onCopyLink(canonicalUrl)}>{copyButtonLabel}</button>
             {copyFeedback && <p class={`creator-owner__copy-status${copyFeedback.kind === 'success' ? ' sr-only' : ''}`} data-owner-copy-status role={copyFeedback.kind === 'error' ? 'alert' : 'status'} aria-live="polite">{copyFeedback.text}</p>}
-          </>}
-          {profile.hidden && <p data-owner-hidden-copy>La página está oculta por administración. Puedes editar tus datos; sólo administración puede cambiar su visibilidad.</p>}
-          {!profile.published && <>
-            <p data-owner-draft-copy>Tu página está en borrador. Puedes completar el perfil y publicarla cuando esté lista.</p>
-            {!profile.hidden && <button class="button button--dark" type="button" data-owner-publish disabled={disabled} onClick={onPublish}>Publicar página</button>}
-          </>}
+          </> : <p data-owner-no-public-url>Completa una dirección válida para compartir tu página. No hay una URL pública disponible todavía.</p>}
+          {!profile.published && !profile.hidden && <button class="button button--dark" type="button" data-owner-publish disabled={disabled} onClick={onPublish}>Publicar página</button>}
           {publishRecoveryAction?.kind === 'pending' && operation.status === 'reading' && <p class="creator-owner__status" data-owner-operation-message role="status" aria-live="polite">{operation.message}</p>}
           {(publishRecoveryAction?.kind === 'retry' || publishRecoveryAction?.kind === 'session-check') && operation.status === 'refresh-failed' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind={operation.fact === 'unknown' ? 'unknown' : 'refresh-failed'} data-owner-stale role="alert" aria-live="polite">
             <h3>{operation.fact === 'unknown' ? 'No sabemos si se publicó' : 'No pudimos actualizar la publicación'}</h3>

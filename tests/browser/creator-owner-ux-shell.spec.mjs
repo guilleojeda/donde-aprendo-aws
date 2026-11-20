@@ -246,6 +246,7 @@ test('Copiar enlace llama al portapapeles y muestra feedback accesible junto al 
   await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
   const button = page.locator('[data-owner-copy]');
   const expectedUrl = `${fixture.origin}/c/ana-browser/`;
+  await expect(page.locator('[data-owner-public-url]')).toHaveText(expectedUrl);
   await button.evaluate((element) => {
     const box = element.getBoundingClientRect();
     window.scrollTo({ top: Math.max(0, box.top + window.scrollY - window.innerHeight + box.height + 4), behavior: 'instant' });
@@ -264,6 +265,7 @@ test('Copiar enlace llama al portapapeles y muestra feedback accesible junto al 
   await profileForm.getByLabel('Dirección de tu página', { exact: true }).fill('ana-browser-actualizada');
   await profileForm.getByRole('button', { name: 'Guardar datos', exact: true }).click();
   await expect(profileForm).not.toBeVisible();
+  await expect(page.locator('[data-owner-public-url]')).toHaveText(`${fixture.origin}/c/ana-browser-actualizada/`);
   await expect(page.locator('[data-owner-copy-status]')).toHaveCount(0);
 
   await button.click();
@@ -272,10 +274,16 @@ test('Copiar enlace llama al portapapeles y muestra feedback accesible junto al 
   await secondProfileForm.getByLabel('Dirección de tu página', { exact: true }).fill('ana-browser-final');
   await secondProfileForm.getByRole('button', { name: 'Guardar datos', exact: true }).click();
   await expect(secondProfileForm).not.toBeVisible();
+  await expect(page.locator('[data-owner-public-url]')).toHaveText(`${fixture.origin}/c/ana-browser-final/`);
   await page.evaluate(() => window.__copyPending.shift()?.resolve());
   await expect(page.locator('[data-owner-copy-status]')).toHaveCount(0);
 
   await button.click();
+  assert.deepEqual(await page.evaluate(() => window.__copyWrites), [
+    expectedUrl,
+    `${fixture.origin}/c/ana-browser-actualizada/`,
+    `${fixture.origin}/c/ana-browser-final/`,
+  ]);
   await page.evaluate(() => window.__copyPending.shift()?.reject(new Error('clipboard unavailable')));
   await expect(page.locator('[data-owner-copy-status]')).toHaveText('No pudimos copiar el enlace. Puedes copiarlo desde la dirección de tu página.');
   await expect(button).toHaveText('No se pudo copiar');
@@ -288,4 +296,34 @@ test('Copiar enlace llama al portapapeles y muestra feedback accesible junto al 
   await button.click();
   await expect(page.locator('[data-owner-copy-status]')).toHaveText('No pudimos copiar el enlace. Puedes copiarlo desde la dirección de tu página.');
   await expect(button).toBeFocused();
+});
+
+test('un borrador con slug válido muestra la URL completa y permite copiarla sin abrir un enlace público', async ({ fixture, page }) => {
+  await loggedInOwner(fixture, page);
+  await page.addInitScript(() => {
+    window.__copyWrites = [];
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText(value) { window.__copyWrites.push(value); return Promise.resolve(); } },
+    });
+  });
+  await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+
+  const expectedUrl = `${fixture.origin}/c/ana-browser/`;
+  await expect(page.locator('[data-owner-public-url]')).toHaveText(expectedUrl);
+  await expect(page.locator('[data-owner-draft-copy]')).toContainText('no está disponible para visitantes');
+  await expect(page.locator('[data-owner-public-link]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Copiar enlace', exact: true }).click();
+  await expect(page.locator('[data-owner-copy-status]')).toHaveText('Enlace copiado.');
+  assert.deepEqual(await page.evaluate(() => window.__copyWrites), [expectedUrl]);
+});
+
+test('un perfil sin slug válido no muestra una dirección ni copia una URL inexistente', async ({ fixture, page }) => {
+  await loggedInOwner(fixture, page, { profileFields: { slug: '' } });
+  await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+
+  await expect(page.locator('[data-owner-public-url]')).toHaveCount(0);
+  await expect(page.locator('[data-owner-copy]')).toHaveCount(0);
+  await expect(page.locator('[data-owner-slug]')).not.toContainText('/c//');
+  await expect(page.locator('[data-owner-public]')).toContainText('dirección válida');
 });

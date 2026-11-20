@@ -604,7 +604,8 @@ test('un perfil publicado pero oculto conserva su resumen histórico sin ofrecer
   await expect(summary.locator('[data-owner-activity-total="clicks"]')).toHaveText('20');
   await expect(page.locator('[data-owner-hidden-copy]')).toBeVisible();
   await expect(page.getByRole('link', { name: /Ver página pública/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Copiar enlace', exact: true })).toHaveCount(0);
+  await expect(page.locator('[data-owner-public-url]')).toHaveText(`${fixture.origin}/c/ana-browser/`);
+  await expect(page.getByRole('button', { name: 'Copiar enlace', exact: true })).toHaveCount(1);
   const creatorIds = fixture.statistics.requests.flatMap(({ requests }) => requests.flatMap(({ dimensionFilter }) =>
     dimensionFilter?.andGroup?.expressions
       .filter(({ filter }) => filter.fieldName === 'customEvent:creator_id')
