@@ -413,7 +413,8 @@ test('un finalize confirmado con lectura fallida conserva la foto y permite recu
     const firstPhotoVersion = committedFinalize.body.photo.version;
     assert.equal(failedRead.responseBody.error, 'SESSION_CONTEXT_CHANGED',
       'only the full post-commit owner read fails after the account context changes');
-    await expect(form.getByRole('status')).toContainText(/foto.*guardad/iu);
+    await expect(form.getByText(/la foto quedó guardada/iu)).toBeVisible();
+    await expect(form.locator('[data-session-recovery-status]')).toContainText(/cuenta|rol/iu);
     assert.equal(provider.uploads.length, 1);
     assert.equal(provider.uploads[0].bytes.equals(images.jpeg), true);
     assert.equal(records(capture, 'POST', AUTHORIZE_PHOTO_PATH).length, 1);

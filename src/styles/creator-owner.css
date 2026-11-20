@@ -1018,6 +1018,28 @@
   line-height: 1.4;
 }
 
+.creator-owner__field-error {
+  margin: 0;
+  color: var(--color-error-text);
+  line-height: 1.45;
+}
+
+.creator-owner__field--invalid input:not([type="checkbox"]):not([type="file"]),
+.creator-owner__field--invalid textarea {
+  border-width: 2px;
+  border-color: var(--color-error-text);
+}
+
+.creator-owner__field--invalid .creator-owner__slug-field input:not([type="checkbox"]):not([type="file"]) {
+  border: 0;
+}
+
+.creator-owner__programs[aria-invalid="true"] {
+  border-width: 2px;
+  border-color: var(--color-error-text);
+  background: var(--color-error-surface);
+}
+
 .creator-owner__slug-field {
   display: flex;
   align-items: center;
@@ -1036,6 +1058,11 @@
 .creator-owner__slug-field input:not([type="checkbox"]):not([type="file"]) {
   border: 0;
   background: transparent;
+}
+
+.creator-owner__field--invalid .creator-owner__slug-field {
+  border-width: 2px;
+  border-color: var(--color-error-text);
 }
 
 .creator-owner__programs {
@@ -1059,6 +1086,10 @@
   margin: 0;
   color: var(--color-text-muted);
   overflow-wrap: anywhere;
+}
+
+.creator-owner__status--error {
+  color: var(--color-error-text);
 }
 
 .creator-owner__status[data-kind="error"] {

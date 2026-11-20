@@ -338,8 +338,8 @@ for (const mismatch of ['cuenta', 'rol']) {
     assert.equal(capture.writes().length, 1, 'mismatch does not replay the rejected PUT');
     assert.equal(capture.writes()[0].status, 401);
 
-    await expect(sessionCheck(page)).toBeEnabled();
-    await expect(page.locator('main [data-session-recovery-check]')).toBeEnabled();
+    await expect(form.locator('[data-session-recovery-check]')).toBeEnabled();
+    await expect(page.locator('[data-session-recovery-check]')).toHaveCount(1);
     // A repeated check under the wrong context remains safe and retryable.
     await sessionCheck(page).click();
     await capture.settle();

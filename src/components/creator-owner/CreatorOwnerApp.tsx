@@ -46,6 +46,7 @@ import {
   type CreatorOwnerState,
   type CreatorOwnerView,
   type CreatorOwnerReadFact,
+  type CreatorOwnerIdentityField,
 } from '../../lib/creator-owner-state';
 import CreatorOwnerEditorDialog from './CreatorOwnerEditorDialog';
 import CreatorOwnerIdentityPanel from './CreatorOwnerIdentityPanel';
@@ -182,6 +183,50 @@ function rejectedOwnerWriteMessage(error: unknown, status: number): string {
   }
 }
 
+type CreatorOwnerWriteErrorPayload = CreatorSessionResponse & { fieldErrors?: unknown };
+
+const IDENTITY_FIELDS = new Set<CreatorOwnerIdentityField>(['displayName', 'slug', 'city', 'country', 'bio', 'programs']);
+
+function identityFieldErrorText(field: CreatorOwnerIdentityField, reason: string): string | undefined {
+  if (field === 'slug' && reason === 'reserved') return 'Esa dirección ya está reservada. Elige otra.';
+  if (reason === 'required') return field === 'displayName' ? 'Ingresa un nombre visible.'
+    : field === 'slug' ? 'Ingresa una dirección para tu página.' : `Completa el campo ${field === 'city' ? 'Ciudad' : field === 'country' ? 'País' : field === 'bio' ? 'Sobre ti' : 'Programas de AWS'}.`;
+  if (reason === 'too_long') return field === 'bio' ? 'La presentación supera el límite permitido.'
+    : `El campo ${field === 'displayName' ? 'Nombre visible' : field === 'city' ? 'Ciudad' : 'País'} supera el límite permitido.`;
+  if (field === 'slug' && reason === 'invalid') return 'Usa una dirección válida: minúsculas, números y guiones sencillos.';
+  if (field === 'programs' && reason === 'unsupported') return 'Elige un programa válido.';
+  return undefined;
+}
+
+function ownerIdentityFieldErrors(error: unknown, payload: CreatorSessionResponse | null, intent: CreatorOwnerIntent,
+  editor: CreatorOwnerEditorDraft | undefined): Partial<Record<CreatorOwnerIdentityField, string>> | undefined {
+  if (intent.action !== 'save-profile' || !(editor?.kind === 'create-profile' || editor?.kind === 'profile' && editor.section === 'datos')) return undefined;
+  if (error === 'SLUG_TAKEN') return { slug: 'Esa dirección ya está reservada. Elige otra.' };
+  if (error === 'INVALID_SLUG') return { slug: 'Usa una dirección válida: minúsculas, números y guiones sencillos.' };
+  if (error === 'INVALID_PROGRAMS') return { programs: 'Elige un programa válido.' };
+  const fieldErrors = (payload as CreatorOwnerWriteErrorPayload | null)?.fieldErrors;
+  if (!Array.isArray(fieldErrors) || fieldErrors.length === 0) return undefined;
+  const mapped: Partial<Record<CreatorOwnerIdentityField, string>> = {};
+  for (const entry of fieldErrors) {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return undefined;
+    const field = (entry as Record<string, unknown>).field;
+    const reason = (entry as Record<string, unknown>).reason;
+    if (typeof field !== 'string' || !IDENTITY_FIELDS.has(field as CreatorOwnerIdentityField)
+      || typeof reason !== 'string') return undefined;
+    if (error === 'PROFILE_INCOMPLETE' && reason !== 'required') return undefined;
+    if (error === 'FIELD_TOO_LONG' && reason !== 'too_long') return undefined;
+    if (error !== 'PROFILE_INCOMPLETE' && error !== 'FIELD_TOO_LONG') return undefined;
+    if (error === 'PROFILE_INCOMPLETE' && field !== 'displayName' && field !== 'slug') return undefined;
+    if (error === 'FIELD_TOO_LONG' && !['displayName', 'city', 'country', 'bio'].includes(field)) return undefined;
+    const text = identityFieldErrorText(field as CreatorOwnerIdentityField, reason);
+    if (!text) return undefined;
+    const identityField = field as CreatorOwnerIdentityField;
+    if (mapped[identityField] && mapped[identityField] !== text) return undefined;
+    mapped[identityField] = text;
+  }
+  return Object.keys(mapped).length > 0 ? mapped : undefined;
+}
+
 function acknowledgedActionLabel(intent?: CreatorOwnerIntent): string {
   if (!intent) return 'La acción fue confirmada';
   if (intent.action === 'add-chapter') return intent.acknowledgement?.disposition === 'added' ? 'Capítulo agregado' : 'El capítulo ya estaba agregado';
@@ -291,6 +336,7 @@ export default function CreatorOwnerApp(props: Props) {
   const linksHydrationAppliedRef = useRef(false);
   const handledTransitionRef = useRef<string | undefined>(undefined);
   const previousEditorKeyRef = useRef<string | undefined>(undefined);
+  const preserveExitSubmitRef = useRef(false);
 
   function queueSessionPolicyAction(action: CreatorOwnerSessionPolicyAction): boolean {
     const previous = sessionPolicyRef.current;
@@ -468,6 +514,13 @@ export default function CreatorOwnerApp(props: Props) {
     const onLogout = (event: Event) => {
       if (!event.defaultPrevented && blockForExit({ href: '/cuenta/salir/', kind: 'logout' })) event.preventDefault();
     };
+    const onInlineCreatePromptKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.key !== 'Escape') return;
+      const latest = stateRef.current;
+      if (latest.editor?.kind !== 'create-profile' || latest.location.prompt !== 'exit') return;
+      event.preventDefault();
+      resolveExit('continue');
+    };
     const onNativeFragment = () => { nativeSkipActivationHrefRef.current = window.location.href; };
 
     const onPopState = () => {
@@ -525,6 +578,7 @@ export default function CreatorOwnerApp(props: Props) {
 
     const root = rootRef.current;
     root?.addEventListener('account:logout', onLogout);
+    root?.addEventListener('keydown', onInlineCreatePromptKeyDown);
     window.addEventListener('creator-owner:native-fragment', onNativeFragment);
     document.addEventListener('click', onClick);
     document.addEventListener('submit', onSubmit);
@@ -533,6 +587,7 @@ export default function CreatorOwnerApp(props: Props) {
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => {
       root?.removeEventListener('account:logout', onLogout);
+      root?.removeEventListener('keydown', onInlineCreatePromptKeyDown);
       window.removeEventListener('creator-owner:native-fragment', onNativeFragment);
       document.removeEventListener('click', onClick);
       document.removeEventListener('submit', onSubmit);
@@ -1018,6 +1073,7 @@ export default function CreatorOwnerApp(props: Props) {
   function rejectBoundWrite(status: number, payload: CreatorSessionResponse | null, operationId: number, intentId: string): boolean {
     const message = observeBoundSessionFailure(status, payload, operationId);
     if (!message) return false;
+    operationGenerationRef.current += 1;
     dispatch({ type: 'operation-rejected', intentId, message });
     return true;
   }
@@ -1105,6 +1161,7 @@ export default function CreatorOwnerApp(props: Props) {
         : feedback;
       const suppressGlobalMessage = chapterRefresh || intent?.action === 'publish-profile';
       const shouldRestoreRecoveryFocus = !hasUsableOwnerActiveFocus() || document.activeElement === recoveryFocusElement;
+      operationGenerationRef.current += 1;
       dispatch({ type: 'operation-read-failed', ...(intent ? { intent } : {}), fact, message: staleFeedback,
         ...(shouldRestoreRecoveryFocus && !sessionFailure ? { focusAfterRender: retryReadFocus } : {}),
         ...(suppressGlobalMessage ? { suppressGlobalMessage: true } : {}) });
@@ -1153,6 +1210,9 @@ export default function CreatorOwnerApp(props: Props) {
       const consumeEditor = fact === 'acknowledged' && Boolean(intent?.editorKey)
         && stateRef.current.editor?.key === intent?.editorKey
         && !(intent?.action === 'add-link' && intent.acknowledgement?.disposition !== 'resource-created');
+      if (fact === 'acknowledged' && intent?.editorKey && stateRef.current.editor?.key === intent.editorKey && !consumeEditor) {
+        operationGenerationRef.current += 1;
+      }
       const message = fact === 'acknowledged'
         ? intent?.action === 'create-claim' ? 'La solicitud fue enviada. Actualizamos el historial sin repetir el envío.'
           : intent?.action === 'add-link' && intent.acknowledgement?.disposition === 'resource-reused'
@@ -1212,7 +1272,7 @@ export default function CreatorOwnerApp(props: Props) {
     }
   }
 
-  async function startCommand(intent: PendingOwnerCommand, fromConflict = false) {
+  async function startCommand(intent: PendingOwnerCommand, fromConflict = false, preserveExit = false) {
     const latest = stateRef.current;
     const canResolveConflict = fromConflict && latest.operation.status === 'conflict' && latest.operation.readCompleted
       && latest.operation.intent.editorKey === intent.editorKey;
@@ -1260,7 +1320,7 @@ export default function CreatorOwnerApp(props: Props) {
     const ownerDocument = document;
     const token = latest.session.csrfToken;
     const storedIntent = ownerIntent(intent);
-    dispatch({ type: 'operation-started', intent: storedIntent });
+    dispatch({ type: 'operation-started', intent: storedIntent, ...(preserveExit ? { preserveExit: true } : {}) });
     const current = () => operationIsCurrent(generation, binding, accountEmail, isAdmin, profileId, root, ownerDocument);
     try {
       const response = await fetch(request.path, { method: request.method, credentials: 'same-origin', cache: 'no-store',
@@ -1289,11 +1349,14 @@ export default function CreatorOwnerApp(props: Props) {
           return;
         }
         if (response.status >= 500 || response.status === 408) {
+          operationGenerationRef.current += 1;
           dispatch({ type: 'operation-unknown', intent: storedIntent, message: 'No pudimos confirmar el resultado. Comprueba el estado guardado antes de decidir si vuelves al borrador.' });
           return;
         }
         const message = rejectedOwnerWriteMessage(error, response.status);
-        dispatch({ type: 'operation-rejected', intentId: intent.id, message });
+        const fieldErrors = ownerIdentityFieldErrors(error, payload, storedIntent, stateRef.current.editor);
+        operationGenerationRef.current += 1;
+        dispatch({ type: 'operation-rejected', intentId: intent.id, message, ...(fieldErrors ? { fieldErrors } : {}) });
         return;
       }
       const acknowledgement = await readCreatorOwnerAcknowledgement(response, {
@@ -1305,6 +1368,7 @@ export default function CreatorOwnerApp(props: Props) {
       });
       if (!current()) return;
       if (acknowledgement.kind !== 'confirmed') {
+        operationGenerationRef.current += 1;
         dispatch({ type: 'operation-unknown', intent: storedIntent, message: 'La respuesta no confirma con claridad el resultado. Lee el estado guardado antes de decidir qué hacer.' });
         return;
       }
@@ -1320,7 +1384,10 @@ export default function CreatorOwnerApp(props: Props) {
           ...(acknowledgement.claimVersion !== undefined ? { claimVersion: acknowledgement.claimVersion } : {}) } };
       await readOwnerSnapshot('acknowledged', confirmedIntent);
     } catch {
-      if (current()) dispatch({ type: 'operation-unknown', intent: storedIntent, message: 'No pudimos confirmar el resultado. Comprueba el estado guardado antes de decidir si vuelves al borrador.' });
+      if (current()) {
+        operationGenerationRef.current += 1;
+        dispatch({ type: 'operation-unknown', intent: storedIntent, message: 'No pudimos confirmar el resultado. Comprueba el estado guardado antes de decidir si vuelves al borrador.' });
+      }
     }
   }
 
@@ -1406,6 +1473,8 @@ export default function CreatorOwnerApp(props: Props) {
     const latest = stateRef.current;
     const editor = latest.editor;
     if (!editor) return false;
+    const preserveExit = preserveExitSubmitRef.current;
+    preserveExitSubmitRef.current = false;
     if (editor.kind === 'photo') {
       const profile = latest.observed.profile;
       if (!editor.file || !profile || editor.key !== `photo:${profile.id}`
@@ -1413,16 +1482,16 @@ export default function CreatorOwnerApp(props: Props) {
         if (editor.file) setMessage('Elige una imagen JPEG, PNG o WebP de hasta 15 MiB.', 'error');
         return false;
       }
-      void startPhotoUpload(editor); return true;
+      void startPhotoUpload(editor, preserveExit); return true;
     }
     if (editor.kind === 'profile' && editor.section === 'redes' && !validateSocialUrls(editor)) return false;
     const intent = intentForEditor(editor);
     if (!intent) return false;
-    void startCommand(intent, latest.operation.status === 'conflict' && Boolean(latest.operation.readCompleted));
+    void startCommand(intent, latest.operation.status === 'conflict' && Boolean(latest.operation.readCompleted), preserveExit);
     return true;
   }
 
-  async function startPhotoUpload(editor: Extract<CreatorOwnerEditorDraft, { kind: 'photo' }>) {
+  async function startPhotoUpload(editor: Extract<CreatorOwnerEditorDraft, { kind: 'photo' }>, preserveExit = false) {
     const latest = stateRef.current;
     const profile = latest.observed.profile;
     const file = editor.file;
@@ -1447,7 +1516,7 @@ export default function CreatorOwnerApp(props: Props) {
     const root = rootRef.current;
     const ownerDocument = document;
     const token = latest.session.csrfToken;
-    dispatch({ type: 'operation-started', intent });
+    dispatch({ type: 'operation-started', intent, ...(preserveExit ? { preserveExit: true } : {}) });
     const current = () => operationIsCurrent(generation, binding, accountEmail, isAdmin, originalProfileId, root, ownerDocument);
     let finalizeSent = false;
     let finalizeIntent: CreatorOwnerIntent | undefined;
@@ -1467,14 +1536,19 @@ export default function CreatorOwnerApp(props: Props) {
           return;
         }
         if (authorization.status >= 500 || authorization.status === 408) {
+          operationGenerationRef.current += 1;
           dispatch({ type: 'operation-unknown', intent, message: 'No pudimos confirmar la preparación. Comprueba el estado guardado antes de volver a cargar.' });
-        } else dispatch({ type: 'operation-rejected', intentId: intent.id, message: 'No pudimos preparar la carga. El archivo seleccionado sigue disponible.' });
+        } else {
+          operationGenerationRef.current += 1;
+          dispatch({ type: 'operation-rejected', intentId: intent.id, message: 'No pudimos preparar la carga. El archivo seleccionado sigue disponible.' });
+        }
         return;
       }
       const prepared = await readCreatorOwnerPhotoAuthorizationAcknowledgement(authorization, { profileId: profile.id,
         ...(latest.observed.creatorVersion !== null ? { creatorVersion: latest.observed.creatorVersion } : {}) });
       if (!current()) return;
       if (prepared.kind !== 'confirmed') {
+        operationGenerationRef.current += 1;
         dispatch({ type: 'operation-rejected', intentId: intent.id, message: 'No pudimos validar la preparación. La foto anterior sigue activa y conservamos el archivo.' });
         return;
       }
@@ -1485,11 +1559,12 @@ export default function CreatorOwnerApp(props: Props) {
       const uploadResponse = await fetch(prepared.post.url, { method: 'POST', mode: 'cors', credentials: 'omit', body: form });
       if (!current()) return;
       if (!uploadResponse.ok) {
+        operationGenerationRef.current += 1;
         dispatch({ type: 'operation-rejected', intentId: intent.id, message: 'No pudimos subir la foto. La anterior sigue activa y conservamos el archivo seleccionado.' });
         return;
       }
       finalizeIntent = { ...intent, action: 'photo-finalize' };
-      dispatch({ type: 'operation-started', intent: finalizeIntent });
+      dispatch({ type: 'operation-started', intent: finalizeIntent, ...(preserveExit ? { preserveExit: true } : {}) });
       const finalizeId = nextSessionOperationId();
       finalizeSent = true;
       const finish = await fetch('/api/creador/foto/finalizar/', { method: 'POST', credentials: 'same-origin', cache: 'no-store',
@@ -1507,8 +1582,10 @@ export default function CreatorOwnerApp(props: Props) {
           return;
         }
         if (finish.status >= 500 || finish.status === 408) {
+          operationGenerationRef.current += 1;
           dispatch({ type: 'operation-unknown', intent: finalizeIntent, message: 'No pudimos confirmar si la foto se guardó. Comprueba el estado antes de volver a cargar.' });
         } else {
+          operationGenerationRef.current += 1;
           dispatch({ type: 'operation-rejected', intentId: intent.id, message: 'No pudimos guardar la foto. La anterior sigue activa y conservamos el archivo.' });
         }
         return;
@@ -1516,6 +1593,7 @@ export default function CreatorOwnerApp(props: Props) {
       const finalized = await readCreatorOwnerPhotoFinalizeAcknowledgement(finish, { profileId: profile.id, uploadId: prepared.uploadId });
       if (!current()) return;
       if (finalized.kind !== 'confirmed') {
+        operationGenerationRef.current += 1;
         dispatch({ type: 'operation-unknown', intent: finalizeIntent, message: 'La respuesta no confirma la foto con claridad. Comprueba el estado guardado antes de volver a cargar.' });
         return;
       }
@@ -1526,6 +1604,7 @@ export default function CreatorOwnerApp(props: Props) {
       await readOwnerSnapshot('acknowledged', confirmedIntent);
     } catch {
       if (current()) {
+        operationGenerationRef.current += 1;
         if (finalizeSent && finalizeIntent) dispatch({ type: 'operation-unknown', intent: finalizeIntent,
           message: 'No pudimos confirmar si la foto se guardó. Comprueba el estado antes de volver a cargar.' });
         else dispatch({ type: 'operation-rejected', intentId: intent.id,
@@ -1612,11 +1691,13 @@ export default function CreatorOwnerApp(props: Props) {
     const latest = stateRef.current;
     const editor = latest.editor;
     if (editor?.kind !== 'create-profile') return false;
+    const preserveExit = preserveExitSubmitRef.current;
+    preserveExitSubmitRef.current = false;
     const form = rootRef.current?.querySelector<HTMLFormElement>('[data-owner-form="crear"]');
-    if (!form?.reportValidity()) return false;
+    if (!form) return false;
     const intent = intentForEditor(editor);
     if (!intent) return false;
-    void startCommand(intent, latest.operation.status === 'conflict' && Boolean(latest.operation.readCompleted));
+    void startCommand(intent, latest.operation.status === 'conflict' && Boolean(latest.operation.readCompleted), preserveExit);
     return true;
   }
 
@@ -1646,22 +1727,23 @@ export default function CreatorOwnerApp(props: Props) {
     dispatch({ type: 'update-series-draft', value, ...(manuallyEditedSlug ? { manuallyEditedSlug: true } : {}) });
   }
 
-  function submitEditorForm(): boolean {
+  function submitEditorForm(preserveExit = false): boolean {
     const editor = stateRef.current.editor;
     if (!editor) return false;
+    preserveExitSubmitRef.current = preserveExit;
     const selector = editor.kind === 'create-profile' ? '[data-owner-form="crear"]'
       : '[data-owner-dialog] form[data-owner-form]:not([hidden])';
     const form = rootRef.current?.querySelector<HTMLFormElement>(selector);
     const submitter = form?.querySelector<HTMLButtonElement>('button[type="submit"]:enabled');
     const generation = operationGenerationRef.current;
-    if (form && submitter) form.requestSubmit(submitter);
-    else submitCurrentEditor();
+    if (!(form && submitter)) return false;
+    form.requestSubmit(submitter);
     return operationGenerationRef.current !== generation;
   }
 
   function saveRecoveryDraft() {
     const operation = stateRef.current.operation;
-    if (operation.status === 'conflict' && operation.readCompleted && !operation.intent.targetMissing) submitEditorForm();
+    if (operation.status === 'conflict' && operation.readCompleted && !operation.intent.targetMissing) submitCurrentEditor();
   }
 
   function resolveRecovery(choice: 'saved' | 'draft') {
@@ -1695,10 +1777,12 @@ export default function CreatorOwnerApp(props: Props) {
   function resolveExit(action: 'save' | 'discard' | 'continue') {
     const latest = stateRef.current;
     if (action === 'continue') {
+      preserveExitSubmitRef.current = false;
       dispatch({ type: 'resolve-transition', action });
       return;
     }
     if (action === 'discard') {
+      preserveExitSubmitRef.current = false;
       if (isWriteActive(latest)) {
         setMessage('Estamos guardando la acción iniciada. Espera a que termine antes de salir.', 'info');
         return;
@@ -1716,8 +1800,18 @@ export default function CreatorOwnerApp(props: Props) {
     if (!editor) return;
     window.requestAnimationFrame(() => {
       const current = stateRef.current;
-      if (current.editor !== editor || current.location.prompt !== 'none') return;
-      if (!submitEditorForm()) dispatch({ type: 'resolve-transition', action: 'cancel-authorize' });
+      if (current.editor !== editor || current.location.prompt !== 'none') {
+        preserveExitSubmitRef.current = false;
+        if (current.location.transitionAuthorization === 'save') {
+          dispatch({ type: 'resolve-transition', action: 'cancel-authorize' });
+        }
+        return;
+      }
+      preserveExitSubmitRef.current = true;
+      if (!submitEditorForm(true)) {
+        preserveExitSubmitRef.current = false;
+        dispatch({ type: 'resolve-transition', action: 'cancel-authorize' });
+      }
     });
   }
 
@@ -1786,6 +1880,7 @@ export default function CreatorOwnerApp(props: Props) {
       onCheckSession={() => void checkSession()}
       onResolveRecovery={resolveRecovery}
       onSaveRecoveryDraft={saveRecoveryDraft}
+      onExit={resolveExit}
       onCopyLink={copyLink}
       copyFeedback={copyFeedback}
     >

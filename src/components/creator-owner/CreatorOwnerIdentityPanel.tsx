@@ -1,8 +1,16 @@
 import type { ComponentChildren } from 'preact';
+import { useLayoutEffect, useRef } from 'preact/hooks';
 import type { CreatorSocial } from '../../types/creators';
 import { canonicalCreatorPath, isPublicCreator, safeCreatorSocialUrl } from '../../lib/creator-public.mjs';
 import { CREATOR_FIELD_LIMITS, CREATOR_SLUG_MIN_LENGTH, CREATOR_SLUG_PATTERN, CREATOR_SOCIALS, isCreatorSlug } from '../../lib/creator-values.mjs';
 import { creatorOwnerCanSubmitEditor, deriveCreatorOwnerRecoveryAction, type CreatorOwnerRecoveryChoice, type CreatorOwnerState } from '../../lib/creator-owner-state';
+import {
+  identityFieldDescribedBy,
+  identityFieldErrorId,
+  identityFieldHelpId,
+  IdentityFieldError,
+  useNativeIdentityFieldErrors,
+} from './CreatorOwnerIdentityFeedback';
 
 const SOCIAL_LABELS: Record<CreatorSocial, string> = {
   instagram: 'Instagram', x: 'X', linkedin: 'LinkedIn', awsBuilder: 'AWS Builder Center', website: 'Sitio web o newsletter',
@@ -25,6 +33,7 @@ interface Props {
   onCheckSession(): void;
   onResolveRecovery(choice: CreatorOwnerRecoveryChoice): void;
   onSaveRecoveryDraft(): void;
+  onExit(action: 'save' | 'discard' | 'continue'): void;
   onCopyLink(url: string): void;
   copyFeedback?: { text: string; kind: 'success' | 'error' };
 }
@@ -50,13 +59,30 @@ function OwnerSectionNavigation({ view, period, statisticsTarget }: { view: Crea
   </nav>;
 }
 
-export default function CreatorOwnerIdentityPanel({ state, children, logout, showActivitySummary = true, disabled, onOpenProfile, onCreateProfile, onPublish, onActivityPeriod, onRetryActivity, onCreateProfileInput, onRetryRead, onCheckSession, onResolveRecovery, onSaveRecoveryDraft, onCopyLink, copyFeedback }: Props) {
+export default function CreatorOwnerIdentityPanel({ state, children, logout, showActivitySummary = true, disabled, onOpenProfile, onCreateProfile, onPublish, onActivityPeriod, onRetryActivity, onCreateProfileInput, onRetryRead, onCheckSession, onResolveRecovery, onSaveRecoveryDraft, onExit, onCopyLink, copyFeedback }: Props) {
   const profile = state.observed.profile;
   const statisticsTarget = profile?.published ? 'detail' : 'summary';
   const isPublic = isPublicCreator(profile);
   const operation = state.operation;
   const recoveryAction = deriveCreatorOwnerRecoveryAction(state);
   const createEditor = state.editor?.kind === 'create-profile' ? state.editor : undefined;
+  const nativeIdentity = useNativeIdentityFieldErrors(createEditor?.key);
+  const wasInlineCreatePrompt = useRef(false);
+  const createFeedback = createEditor && state.editorFeedback?.editorKey === createEditor.key ? state.editorFeedback : undefined;
+  const createFieldErrors = { ...nativeIdentity.errors, ...(createFeedback?.fieldErrors ?? {}) };
+  const createHasFieldErrors = Object.values(createFieldErrors).some(Boolean);
+  const createGeneralFeedback = createFeedback
+    ? createHasFieldErrors ? undefined : createFeedback.text
+    : state.message?.text;
+  const sessionRecovery = state.session.state !== 'ready' && <section class="creator-owner__status" data-session-recovery-shell>
+    <p data-session-recovery-status role="status" aria-live="polite">{state.session.message}</p>
+    {state.session.state === 'recovery-required' || state.session.state === 'checking'
+      ? <>
+        <a class="button button--outline" data-session-recovery-sign-in href="/cuenta/ingresar/" target="_blank" rel="noopener noreferrer">Ingresar en otra pestaña</a>
+        <button class="button button--outline" type="button" data-session-recovery-check disabled={state.session.state === 'checking'} onClick={onCheckSession}>Comprobar sesión</button>
+      </>
+      : <a class="button button--outline" data-session-recovery-new href="/cuenta/">Abrir una página nueva</a>}
+  </section>;
   const createLocked = operation.status !== 'idle';
   const createMatchesOperation = Boolean(createEditor && operation.status !== 'idle' && 'intent' in operation
     && operation.intent?.editorKey === createEditor.key);
@@ -69,6 +95,20 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
   const publishOperation = operation.status !== 'idle' && 'intent' in operation && operation.intent?.action === 'publish-profile';
   const createRecoveryAction = createMatchesOperation && recoveryAction.surface === 'identity' ? recoveryAction : undefined;
   const publishRecoveryAction = publishOperation && recoveryAction.surface === 'identity' ? recoveryAction : undefined;
+  const activeEditorOperation = Boolean(state.editor && operation.status !== 'idle' && 'intent' in operation
+    && operation.intent?.editorKey === state.editor.key);
+  const hasActiveEditorSurface = Boolean(state.editor && (state.editorFeedback?.editorKey === state.editor.key || activeEditorOperation));
+
+  useLayoutEffect(() => {
+    const inlinePrompt = Boolean(createEditor && state.location.prompt === 'exit');
+    const promptWasOpen = wasInlineCreatePrompt.current;
+    wasInlineCreatePrompt.current = inlinePrompt;
+    if (!promptWasOpen || inlinePrompt || !createEditor) return;
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active.isConnected && active !== document.body) return;
+    document.querySelector<HTMLElement>('#owner-create-name')?.focus({ preventScroll: true });
+  }, [createEditor?.key, state.location.prompt]);
+
   const photoPath = profile?.photo?.version !== undefined
     ? `/media/fotos/${encodeURIComponent(profile.id)}/${encodeURIComponent(String(profile.photo.version))}.webp`
     : undefined;
@@ -119,38 +159,39 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
         <p>Administra tu página y comparte su enlace cuando esté visible.</p>
       </header>
 
-      {state.message && <p class={`creator-owner__status${state.message.kind === 'error' ? ' creator-owner__status--error' : ''}`} data-owner-status role={state.message.kind === 'error' ? 'alert' : 'status'} aria-live="polite">{state.message.text}</p>}
-      {state.session.state !== 'ready' && <section class="creator-owner__status" data-session-recovery-shell
-        hidden={Boolean(state.editor && state.editor.kind !== 'create-profile')}>
-        <p data-session-recovery-status role="status" aria-live="polite">{state.session.message}</p>
-        {state.session.state === 'recovery-required' || state.session.state === 'checking'
-          ? <>
-            <a class="button button--outline" data-session-recovery-sign-in href="/cuenta/ingresar/" target="_blank" rel="noopener noreferrer">Ingresar en otra pestaña</a>
-            <button class="button button--outline" type="button" data-session-recovery-check disabled={state.session.state === 'checking'} onClick={onCheckSession}>Comprobar sesión</button>
-          </>
-          : <a class="button button--outline" data-session-recovery-new href="/cuenta/">Abrir una página nueva</a>}
-      </section>}
+      {state.message && !hasActiveEditorSurface && <p class={`creator-owner__status${state.message.kind === 'error' ? ' creator-owner__status--error' : ''}`} data-owner-status role={state.message.kind === 'error' ? 'alert' : 'status'} aria-live="polite">{state.message.text}</p>}
+      {state.session.state !== 'ready' && profile && !state.editor && state.location.prompt !== 'exit' && sessionRecovery}
 
       {(createEditor || !profile) && <section class="creator-owner__create" data-owner-create-panel aria-labelledby="creator-owner-create-title">
         <p class="creator-owner__eyebrow">Primer paso</p>
         <h2 id="creator-owner-create-title">{profile ? 'Borrador conservado' : 'Prepara tu página'}</h2>
         <p>{profile ? 'Ya hay una página guardada. Conservamos el borrador original para que puedas revisar qué enviaste.' : 'El nombre y la dirección se pueden elegir por separado. Al crearla queda como borrador; publicar es una acción posterior.'}</p>
-        <form class="creator-owner__form" data-owner-form="crear" onSubmit={(event) => { event.preventDefault(); if (event.currentTarget instanceof HTMLFormElement && event.currentTarget.reportValidity() && creatorOwnerCanSubmitEditor(state)) onCreateProfile(); }}>
-          <div class="creator-owner__field">
+        <form class="creator-owner__form" data-owner-form="crear" onSubmit={(event) => { event.preventDefault(); if (creatorOwnerCanSubmitEditor(state)) onCreateProfile(); }}>
+          {sessionRecovery}
+          <div class={`creator-owner__field${createFieldErrors.displayName ? ' creator-owner__field--invalid' : ''}`} data-owner-identity-field="displayName">
             <label htmlFor="owner-create-name">Nombre visible</label>
             <input id="owner-create-name" name="displayName" value={createEditor?.draft.displayName ?? ''}
               autocomplete="name" maxlength={CREATOR_FIELD_LIMITS.displayName} required data-owner-create-name readOnly={createLocked}
-              onInput={(event) => onCreateProfileInput({ displayName: (event.currentTarget as HTMLInputElement).value })} />
+              data-owner-identity-field="displayName" aria-invalid={createFieldErrors.displayName ? 'true' : undefined}
+              aria-describedby={identityFieldDescribedBy('owner-create', 'displayName', Boolean(createFieldErrors.displayName))}
+              onInvalid={(event) => nativeIdentity.onInvalid('displayName', event.currentTarget as HTMLInputElement, event)}
+              onInput={(event) => { const input = event.currentTarget as HTMLInputElement; nativeIdentity.onInput('displayName'); onCreateProfileInput({ displayName: input.value }); }} />
+            <IdentityFieldError id={identityFieldErrorId('owner-create', 'displayName')} text={createFieldErrors.displayName} />
           </div>
-          <div class="creator-owner__field">
+          <div class={`creator-owner__field${createFieldErrors.slug ? ' creator-owner__field--invalid' : ''}`} data-owner-identity-field="slug">
             <label htmlFor="owner-create-slug">Dirección de tu página</label>
             <div class="creator-owner__slug-field"><span aria-hidden="true">/c/</span>
               <input id="owner-create-slug" name="slug" value={createEditor?.draft.slug ?? ''}
                 required minlength={CREATOR_SLUG_MIN_LENGTH} maxlength={CREATOR_FIELD_LIMITS.slug} pattern={CREATOR_SLUG_PATTERN} autocomplete="off" autocapitalize="none" spellcheck={false} data-owner-create-slug readOnly={createLocked}
-                onInput={(event) => onCreateProfileInput({ slug: (event.currentTarget as HTMLInputElement).value })} />
+                data-owner-identity-field="slug" aria-invalid={createFieldErrors.slug ? 'true' : undefined}
+                aria-describedby={identityFieldDescribedBy('owner-create', 'slug', Boolean(createFieldErrors.slug))}
+                onInvalid={(event) => nativeIdentity.onInvalid('slug', event.currentTarget as HTMLInputElement, event)}
+                onInput={(event) => { const input = event.currentTarget as HTMLInputElement; nativeIdentity.onInput('slug'); onCreateProfileInput({ slug: input.value }); }} />
             </div>
-            <small>3–40 caracteres: minúsculas, números y guiones sencillos.</small>
+            <IdentityFieldError id={identityFieldErrorId('owner-create', 'slug')} text={createFieldErrors.slug} />
+            <small id={identityFieldHelpId('owner-create', 'slug')}>3–40 caracteres: minúsculas, números y guiones sencillos.</small>
           </div>
+          {createGeneralFeedback && <p class="creator-owner__status creator-owner__status--error" data-owner-form-status="crear" role="alert" aria-live="polite">{createGeneralFeedback}</p>}
           <button class="button button--dark" type="submit" disabled={disabled || !creatorOwnerCanSubmitEditor(state)}>Crear borrador</button>
           {(createRecoveryAction?.kind === 'retry' || createRecoveryAction?.kind === 'session-check') && operation.status === 'refresh-failed' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind={operation.status} data-owner-stale role="alert">
             <p>{operation.message}</p><button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>
@@ -173,6 +214,15 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
             </div>
           </section>}
         </form>
+        {createEditor && state.location.prompt === 'exit' && <div class="creator-owner__exit" data-owner-exit-prompt role="alertdialog" aria-labelledby="owner-create-exit-title" aria-describedby="owner-create-exit-copy">
+          <h3 id="owner-create-exit-title">Tienes cambios sin guardar</h3>
+          <p id="owner-create-exit-copy">Puedes guardar esta corrección, descartarla o seguir editando.</p>
+          <div class="creator-owner__dialog-actions">
+            <button class="button button--dark" type="button" data-owner-exit-save disabled={!creatorOwnerCanSubmitEditor(state)} onClick={() => onExit('save')}>Guardar y salir</button>
+            <button class="button button--outline" type="button" data-owner-exit-discard onClick={() => onExit('discard')}>Descartar cambios</button>
+            <button class="button button--outline" type="button" data-owner-exit-continue onClick={() => onExit('continue')}>Seguir editando</button>
+          </div>
+        </div>}
       </section>}
 
       {!profile && showActivitySummary && <section class="creator-owner__activity" data-owner-activity data-owner-profile-state="none" data-owner-creator-id=""

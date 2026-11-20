@@ -19,6 +19,7 @@ export type CreatorOwnerProfileDraft = {
   bio: string;
 };
 export type CreatorOwnerProfileField = keyof CreatorOwnerProfileDraft;
+export type CreatorOwnerIdentityField = CreatorOwnerProfileField;
 
 export type CreatorOwnerSocialsDraft = Record<CreatorSocial, string>;
 export type CreatorOwnerSeriesDraft = { name: string; slug: string; description: string };
@@ -144,6 +145,11 @@ export interface CreatorOwnerState {
     rejectedReferenceSelections: Pick<CreatorCatalogSelectionDTO, 'id' | 'url'>[];
   };
   message?: { text: string; kind: 'info' | 'success' | 'error'; sessionDerived?: true };
+  editorFeedback?: {
+    editorKey: string;
+    text?: string;
+    fieldErrors?: Partial<Record<CreatorOwnerIdentityField, string>>;
+  };
   runtimeReady: boolean;
 }
 
@@ -173,12 +179,12 @@ export type CreatorOwnerAction = CreatorOwnerSessionPolicyAction
   | { type: 'catalog-search'; value: string }
   | { type: 'catalog-page'; value: number }
   | { type: 'catalog-require-refresh'; message: string; rejectedSelection?: Pick<CreatorCatalogSelectionDTO, 'id' | 'url'> }
-  | { type: 'operation-started'; intent: CreatorOwnerIntent }
+  | { type: 'operation-started'; intent: CreatorOwnerIntent; preserveExit?: boolean }
   | { type: 'operation-reading'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string }
   | { type: 'operation-read-failed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string; suppressGlobalMessage?: boolean; focusAfterRender?: string }
   | { type: 'operation-read-installed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; snapshot: CreatorOwnerSnapshotDTO; message: string; consumeEditor?: boolean; focusAfterRender?: string }
   | { type: 'operation-unknown'; intent: CreatorOwnerIntent; message: string }
-  | { type: 'operation-rejected'; intentId: string; message: string }
+  | { type: 'operation-rejected'; intentId: string; message: string; fieldErrors?: Partial<Record<CreatorOwnerIdentityField, string>> }
   | { type: 'resolve-operation'; choice: CreatorOwnerRecoveryChoice }
   | { type: 'set-message'; text: string; kind?: 'info' | 'success' | 'error' }
   | { type: 'set-series-search'; value: string }
@@ -394,8 +400,10 @@ export function deriveCreatorOwnerRecoveryAction(state: CreatorOwnerState): Crea
   if (operation.status === 'idle' || operation.status === 'sending') return { kind: 'none', surface: 'none', operation };
   const intent = 'intent' in operation ? operation.intent : undefined;
   let surface: CreatorOwnerRecoverySurface;
-  if (state.location.prompt === 'exit' || state.editor && state.editor.kind !== 'create-profile') surface = 'dialog';
-  else if (state.editor?.kind === 'create-profile' || intent?.action === 'publish-profile'
+  if (state.editor?.kind === 'create-profile') surface = 'identity';
+  else if (state.editor) surface = 'dialog';
+  else if (state.location.prompt === 'exit') surface = 'dialog';
+  else if (intent?.action === 'publish-profile'
     || intent?.action === 'save-profile' && !state.observed.profile) surface = 'identity';
   else if (operation.status === 'reading' && operation.fact === 'claims' || state.location.view === 'solicitudes') surface = 'claims';
   else if (state.location.view === 'series') surface = 'series';
@@ -438,7 +446,24 @@ export function deriveCreatorOwnerRecoveryFocus(state: CreatorOwnerState): strin
 }
 
 export function creatorOwnerWriteRejectedFocus(state: CreatorOwnerState, intent: CreatorOwnerIntent): string {
-  if (state.editor && intent.editorKey && state.editor.key === intent.editorKey) return creatorOwnerEditorDraftFocus(state.editor);
+  if (state.editor && intent.editorKey && state.editor.key === intent.editorKey) {
+    const feedback = state.editorFeedback?.editorKey === state.editor.key ? state.editorFeedback.fieldErrors : undefined;
+    const field = feedback && (Object.keys(feedback).find((key) => feedback[key as CreatorOwnerIdentityField]) as CreatorOwnerIdentityField | undefined);
+    if (field) {
+      if (field === 'programs') return '#owner-program-user-group-leaders';
+      if (state.editor.kind === 'create-profile') {
+        if (field === 'displayName') return '#owner-create-name';
+        if (field === 'slug') return '#owner-create-slug';
+      }
+      if (state.editor.kind === 'profile' && state.editor.section === 'datos') {
+        const selectors: Record<Exclude<CreatorOwnerIdentityField, 'programs'>, string> = {
+          displayName: '#owner-display-name', slug: '#owner-slug', city: '#owner-city', country: '#owner-country', bio: '#owner-bio',
+        };
+        return selectors[field as Exclude<CreatorOwnerIdentityField, 'programs'>];
+      }
+    }
+    return creatorOwnerEditorDraftFocus(state.editor);
+  }
   if (intent.action === 'publish-profile') return '[data-owner-publish]';
   if (intent.action === 'save-profile' && !state.observed.profile) return '#owner-create-name';
   if (state.location.view === 'series') return '#owner-series-title';
@@ -508,7 +533,7 @@ export function creatorOwnerDraftIsDirty(editor: CreatorOwnerEditorDraft | undef
 
 function cancelAuthorizedSaveTransition(location: CreatorOwnerLocation): CreatorOwnerLocation {
   if (location.transitionAuthorization !== 'save') return location;
-  return { ...location, exitRequest: location.transition ?? location.exitRequest, transition: undefined, transitionAuthorization: undefined, prompt: 'exit' };
+  return { ...location, exitRequest: undefined, transition: undefined, transitionAuthorization: undefined, prompt: 'none' };
 }
 
 export function creatorOwnerLinkMoveContext(snapshot: CreatorOwnerSnapshotDTO, placementId: string): {
@@ -581,6 +606,26 @@ function updateEditor(state: CreatorOwnerState, update: (editor: CreatorOwnerEdi
   return { ...state, editor: update(state.editor) };
 }
 
+function clearEditorFeedback(state: CreatorOwnerState, fields?: readonly string[]): CreatorOwnerState {
+  const feedback = state.editorFeedback;
+  if (!feedback) return state;
+  const withoutFeedback = (value: CreatorOwnerState): CreatorOwnerState => {
+    const next = { ...value };
+    delete next.editorFeedback;
+    return next;
+  };
+  if (!fields || feedback.editorKey !== state.editor?.key) {
+    return withoutFeedback(state);
+  }
+  if (!feedback.fieldErrors) {
+    return withoutFeedback(state);
+  }
+  const remaining = Object.fromEntries(Object.entries(feedback.fieldErrors)
+    .filter(([field]) => !fields.includes(field))) as Partial<Record<CreatorOwnerIdentityField, string>>;
+  if (Object.keys(remaining).length === 0) return withoutFeedback(state);
+  return { ...state, editorFeedback: { ...feedback, fieldErrors: remaining } };
+}
+
 export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwnerAction): CreatorOwnerState {
   if (action.type === 'session-check-started' || action.type === 'session-evidence') {
     const result = reduceCreatorOwnerSessionPolicy(state, action);
@@ -597,17 +642,18 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
   switch (action.type) {
     case 'runtime-ready': return { ...state, runtimeReady: true };
     case 'open-editor': return state.operation.status === 'idle' && state.session.state === 'ready' && !state.editor
-      ? { ...state, editor: cloneEditor(action.editor), message: undefined } : state;
-    case 'close-editor': return state.operation.status === 'idle' ? { ...state, editor: undefined, message: undefined } : state;
+      ? clearEditorFeedback({ ...state, editor: cloneEditor(action.editor), message: undefined }) : state;
+    case 'close-editor': return state.operation.status === 'idle' ? clearEditorFeedback({ ...state, editor: undefined, message: undefined }) : state;
     case 'update-profile-draft': {
       if (!state.editor && !state.observed.profile && state.operation.status === 'idle') {
-        return { ...state, editor: { kind: 'create-profile', key: 'create-profile', draft: {
+        return clearEditorFeedback({ ...state, editor: { kind: 'create-profile', key: 'create-profile', draft: {
           displayName: action.value.displayName ?? '', slug: action.value.slug ?? '',
-        } } };
+        } } });
       }
-      return updateEditor(state, (editor) => editor.kind === 'create-profile'
+      const nextState = updateEditor(state, (editor) => editor.kind === 'create-profile'
         ? { ...editor, draft: { ...editor.draft, ...action.value } } : editor.kind === 'profile' && editor.section === 'datos'
           ? { ...editor, draft: { ...editor.draft, ...action.value }, touchedFields: [...new Set([...editor.touchedFields, ...Object.keys(action.value) as CreatorOwnerProfileField[]])] } : editor);
+      return clearEditorFeedback(nextState, Object.keys(action.value));
     }
     case 'update-socials-draft': return updateEditor(state, (editor) => editor.kind === 'profile' && editor.section === 'redes'
       ? { ...editor, draft: { ...editor.draft, ...action.value }, touchedFields: [...new Set([...editor.touchedFields, ...Object.keys(action.value) as CreatorSocial[]])] } : editor);
@@ -643,15 +689,18 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       || state.operation.status === 'sending' && state.operation.intent.id === action.intent.id
       || state.operation.status === 'conflict' && state.operation.readCompleted && state.operation.intent.editorKey === action.intent.editorKey)
       && state.session.state === 'ready'
-      ? { ...state, operation: { status: 'sending', intent: action.intent }, message: undefined } : state;
+      ? { ...clearEditorFeedback({ ...state, operation: { status: 'sending', intent: action.intent }, message: undefined }),
+        ...(action.preserveExit ? {} : state.location.prompt === 'exit' || state.location.transitionAuthorization === 'save'
+          ? { location: { ...state.location, exitRequest: undefined, transition: undefined, transitionAuthorization: undefined, prompt: 'none' as const } } : {}) } : state;
     case 'operation-reading': return { ...state, operation: { status: 'reading', ...(action.intent ? { intent: action.intent } : {}), fact: action.fact, message: action.message },
       location: action.fact === 'unknown' || action.fact === 'conflict' ? cancelAuthorizedSaveTransition(state.location) : state.location };
     case 'operation-read-failed': {
       const operation: CreatorOwnerOperation = { status: 'refresh-failed', ...(action.intent ? { intent: action.intent } : {}), fact: action.fact, message: action.message };
       const location = { ...cancelAuthorizedSaveTransition(state.location), focusAfterRender: action.focusAfterRender };
       const recoveryFocus = action.focusAfterRender ?? deriveCreatorOwnerRecoveryFocus({ ...state, operation, location });
+      const editorMatches = Boolean(action.intent?.editorKey && state.editor?.key === action.intent.editorKey);
       return { ...state, operation, location: recoveryFocus ? { ...location, focusAfterRender: recoveryFocus } : location,
-      ...(action.suppressGlobalMessage ? { message: undefined } : { message: { text: action.message, kind: 'error' as const } }) };
+      ...(action.suppressGlobalMessage || editorMatches ? { message: undefined } : { message: { text: action.message, kind: 'error' as const } }) };
     }
     case 'operation-read-installed': {
       const snapshot = copyCreatorOwnerSnapshot(action.snapshot);
@@ -663,32 +712,36 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       const publicationRecovery = action.intent?.action === 'publish-profile'
         && (action.fact === 'unknown' || action.fact === 'conflict');
       const recoveryFocus = action.focusAfterRender ?? deriveCreatorOwnerRecoveryFocus({ ...state, operation });
-      return { ...state, observed: snapshot, operation,
+      return clearEditorFeedback({ ...state, observed: snapshot, operation,
         ...(action.fact === 'claims' || action.fact === 'acknowledged' && !state.seriesQueryError ? { seriesQueryError: undefined } : {}),
         ...(action.consumeEditor ? { editor: undefined } : {}),
         location: { ...state.location, focusAfterRender: recoveryFocus, ...navigation,
-          ...(action.fact === 'acknowledged' && action.consumeEditor && !state.location.transition && !state.location.exitRequest
-            ? { transition: undefined, exitRequest: undefined, transitionAuthorization: undefined, prompt: 'none' as const } : {}),
-          ...(action.fact === 'acknowledged' && !action.consumeEditor
-            && state.location.transitionAuthorization === 'save'
+          ...(action.fact === 'acknowledged' && state.location.transitionAuthorization === 'save'
+            && (!action.consumeEditor || !state.location.transition)
             ? { transition: undefined, transitionAuthorization: undefined } : {}),
           ...(action.fact === 'acknowledged' || action.fact === 'claims' ? { linksQueryError: undefined } : {}) },
-        ...(publicationRecovery ? { message: undefined } : action.message ? { message: { text: action.message, kind: action.fact === 'acknowledged' || action.fact === 'claims' ? 'success' : 'info' } } : { message: undefined }) };
+        ...(publicationRecovery ? { message: undefined } : action.message ? { message: { text: action.message, kind: action.fact === 'acknowledged' || action.fact === 'claims' ? 'success' : 'info' } } : { message: undefined }) });
     }
     case 'operation-unknown': {
       const operation: CreatorOwnerOperation = { status: 'unknown', intent: action.intent, message: action.message };
       const location = cancelAuthorizedSaveTransition(state.location);
       const recoveryFocus = deriveCreatorOwnerRecoveryFocus({ ...state, operation, location });
+      const editorMatches = Boolean(action.intent.editorKey && state.editor?.key === action.intent.editorKey);
       return { ...state, operation, location: recoveryFocus ? { ...location, focusAfterRender: recoveryFocus } : location,
-        ...(action.intent.action === 'publish-profile' ? { message: undefined } : { message: { text: action.message, kind: 'error' as const } }) };
+        ...(action.intent.action === 'publish-profile' || editorMatches ? { message: undefined } : { message: { text: action.message, kind: 'error' as const } }) };
     }
     case 'operation-rejected': {
       const intent = operationMatches(state, action.intentId);
       const location = cancelAuthorizedSaveTransition(state.location);
-      const recoveryFocus = intent ? creatorOwnerWriteRejectedFocus({ ...state, location }, intent) : undefined;
-      return intent ? { ...state, operation: { status: 'idle' },
-        location: recoveryFocus ? { ...location, focusAfterRender: recoveryFocus } : location,
-        message: { text: action.message, kind: 'error' } } : state;
+      if (!intent) return state;
+      const editorMatches = Boolean(intent.editorKey && state.editor?.key === intent.editorKey);
+      const fieldErrors = action.fieldErrors && Object.keys(action.fieldErrors).length > 0 ? action.fieldErrors : undefined;
+      const sessionFeedback = editorMatches && state.session.state !== 'ready' && state.message?.sessionDerived === true;
+      const nextState = { ...state, operation: { status: 'idle' as const }, location,
+        ...(editorMatches && !sessionFeedback ? { editorFeedback: fieldErrors ? { editorKey: intent.editorKey!, fieldErrors } : { editorKey: intent.editorKey!, text: action.message } } : {}),
+        ...(!editorMatches ? { message: { text: action.message, kind: 'error' as const } } : { message: undefined }) };
+      const recoveryFocus = creatorOwnerWriteRejectedFocus(nextState, intent);
+      return recoveryFocus ? { ...nextState, location: { ...nextState.location, focusAfterRender: recoveryFocus } } : nextState;
     }
     case 'resolve-operation': {
       if ((state.operation.status !== 'unknown' && state.operation.status !== 'conflict') || !state.operation.readCompleted) return state;
@@ -732,11 +785,12 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       if (action.action === 'cancel-authorize') return state.location.transitionAuthorization === 'save'
         ? { ...state, location: { ...state.location, transition: undefined, transitionAuthorization: undefined, prompt: 'none' } } : state;
       if (action.action === 'continue') return { ...state, location: { ...state.location,
-        transition: undefined, exitRequest: undefined, transitionAuthorization: undefined, prompt: 'none' } };
+        transition: undefined, exitRequest: undefined, transitionAuthorization: undefined, prompt: 'none',
+        ...(state.editor ? { focusAfterRender: creatorOwnerEditorDraftFocus(state.editor) } : {}) } };
       const operation = state.operation;
       const keepsConfirmedRead = creatorOwnerPreservesAcknowledgedRead(operation, state.location.exitRequest);
-      return { ...state, editor: undefined, operation: keepsConfirmedRead ? operation : { status: 'idle' }, location: { ...state.location,
-        transition: state.location.exitRequest, transitionAuthorization: state.location.exitRequest ? 'discard' : undefined, exitRequest: undefined, prompt: 'none' } };
+      return clearEditorFeedback({ ...state, editor: undefined, operation: keepsConfirmedRead ? operation : { status: 'idle' }, location: { ...state.location,
+        transition: state.location.exitRequest, transitionAuthorization: state.location.exitRequest ? 'discard' : undefined, exitRequest: undefined, prompt: 'none' } });
     }
     case 'set-prompt': return { ...state, location: { ...state.location, prompt: action.prompt } };
     case 'activity-loading': return action.sequence > state.activity.sequence ? { ...state, activity: { ...state.activity, period: action.period, sequence: action.sequence, status: 'loading', message: undefined } } : state;
