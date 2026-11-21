@@ -469,7 +469,7 @@ export default function CreatorOwnerEditorDialog({
         {editor.selected && <label class="creator-owner__link-checkbox creator-owner__catalog-directory"><input id="owner-link-directory-option" type="checkbox" name="selectedForDirectory" checked={editor.selectedForDirectory} disabled={locked}
           onChange={(event) => onUpdateReference({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>}
         {editor.selected && <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Agregar una referencia no concede permiso para editar la ficha compartida.</p></details>}
-        {referenceStatusMessage && <p class="creator-owner__status" data-catalog-status role="status" aria-live="polite">{referenceStatusMessage}</p>}
+        <p class="creator-owner__status" data-catalog-status role="status" aria-live="polite">{referenceStatusMessage}</p>
         {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" data-catalog-reference disabled={!canSubmit}>Agregar a mi página</button><button class="button button--outline" type="button" data-owner-cancel data-catalog-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
