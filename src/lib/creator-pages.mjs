@@ -42,6 +42,7 @@ const MAX_DYNAMODB_ITEM_BYTES = 400 * 1024;
 const TEXT_FIELD_LIMITS = new Map(Object.entries(CREATOR_FIELD_LIMITS)
   .filter(([field]) => field !== 'social' && field !== 'slug'));
 const SOCIAL_FIELD_LIMIT = CREATOR_FIELD_LIMITS.social;
+const PROFILE_TEXT_FIELD_ERROR_FIELDS = new Set(['displayName', 'city', 'country', 'bio']);
 
 class ApiError extends Error {
   constructor(status, code, message) {
@@ -52,8 +53,10 @@ class ApiError extends Error {
   }
 }
 
-function fail(status, code, message) {
-  throw new ApiError(status, code, message);
+function fail(status, code, message, details) {
+  const error = new ApiError(status, code, message);
+  error.details = details;
+  throw error;
 }
 
 function requireCatalogResourceIdWithinLimit(id) {
@@ -141,22 +144,26 @@ function textField(value, name, { optional = false } = {}) {
   return normalizeCreatorText(value);
 }
 
-function validateTextLengths(value, path = '') {
+function validateTextLengths(value, path = '', fieldErrorFields, depth = 0) {
   if (typeof value === 'string') {
     const field = path.split('.').at(-1);
     const limit = path.startsWith('socials.') ? SOCIAL_FIELD_LIMIT : TEXT_FIELD_LIMITS.get(field);
     if (limit !== undefined && value.length > limit) {
-      fail(422, 'FIELD_TOO_LONG', `${path || field} must be at most ${limit} characters`);
+      const details = depth === 1 && fieldErrorFields?.has(path)
+        ? { fieldErrors: [{ field: path, reason: 'too_long' }] }
+        : undefined;
+      fail(422, 'FIELD_TOO_LONG', `${path || field} must be at most ${limit} characters`, details);
     }
     return;
   }
   if (Array.isArray(value)) {
-    for (const item of value) validateTextLengths(item, path);
+    for (const item of value) validateTextLengths(item, path, fieldErrorFields, depth + 1);
     return;
   }
   if (!isRecord(value)) return;
   for (const [key, item] of Object.entries(value)) {
-    validateTextLengths(item, path ? `${path}.${key}` : key);
+    const childPath = path ? `${path}.${key}` : key;
+    validateTextLengths(item, childPath, fieldErrorFields, depth + 1);
   }
 }
 
@@ -290,7 +297,7 @@ function writeJsonResponse(value, status = 200) {
   return jsonResponse({ ...payload, versionChanges: changes }, status);
 }
 
-async function parseRequestBody(request, normalize = (body) => body) {
+async function parseRequestBody(request, normalize = (body) => body, { fieldErrorFields } = {}) {
   const declaredLength = Number(request.headers.get('content-length'));
   if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BODY_BYTES) {
     fail(413, 'BODY_TOO_LARGE', 'request body exceeds the 32 KiB limit');
@@ -332,7 +339,7 @@ async function parseRequestBody(request, normalize = (body) => body) {
   }
   if (!isRecord(body)) fail(400, 'INVALID_BODY', 'request body must be a JSON object');
   body = normalize(body);
-  validateTextLengths(body);
+  validateTextLengths(body, '', fieldErrorFields);
   return body;
 }
 
@@ -987,7 +994,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
 
     if (profile.published === true && (!fields.displayName.trim() || !fields.slug)) {
-      fail(422, 'PROFILE_INCOMPLETE', 'a published profile must keep its display name and URL name');
+      const fieldErrors = [];
+      if (!fields.displayName.trim()) fieldErrors.push({ field: 'displayName', reason: 'required' });
+      if (!fields.slug) fieldErrors.push({ field: 'slug', reason: 'required' });
+      fail(422, 'PROFILE_INCOMPLETE', 'a published profile must keep its display name and URL name', { fieldErrors });
     }
     const profileFields = ['displayName', 'slug', 'city', 'country', 'bio', 'programs', 'socials'];
     const changed = profileFields.some((field) => JSON.stringify(fields[field]) !== JSON.stringify(profile[field]));
@@ -2192,7 +2202,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         return jsonResponse(await readCreatorEditor(context));
       }
       if (request.method === 'PUT') {
-        const body = await parseRequestBody(request);
+        const body = await parseRequestBody(request, undefined, { fieldErrorFields: PROFILE_TEXT_FIELD_ERROR_FIELDS });
         return jsonResponse(await saveProfile(principal, body));
       }
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');

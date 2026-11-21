@@ -274,7 +274,7 @@ async function failNextOwnerRead(page) {
   };
 }
 
-test('una lectura fallida cancela la autorización de salir y conserva la decisión de Back', async ({ fixture, page }) => {
+test('una lectura fallida cancela la autorización anterior y deja que Atrás sea una decisión nueva', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=preparacion-historial`);
   const destination = page.url();
@@ -288,46 +288,56 @@ test('una lectura fallida cancela la autorización de salir y conserva la decisi
   const read = await failNextOwnerRead(page);
   try {
     const back = page.goBack();
+    back.catch(() => {});
     const prompt = page.locator('[data-owner-exit-prompt]');
     await expect(prompt).toBeVisible();
     await prompt.getByRole('button', { name: 'Guardar y salir', exact: true }).click();
     await read.entered;
     await expect.poll(() => ownerWrites(capture)[0]?.status).toBe(200);
+    await expect.poll(() => ownerReads(capture)[0]?.status).toBe(503);
     await expect(form.getByLabel(/Ciudad/u)).toHaveValue('Córdoba');
-    await expect(prompt).toBeVisible();
-    const retry = prompt.getByRole('button', { name: 'Reintentar actualización', exact: true });
+    await expect(prompt).toBeHidden('a failed post-commit read cancels the original Back decision');
+    await expect(form).toBeVisible();
+    const retry = form.getByRole('button', { name: 'Reintentar actualización', exact: true });
     await expect(retry).toBeVisible();
-    await back;
+    await expect(page.getByRole('button', { name: 'Reintentar actualización', exact: true })).toHaveCount(1);
     await expect(page).toHaveURL(startingUrl);
     assert.equal(read.actual.status, 200, 'only the delivered read failed, after the real save and GET');
     await read.remove();
     await retry.click();
     await expect(form).toHaveCount(0);
-    await expect(prompt).toBeVisible();
+    await expect(prompt).toBeHidden();
     await expect(page).toHaveURL(startingUrl);
     const saved = await api(fixture, cookie, '/api/creador/perfil/');
     assert.equal(saved.body.profile.city, 'Córdoba');
     assert.equal(ownerWrites(capture).length, 1, 'retrying the read does not save again');
-    await prompt.getByRole('button', { name: 'Seguir a la página solicitada', exact: true }).click();
-    await expect(page).toHaveURL(destination, 'only a new decision resumes the original Back');
+    await back;
+    await page.goBack();
+    await expect(page).toHaveURL(destination, 'only a new navigation decision leaves the owner entry');
   } finally {
     await read.remove();
     await capture.stop({ skipErrorBodies: true });
   }
 });
 
-test('perder la autoridad sobre una ficha retirada bloquea guardar y conserva el borrador', async ({ fixture, page }) => {
+test('Guardar y salir sin autoridad sobre una ficha retirada conserva el borrador y la recuperación', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const added = await addLink(fixture, cookie);
   const removed = await api(fixture, cookie, `/api/creador/enlaces/${added.placementId}`, {
     method: 'DELETE', body: { creatorVersion: added.creatorVersion },
   });
   assert.equal(removed.response.status, 200);
-  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=preparacion-historial`);
+  await expect(page.locator('[data-owner-root]')).toBeVisible();
+  await page.locator('#owner-link-order').selectOption('titulo-desc');
+  await expect(page).toHaveURL((url) => url.searchParams.get('orden') === 'titulo-desc');
+  const activeUrl = page.url();
   await page.locator(`[data-retained-resource="${added.resourceId}"]`).getByRole('button', { name: 'Editar ficha', exact: true }).click();
   const form = page.locator('[data-owner-dialog][open] form[data-owner-form="enlace"]');
+  await expect(form).toBeVisible();
   const title = form.getByLabel('Título', { exact: true });
-  await title.fill('  Borrador sin autoridad vigente  ');
+  const draft = '  Borrador sin autoridad vigente  ';
+  await title.fill(draft);
   const resource = await fixture.rawResource(added.resourceId);
   const reassigned = { ...resource, editorProfileId: 'other-creator-fixture', version: resource.version + 1 };
   const key = `resource:${added.resourceId}`;
@@ -336,22 +346,43 @@ test('perder la autoridad sobre una ficha retirada bloquea guardar y conserva el
     puts: [{ key, value: reassigned }],
   }), true);
   const capture = await captureCreatorApi(page);
+  let back;
   try {
-    await form.getByRole('button', { name: 'Guardar ficha', exact: true }).click();
+    back = page.goBack();
+    back.catch(() => {});
+    const prompt = page.locator('[data-owner-exit-prompt]');
+    await expect(prompt).toBeVisible();
+    await expect(page).toHaveURL(activeUrl);
+    await prompt.getByRole('button', { name: 'Guardar y salir', exact: true }).click();
     await expect.poll(() => capture.writes()[0]?.status).toBe(403);
-    assert.equal(capture.writes()[0].responseBody.error, 'RESOURCE_EDIT_FORBIDDEN');
+    await back;
+    await capture.writes()[0].settled;
+    assert.equal(capture.writes()[0].responseBody.error, 'RESOURCE_EDIT_FORBIDDEN',
+      'the real service reports the lost resource authority');
     await expect.poll(() => ownerReads(capture)[0]?.status).toBe(200);
+    await expect(page).toHaveURL(activeUrl, 'the rejected Guardar y salir leaves the indexed URL active');
+    await expect(form).toBeVisible('the retained-resource editor remains visible after authority loss');
+    await expect(prompt).toBeHidden('the old exit prompt is not replayed after the rejection');
     await expect(page.getByText(/No se puede guardar este cambio con el destino actual/u)).toBeVisible();
-    await expect(title).toHaveValue('  Borrador sin autoridad vigente  ');
+    await expect(title).toHaveValue(draft);
     await expect(title).toHaveAttribute('readonly', '');
     await expect(title).toBeEnabled();
+    await expect(form.locator('[data-owner-recovery]')).toHaveCount(1);
+    await expect(form.locator('[data-owner-use-saved]')).toHaveCount(1);
+    await expect(form.getByRole('button', { name: 'Usar lo guardado', exact: true })).toBeVisible();
+    await expect(form.locator('[data-owner-conflict-save], [data-owner-return-to-draft]')).toHaveCount(0);
+    await expect(prompt.locator('[data-owner-recovery]')).toHaveCount(0);
     await expect(form.getByRole('button', { name: 'Guardar mi borrador', exact: true })).toHaveCount(0);
-    assert.deepEqual(await fixture.rawResource(added.resourceId), reassigned);
+    assert.deepEqual(await fixture.rawResource(added.resourceId), reassigned,
+      'the reassigned resource remains unchanged after the forbidden write');
     assert.equal(capture.writes().length, 1);
     await form.getByRole('button', { name: 'Usar lo guardado', exact: true }).click();
     await expect(form).toHaveCount(0);
+    await expect(page).toHaveURL(activeUrl, 'adopting the saved resource does not resume the canceled Back');
     await expect(page.locator(`[data-retained-resource="${added.resourceId}"]`)).toHaveCount(0);
+    assert.equal(capture.writes().length, 1, 'adopting the saved resource sends no replacement mutation');
   } finally {
+    back?.catch(() => {});
     await capture.stop();
   }
 });
@@ -809,11 +840,17 @@ async function recoverMoveAfterRangeShrinks({ fixture, page, kind, exitPrompt = 
       await expect(exit).toBeVisible();
       await expect(page).toHaveURL(editorUrl, 'the blocked Back returns to the active move editor');
       await back;
-      correction = exit.locator('[data-owner-move-draft-correction]');
+      await expect(exit).toBeVisible('the exit decision remains visible with the editor');
+      await expect(form).toBeVisible('the move editor stays visible beside the exit decision');
+      await expect(exit.locator('[data-owner-recovery]')).toHaveCount(0,
+        'the exit prompt does not duplicate the move recovery');
+      correction = form.locator('[data-owner-move-draft-correction]');
     } else correction = form.locator('[data-owner-move-draft-correction]');
     await expect(correction).toBeVisible();
-    const recoverySurface = exitPrompt ? page.locator('[data-owner-exit-prompt]') : form;
-    await expect(recoverySurface.locator('[data-owner-use-saved]')).toBeVisible();
+    await expect(form.locator('[data-owner-recovery]')).toHaveCount(1,
+      'the active move form owns one recovery block');
+    await expect(form.locator('[data-owner-use-saved]')).toHaveCount(1,
+      'the active move form exposes one saved-state choice');
     await expect(form.locator('[data-owner-conflict-save]')).toHaveCount(0,
       'an out-of-range retained move cannot be submitted until its draft is corrected');
     await expect(position).toHaveAttribute('readonly', '');
@@ -1399,7 +1436,7 @@ test('Volver al borrador desde el aviso de salida cancela Back y devuelve el foc
     await lost.finished;
     await save;
     await form.getByRole('button', { name: 'Comprobar estado guardado', exact: true }).click();
-    await expect(form.locator('[data-owner-return-to-draft]')).toBeVisible();
+    await expect(form.locator('[data-owner-return-to-draft]')).toHaveCount(1);
     assert.equal(capture.writes().length, 1, 'the unknown operation is not automatically replayed');
 
     const back = page.goBack();
@@ -1407,7 +1444,15 @@ test('Volver al borrador desde el aviso de salida cancela Back y devuelve el foc
     await expect(exit).toBeVisible();
     await expect(page).toHaveURL(editorUrl, 'the blocked Back returns to the active editor');
     await back;
-    await exit.locator('[data-owner-return-to-draft]').click();
+    await expect(exit).toBeVisible('the exit decision remains visible with the editor');
+    await expect(form).toBeVisible('the original editor remains visible beside the exit decision');
+    await expect(form.locator('[data-owner-recovery]')).toHaveCount(1,
+      'the active editor owns one recovery block');
+    await expect(form.locator('[data-owner-return-to-draft]')).toHaveCount(1,
+      'the active editor exposes one return-to-draft action');
+    await expect(exit.locator('[data-owner-recovery]')).toHaveCount(0,
+      'the exit decision does not duplicate recovery actions');
+    await form.locator('[data-owner-return-to-draft]').click();
     await expect(exit).toHaveCount(0, 'returning to the draft cancels the pending history transition');
     await expect(page).toHaveURL(editorUrl);
     await expect(displayName).toHaveValue('Borrador conservado tras salir');
@@ -1683,8 +1728,16 @@ test('un conflicto compara el borrador crudo con la lectura actual y ofrece guar
   const otherPage = await page.context().newPage();
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
   const otherCapture = await captureCreatorApi(otherPage);
+  let back;
   try {
-    const firstForm = await openEditor(page, fixture);
+    await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=origen-del-conflicto`);
+    const previousUrl = page.url();
+    await page.locator('#owner-link-order').selectOption('titulo-desc');
+    await expect(page).toHaveURL((url) => url.searchParams.get('orden') === 'titulo-desc');
+    const activeUrl = page.url();
+    assert.notEqual(activeUrl, previousUrl);
+    await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
+    const firstForm = page.locator('[data-owner-dialog][open] form[data-owner-form="datos"]');
     const draft = '  Borrador de Lucía  ';
     await firstForm.getByLabel('Nombre visible').fill(draft);
     const otherForm = await openEditor(otherPage, fixture);
@@ -1692,7 +1745,17 @@ test('un conflicto compara el borrador crudo con la lectura actual y ofrece guar
     await otherForm.getByRole('button', { name: 'Guardar datos', exact: true }).click();
     await expect(otherPage.getByRole('heading', { name: 'Nombre guardado en otra pestaña', exact: true })).toBeVisible();
 
-    await firstForm.getByRole('button', { name: 'Guardar datos', exact: true }).click();
+    back = page.goBack();
+    const prompt = page.locator('[data-owner-exit-prompt]');
+    await expect(prompt).toBeVisible();
+    await prompt.getByRole('button', { name: 'Guardar y salir', exact: true }).click();
+    await expect.poll(() => ownerWrites(capture)[0]?.status).toBe(409);
+    await back;
+    await expect(page).toHaveURL(activeUrl, 'the real conflict cancels Back');
+    const comparison = page.locator('[data-owner-dialog][open]');
+    await expect(comparison.getByRole('button', { name: 'Guardar mi borrador', exact: true })).toBeVisible();
+    await expect(prompt).toBeHidden();
+    await expect(firstForm).toBeVisible();
     await expect(firstForm.getByRole('button', { name: 'Guardar mi borrador', exact: true })).toBeVisible();
     await expect(firstForm.getByRole('button', { name: 'Usar lo guardado', exact: true })).toBeVisible();
     await expect(firstForm.getByLabel('Nombre visible')).toHaveValue(draft);
@@ -1708,6 +1771,7 @@ test('un conflicto compara el borrador crudo con la lectura actual y ofrece guar
     assert.equal(ownerWrites(capture)[1].status, 200, 'the server accepts the explicit save against its current version');
     assert.ok(JSON.stringify(ownerWrites(capture)[1].body).includes(draft), 'the request retains the raw draft for server normalization');
     assert.equal((await api(fixture, cookie, '/api/creador/perfil')).body.profile.displayName, 'Borrador de Lucía');
+    await expect(page).toHaveURL(activeUrl, 'the explicit conflict save does not resume the old Back');
 
     const laterForm = await openEditor(page, fixture);
     await laterForm.getByLabel('Nombre visible').fill('Borrador que voy a descartar');
@@ -1736,6 +1800,7 @@ test('un conflicto compara el borrador crudo con la lectura actual y ofrece guar
     assert.equal(final.body.profile.displayName, 'Borrador de Lucía');
     assert.equal(final.body.profile.city, 'Mendoza', 'a later ordinary save persists from the state explicitly adopted');
   } finally {
+    back?.catch(() => {});
     await capture.stop({ skipErrorBodies: true });
     await otherCapture.stop({ skipErrorBodies: true });
     await otherPage.close();

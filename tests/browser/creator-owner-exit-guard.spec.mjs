@@ -136,7 +136,9 @@ test('a photo confirmed during guarded Back waits for an explicit exit choice', 
   await page.route('**/api/creador/perfil/', holdRead);
   try {
     await page.getByRole('button', { name: 'Editar foto', exact: true }).click();
-    await page.locator('[data-owner-form="foto"]').getByLabel('Elegir una foto').setInputFiles({
+    const form = page.locator('[data-owner-form="foto"]');
+    const file = form.getByLabel('Elegir una foto');
+    await file.setInputFiles({
       name: 'confirmed-during-back.png', mimeType: 'image/png', buffer: images.png,
     });
     await page.getByRole('button', { name: 'Subir y guardar foto', exact: true }).click();
@@ -151,12 +153,16 @@ test('a photo confirmed during guarded Back waits for an explicit exit choice', 
     assert.equal(heldBody.profile.photo.version, saved.profile.photo.version);
     const back = page.goBack();
     await expect(prompt(page)).toBeVisible();
+    await expect(form).toBeVisible();
+    assert.equal(await file.evaluate((input) => input.files?.[0]?.name), 'confirmed-during-back.png');
     await expect(page).toHaveURL(activeEntry);
     releaseRead();
     await check;
     await expect(prompt(page)).toBeVisible();
     await expect(page).toHaveURL(activeEntry, 'reading the saved photo does not approve the held Back');
-    await exitButton(page, 'Usar lo guardado').click();
+    const useSaved = form.getByRole('button', { name: 'Usar lo guardado', exact: true });
+    await expect(page.locator('[data-owner-dialog][open]').getByRole('button', { name: 'Usar lo guardado', exact: true })).toHaveCount(1);
+    await useSaved.click();
     await expect(page).toHaveURL(activeEntry, 'choosing saved state still does not approve the held Back');
     await expect(exitButton(page, 'Seguir a la página solicitada')).toBeVisible();
     await expect(exitButton(page, 'Seguir a la página solicitada')).toBeFocused();

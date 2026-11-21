@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { CREATOR_FIELD_LIMITS } from '../src/lib/creator-values.mjs';
 import {
   callApi,
   createCreatorPagesHarness,
@@ -196,6 +197,71 @@ test('social URLs accept only safe HTTP or HTTPS addresses and leave the profile
   assert.equal(Object.hasOwn(afterClear.profile.socials, 'website'), false);
   assert.equal(afterClear.profile.socials.instagram, before.profile.socials.instagram,
     'removing one optional social URL preserves the unsubmitted URLs');
+});
+
+test('profile writes identify which editable field exceeded its limit without changing the rejection', async (t) => {
+  const harness = await createCreatorPagesHarness();
+  await createProfile(harness, 'creator-a', { displayName: 'Ana', slug: 'ana' }, { publish: false });
+  const before = await editor(harness);
+  for (const field of ['displayName', 'bio']) {
+    await t.test(field, async () => {
+      const value = 'x'.repeat(CREATOR_FIELD_LIMITS[field] + 1);
+      const response = await saveProfile(harness, 'creator-a', { slug: 'ana', [field]: value });
+      assert.equal(response.status, 422);
+      const body = await responseJson(response);
+      assert.equal(body.error, 'FIELD_TOO_LONG');
+      assert.deepEqual(await editor(harness), before, 'a field rejection leaves the saved profile and version intact');
+      assert.deepEqual(body.fieldErrors, [{ field, reason: 'too_long' }]);
+    });
+  }
+
+  await t.test('nested input is not attributed to the visible name', async () => {
+    const response = await saveProfile(harness, 'creator-a', {
+      slug: 'ana',
+      unrecognized: { displayName: 'x'.repeat(CREATOR_FIELD_LIMITS.displayName + 1) },
+    });
+    assert.equal(response.status, 422);
+    const body = await responseJson(response);
+    assert.equal(body.error, 'FIELD_TOO_LONG');
+    assert.equal(body.fieldErrors, undefined);
+    assert.deepEqual(await editor(harness), before);
+  });
+});
+
+test('invalid profile programs identify the editable group without changing the rejection', async () => {
+  const harness = await createCreatorPagesHarness();
+  await createProfile(harness, 'creator-a', { displayName: 'Ana', slug: 'ana' }, { publish: false });
+  const before = await editor(harness);
+  const response = await saveProfile(harness, 'creator-a', {
+    slug: 'ana', programs: ['Programa no disponible'],
+  });
+  assert.equal(response.status, 422);
+  const body = await responseJson(response);
+  assert.equal(body.error, 'INVALID_PROGRAMS');
+  assert.deepEqual(await editor(harness), before, 'a program-group rejection leaves the saved profile and version intact');
+});
+
+test('editing a published profile identifies only the missing identity fields', async (t) => {
+  const harness = await createCreatorPagesHarness();
+  await createProfile(harness, 'creator-a', { displayName: 'Ana', slug: 'ana' });
+  const before = await editor(harness);
+  for (const [fields, missing] of [
+    [{ displayName: '   ', slug: 'ana' }, ['displayName']],
+    [{ displayName: 'Ana', slug: '   ' }, ['slug']],
+    [{ displayName: '   ', slug: '   ' }, ['displayName', 'slug']],
+  ]) {
+    await t.test(missing.join(' and '), async () => {
+      const response = await saveProfile(harness, 'creator-a', fields);
+      assert.equal(response.status, 422);
+      const body = await responseJson(response);
+      assert.equal(body.error, 'PROFILE_INCOMPLETE');
+      assert.deepEqual(await editor(harness), before);
+      assert.ok(Array.isArray(body.fieldErrors), 'the response identifies the missing fields');
+      const compareFields = (left, right) => left.field.localeCompare(right.field);
+      assert.deepEqual(body.fieldErrors.toSorted(compareFields),
+        missing.map((field) => ({ field, reason: 'required' })).sort(compareFields));
+    });
+  }
 });
 
 test('slug validation stays aligned with the allowed lowercase URL form', async () => {
