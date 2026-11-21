@@ -185,46 +185,40 @@ function rejectedOwnerWriteMessage(error: unknown, status: number): string {
 
 type CreatorOwnerWriteErrorPayload = CreatorSessionResponse & { fieldErrors?: unknown };
 
-const IDENTITY_FIELDS = new Set<CreatorOwnerIdentityField>(['displayName', 'slug', 'city', 'country', 'bio', 'programs']);
-
-function identityFieldErrorText(field: CreatorOwnerIdentityField, reason: string): string | undefined {
-  if (field === 'slug' && reason === 'reserved') return 'Esa dirección ya está reservada. Elige otra.';
-  if (reason === 'required') return field === 'displayName' ? 'Ingresa un nombre visible.'
-    : field === 'slug' ? 'Ingresa una dirección para tu página.' : `Completa el campo ${field === 'city' ? 'Ciudad' : field === 'country' ? 'País' : field === 'bio' ? 'Sobre ti' : 'Programas de AWS'}.`;
-  if (reason === 'too_long') return field === 'bio' ? 'La presentación supera el límite permitido.'
-    : `El campo ${field === 'displayName' ? 'Nombre visible' : field === 'city' ? 'Ciudad' : 'País'} supera el límite permitido.`;
-  if (field === 'slug' && reason === 'invalid') return 'Usa una dirección válida: minúsculas, números y guiones sencillos.';
-  if (field === 'programs' && reason === 'unsupported') return 'Elige un programa válido.';
-  return undefined;
-}
-
 function ownerIdentityFieldErrors(error: unknown, payload: CreatorSessionResponse | null, intent: CreatorOwnerIntent,
   editor: CreatorOwnerEditorDraft | undefined): Partial<Record<CreatorOwnerIdentityField, string>> | undefined {
-  if (intent.action !== 'save-profile' || !(editor?.kind === 'create-profile' || editor?.kind === 'profile' && editor.section === 'datos')) return undefined;
-  if (error === 'SLUG_TAKEN') return { slug: 'Esa dirección ya está reservada. Elige otra.' };
+  const creating = editor?.kind === 'create-profile';
+  if (intent.action !== 'save-profile' || !editor || intent.editorKey !== editor.key
+    || !(creating || editor.kind === 'profile' && editor.section === 'datos')) return undefined;
+
+  if (error === 'SLUG_TAKEN') return { slug: rejectedOwnerWriteMessage(error, 409) };
   if (error === 'INVALID_SLUG') return { slug: 'Usa una dirección válida: minúsculas, números y guiones sencillos.' };
-  if (error === 'INVALID_PROGRAMS') return { programs: 'Elige un programa válido.' };
+  if (error === 'INVALID_PROGRAMS') return creating ? undefined : { programs: 'Elige un programa válido.' };
+  if (error !== 'PROFILE_INCOMPLETE' && error !== 'FIELD_TOO_LONG') return undefined;
+
+  const required = error === 'PROFILE_INCOMPLETE';
+  const expectedReason = required ? 'required' : 'too_long';
+  const messages: Partial<Record<CreatorOwnerIdentityField, string>> = required
+    ? { displayName: 'Ingresa un nombre visible.', slug: 'Ingresa una dirección para tu página.' }
+    : {
+      displayName: 'El campo Nombre visible supera el límite permitido.',
+      city: 'El campo Ciudad supera el límite permitido.',
+      country: 'El campo País supera el límite permitido.',
+      bio: 'La presentación supera el límite permitido.',
+    };
   const fieldErrors = (payload as CreatorOwnerWriteErrorPayload | null)?.fieldErrors;
-  if (!Array.isArray(fieldErrors) || fieldErrors.length === 0) return undefined;
+  if (!Array.isArray(fieldErrors) || fieldErrors.length === 0 || fieldErrors.length > 6) return undefined;
+
   const mapped: Partial<Record<CreatorOwnerIdentityField, string>> = {};
-  for (const entry of fieldErrors) {
+  for (const entry of fieldErrors as unknown[]) {
     if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return undefined;
-    const field = (entry as Record<string, unknown>).field;
-    const reason = (entry as Record<string, unknown>).reason;
-    if (typeof field !== 'string' || !IDENTITY_FIELDS.has(field as CreatorOwnerIdentityField)
-      || typeof reason !== 'string') return undefined;
-    if (error === 'PROFILE_INCOMPLETE' && reason !== 'required') return undefined;
-    if (error === 'FIELD_TOO_LONG' && reason !== 'too_long') return undefined;
-    if (error !== 'PROFILE_INCOMPLETE' && error !== 'FIELD_TOO_LONG') return undefined;
-    if (error === 'PROFILE_INCOMPLETE' && field !== 'displayName' && field !== 'slug') return undefined;
-    if (error === 'FIELD_TOO_LONG' && !['displayName', 'city', 'country', 'bio'].includes(field)) return undefined;
-    const text = identityFieldErrorText(field as CreatorOwnerIdentityField, reason);
-    if (!text) return undefined;
+    const { field, reason } = entry as Record<string, unknown>;
+    if (typeof field !== 'string' || reason !== expectedReason || !Object.hasOwn(messages, field)
+      || creating && field !== 'displayName' && field !== 'slug') return undefined;
     const identityField = field as CreatorOwnerIdentityField;
-    if (mapped[identityField] && mapped[identityField] !== text) return undefined;
-    mapped[identityField] = text;
+    mapped[identityField] = messages[identityField];
   }
-  return Object.keys(mapped).length > 0 ? mapped : undefined;
+  return mapped;
 }
 
 function acknowledgedActionLabel(intent?: CreatorOwnerIntent): string {

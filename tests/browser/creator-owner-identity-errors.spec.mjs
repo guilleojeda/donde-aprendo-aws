@@ -140,7 +140,7 @@ async function installProfileRejections(page, fixture, modes) {
     assert.equal(actual.status, 422, 'the controlled browser response comes from the real service rejection');
     const payload = await actual.json();
     if (mode === 'unknown') payload.fieldErrors = [{ field: 'programas-internos', reason: 'unsupported' }];
-    else delete payload.fieldErrors;
+    else if (mode !== 'detailed') delete payload.fieldErrors;
     const responseHeaders = Object.fromEntries(actual.headers.entries());
     delete responseHeaders['content-length'];
     await route.fulfill({
@@ -452,6 +452,45 @@ test('Programas muestra el grupo para un rechazo real y conserva el aviso genera
     await expect(builders).toBeChecked();
     const saved = await fixture.rawOwner(cookie);
     assert.deepEqual(saved.profile.programs, [], 'all controlled rejections leave the saved program group unchanged');
+  } finally {
+    await removeProfileRejections();
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('el alta conserva el aviso general ante diagnósticos de controles que no contiene', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page, { profile: false });
+  await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+  const form = createForm(page);
+  const name = form.getByLabel('Nombre visible', { exact: true });
+  const slug = form.getByLabel('Dirección de tu página', { exact: true });
+  const save = form.getByRole('button', { name: 'Crear borrador', exact: true });
+  const feedback = form.getByText(/revisa los datos del formulario/iu);
+  const capture = await captureCreatorApi(page);
+  const removeProfileRejections = await installProfileRejections(page, fixture, ['detailed', 'group']);
+  try {
+    await slug.fill('alta-con-diagnostico-ajeno');
+    for (const [displayName, code] of [['Primer borrador', 'FIELD_TOO_LONG'], ['Segundo borrador', 'INVALID_PROGRAMS']]) {
+      await name.fill(displayName);
+      await expect(feedback).toBeHidden();
+      const since = capture.writes().length;
+      await save.click();
+      const rejected = await waitForOwnerWrite(capture, { status: 422, since });
+      assert.equal(rejected.responseBody.error, code);
+      if (code === 'FIELD_TOO_LONG') {
+        assert.deepEqual(rejected.responseBody.fieldErrors, [{ field: 'bio', reason: 'too_long' }]);
+      }
+      await expect(feedback).toBeVisible();
+      await expect(form.locator('[aria-invalid="true"]')).toHaveCount(0);
+      await expect(name).toHaveValue(displayName);
+      await expect(slug).toHaveValue('alta-con-diagnostico-ajeno');
+    }
+
+    assert.equal((await fixture.rawOwner(cookie)).profile, null);
+    const since = capture.writes().length;
+    await save.click();
+    await waitForOwnerWrite(capture, { status: 200, since });
+    assert.equal((await fixture.rawOwner(cookie)).profile.slug, 'alta-con-diagnostico-ajeno');
   } finally {
     await removeProfileRejections();
     await capture.stop({ skipErrorBodies: true });
