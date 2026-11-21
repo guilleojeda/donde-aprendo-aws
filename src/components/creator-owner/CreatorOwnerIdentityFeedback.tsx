@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import type { CreatorOwnerIdentityField } from '../../lib/creator-owner-state';
+import type { CreatorOwnerIdentityField, CreatorOwnerProfileField } from '../../lib/creator-owner-state';
 
 type IdentityFeedbackField = CreatorOwnerIdentityField;
 
-const FIELD_LABELS: Record<IdentityFeedbackField, string> = {
+const FIELD_LABELS: Record<CreatorOwnerProfileField, string> = {
   displayName: 'el nombre visible',
   slug: 'la dirección de tu página',
   city: 'la ciudad',
@@ -13,31 +13,34 @@ const FIELD_LABELS: Record<IdentityFeedbackField, string> = {
 };
 
 export function identityFieldErrorId(prefix: string, field: IdentityFeedbackField): string {
-  return `${prefix}-${field}-error`;
+  return `${prefix}-${field.replace('.', '-')}-error`;
 }
 
 export function identityFieldHelpId(prefix: string, field: IdentityFeedbackField): string {
   return `${prefix}-${field}-help`;
 }
 
-export function identityFieldDescribedBy(prefix: string, field: IdentityFeedbackField, hasError: boolean): string | undefined {
-  const help = field === 'slug' || field === 'bio' ? identityFieldHelpId(prefix, field) : undefined;
+export function identityFieldDescribedBy(prefix: string, field: IdentityFeedbackField, hasError: boolean,
+  help = field === 'slug' || field === 'bio' ? identityFieldHelpId(prefix, field) : undefined): string | undefined {
   const error = hasError ? identityFieldErrorId(prefix, field) : undefined;
   const value = [help, error].filter(Boolean).join(' ');
   return value || undefined;
 }
 
 export function nativeIdentityFieldMessage(field: IdentityFeedbackField, control: HTMLInputElement | HTMLTextAreaElement): string {
+  if (control.validity.customError) return control.validationMessage;
+  if (field === 'photo') return 'Elige una foto.';
+  const label = FIELD_LABELS[field as CreatorOwnerProfileField];
+  if (!label) return 'Ingresa una URL HTTP o HTTPS completa sin usuario ni contraseña.';
   if (control.validity.valueMissing) {
-    return field === 'displayName' ? 'Completa el nombre visible.' : `Completa ${FIELD_LABELS[field]}.`;
+    return `Completa ${label}.`;
   }
   if (control.validity.patternMismatch) {
     return 'La dirección debe tener entre 3 y 40 caracteres, con minúsculas, números y guiones sencillos.';
   }
-  if (control.validity.tooShort) return `Completa ${FIELD_LABELS[field]} con más caracteres.`;
-  if (control.validity.tooLong) return `Reduce ${FIELD_LABELS[field]} para respetar el límite.`;
-  if (control.validity.typeMismatch) return `Revisa ${FIELD_LABELS[field]}.`;
-  return `Revisa ${FIELD_LABELS[field]}.`;
+  if (control.validity.tooShort) return `Completa ${label} con más caracteres.`;
+  if (control.validity.tooLong) return `Reduce ${label} para respetar el límite.`;
+  return `Revisa ${label}.`;
 }
 
 export function useNativeIdentityFieldErrors(scope?: string) {
@@ -58,6 +61,7 @@ export function useNativeIdentityFieldErrors(scope?: string) {
       setTimeout(() => {
         focusScheduled.current = false;
         const target = firstInvalid.current;
+        firstInvalid.current = null;
         if (!target || !target.isConnected || target.matches(':disabled')) return;
         target.focus({ preventScroll: true });
         target.scrollIntoView?.({ block: 'nearest' });

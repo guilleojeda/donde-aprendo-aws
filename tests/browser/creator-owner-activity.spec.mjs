@@ -417,7 +417,14 @@ test('una lectura fallida del resumen se corrige en Actividad y reintenta solame
   const cookie = await loggedInOwner(fixture, page);
   assert.equal((await publishOwner(fixture, cookie)).response.status, 200);
   const saved = await readOwnerSnapshot(fixture, cookie);
-  const capture = await captureCreatorApi(page);
+  const capture = await captureCreatorApi(page, { ignoreReads: true });
+  const summaryReads = [];
+  page.on('response', (response) => {
+    const url = new URL(response.url());
+    if (url.pathname === SUMMARY_PATH && response.request().method() === 'GET') {
+      summaryReads.push([url.searchParams.get('periodo'), response.status()]);
+    }
+  });
   let available = false;
   fixture.statistics.setProviderResponder(({ body }) => {
     if (!available && (body.requests ?? [body]).some((request) => queryDays(request) === 7)) {
@@ -458,9 +465,7 @@ test('una lectura fallida del resumen se corrige en Actividad y reintenta solame
   assert.equal((await recovered).status(), 200);
   await expect(summary.locator('[data-owner-activity-total]')).toHaveText(['5', '3', '8']);
   await expect(status).toHaveCount(0);
-  await capture.settle();
-  const summaryReads = capture.records.filter(({ path }) => path === SUMMARY_PATH.replace(/\/$/u, ''));
-  assert.deepEqual(summaryReads.map(({ status }) => status), [200, 503, 200]);
+  assert.deepEqual(summaryReads, [['30', 200], ['7', 503], ['7', 200]]);
   assert.deepEqual(capture.writes(), []);
   assert.deepEqual(await readOwnerSnapshot(fixture, cookie), saved);
   assert.equal(color[0], color[1], 'el fallo de Actividad usa el color semántico de error');

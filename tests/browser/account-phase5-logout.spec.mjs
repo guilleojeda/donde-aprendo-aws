@@ -156,7 +156,7 @@ test('the signed-in creator shell recovers when the real logout response is with
   try {
     const button = form.locator('button[type="submit"]');
     await expect(button).toHaveAccessibleName('Cerrar sesión');
-    await button.click();
+    await button.press('Enter');
     await expect.poll(() => logoutPosts.posts.length).toBe(1);
     await entered.promise;
     assert.equal(deleteCount(fixture), 1);
@@ -164,6 +164,7 @@ test('the signed-in creator shell recovers when the real logout response is with
     await expect(form.locator('[data-account-logout-status]')).toContainText(/No pudimos confirmar el cierre de sesión/i, { timeout: 10_000 });
     await expect(button).toBeEnabled();
     await expect(button).toHaveAccessibleName(/Reintentar cierre de sesión/i);
+    await expect(button).toBeFocused();
     assert.equal(logoutPosts.posts.length, 1, 'the browser exposes retry before sending another request');
     assert.equal(fixture.accountStore.sessions.size, 0);
     assert.equal(deleteCount(fixture), 1, 'a response-header timeout does not replay local revocation');

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import type { CreatorOwnerSnapshotDTO } from '../../types/creators';
+import type { CreatorOwnerSnapshotDTO, CreatorSocial } from '../../types/creators';
 import { readCreatorOwnerSnapshot } from '../../lib/creator-owner-data';
 import {
   createCreatorOwnerRequest,
@@ -185,11 +185,40 @@ function rejectedOwnerWriteMessage(error: unknown, status: number): string {
 
 type CreatorOwnerWriteErrorPayload = CreatorSessionResponse & { fieldErrors?: unknown };
 
+type OwnerFieldMessages = Partial<Record<CreatorOwnerIdentityField, string>>;
+
+const invalidSocialUrlMessage = 'Ingresa una URL HTTP o HTTPS completa sin usuario ni contraseña.';
+const longSocialUrlMessage = `Reduce la URL a ${CREATOR_FIELD_LIMITS.social} caracteres o menos.`;
+const photoFormatMessage = 'Elige una imagen JPEG, PNG o WebP.';
+const photoSizeMessage = 'Elige una foto de entre 1 byte y 15 MiB.';
+
+function readOwnerFieldErrors(payload: CreatorSessionResponse | null, expectedReason: string, messages: OwnerFieldMessages): OwnerFieldMessages | undefined {
+  const fieldErrors = (payload as CreatorOwnerWriteErrorPayload | null)?.fieldErrors;
+  if (!Array.isArray(fieldErrors) || fieldErrors.length === 0 || fieldErrors.length > Object.keys(messages).length) return undefined;
+
+  const mapped: OwnerFieldMessages = {};
+  for (const entry of fieldErrors as unknown[]) {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return undefined;
+    const { field, reason } = entry as Record<string, unknown>;
+    if (typeof field !== 'string' || reason !== expectedReason || !Object.hasOwn(messages, field)) return undefined;
+    const identityField = field as CreatorOwnerIdentityField;
+    mapped[identityField] = messages[identityField];
+  }
+  return mapped;
+}
+
 function ownerIdentityFieldErrors(error: unknown, payload: CreatorSessionResponse | null, intent: CreatorOwnerIntent,
-  editor: CreatorOwnerEditorDraft | undefined): Partial<Record<CreatorOwnerIdentityField, string>> | undefined {
+  editor: CreatorOwnerEditorDraft | undefined): OwnerFieldMessages | undefined {
+  if (intent.action !== 'save-profile' || !editor || intent.editorKey !== editor.key) return undefined;
+  if (editor.kind === 'profile' && editor.section === 'redes') {
+    if (error !== 'INVALID_SOCIAL_URL' && error !== 'FIELD_TOO_LONG') return undefined;
+    const invalidUrl = error === 'INVALID_SOCIAL_URL';
+    const message = invalidUrl ? invalidSocialUrlMessage : longSocialUrlMessage;
+    const messages = Object.fromEntries(CREATOR_SOCIALS.map((key: CreatorSocial) => [`socials.${key}`, message]));
+    return readOwnerFieldErrors(payload, invalidUrl ? 'invalid_url' : 'too_long', messages);
+  }
   const creating = editor?.kind === 'create-profile';
-  if (intent.action !== 'save-profile' || !editor || intent.editorKey !== editor.key
-    || !(creating || editor.kind === 'profile' && editor.section === 'datos')) return undefined;
+  if (!creating && !(editor.kind === 'profile' && editor.section === 'datos')) return undefined;
 
   if (error === 'SLUG_TAKEN') return { slug: rejectedOwnerWriteMessage(error, 409) };
   if (error === 'INVALID_SLUG') return { slug: 'Usa una dirección válida: minúsculas, números y guiones sencillos.' };
@@ -198,27 +227,23 @@ function ownerIdentityFieldErrors(error: unknown, payload: CreatorSessionRespons
 
   const required = error === 'PROFILE_INCOMPLETE';
   const expectedReason = required ? 'required' : 'too_long';
-  const messages: Partial<Record<CreatorOwnerIdentityField, string>> = required
+  const messages: OwnerFieldMessages = required
     ? { displayName: 'Ingresa un nombre visible.', slug: 'Ingresa una dirección para tu página.' }
-    : {
-      displayName: 'El campo Nombre visible supera el límite permitido.',
+    : { displayName: 'El campo Nombre visible supera el límite permitido.', ...(creating ? {} : {
       city: 'El campo Ciudad supera el límite permitido.',
       country: 'El campo País supera el límite permitido.',
       bio: 'La presentación supera el límite permitido.',
-    };
-  const fieldErrors = (payload as CreatorOwnerWriteErrorPayload | null)?.fieldErrors;
-  if (!Array.isArray(fieldErrors) || fieldErrors.length === 0 || fieldErrors.length > 6) return undefined;
+    }) };
+  return readOwnerFieldErrors(payload, expectedReason, messages);
+}
 
-  const mapped: Partial<Record<CreatorOwnerIdentityField, string>> = {};
-  for (const entry of fieldErrors as unknown[]) {
-    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return undefined;
-    const { field, reason } = entry as Record<string, unknown>;
-    if (typeof field !== 'string' || reason !== expectedReason || !Object.hasOwn(messages, field)
-      || creating && field !== 'displayName' && field !== 'slug') return undefined;
-    const identityField = field as CreatorOwnerIdentityField;
-    mapped[identityField] = messages[identityField];
+function photoRejectionMessage(error: unknown): string | undefined {
+  switch (error) {
+    case 'INVALID_PHOTO_SIZE': return photoSizeMessage;
+    case 'UNSUPPORTED_PHOTO_FORMAT': return photoFormatMessage;
+    case 'INVALID_PHOTO': return 'No pudimos leer la imagen. Elige otro archivo.';
+    case 'PHOTO_TOO_MANY_PIXELS': return 'Elige una imagen de hasta 40 megapíxeles.';
   }
-  return mapped;
 }
 
 function acknowledgedActionLabel(intent?: CreatorOwnerIntent): string {
@@ -670,7 +695,8 @@ export default function CreatorOwnerApp(props: Props) {
       }
       const recoveryFocusTarget = latestTarget.matches(`${retryReadFocus}, ${sessionRecoveryFocus}, ${recoveryDecisionFocus}, [data-owner-check], [data-owner-compare], [data-owner-publish-check]`)
         || selector.includes('[data-owner-dialog] form[data-owner-form]') || selector === '#owner-create-name';
-      const preserveUsableFocus = recoveryFocusTarget || state.message?.sessionDerived === true;
+      const preserveUsableFocus = recoveryFocusTarget || state.message?.sessionDerived === true
+        || state.message?.scope === 'publish-profile';
       if (preserveUsableFocus && document.activeElement !== latestTarget && hasUsableOwnerActiveFocus()) {
         clearRequestedFocus();
         return;
@@ -1073,14 +1099,17 @@ export default function CreatorOwnerApp(props: Props) {
   }
 
   function validateSocialUrls(editor: Extract<CreatorOwnerEditorDraft, { kind: 'profile'; section: 'redes' }>): boolean {
+    const form = rootRef.current?.querySelector<HTMLFormElement>('[data-owner-form="redes"]');
+    let valid = true;
     for (const key of CREATOR_SOCIALS) {
       const value = editor.draft[key];
-      const valid = !value || value.length <= CREATOR_FIELD_LIMITS.social && safeCreatorSocialUrl(value) !== undefined;
-      const input = document.querySelector<HTMLInputElement>(`#owner-social-${key}`);
-      input?.setCustomValidity(valid ? '' : 'Ingresa una URL HTTP o HTTPS completa sin usuario ni contraseña.');
-      if (!valid) { input?.reportValidity(); return false; }
+      const message = value.length > CREATOR_FIELD_LIMITS.social ? longSocialUrlMessage
+        : value && !safeCreatorSocialUrl(value) ? invalidSocialUrlMessage : '';
+      form?.querySelector<HTMLInputElement>(`#owner-social-${key}`)?.setCustomValidity(message);
+      if (message) valid = false;
     }
-    return true;
+    if (!valid) form?.reportValidity();
+    return valid;
   }
 
   function operationIsCurrent(generation: number, binding: string, accountEmail: string, isAdmin: boolean,
@@ -1347,7 +1376,10 @@ export default function CreatorOwnerApp(props: Props) {
           dispatch({ type: 'operation-unknown', intent: storedIntent, message: 'No pudimos confirmar el resultado. Comprueba el estado guardado antes de decidir si vuelves al borrador.' });
           return;
         }
-        const message = rejectedOwnerWriteMessage(error, response.status);
+        const message = intent.action === 'publish-profile'
+          ? error === 'PROFILE_INCOMPLETE' ? 'Completa el nombre y la dirección de tu página antes de publicar.'
+            : 'No pudimos publicar tu página. Revisa tus datos o vuelve a intentarlo.'
+          : rejectedOwnerWriteMessage(error, response.status);
         const fieldErrors = ownerIdentityFieldErrors(error, payload, storedIntent, stateRef.current.editor);
         operationGenerationRef.current += 1;
         dispatch({ type: 'operation-rejected', intentId: intent.id, message, ...(fieldErrors ? { fieldErrors } : {}) });
@@ -1471,9 +1503,14 @@ export default function CreatorOwnerApp(props: Props) {
     preserveExitSubmitRef.current = false;
     if (editor.kind === 'photo') {
       const profile = latest.observed.profile;
-      if (!editor.file || !profile || editor.key !== `photo:${profile.id}`
-        || !CREATOR_PHOTO_MIME_TYPES.includes(editor.file.type) || editor.file.size > CREATOR_PHOTO_MAX_UPLOAD_BYTES) {
-        if (editor.file) setMessage('Elige una imagen JPEG, PNG o WebP de hasta 15 MiB.', 'error');
+      const file = editor.file;
+      if (!file || !profile || editor.key !== `photo:${profile.id}`) return false;
+      const error = !CREATOR_PHOTO_MIME_TYPES.includes(file.type) ? photoFormatMessage
+        : file.size === 0 || file.size > CREATOR_PHOTO_MAX_UPLOAD_BYTES ? photoSizeMessage : undefined;
+      if (error) {
+        const input = rootRef.current?.querySelector<HTMLInputElement>('#owner-photo-file');
+        input?.setCustomValidity(error);
+        input?.reportValidity();
         return false;
       }
       void startPhotoUpload(editor, preserveExit); return true;
@@ -1494,10 +1531,6 @@ export default function CreatorOwnerApp(props: Props) {
       && (latest.operation.intent.action === 'photo-authorize' || latest.operation.intent.action === 'photo-finalize');
     if (!file || !profile || editor.key !== `photo:${profile.id}` || latest.session.state !== 'ready'
       || latest.operation.status !== 'idle' && !retryingConflict) return;
-    if (!CREATOR_PHOTO_MIME_TYPES.includes(file.type) || file.size > CREATOR_PHOTO_MAX_UPLOAD_BYTES) {
-      setMessage('Elige una imagen JPEG, PNG o WebP de hasta 15 MiB.', 'error');
-      return;
-    }
     const intent: CreatorOwnerIntent = { id: nextId('photo'), editorKey: editor.key, action: 'photo-authorize',
       profileId: profile.id, creatorVersion: latest.observed.creatorVersion,
     };
@@ -1580,7 +1613,10 @@ export default function CreatorOwnerApp(props: Props) {
           dispatch({ type: 'operation-unknown', intent: finalizeIntent, message: 'No pudimos confirmar si la foto se guardó. Comprueba el estado antes de volver a cargar.' });
         } else {
           operationGenerationRef.current += 1;
-          dispatch({ type: 'operation-rejected', intentId: intent.id, message: 'No pudimos guardar la foto. La anterior sigue activa y conservamos el archivo.' });
+          const fieldError = finish.status === 422 ? photoRejectionMessage(payload?.error) : undefined;
+          dispatch({ type: 'operation-rejected', intentId: intent.id,
+            message: 'No pudimos guardar la foto. La anterior sigue activa y conservamos el archivo.',
+            ...(fieldError ? { fieldErrors: { photo: fieldError } } : {}) });
         }
         return;
       }

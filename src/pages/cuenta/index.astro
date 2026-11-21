@@ -64,6 +64,9 @@ const callbackState = Astro.url.searchParams.get('estado');
 const recognizedCallbackState = callbackState === 'acceso-invalido' || callbackState === 'cancelado' || callbackState === 'no-disponible'
   ? callbackState
   : undefined;
+const responseActions = Astro.url.searchParams.getAll('accion');
+const logoutUnavailable = recognizedCallbackState === 'no-disponible'
+  && responseActions.length === 1 && responseActions[0] === 'salir';
 
 let session: AccountSession = { state: 'unavailable' };
 let requestContext: CreatorRequestContext | undefined;
@@ -186,10 +189,28 @@ const publicOrigin = import.meta.env.PUBLIC_SITE_ORIGIN || Astro.url.origin;
           </section>
         )}
 
-        {(recognizedCallbackState === 'no-disponible' || pageState === 'unavailable' || pageState.startsWith('owner-') && pageState !== 'owner-401' && pageState !== 'owner-403') && (
+        {logoutUnavailable && (
+          <section class="account-message account-message--error" role="alert" aria-labelledby="account-logout-unavailable-title">
+            <h1 id="account-logout-unavailable-title">No pudimos confirmar el cierre de sesión</h1>
+            <p>Abre tu cuenta e intenta cerrar sesión de nuevo.</p>
+            <a class="button button--dark" href="/cuenta/">Volver a mi cuenta</a>
+          </section>
+        )}
+
+        {recognizedCallbackState === 'no-disponible' && !logoutUnavailable && (
+          <section class="account-message account-message--error" role="alert" aria-labelledby="account-access-unavailable-title">
+            <h1 id="account-access-unavailable-title">No pudimos completar el acceso</h1>
+            <p>El servicio de acceso no está disponible en este momento. Vuelve a ingresar para iniciar un intento nuevo.</p>
+            <a class="button button--dark" href="/cuenta/ingresar/">Volver a ingresar</a>
+          </section>
+        )}
+
+        {(pageState === 'unavailable' || pageState.startsWith('owner-') && pageState !== 'owner-401' && pageState !== 'owner-403') && (
           <section class="account-message account-message--error" role="alert" aria-labelledby="account-unavailable-title">
-            <h1 id="account-unavailable-title">{recognizedCallbackState === 'no-disponible' || pageState === 'unavailable' ? 'No pudimos cargar tu cuenta' : 'No pudimos cargar tu página'}</h1>
-            <p>Inténtalo de nuevo en unos minutos. No pudimos confirmar si tienes una página todavía.</p>
+            <h1 id="account-unavailable-title">{pageState === 'unavailable' ? 'No pudimos cargar tu cuenta' : 'No pudimos cargar tu página'}</h1>
+            <p>{pageState === 'unavailable'
+              ? 'No pudimos leer tu sesión. Inténtalo de nuevo para consultar tu cuenta.'
+              : 'No pudimos leer los datos de tu página. Inténtalo de nuevo para cargarla.'}</p>
             <div class="account-actions">
               <a class="button button--dark" href="/cuenta/">Reintentar</a>
               {pageState.startsWith('owner-') && session.state === 'authenticated' && (

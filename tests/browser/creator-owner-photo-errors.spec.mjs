@@ -102,6 +102,7 @@ async function expectPhotoFieldError(page, field, messagePattern, helpPattern = 
   assert.ok(help, 'the photo format and limit help remains associated with the file control');
   await expect(help.locator).toBeVisible();
   await expect(error.locator).toBeVisible();
+  await expect(field).toHaveCSS('border-top-color', await error.locator.evaluate((element) => getComputedStyle(element).color));
   const owner = await field.evaluate((element) => element.closest('form')?.getAttribute('data-owner-form'));
   const errorOwner = await error.locator.evaluate((element) => element.closest('form')?.getAttribute('data-owner-form'));
   assert.equal(errorOwner, owner, 'the file error remains inside its owning form');

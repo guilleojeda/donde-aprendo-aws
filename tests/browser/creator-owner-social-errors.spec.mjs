@@ -88,6 +88,7 @@ async function fieldError(field, pattern) {
   await expect(error).toHaveCount(1);
   assert.match(await error.innerText(), pattern, 'the field error names a corrective action');
   await expect(error).toBeVisible();
+  await expect(field).toHaveCSS('border-top-color', await error.evaluate((element) => getComputedStyle(element).color));
   assert.ok(describedBy.includes(await error.getAttribute('id')), 'the control references its visible error');
   return error;
 }

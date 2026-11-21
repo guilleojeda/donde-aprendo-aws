@@ -63,14 +63,18 @@ if (Astro.request.method === 'POST') {
           : 'No pudimos completar el cierre de sesión. Inténtalo de nuevo.',
     }, { status, headers });
   }
+  let accountRecoveryLocation: string | undefined;
   if (result.status === 303 && location) {
     try {
       const target = new URL(location, Astro.url);
       const retryCsrf = readLogoutRetryCsrf(result);
-      if (target.pathname === '/cuenta/' && target.searchParams.get('estado') === 'no-disponible'
-        && typeof retryCsrf === 'string' && retryCsrf.length > 0) {
-        retryLogout = true;
-        submittedCsrfToken = retryCsrf;
+      if (target.pathname === '/cuenta/' && target.searchParams.get('estado') === 'no-disponible') {
+        if (typeof retryCsrf === 'string' && retryCsrf.length > 0) {
+          retryLogout = true;
+          submittedCsrfToken = retryCsrf;
+        } else {
+          accountRecoveryLocation = '/cuenta/?estado=no-disponible&accion=salir';
+        }
       }
     } catch {
       retryLogout = false;
@@ -85,6 +89,7 @@ if (Astro.request.method === 'POST') {
     result.headers.forEach((value, name) => {
       if (name !== 'content-type') Astro.response.headers.set(name, value);
     });
+    if (accountRecoveryLocation) Astro.response.headers.set('Location', accountRecoveryLocation);
     pageMessage = result.status === 403
       ? 'No pudimos validar el cierre de sesión. Vuelve a tu cuenta para intentarlo de nuevo.'
       : 'No pudimos completar el cierre de sesión. Vuelve a tu cuenta para intentarlo de nuevo.';

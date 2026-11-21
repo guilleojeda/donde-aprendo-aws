@@ -144,12 +144,14 @@ function textField(value, name, { optional = false } = {}) {
   return normalizeCreatorText(value);
 }
 
-function validateTextLengths(value, path = '', fieldErrorFields, depth = 0) {
+function validateTextLengths(value, path = '', depth = 0, profileFieldDiagnostics = false) {
   if (typeof value === 'string') {
     const field = path.split('.').at(-1);
     const limit = path.startsWith('socials.') ? SOCIAL_FIELD_LIMIT : TEXT_FIELD_LIMITS.get(field);
     if (limit !== undefined && value.length > limit) {
-      const details = depth === 1 && fieldErrorFields?.has(path)
+      const details = profileFieldDiagnostics
+        && ((depth === 1 && PROFILE_TEXT_FIELD_ERROR_FIELDS.has(path))
+          || (depth === 2 && path === `socials.${field}` && SOCIALS.has(field)))
         ? { fieldErrors: [{ field: path, reason: 'too_long' }] }
         : undefined;
       fail(422, 'FIELD_TOO_LONG', `${path || field} must be at most ${limit} characters`, details);
@@ -157,13 +159,15 @@ function validateTextLengths(value, path = '', fieldErrorFields, depth = 0) {
     return;
   }
   if (Array.isArray(value)) {
-    for (const item of value) validateTextLengths(item, path, fieldErrorFields, depth + 1);
+    for (const item of value) validateTextLengths(item, path, depth + 1, false);
     return;
   }
   if (!isRecord(value)) return;
   for (const [key, item] of Object.entries(value)) {
     const childPath = path ? `${path}.${key}` : key;
-    validateTextLengths(item, childPath, fieldErrorFields, depth + 1);
+    const childDiagnostics = profileFieldDiagnostics
+      && (depth === 0 || (depth === 1 && path === 'socials'));
+    validateTextLengths(item, childPath, depth + 1, childDiagnostics);
   }
 }
 
@@ -211,7 +215,9 @@ function validateProfileFields(body, previous) {
       try {
         validateCatalogUrl(url);
       } catch {
-        fail(422, 'INVALID_SOCIAL_URL', `socials.${key} must be a safe HTTP or HTTPS URL without credentials`);
+        fail(422, 'INVALID_SOCIAL_URL', `socials.${key} must be a safe HTTP or HTTPS URL without credentials`, {
+          fieldErrors: [{ field: `socials.${key}`, reason: 'invalid_url' }],
+        });
       }
       socials[key] = url;
     }
@@ -297,7 +303,7 @@ function writeJsonResponse(value, status = 200) {
   return jsonResponse({ ...payload, versionChanges: changes }, status);
 }
 
-async function parseRequestBody(request, normalize = (body) => body, { fieldErrorFields } = {}) {
+async function parseRequestBody(request, normalize = (body) => body, { profileFieldDiagnostics = false } = {}) {
   const declaredLength = Number(request.headers.get('content-length'));
   if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BODY_BYTES) {
     fail(413, 'BODY_TOO_LARGE', 'request body exceeds the 32 KiB limit');
@@ -339,7 +345,7 @@ async function parseRequestBody(request, normalize = (body) => body, { fieldErro
   }
   if (!isRecord(body)) fail(400, 'INVALID_BODY', 'request body must be a JSON object');
   body = normalize(body);
-  validateTextLengths(body, '', fieldErrorFields);
+  validateTextLengths(body, '', 0, profileFieldDiagnostics);
   return body;
 }
 
@@ -2202,7 +2208,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         return jsonResponse(await readCreatorEditor(context));
       }
       if (request.method === 'PUT') {
-        const body = await parseRequestBody(request, undefined, { fieldErrorFields: PROFILE_TEXT_FIELD_ERROR_FIELDS });
+        const body = await parseRequestBody(request, undefined, { profileFieldDiagnostics: true });
         return jsonResponse(await saveProfile(principal, body));
       }
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');

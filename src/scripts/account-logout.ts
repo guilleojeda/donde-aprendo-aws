@@ -5,14 +5,22 @@ for (const form of document.querySelectorAll<HTMLFormElement>('[data-account-log
   if (!token?.value || !button || !status) continue;
 
   let pending = false;
+  const setState = (state: 'idle' | 'pending' | 'error', message = '') => {
+    status.dataset.state = state;
+    status.hidden = state === 'idle';
+    status.textContent = message;
+    button.setAttribute('aria-busy', String(state === 'pending'));
+  };
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (pending) return;
     if (!form.dispatchEvent(new Event('account:logout', { bubbles: true, cancelable: true }))) return;
+
+    const hadFocus = typeof document !== 'undefined' && document.activeElement === button;
     pending = true;
     button.disabled = true;
-    status.hidden = false;
-    status.textContent = 'Cerrando sesión…';
+    setState('pending', 'Cerrando sesión…');
     const controller = typeof AbortController === 'function' ? new AbortController() : undefined;
     const timeout = controller && typeof window.setTimeout === 'function'
       ? window.setTimeout(() => controller.abort(), 8_000)
@@ -40,11 +48,12 @@ for (const form of document.querySelectorAll<HTMLFormElement>('[data-account-log
         window.location.assign(destination.href);
         return;
       }
-      status.textContent = typeof payload.message === 'string'
+      const message = typeof payload?.message === 'string'
         ? payload.message
         : 'No pudimos confirmar el cierre de sesión. Inténtalo de nuevo.';
+      setState('error', message);
     } catch {
-      status.textContent = 'No pudimos confirmar el cierre de sesión. Inténtalo de nuevo.';
+      setState('error', 'No pudimos confirmar el cierre de sesión. Inténtalo de nuevo.');
     } finally {
       if (timeout !== undefined && typeof window.clearTimeout === 'function') window.clearTimeout(timeout);
     }
@@ -52,6 +61,21 @@ for (const form of document.querySelectorAll<HTMLFormElement>('[data-account-log
     pending = false;
     button.disabled = false;
     button.textContent = 'Reintentar cierre de sesión';
+
+    // Disabling the submitted button can remove focus. Restore it only when
+    // this request displaced the focus that started the attempt; a person who
+    // moved to another control while waiting keeps that newer focus.
+    const activeElement = typeof document !== 'undefined' ? document.activeElement : null;
+    const hasUsableFocus = activeElement instanceof HTMLElement
+      && activeElement !== document.body
+      && activeElement !== document.documentElement
+      && activeElement.isConnected
+      && (activeElement as HTMLButtonElement).disabled !== true
+      && activeElement.getAttribute('aria-disabled') !== 'true';
+    if (hadFocus && activeElement !== button && !hasUsableFocus) {
+      button.focus();
+    }
   });
   button.disabled = false;
+  setState('idle');
 }

@@ -96,6 +96,15 @@
   cursor: pointer;
 }
 
+.account-logout__status {
+  margin: 8px 0 0;
+  color: var(--color-text-muted);
+}
+
+.account-logout__status[data-state='error'] {
+  color: var(--color-error-text);
+}
+
 .account-message .button {
   margin-top: 2px;
 }

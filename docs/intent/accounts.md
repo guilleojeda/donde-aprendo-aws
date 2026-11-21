@@ -63,6 +63,7 @@ almacenamiento en caché para reintentar con el token CSRF ya validado; no se
 guarda una autorización de salida adicional.
 Si un reintento confirma que la sesión local ya no existe, completa de todas
 formas el cierre de Cognito. Una lectura fallida no confirma la revocación.
+Si falla al leer la sesión y el navegador sigue la redirección HTML, la vista de cuenta explica que el cierre quedó sin confirmar y ofrece volver a la cuenta.
 Cuando el navegador ya no presenta la cookie local, un POST del mismo origen
 con un único token CSRF bien formado y dentro del límite de tamaño puede
 continuar únicamente al destino fijo de salida de Cognito. Esa operación
@@ -99,6 +100,13 @@ La barra final, las mayúsculas del host y el puerto HTTPS predeterminado se
 comparan mediante el origen canónico; un puerto no predeterminado se conserva.
 Esto no relaja la igualdad de Origin, CSRF, el contexto de página ni la lista
 de hosts admitidos. El emisor OIDC conserva su regla separada con ruta.
+
+Si el retorno de acceso de Cognito no puede completarse porque el proveedor o
+su intercambio no están disponibles, `/cuenta/?estado=no-disponible` explica
+que falló el acceso y ofrece iniciar un intento nuevo en `/cuenta/ingresar/`.
+La vista distingue ese retorno de una lectura fallida de la sesión o de los
+datos privados de la página: esas lecturas conservan sus datos protegidos y
+ofrecen reintentar la misma página en `/cuenta/`.
 
 ## Páginas y administración de creadores
 
