@@ -224,7 +224,8 @@ test('alta rechazada antes del commit: conserva el formulario y sólo Guardar un
     'the real validation rejection makes no profile or placement write');
   assert.equal(await fixture.creatorStore.get(currentUrlKey(invalidUrl)), null,
     'the rejected URL has no catalog reservation');
-  await expect(form.locator('[data-link-add-status]')).toContainText(/Revisa los datos/i);
+  await expectLinkFieldError(form, form.getByLabel('URL', { exact: true }), /URL|usuario|contrase[ñn]a/iu);
+  await expect(form.locator('[data-link-add-status]')).toHaveCount(0, 'the same problem appears only at its editable field');
   await expect(page.getByRole('button', { name: 'Comprobar', exact: true })).toHaveCount(0,
     'a known validation rejection is not shown as an uncertain write');
   await expect(form.getByLabel('Título', { exact: true })).toHaveValue('Alta que no llegó al servicio');

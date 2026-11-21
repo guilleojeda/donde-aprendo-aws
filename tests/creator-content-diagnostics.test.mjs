@@ -149,6 +149,36 @@ test('el rechazo de la URL de una selección nunca marca el campo de URLs escrit
     'a failure in a selected record cannot mark the optional written-URLs textarea');
 });
 
+test('la longitud de una URL conocida distingue el texto libre de una selección', async () => {
+  const harness = await draft();
+  const oversized = `https://example.com/${'x'.repeat(CREATOR_FIELD_LIMITS.url)}`;
+  const free = await rejected(harness, '/api/creador/reclamaciones', {
+    resources: [{ url: oversized }],
+    evidence: PRIVATE,
+  }, 'FIELD_TOO_LONG');
+  assert.deepEqual(free.fieldErrors, [{ field: 'knownUrls', reason: 'too_long' }]);
+
+  const selected = await rejected(harness, '/api/creador/reclamaciones', {
+    resources: [{ resourceId: 'catalog-record', url: oversized }],
+    evidence: PRIVATE,
+  }, 'FIELD_TOO_LONG');
+  assert.equal(selected.fieldErrors, undefined,
+    'a selected catalog URL cannot mark the editable known-URLs field');
+});
+
+test('las claves literales o anidadas parecidas a resources.url no se atribuyen', async () => {
+  const harness = await draft();
+  const oversized = `https://example.com/${'x'.repeat(CREATOR_FIELD_LIMITS.url)}`;
+  for (const body of [
+    { 'resources.url': oversized, resources: [{ url: LINK.url }], evidence: PRIVATE },
+    { resources: [{ 'resources.url': oversized }], evidence: PRIVATE },
+  ]) {
+    const payload = await rejected(harness, '/api/creador/reclamaciones', body, 'FIELD_TOO_LONG');
+    assert.equal(payload.fieldErrors, undefined,
+      'a dotted or unrelated nested key cannot mark the known-URLs field');
+  }
+});
+
 test('la longitud del contexto privado se atribuye sin devolver el contenido de la solicitud', async () => {
   const harness = await draft();
   const payload = await rejected(harness, '/api/creador/reclamaciones', {

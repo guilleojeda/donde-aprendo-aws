@@ -22,6 +22,7 @@ interface Props {
   children?: ComponentChildren;
   logout?: ComponentChildren;
   showActivitySummary?: boolean;
+  statusInSection?: boolean;
   disabled: boolean;
   onOpenProfile(section: 'datos' | 'redes' | 'foto'): void;
   onCreateProfile(): void;
@@ -59,7 +60,7 @@ function OwnerSectionNavigation({ view, period, statisticsTarget }: { view: Crea
   </nav>;
 }
 
-export default function CreatorOwnerIdentityPanel({ state, children, logout, showActivitySummary = true, disabled, onOpenProfile, onCreateProfile, onPublish, onActivityPeriod, onRetryActivity, onCreateProfileInput, onRetryRead, onCheckSession, onResolveRecovery, onSaveRecoveryDraft, onExit, onCopyLink, copyFeedback }: Props) {
+export default function CreatorOwnerIdentityPanel({ state, children, logout, showActivitySummary = true, statusInSection, disabled, onOpenProfile, onCreateProfile, onPublish, onActivityPeriod, onRetryActivity, onCreateProfileInput, onRetryRead, onCheckSession, onResolveRecovery, onSaveRecoveryDraft, onExit, onCopyLink, copyFeedback }: Props) {
   const profile = state.observed.profile;
   const statisticsTarget = profile?.published ? 'detail' : 'summary';
   const isPublic = isPublicCreator(profile);
@@ -164,7 +165,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
         <p>Administra tu página y comparte su enlace cuando esté visible.</p>
       </header>
 
-      {state.message && !publicationMessage && !hasActiveEditorSurface && <p class={`creator-owner__status${state.message.kind === 'error' ? ' creator-owner__status--error' : ''}`} data-owner-status role={state.message.kind === 'error' ? 'alert' : 'status'} aria-live="polite">{state.message.text}</p>}
+      {state.message && !publicationMessage && !statusInSection && !hasActiveEditorSurface && <p class={`creator-owner__status${state.message.kind === 'error' ? ' creator-owner__status--error' : ''}`} data-owner-status role={state.message.kind === 'error' ? 'alert' : 'status'} aria-live="polite">{state.message.text}</p>}
       {state.session.state !== 'ready' && profile && !state.editor && state.location.prompt !== 'exit' && sessionRecovery}
 
       {(createEditor || !profile) && <section class="creator-owner__create" data-owner-create-panel aria-labelledby="creator-owner-create-title">

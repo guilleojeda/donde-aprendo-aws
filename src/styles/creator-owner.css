@@ -1068,6 +1068,12 @@
   border-color: var(--color-error-text);
 }
 
+.creator-owner__content-group[aria-invalid="true"] {
+  border-width: 2px;
+  border-color: var(--color-error-text);
+  background: var(--color-error-surface);
+}
+
 .creator-owner__programs {
   display: grid;
   gap: 10px;

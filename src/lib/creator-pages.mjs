@@ -136,6 +136,10 @@ function normalizeSlug(value) {
   return slug;
 }
 
+function fieldErrorDetails(field, reason) {
+  return { fieldErrors: [{ field, reason }] };
+}
+
 function textField(value, name, { optional = false } = {}) {
   if (value === undefined && optional) return undefined;
   if (typeof value !== 'string') fail(422, 'INVALID_FIELD', `${name} must be text`);
@@ -144,7 +148,11 @@ function textField(value, name, { optional = false } = {}) {
   return normalizeCreatorText(value);
 }
 
-function validateTextLengths(value, path = '', depth = 0, profileFieldDiagnostics = false) {
+function validateTextLengths(value, path = '', depth = 0, {
+  profileFieldDiagnostics = false,
+  fieldDiagnostics,
+  root = value,
+} = {}, parent) {
   if (typeof value === 'string') {
     const field = path.split('.').at(-1);
     const limit = path.startsWith('socials.') ? SOCIAL_FIELD_LIMIT : TEXT_FIELD_LIMITS.get(field);
@@ -152,14 +160,14 @@ function validateTextLengths(value, path = '', depth = 0, profileFieldDiagnostic
       const details = profileFieldDiagnostics
         && ((depth === 1 && PROFILE_TEXT_FIELD_ERROR_FIELDS.has(path))
           || (depth === 2 && path === `socials.${field}` && SOCIALS.has(field)))
-        ? { fieldErrors: [{ field: path, reason: 'too_long' }] }
-        : undefined;
+        ? fieldErrorDetails(path, 'too_long')
+        : fieldDiagnostics?.({ body: root, path, value, depth, parent });
       fail(422, 'FIELD_TOO_LONG', `${path || field} must be at most ${limit} characters`, details);
     }
     return;
   }
   if (Array.isArray(value)) {
-    for (const item of value) validateTextLengths(item, path, depth + 1, false);
+    for (const item of value) validateTextLengths(item, path, depth + 1, { root, fieldDiagnostics }, value);
     return;
   }
   if (!isRecord(value)) return;
@@ -167,7 +175,11 @@ function validateTextLengths(value, path = '', depth = 0, profileFieldDiagnostic
     const childPath = path ? `${path}.${key}` : key;
     const childDiagnostics = profileFieldDiagnostics
       && (depth === 0 || (depth === 1 && path === 'socials'));
-    validateTextLengths(item, childPath, depth + 1, childDiagnostics);
+    validateTextLengths(item, childPath, depth + 1, {
+      root,
+      profileFieldDiagnostics: childDiagnostics,
+      fieldDiagnostics,
+    }, value);
   }
 }
 
@@ -226,11 +238,11 @@ function validateProfileFields(body, previous) {
   return next;
 }
 
-function validateResourceUrl(url) {
+function validateResourceUrl(url, details) {
   try {
     return validateCatalogUrl(url);
   } catch {
-    fail(422, 'INVALID_URL', 'url must be a safe HTTP or HTTPS URL without credentials');
+    fail(422, 'INVALID_URL', 'url must be a safe HTTP or HTTPS URL without credentials', details);
   }
 }
 
@@ -247,6 +259,23 @@ function trimFreeTextClaimUrls(body) {
     }
   }
   return body;
+}
+
+function topLevelFieldDiagnostics(fields, isApplicable = () => true) {
+  const knownFields = new Set(fields);
+  return ({ body, path, value, depth }) => {
+    if (depth !== 1 || typeof value !== 'string' || !knownFields.has(path)
+      || typeof body[path] !== 'string' || !isApplicable(body)) return undefined;
+    return fieldErrorDetails(path, 'too_long');
+  };
+}
+
+function claimFieldDiagnostics({ body, path, value, depth, parent }) {
+  if (path !== 'resources.url' || depth !== 3 || typeof value !== 'string'
+    || !Array.isArray(body.resources) || !isRecord(parent)
+    || !body.resources.includes(parent) || Object.keys(parent).length !== 1
+    || parent.url !== value) return undefined;
+  return fieldErrorDetails('knownUrls', 'too_long');
 }
 
 function storedClaimResources(claim) {
@@ -303,7 +332,10 @@ function writeJsonResponse(value, status = 200) {
   return jsonResponse({ ...payload, versionChanges: changes }, status);
 }
 
-async function parseRequestBody(request, normalize = (body) => body, { profileFieldDiagnostics = false } = {}) {
+async function parseRequestBody(request, normalize = (body) => body, {
+  profileFieldDiagnostics = false,
+  fieldDiagnostics,
+} = {}) {
   const declaredLength = Number(request.headers.get('content-length'));
   if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BODY_BYTES) {
     fail(413, 'BODY_TOO_LARGE', 'request body exceeds the 32 KiB limit');
@@ -345,7 +377,7 @@ async function parseRequestBody(request, normalize = (body) => body, { profileFi
   }
   if (!isRecord(body)) fail(400, 'INVALID_BODY', 'request body must be a JSON object');
   body = normalize(body);
-  validateTextLengths(body, '', 0, profileFieldDiagnostics);
+  validateTextLengths(body, '', 0, { profileFieldDiagnostics, fieldDiagnostics });
   return body;
 }
 
@@ -1784,7 +1816,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       assertOwnerFields(value, new Set(['resourceId', 'url']));
       if (!Object.hasOwn(value, 'url')) fail(422, 'INVALID_CLAIM_RESOURCES', 'each resource URL is required');
       const hasExplicitResourceId = Object.hasOwn(value, 'resourceId');
-      const url = validateResourceUrl(value.url);
+      const url = validateResourceUrl(value.url,
+        hasExplicitResourceId ? undefined : fieldErrorDetails('knownUrls', 'invalid_url'));
       let resourceId;
       if (hasExplicitResourceId) {
         if (typeof value.resourceId !== 'string' || !value.resourceId) fail(422, 'INVALID_RESOURCE_ID', 'resourceId must identify a catalog resource');
@@ -2215,7 +2248,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
     if (path === '/api/creador/series') {
       requireMethod(request, 'POST');
-      const body = await parseRequestBody(request);
+      const body = await parseRequestBody(request, undefined, {
+        fieldDiagnostics: topLevelFieldDiagnostics(['name', 'description']),
+      });
       return jsonResponse(await createCreatorSeries(principal, body), 201);
     }
     const seriesChapterMoveMatch = path.match(/^\/api\/creador\/series\/([^/]+)\/capitulos\/([^/]+)\/mover$/);
@@ -2242,7 +2277,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (seriesMatch) {
       const id = decodeSegment(seriesMatch[1]);
       if (request.method === 'PATCH') {
-        return jsonResponse(await patchCreatorSeries(principal, id, await parseRequestBody(request)));
+        return jsonResponse(await patchCreatorSeries(principal, id, await parseRequestBody(request, undefined, {
+          fieldDiagnostics: topLevelFieldDiagnostics(['name', 'description']),
+        })));
       }
       if (request.method === 'DELETE') {
         return jsonResponse(await deleteCreatorSeries(principal, id, await parseRequestBody(request)));
@@ -2260,13 +2297,19 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
     if (path === '/api/creador/enlaces') {
       requireMethod(request, 'POST');
-      const result = await addLink(principal, await parseRequestBody(request, trimTopLevelUrl));
+      const result = await addLink(principal, await parseRequestBody(request, trimTopLevelUrl, {
+        fieldDiagnostics: topLevelFieldDiagnostics(['title', 'url', 'description'],
+          (body) => !Object.hasOwn(body, 'resourceId') && !Object.hasOwn(body, 'resourceVersion')),
+      }));
       return jsonResponse(result, result.disposition === 'already-present' ? 200 : 201);
     }
     const linkEditMatch = path.match(/^\/api\/creador\/enlaces\/([^/]+)\/editar$/);
     if (linkEditMatch) {
       requireMethod(request, 'PATCH');
-      return jsonResponse(await editLink(principal, decodeSegment(linkEditMatch[1]), await parseRequestBody(request, trimTopLevelUrl)));
+      return jsonResponse(await editLink(principal, decodeSegment(linkEditMatch[1]), await parseRequestBody(request, trimTopLevelUrl, {
+        fieldDiagnostics: topLevelFieldDiagnostics(['title', 'url', 'description'],
+          (body) => Object.hasOwn(body, 'resourceVersion')),
+      })));
     }
     const placementMoveMatch = path.match(/^\/api\/creador\/enlaces\/([^/]+)\/mover$/);
     if (placementMoveMatch) {
@@ -2293,11 +2336,16 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       }
       const resourceId = resourceIds[0];
       requireCatalogResourceIdWithinLimit(resourceId);
-      return jsonResponse(await patchCreatorResource(principal, resourceId, await parseRequestBody(request, trimTopLevelUrl)));
+      return jsonResponse(await patchCreatorResource(principal, resourceId, await parseRequestBody(request, trimTopLevelUrl, {
+        fieldDiagnostics: topLevelFieldDiagnostics(['title', 'url', 'description']),
+      })));
     }
     if (path === '/api/creador/reclamaciones') {
       requireMethod(request, 'POST');
-      return jsonResponse(await createClaim(principal, await parseRequestBody(request, trimFreeTextClaimUrls)), 202);
+      const evidenceDiagnostics = topLevelFieldDiagnostics(['evidence']);
+      return jsonResponse(await createClaim(principal, await parseRequestBody(request, trimFreeTextClaimUrls, {
+        fieldDiagnostics: (details) => evidenceDiagnostics(details) ?? claimFieldDiagnostics(details),
+      })), 202);
     }
 
     const adminResourceCollectionPath = '/api/admin/recursos';

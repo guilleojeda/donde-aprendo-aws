@@ -34,6 +34,9 @@ export type CreatorOwnerLinkDraft = {
 export type CreatorOwnerPlacementField = keyof CreatorOwnerLinkDraft;
 export type CreatorOwnerResourceField = 'title' | 'url' | 'description';
 export type CreatorOwnerAddLinkField = 'title' | 'url' | 'description' | 'selectedForDirectory';
+export type CreatorOwnerEditorField = CreatorOwnerIdentityField | CreatorOwnerSeriesField | CreatorOwnerResourceField
+  | 'position' | 'selection' | 'destinations' | 'knownUrls' | 'evidence';
+export type CreatorOwnerFieldMessages = Partial<Record<CreatorOwnerEditorField, string>>;
 export type CreatorOwnerClaimSelection = { resourceId: string; url: string; title: string };
 export type CreatorOwnerReferenceCandidate = Pick<CreatorCatalogSelectionDTO, 'id' | 'url' | 'title'>;
 
@@ -57,6 +60,13 @@ export type CreatorOwnerCommandAction =
   | 'edit-link' | 'set-link-options' | 'remove-link' | 'move-link'
   | 'create-series' | 'edit-series' | 'delete-series' | 'add-chapter' | 'remove-chapter' | 'move-chapter'
   | 'edit-resource' | 'create-claim' | 'photo-authorize' | 'photo-finalize';
+
+export type CreatorOwnerListAction = 'remove-link' | 'reinclude-link' | 'delete-series' | 'add-chapter' | 'remove-chapter';
+
+export function isCreatorOwnerListAction(action?: CreatorOwnerCommandAction): action is CreatorOwnerListAction {
+  return action === 'remove-link' || action === 'reinclude-link' || action === 'delete-series'
+    || action === 'add-chapter' || action === 'remove-chapter';
+}
 
 export interface CreatorOwnerIntent {
   id: string;
@@ -143,12 +153,13 @@ export interface CreatorOwnerState {
     page: number;
     needsRefresh: boolean;
     rejectedReferenceSelections: Pick<CreatorCatalogSelectionDTO, 'id' | 'url'>[];
+    rejectedClaimSelection?: readonly CreatorOwnerClaimSelection[];
   };
-  message?: { text: string; kind: 'info' | 'success' | 'error'; sessionDerived?: true; scope?: 'publish-profile' };
+  message?: { text: string; kind: 'info' | 'success' | 'error'; sessionDerived?: true; scope?: 'publish-profile' | 'list-action'; intent?: CreatorOwnerIntent };
   editorFeedback?: {
     editorKey: string;
     text?: string;
-    fieldErrors?: Partial<Record<CreatorOwnerIdentityField, string>>;
+    fieldErrors?: CreatorOwnerFieldMessages;
   };
   runtimeReady: boolean;
 }
@@ -173,18 +184,20 @@ export type CreatorOwnerAction = CreatorOwnerSessionPolicyAction
   | { type: 'update-reference-draft'; selected?: CreatorOwnerReferenceCandidate; selectedForDirectory?: boolean }
   | { type: 'update-claim-draft'; value: { selected?: CreatorOwnerClaimSelection[]; knownUrls?: string; evidence?: string } }
   | { type: 'update-photo-file'; file?: File }
+  | { type: 'editor-field-rejected'; editorKey: string; field: CreatorOwnerEditorField; message: string }
   | { type: 'catalog-load-started' }
   | { type: 'catalog-load-ready'; entries: CreatorCatalogSelectionDTO[]; message?: string }
   | { type: 'catalog-load-failed'; message: string }
   | { type: 'catalog-search'; value: string }
   | { type: 'catalog-page'; value: number }
-  | { type: 'catalog-require-refresh'; message: string; rejectedSelection?: Pick<CreatorCatalogSelectionDTO, 'id' | 'url'> }
+  | { type: 'catalog-require-refresh'; message: string; rejectedSelection?: Pick<CreatorCatalogSelectionDTO, 'id' | 'url'>;
+      rejectedClaimSelection?: readonly CreatorOwnerClaimSelection[] }
   | { type: 'operation-started'; intent: CreatorOwnerIntent; preserveExit?: boolean }
   | { type: 'operation-reading'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string }
   | { type: 'operation-read-failed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string; suppressGlobalMessage?: boolean; focusAfterRender?: string }
   | { type: 'operation-read-installed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; snapshot: CreatorOwnerSnapshotDTO; message: string; consumeEditor?: boolean; focusAfterRender?: string }
   | { type: 'operation-unknown'; intent: CreatorOwnerIntent; message: string }
-  | { type: 'operation-rejected'; intentId: string; message: string; fieldErrors?: Partial<Record<CreatorOwnerIdentityField, string>> }
+  | { type: 'operation-rejected'; intentId: string; message: string; fieldErrors?: CreatorOwnerFieldMessages }
   | { type: 'resolve-operation'; choice: CreatorOwnerRecoveryChoice }
   | { type: 'set-message'; text: string; kind?: 'info' | 'success' | 'error' }
   | { type: 'set-series-search'; value: string }
@@ -422,6 +435,7 @@ const ownerRecoveryCompareFocus = '[data-owner-check], [data-owner-compare]';
 const ownerRecoveryPublishCompareFocus = '[data-owner-publish-check]';
 const ownerRecoveryDecisionFocus = '[data-owner-conflict-save], [data-owner-use-saved], [data-owner-return-to-draft]';
 const ownerEditorDraftFocus = '[data-owner-dialog] form[data-owner-form]:not([hidden]) input:not([type="hidden"]), [data-owner-dialog] form[data-owner-form]:not([hidden]) textarea, [data-owner-dialog] form[data-owner-form]:not([hidden]) select, [data-owner-dialog] form[data-owner-form]:not([hidden]) button[type="submit"]:enabled';
+const ownerContentErrorFocus = '[data-owner-dialog] [data-owner-content-error-focus]';
 
 export function creatorOwnerEditorDraftFocus(editor: CreatorOwnerEditorDraft): string {
   return editor.kind === 'create-profile' ? '#owner-create-name' : ownerEditorDraftFocus;
@@ -462,11 +476,13 @@ export function creatorOwnerWriteRejectedFocus(state: CreatorOwnerState, intent:
         const key = CREATOR_SOCIALS.find((social: CreatorSocial) => feedback[`socials.${social}`]);
         if (key) return `#owner-social-${key}`;
       }
+      if (state.editor.kind !== 'profile' && state.editor.kind !== 'photo') return ownerContentErrorFocus;
     }
     return creatorOwnerEditorDraftFocus(state.editor);
   }
   if (intent.action === 'publish-profile') return '[data-owner-publish]';
   if (intent.action === 'save-profile' && !state.observed.profile) return '#owner-create-name';
+  if (isCreatorOwnerListAction(intent.action)) return '[data-owner-list-action-error]';
   if (state.location.view === 'series') return '#owner-series-title';
   if (state.location.view === 'enlaces') return '#owner-links-title';
   if (state.location.view === 'solicitudes') return '#owner-claims-title';
@@ -548,19 +564,23 @@ export function creatorOwnerLinkMoveContext(snapshot: CreatorOwnerSnapshotDTO, p
   return index < 0 ? undefined : { group, position: index + 1, count: order.length };
 }
 
+type MoveEditor = Extract<CreatorOwnerEditorDraft, { kind: 'move-chapter' | 'move-link' }>;
+
+function creatorOwnerMovePositionLimit(editor: MoveEditor, snapshot: CreatorOwnerSnapshotDTO): number {
+  if (editor.kind === 'move-link') return creatorOwnerLinkMoveContext(snapshot, editor.placementId)?.count ?? 0;
+  const chapters = snapshot.series[editor.seriesId]?.chapters;
+  return chapters?.includes(editor.placementId) ? chapters.length : 0;
+}
+
+export function creatorOwnerMovePositionMessage(editor: MoveEditor, snapshot: CreatorOwnerSnapshotDTO): string {
+  const maximum = creatorOwnerMovePositionLimit(editor, snapshot);
+  return maximum ? `Ingresa una posición entera entre 1 y ${maximum}.` : 'Ingresa una posición entera mayor que cero.';
+}
+
 export function creatorOwnerMoveDestinationIsValid(editor: CreatorOwnerEditorDraft, snapshot: CreatorOwnerSnapshotDTO): boolean {
-  let maximum: number;
-  if (editor.kind === 'move-chapter') {
-    const series = snapshot.series[editor.seriesId];
-    if (!series?.chapters.includes(editor.placementId)) return false;
-    maximum = series.chapters.length;
-  } else if (editor.kind === 'move-link') {
-    const position = creatorOwnerLinkMoveContext(snapshot, editor.placementId);
-    if (!position) return false;
-    maximum = position.count;
-  } else return true;
+  if (editor.kind !== 'move-link' && editor.kind !== 'move-chapter') return true;
   const destination = Number(editor.targetPosition);
-  return Number.isSafeInteger(destination) && destination >= 1 && destination <= maximum;
+  return Number.isSafeInteger(destination) && destination >= 1 && destination <= creatorOwnerMovePositionLimit(editor, snapshot);
 }
 
 export function creatorOwnerCanSubmitEditor(state: CreatorOwnerState): boolean {
@@ -583,7 +603,7 @@ export function creatorOwnerCanSubmitEditor(state: CreatorOwnerState): boolean {
   if (editor.kind === 'add-link') return true;
   if (editor.kind === 'move-link') return [...snapshot.order.featured, ...snapshot.order.ordinary].includes(editor.placementId);
   if (editor.kind === 'reference') return creatorOwnerReferenceSubmissionStatus(state, editor.selected) === 'ready';
-  if (editor.kind === 'claim') return true;
+  if (editor.kind === 'claim') return creatorOwnerClaimSelectionIsCurrent(state, editor.selected);
   return false;
 }
 
@@ -595,6 +615,7 @@ export function creatorOwnerReferenceSubmissionStatus(state: CreatorOwnerState, 
 }
 
 export function creatorOwnerClaimSelectionIsCurrent(state: CreatorOwnerState, selection: readonly CreatorOwnerClaimSelection[]): boolean {
+  if (creatorOwnerClaimSelectionNeedsRefresh(state, selection)) return false;
   return selection.every((item) => {
     const catalogMatch = state.catalog.entries?.find(({ id }) => id === item.resourceId);
     if (catalogMatch) return catalogMatch.url === item.url;
@@ -602,9 +623,20 @@ export function creatorOwnerClaimSelectionIsCurrent(state: CreatorOwnerState, se
   });
 }
 
-function updateEditor(state: CreatorOwnerState, update: (editor: CreatorOwnerEditorDraft) => CreatorOwnerEditorDraft): CreatorOwnerState {
+export function creatorOwnerClaimSelectionNeedsRefresh(state: CreatorOwnerState, selection: readonly CreatorOwnerClaimSelection[]): boolean {
+  if (selection.length === 0) return false;
+  const rejected = state.catalog.rejectedClaimSelection;
+  return state.catalog.needsRefresh || Boolean(rejected?.some(({ resourceId, url }) =>
+    selection.some((item) => item.resourceId === resourceId && item.url === url)));
+}
+
+function updateEditor(state: CreatorOwnerState, update: (editor: CreatorOwnerEditorDraft) => CreatorOwnerEditorDraft,
+  fields?: readonly string[]): CreatorOwnerState {
   if (!state.editor || state.operation.status !== 'idle') return state;
-  return { ...state, editor: update(state.editor) };
+  const editor = update(state.editor);
+  if (editor === state.editor) return state;
+  const next = { ...state, editor };
+  return fields ? clearEditorFeedback(next, fields) : next;
 }
 
 function clearEditorFeedback(state: CreatorOwnerState, fields?: readonly string[]): CreatorOwnerState {
@@ -622,7 +654,7 @@ function clearEditorFeedback(state: CreatorOwnerState, fields?: readonly string[
     return withoutFeedback(state);
   }
   const remaining = Object.fromEntries(Object.entries(feedback.fieldErrors)
-    .filter(([field]) => !fields.includes(field))) as Partial<Record<CreatorOwnerIdentityField, string>>;
+    .filter(([field]) => !fields.includes(field)));
   if (Object.keys(remaining).length === 0) return withoutFeedback(state);
   return { ...state, editorFeedback: { ...feedback, fieldErrors: remaining } };
 }
@@ -665,34 +697,56 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
     case 'update-series-draft': return updateEditor(state, (editor) => editor.kind === 'series'
       ? { ...editor, draft: { ...editor.draft, ...action.value },
         touchedFields: [...new Set([...editor.touchedFields, ...Object.keys(action.value) as CreatorOwnerSeriesField[]])],
-        slugManuallyEdited: action.manuallyEditedSlug ?? editor.slugManuallyEdited } : editor);
-    case 'update-move-draft': return updateEditor(state, (editor) => editor.kind === 'move-chapter' ? { ...editor, targetPosition: action.targetPosition } : editor);
+        slugManuallyEdited: action.manuallyEditedSlug ?? editor.slugManuallyEdited } : editor, Object.keys(action.value));
+    case 'update-move-draft': return updateEditor(state, (editor) => editor.kind === 'move-chapter' ? { ...editor, targetPosition: action.targetPosition } : editor, ['position']);
     case 'update-link-draft': return updateEditor(state, (editor) => editor.kind === 'link-placement'
       ? { ...editor, draft: { ...editor.draft, ...action.value }, touchedFields: [...new Set([...editor.touchedFields, ...Object.keys(action.value) as CreatorOwnerPlacementField[]])] }
       : editor.kind === 'link-resource' ? { ...editor, draft: { ...editor.draft, ...action.value },
-        touchedFields: [...new Set([...editor.touchedFields, ...Object.keys(action.value).filter((field): field is CreatorOwnerResourceField => ['title', 'url', 'description'].includes(field))])] } : editor);
+        touchedFields: [...new Set([...editor.touchedFields, ...Object.keys(action.value).filter((field): field is CreatorOwnerResourceField => ['title', 'url', 'description'].includes(field))])] } : editor, Object.keys(action.value));
     case 'update-add-link-draft': return updateEditor(state, (editor) => editor.kind === 'add-link'
       ? { ...editor, draft: { ...editor.draft, ...action.value },
-        touchedFields: [...new Set([...editor.touchedFields, ...Object.keys(action.value) as CreatorOwnerAddLinkField[]])] } : editor);
-    case 'update-move-link-draft': return updateEditor(state, (editor) => editor.kind === 'move-link' ? { ...editor, targetPosition: action.targetPosition } : editor);
+        touchedFields: [...new Set([...editor.touchedFields, ...Object.keys(action.value) as CreatorOwnerAddLinkField[]])] } : editor, Object.keys(action.value));
+    case 'update-move-link-draft': return updateEditor(state, (editor) => editor.kind === 'move-link' ? { ...editor, targetPosition: action.targetPosition } : editor, ['position']);
     case 'update-reference-draft': return updateEditor(state, (editor) => editor.kind === 'reference'
-      ? { ...editor, ...(action.selected !== undefined ? { selected: action.selected ? { ...action.selected } : undefined } : {}),
-        ...(action.selectedForDirectory !== undefined ? { selectedForDirectory: action.selectedForDirectory } : {}) } : editor);
-    case 'update-claim-draft': return updateEditor(state, (editor) => editor.kind === 'claim'
-      ? { ...editor, ...(action.value.selected ? { selected: action.value.selected.map((item) => ({ ...item })) } : {}),
-        ...(action.value.knownUrls !== undefined ? { knownUrls: action.value.knownUrls } : {}), ...(action.value.evidence !== undefined ? { evidence: action.value.evidence } : {}) } : editor);
+      ? { ...editor, ...(Object.hasOwn(action, 'selected') ? { selected: action.selected } : {}),
+        ...(action.selectedForDirectory !== undefined ? { selectedForDirectory: action.selectedForDirectory } : {}) } : editor,
+      Object.hasOwn(action, 'selected') ? ['selection'] : []);
+    case 'update-claim-draft': {
+      const fields = Object.keys(action.value);
+      if (action.value.selected || action.value.knownUrls !== undefined) fields.push('destinations');
+      if (action.value.selected) fields.push('selection');
+      return updateEditor(state, (editor) => editor.kind === 'claim'
+        ? { ...editor, ...(action.value.selected ? { selected: action.value.selected.map((item) => ({ ...item })) } : {}),
+          ...(action.value.knownUrls !== undefined ? { knownUrls: action.value.knownUrls } : {}), ...(action.value.evidence !== undefined ? { evidence: action.value.evidence } : {}) } : editor, fields);
+    }
     case 'update-photo-file': {
       const nextState = updateEditor(state, (editor) => editor.kind === 'photo' ? { ...editor, file: action.file } : editor);
       return nextState === state ? state : clearEditorFeedback(nextState, ['photo']);
     }
+    case 'editor-field-rejected':
+      return state.editor?.key === action.editorKey && state.operation.status === 'idle'
+        ? { ...state, editorFeedback: { editorKey: action.editorKey, fieldErrors: { [action.field]: action.message } },
+          message: undefined, location: { ...state.location, focusAfterRender: ownerContentErrorFocus } }
+        : state;
     case 'catalog-load-started': return { ...state, catalog: { ...state.catalog, status: 'loading', message: undefined } };
-    case 'catalog-load-ready': return { ...state, catalog: { ...state.catalog, status: 'ready', entries: action.entries.map((entry) => ({ ...entry })), message: action.message,
-      needsRefresh: false, rejectedReferenceSelections: state.catalog.rejectedReferenceSelections.filter(({ id, url }) => action.entries.some((entry) => entry.id === id && entry.url === url)) } };
+    case 'catalog-load-ready': {
+      const rejected = state.catalog.rejectedClaimSelection;
+      // A claim rejection can involve several selected records. Until the
+      // refreshed index shows which ones changed, keep those pairs from replay.
+      const showsChangedSelection = rejected?.some(({ resourceId, url }) => {
+        const current = action.entries.find(({ id }) => id === resourceId);
+        return current ? current.url !== url : state.catalog.entries?.some(({ id }) => id === resourceId);
+      });
+      return { ...state, catalog: { ...state.catalog, status: 'ready', entries: action.entries.map((entry) => ({ ...entry })), message: action.message,
+        needsRefresh: false, rejectedClaimSelection: showsChangedSelection ? undefined : rejected,
+        rejectedReferenceSelections: state.catalog.rejectedReferenceSelections.filter(({ id, url }) => action.entries.some((entry) => entry.id === id && entry.url === url)) } };
+    }
     case 'catalog-load-failed': return { ...state, catalog: { ...state.catalog, status: 'error', message: action.message } };
     case 'catalog-search': return { ...state, catalog: { ...state.catalog, search: action.value, page: 1 } };
     case 'catalog-page': return { ...state, catalog: { ...state.catalog, page: Math.max(1, action.value) } };
     case 'catalog-require-refresh': return { ...state, catalog: { ...state.catalog, needsRefresh: true, message: action.message,
-      rejectedReferenceSelections: action.rejectedSelection ? [...state.catalog.rejectedReferenceSelections, action.rejectedSelection] : state.catalog.rejectedReferenceSelections } };
+      rejectedReferenceSelections: action.rejectedSelection ? [...state.catalog.rejectedReferenceSelections, action.rejectedSelection] : state.catalog.rejectedReferenceSelections,
+      ...(action.rejectedClaimSelection ? { rejectedClaimSelection: action.rejectedClaimSelection } : {}) } };
     case 'operation-started': return (state.operation.status === 'idle'
       || state.operation.status === 'sending' && state.operation.intent.id === action.intent.id
       || state.operation.status === 'conflict' && state.operation.readCompleted && state.operation.intent.editorKey === action.intent.editorKey)
@@ -751,6 +805,7 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
           text: action.message,
           kind: 'error' as const,
           ...(intent.action === 'publish-profile' ? { scope: 'publish-profile' as const } : {}),
+          ...(isCreatorOwnerListAction(intent.action) ? { scope: 'list-action' as const, intent } : {}),
         } };
       const recoveryFocus = creatorOwnerWriteRejectedFocus(nextState, intent);
       return recoveryFocus ? { ...nextState, location: { ...nextState.location, focusAfterRender: recoveryFocus } } : nextState;
@@ -765,8 +820,12 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
             : state.location.view === 'solicitudes' ? '[data-claim-section-open]'
               : '#owner-activity-title'
         : undefined;
-      const draftFocus = action.choice === 'draft' && state.editor ? creatorOwnerEditorDraftFocus(state.editor) : undefined;
+      const editor = action.choice === 'draft' ? state.editor : undefined;
+      const positionError = editor && (editor.kind === 'move-link' || editor.kind === 'move-chapter')
+        && !creatorOwnerMoveDestinationIsValid(editor, state.observed) ? creatorOwnerMovePositionMessage(editor, state.observed) : undefined;
+      const draftFocus = editor ? positionError ? ownerContentErrorFocus : creatorOwnerEditorDraftFocus(editor) : undefined;
       return { ...state, operation: { status: 'idle' }, ...(action.choice === 'saved' ? { editor: undefined } : {}),
+        ...(positionError && editor ? { editorFeedback: { editorKey: editor.key, fieldErrors: { position: positionError } } } : {}),
         location: { ...state.location, focusAfterRender: publicationAdopted ? '#owner-profile-name' : editorRecoveryFocus ?? draftFocus ?? state.location.focusAfterRender },
         message: { text: action.choice === 'saved' ? 'Usaste el estado guardado. No repetimos la acción anterior.' : 'Conservamos el borrador. Guardarlo ahora será una acción nueva.', kind: 'info' } };
     }

@@ -30,12 +30,16 @@ import {
   createCreatorOwnerState,
   creatorOwnerChapterRecoveryIsVisibleInDetail,
   creatorOwnerClaimSelectionIsCurrent,
+  creatorOwnerClaimSelectionNeedsRefresh,
   creatorOwnerLinkMoveContext,
+  creatorOwnerMoveDestinationIsValid,
+  creatorOwnerMovePositionMessage,
   creatorOwnerPreservesAcknowledgedRead,
   deriveCreatorOwnerRecoveryAction,
   creatorOwnerReferenceSubmissionStatus,
   creatorOwnerDraftIsDirty,
   creatorOwnerReducer,
+  isCreatorOwnerListAction,
   reduceCreatorOwnerSessionPolicy,
   type CreatorOwnerSessionPolicyAction,
   type CreatorOwnerSessionPolicyState,
@@ -46,7 +50,8 @@ import {
   type CreatorOwnerState,
   type CreatorOwnerView,
   type CreatorOwnerReadFact,
-  type CreatorOwnerIdentityField,
+  type CreatorOwnerEditorField,
+  type CreatorOwnerFieldMessages,
 } from '../../lib/creator-owner-state';
 import CreatorOwnerEditorDialog from './CreatorOwnerEditorDialog';
 import CreatorOwnerIdentityPanel from './CreatorOwnerIdentityPanel';
@@ -185,30 +190,30 @@ function rejectedOwnerWriteMessage(error: unknown, status: number): string {
 
 type CreatorOwnerWriteErrorPayload = CreatorSessionResponse & { fieldErrors?: unknown };
 
-type OwnerFieldMessages = Partial<Record<CreatorOwnerIdentityField, string>>;
-
 const invalidSocialUrlMessage = 'Ingresa una URL HTTP o HTTPS completa sin usuario ni contraseña.';
 const longSocialUrlMessage = `Reduce la URL a ${CREATOR_FIELD_LIMITS.social} caracteres o menos.`;
+const invalidClaimUrlMessage = 'Usa una URL HTTP o HTTPS por línea, sin usuario ni contraseña.';
 const photoFormatMessage = 'Elige una imagen JPEG, PNG o WebP.';
 const photoSizeMessage = 'Elige una foto de entre 1 byte y 15 MiB.';
 
-function readOwnerFieldErrors(payload: CreatorSessionResponse | null, expectedReason: string, messages: OwnerFieldMessages): OwnerFieldMessages | undefined {
+function readOwnerFieldErrors(payload: CreatorSessionResponse | null, expectedReason: string,
+  messages: CreatorOwnerFieldMessages): CreatorOwnerFieldMessages | undefined {
   const fieldErrors = (payload as CreatorOwnerWriteErrorPayload | null)?.fieldErrors;
-  if (!Array.isArray(fieldErrors) || fieldErrors.length === 0 || fieldErrors.length > Object.keys(messages).length) return undefined;
+  if (!Array.isArray(fieldErrors) || fieldErrors.length === 0 || fieldErrors.length > 16) return undefined;
 
-  const mapped: OwnerFieldMessages = {};
+  const mapped: CreatorOwnerFieldMessages = {};
   for (const entry of fieldErrors as unknown[]) {
     if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return undefined;
     const { field, reason } = entry as Record<string, unknown>;
     if (typeof field !== 'string' || reason !== expectedReason || !Object.hasOwn(messages, field)) return undefined;
-    const identityField = field as CreatorOwnerIdentityField;
-    mapped[identityField] = messages[identityField];
+    const knownField = field as CreatorOwnerEditorField;
+    mapped[knownField] = messages[knownField];
   }
   return mapped;
 }
 
 function ownerIdentityFieldErrors(error: unknown, payload: CreatorSessionResponse | null, intent: CreatorOwnerIntent,
-  editor: CreatorOwnerEditorDraft | undefined): OwnerFieldMessages | undefined {
+  editor: CreatorOwnerEditorDraft | undefined): CreatorOwnerFieldMessages | undefined {
   if (intent.action !== 'save-profile' || !editor || intent.editorKey !== editor.key) return undefined;
   if (editor.kind === 'profile' && editor.section === 'redes') {
     if (error !== 'INVALID_SOCIAL_URL' && error !== 'FIELD_TOO_LONG') return undefined;
@@ -227,7 +232,7 @@ function ownerIdentityFieldErrors(error: unknown, payload: CreatorSessionRespons
 
   const required = error === 'PROFILE_INCOMPLETE';
   const expectedReason = required ? 'required' : 'too_long';
-  const messages: OwnerFieldMessages = required
+  const messages: CreatorOwnerFieldMessages = required
     ? { displayName: 'Ingresa un nombre visible.', slug: 'Ingresa una dirección para tu página.' }
     : { displayName: 'El campo Nombre visible supera el límite permitido.', ...(creating ? {} : {
       city: 'El campo Ciudad supera el límite permitido.',
@@ -235,6 +240,44 @@ function ownerIdentityFieldErrors(error: unknown, payload: CreatorSessionRespons
       bio: 'La presentación supera el límite permitido.',
     }) };
   return readOwnerFieldErrors(payload, expectedReason, messages);
+}
+
+function ownerContentFieldErrors(error: unknown, payload: CreatorSessionResponse | null, intent: PendingOwnerCommand,
+  editor: CreatorOwnerEditorDraft, snapshot: CreatorOwnerSnapshotDTO): CreatorOwnerFieldMessages | undefined {
+  if (intent.editorKey !== editor.key) return undefined;
+  const { action, fields } = intent;
+  let lengthMessages: CreatorOwnerFieldMessages;
+  if (action === 'add-link' || action === 'edit-link' || action === 'edit-resource') {
+    if (error === 'INVALID_TITLE' && Object.hasOwn(fields, 'title')) return { title: 'Ingresa un título.' };
+    if ((error === 'INVALID_URL' || error === 'URL_TAKEN') && Object.hasOwn(fields, 'url')) {
+      return { url: rejectedOwnerWriteMessage(error, 422) };
+    }
+    lengthMessages = { title: 'El título supera el límite de caracteres.', url: 'La URL supera el límite de caracteres.',
+      description: 'La descripción supera el límite de caracteres.' };
+  } else if (action === 'create-series' || action === 'edit-series') {
+    if (error === 'SERIES_SLUG_TAKEN') return { slug: rejectedOwnerWriteMessage(error, 409) };
+    if (error === 'INVALID_SLUG') return { slug: 'Usa minúsculas, números y guiones sencillos para la dirección.' };
+    if (error === 'INVALID_NAME') return { name: 'Ingresa un nombre para la serie.' };
+    lengthMessages = { name: 'El nombre de la serie supera el límite de caracteres.', description: 'La descripción supera el límite de caracteres.' };
+  } else if (action === 'create-claim' && editor.kind === 'claim') {
+    const hasWrittenUrls = Boolean(editor.knownUrls.trim());
+    if (error === 'INVALID_URL' && hasWrittenUrls) {
+      return readOwnerFieldErrors(payload, 'invalid_url', { knownUrls: invalidClaimUrlMessage });
+    }
+    return error === 'FIELD_TOO_LONG' ? readOwnerFieldErrors(payload, 'too_long', {
+      evidence: `Reduce el contexto privado a ${CREATOR_FIELD_LIMITS.evidence} caracteres o menos.`,
+      ...(hasWrittenUrls ? { knownUrls: `Usa URLs de hasta ${CREATOR_FIELD_LIMITS.url} caracteres.` } : {}),
+    }) : undefined;
+  } else {
+    if (error === 'INVALID_POSITION' && (editor.kind === 'move-link' || editor.kind === 'move-chapter')) {
+      return { position: creatorOwnerMovePositionMessage(editor, snapshot) };
+    }
+    if (error === 'INVALID_RESOURCE_ID' && action === 'reference-link') return { selection: 'Elige una ficha vigente del catálogo.' };
+    return undefined;
+  }
+  return error === 'FIELD_TOO_LONG'
+    ? readOwnerFieldErrors(payload, 'too_long', Object.fromEntries(Object.entries(lengthMessages).filter(([field]) => Object.hasOwn(fields, field))))
+    : undefined;
 }
 
 function photoRejectionMessage(error: unknown): string | undefined {
@@ -255,6 +298,19 @@ function acknowledgedActionLabel(intent?: CreatorOwnerIntent): string {
   if (intent.action === 'add-link' && intent.acknowledgement?.disposition === 'resource-reused') return 'La ficha existente se agregó';
   if (intent.action === 'add-link' && intent.acknowledgement?.disposition === 'already-present') return 'El enlace ya estaba en tu página';
   return 'La acción fue confirmada';
+}
+
+function listRecoveryHeading(action: CreatorOwnerIntent['action']): string {
+  switch (action) {
+    case 'delete-series': return 'Comprobar eliminación';
+    case 'remove-link': return 'Comprobar que se quitó el enlace';
+    case 'reinclude-link': return 'Comprobar la reincorporación';
+    case 'add-chapter':
+    case 'remove-chapter': return 'Comprobar capítulos';
+    case 'photo-authorize':
+    case 'photo-finalize': return 'Comprobar la foto';
+    default: return 'Actualizar el estado guardado';
+  }
 }
 
 function acknowledgedReadFailureLabel(intent?: CreatorOwnerIntent): string {
@@ -706,11 +762,12 @@ export default function CreatorOwnerApp(props: Props) {
         || selector === '[data-series-page]:last-of-type'
         || selector === '[data-series-chapter-page]:last-of-type';
       const revealContextFocus = selector === '#owner-series-title' || selector === '#owner-series-chapters-title';
+      const revealFieldError = latestTarget.hasAttribute('data-owner-content-error-focus');
       const bounds = latestTarget.getBoundingClientRect();
       const outsideViewport = bounds.top < 0 || bounds.bottom > window.innerHeight
         || bounds.left < 0 || bounds.right > window.innerWidth;
       // Recovery takes over an in-flight smooth scroll from the previous control.
-      if (recoveryFocusTarget || outsideViewport) {
+      if (recoveryFocusTarget || revealFieldError || outsideViewport) {
         latestTarget.scrollIntoView({
           block: recoveryFocusTarget || insideOwnerDialog || revealPagerFocus || revealContextFocus ? 'center' : 'nearest',
           inline: 'nearest',
@@ -1314,8 +1371,11 @@ export default function CreatorOwnerApp(props: Props) {
     }
     if (intent.action === 'create-claim' && latest.editor?.kind === 'claim' && latest.editor.key === intent.editorKey
       && !creatorOwnerClaimSelectionIsCurrent(latest, latest.editor.selected)) {
-      dispatch({ type: 'catalog-require-refresh', message: 'Actualiza el catálogo y vuelve a seleccionar las fichas cuyo destino pudo cambiar.' });
-      setMessage('Actualiza el catálogo y vuelve a seleccionar las fichas cuyo destino pudo cambiar.', 'error');
+      if (creatorOwnerClaimSelectionNeedsRefresh(latest, latest.editor.selected)) {
+        dispatch({ type: 'catalog-require-refresh', message: 'Actualiza el catálogo y vuelve a seleccionar las fichas cuyo destino pudo cambiar.' });
+      } else {
+        rejectEditorField(latest.editor, 'selection', 'Vuelve a elegir las fichas cuya URL cambió o quítalas de la selección.');
+      }
       return;
     }
     let request;
@@ -1359,13 +1419,14 @@ export default function CreatorOwnerApp(props: Props) {
         const targetMissing = response.status === 403 && error === 'RESOURCE_EDIT_FORBIDDEN'
           || response.status === 404 && ['PLACEMENT_NOT_FOUND', 'SERIES_NOT_FOUND',
             'SERIES_MEMBERSHIP_NOT_FOUND', 'RESOURCE_NOT_FOUND'].includes(String(error));
-        const staleCatalog = response.status === 409 && error === 'RESOURCE_CONFLICT'
-          && (intent.action === 'reference-link' || intent.action === 'create-claim');
+        const staleCatalog = (intent.action === 'reference-link' || intent.action === 'create-claim')
+          && (response.status === 409 && error === 'RESOURCE_CONFLICT' || response.status === 404 && error === 'RESOURCE_NOT_FOUND');
         if (staleCatalog) {
           const selected = intent.action === 'reference-link' && typeof intent.fields.url === 'string' && intent.target?.resourceId
             ? { id: intent.target.resourceId, url: intent.fields.url } : undefined;
+          const rejectedClaimSelection = intent.action === 'create-claim' && latest.editor?.kind === 'claim' ? latest.editor.selected : undefined;
           dispatch({ type: 'catalog-require-refresh', message: 'Actualiza el catálogo y vuelve a seleccionar las fichas cuyo destino pudo cambiar.',
-            ...(selected ? { rejectedSelection: selected } : {}) });
+            ...(selected ? { rejectedSelection: selected } : {}), ...(rejectedClaimSelection ? { rejectedClaimSelection } : {}) });
         }
         if (targetMissing || response.status === 409 && typeof error === 'string' && error.endsWith('_CONFLICT')) {
           await readOwnerSnapshot('conflict', { ...storedIntent, ...(targetMissing ? { targetMissing: true } : {}) });
@@ -1376,11 +1437,17 @@ export default function CreatorOwnerApp(props: Props) {
           dispatch({ type: 'operation-unknown', intent: storedIntent, message: 'No pudimos confirmar el resultado. Comprueba el estado guardado antes de decidir si vuelves al borrador.' });
           return;
         }
-        const message = intent.action === 'publish-profile'
-          ? error === 'PROFILE_INCOMPLETE' ? 'Completa el nombre y la dirección de tu página antes de publicar.'
-            : 'No pudimos publicar tu página. Revisa tus datos o vuelve a intentarlo.'
-          : rejectedOwnerWriteMessage(error, response.status);
-        const fieldErrors = ownerIdentityFieldErrors(error, payload, storedIntent, stateRef.current.editor);
+        let message = rejectedOwnerWriteMessage(error, response.status);
+        if (intent.action === 'publish-profile') {
+          message = error === 'PROFILE_INCOMPLETE' ? 'Completa el nombre y la dirección de tu página antes de publicar.'
+            : 'No pudimos publicar tu página. Revisa tus datos o vuelve a intentarlo.';
+        } else if (isCreatorOwnerListAction(intent.action)) {
+          message = error === 'CREATOR_CONTENT_TOO_LARGE' ? 'No hay espacio para este cambio. Quita contenido antes de volver a intentarlo.'
+            : 'La acción no se guardó. Revisa el contenido de esta sección antes de volver a intentarlo.';
+        }
+        const { editor, observed } = stateRef.current;
+        const fieldErrors = editor && (ownerIdentityFieldErrors(error, payload, storedIntent, editor)
+          ?? ownerContentFieldErrors(error, payload, intent, editor, observed));
         operationGenerationRef.current += 1;
         dispatch({ type: 'operation-rejected', intentId: intent.id, message, ...(fieldErrors ? { fieldErrors } : {}) });
         return;
@@ -1417,6 +1484,10 @@ export default function CreatorOwnerApp(props: Props) {
     }
   }
 
+  function rejectEditorField(editor: CreatorOwnerEditorDraft, field: CreatorOwnerEditorField, message: string): undefined {
+    dispatch({ type: 'editor-field-rejected', editorKey: editor.key, field, message });
+  }
+
   function intentForEditor(editor: CreatorOwnerEditorDraft): PendingOwnerCommand | undefined {
     const latest = stateRef.current;
     const snapshot = latest.observed;
@@ -1442,9 +1513,8 @@ export default function CreatorOwnerApp(props: Props) {
         { ...(editor.seriesId ? { target: { seriesId: editor.seriesId } } : {}), editor });
     }
     if (editor.kind === 'move-chapter') {
-      const destination = Number(editor.targetPosition);
-      if (!Number.isSafeInteger(destination) || destination < 1) { setMessage('Ingresa una posición entera mayor que cero.', 'error'); return undefined; }
-      return makeIntent('move-chapter', { destination }, { target: { seriesId: editor.seriesId, placementId: editor.placementId }, editor });
+      if (!creatorOwnerMoveDestinationIsValid(editor, snapshot)) return rejectEditorField(editor, 'position', creatorOwnerMovePositionMessage(editor, snapshot));
+      return makeIntent('move-chapter', { destination: Number(editor.targetPosition) }, { target: { seriesId: editor.seriesId, placementId: editor.placementId }, editor });
     }
     if (editor.kind === 'link-placement') {
       const placement = snapshot.placements[editor.placementId];
@@ -1473,23 +1543,22 @@ export default function CreatorOwnerApp(props: Props) {
         selectedForDirectory: editor.draft.selectedForDirectory, ...optionalFields }, { editor });
     }
     if (editor.kind === 'move-link') {
-      const destination = Number(editor.targetPosition);
-      if (!Number.isSafeInteger(destination) || destination < 1) { setMessage('Ingresa una posición entera mayor que cero.', 'error'); return undefined; }
-      return makeIntent('move-link', { destination }, { target: { placementId: editor.placementId }, editor });
+      if (!creatorOwnerMoveDestinationIsValid(editor, snapshot)) return rejectEditorField(editor, 'position', creatorOwnerMovePositionMessage(editor, snapshot));
+      return makeIntent('move-link', { destination: Number(editor.targetPosition) }, { target: { placementId: editor.placementId }, editor });
     }
     if (editor.kind === 'reference') {
-      if (!editor.selected) { setMessage('Elige una ficha vigente del catálogo antes de agregarla a tu página.', 'error'); return undefined; }
+      if (!editor.selected) return rejectEditorField(editor, 'selection', 'Elige una ficha vigente del catálogo antes de agregarla a tu página.');
       return makeIntent('reference-link', { url: editor.selected.url, selectedForDirectory: editor.selectedForDirectory },
         { target: { resourceId: editor.selected.id }, editor });
     }
     if (editor.kind === 'claim') {
       const urls = parseCreatorOwnerClaimUrls(editor.knownUrls);
-      if (!urls) { setMessage('Revisa las URLs: usa una URL HTTP o HTTPS por línea, sin credenciales.', 'error'); return undefined; }
+      if (!urls) return rejectEditorField(editor, 'knownUrls', invalidClaimUrlMessage);
       const resources = [
         ...editor.selected.map(({ resourceId, url }) => ({ resourceId, url })),
         ...urls.map((url) => ({ url })),
       ];
-      if (!resources.length) { setMessage('Selecciona una ficha o agrega una URL conocida.', 'error'); return undefined; }
+      if (!resources.length) return rejectEditorField(editor, 'destinations', 'Selecciona una ficha o agrega una URL conocida.');
       return makeIntent('create-claim', { resources, evidence: editor.evidence }, { editor });
     }
     return undefined;
@@ -1891,6 +1960,22 @@ export default function CreatorOwnerApp(props: Props) {
   const listRecoveryKind = listOperation
     ? listOperation.status === 'reading' || listOperation.status === 'refresh-failed' ? listOperation.fact : listOperation.status
     : undefined;
+  const listRejection = state.message?.scope === 'list-action' ? state.message : undefined;
+  const listIntent = listOperation?.intent ?? listRejection?.intent;
+  const listFeedback = listOperation ? <section class="creator-owner__conflict" data-owner-recovery
+    data-owner-stale={listOperation.status === 'refresh-failed' ? 'true' : undefined} data-recovery-kind={listRecoveryKind}
+    data-owner-list-recovery={listOperation.intent.action === 'remove-link' || listOperation.intent.action === 'reinclude-link' ? 'links'
+      : isCreatorOwnerListAction(listOperation.intent.action) ? 'series' : 'owner'}>
+    <h3>{listRecoveryHeading(listOperation.intent.action)}</h3>
+    <p class={listOperation.status === 'reading' ? undefined : 'creator-owner__status--error'}
+      role={listOperation.status === 'reading' ? 'status' : 'alert'}>{listOperation.message}</p>
+    {listOperation.status === 'refresh-failed' && <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={checkClick}>Reintentar actualización</button>}
+    {listOperation.status === 'unknown' && !listOperation.readCompleted && <button class="button button--outline" type="button" data-owner-compare disabled={state.session.state !== 'ready'} onClick={checkClick}>Comprobar el estado guardado</button>}
+    {(listOperation.status === 'unknown' || listOperation.status === 'conflict') && listOperation.readCompleted
+      && <button class="button button--outline" type="button" data-owner-use-saved onClick={() => resolveRecovery('saved')}>Usar lo guardado</button>}
+  </section> : listRejection && <p class="creator-owner__status creator-owner__status--error" data-owner-list-action-error tabIndex={-1} role="alert">{listRejection.text}</p>;
+  const actionFeedback = listIntent && isCreatorOwnerListAction(listIntent.action)
+    && (props.view === 'enlaces' || props.view === 'series') ? { intent: listIntent, content: listFeedback } : undefined;
   const showActivitySummary = !(props.view === 'estadisticas' && props.hasStatisticsDetail);
 
   return <div ref={rootRef} data-owner-operation={state.operation.status}
@@ -1899,6 +1984,7 @@ export default function CreatorOwnerApp(props: Props) {
       state={state}
       logout={props.logout}
       showActivitySummary={showActivitySummary}
+      statusInSection={Boolean(listRejection || listOperation && state.message?.text === listOperation.message)}
       disabled={writeDisabled}
       onOpenProfile={openProfileEditor}
       onCreateProfile={createProfile}
@@ -1914,23 +2000,10 @@ export default function CreatorOwnerApp(props: Props) {
       onCopyLink={copyLink}
       copyFeedback={copyFeedback}
     >
-      {listOperation && <section class="creator-owner__conflict" data-owner-recovery data-owner-stale={listOperation.status === 'refresh-failed' ? 'true' : undefined} data-recovery-kind={listRecoveryKind}
-        data-owner-list-recovery={['remove-link', 'reinclude-link'].includes(listOperation.intent.action) ? 'links'
-          : ['add-chapter', 'remove-chapter', 'delete-series'].includes(listOperation.intent.action) ? 'series' : 'owner'}>
-        <h3>{listOperation.intent.action === 'delete-series' ? 'Comprobar eliminación'
-          : listOperation.intent.action === 'remove-link' ? 'Comprobar que se quitó el enlace'
-              : listOperation.intent.action === 'reinclude-link' ? 'Comprobar la reincorporación'
-                : listOperation.intent.action === 'add-chapter' || listOperation.intent.action === 'remove-chapter' ? 'Comprobar capítulos'
-                  : listOperation.intent.action === 'photo-authorize' || listOperation.intent.action === 'photo-finalize' ? 'Comprobar la foto'
-                    : 'Actualizar el estado guardado'}</h3>
-        <p role={listOperation.status === 'reading' ? 'status' : undefined} aria-live={listOperation.status === 'reading' ? 'polite' : undefined}>{listOperation.message}</p>
-        {listOperation.status === 'refresh-failed' && <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={checkClick}>Reintentar actualización</button>}
-        {listOperation.status === 'unknown' && !listOperation.readCompleted && <button class="button button--outline" type="button" data-owner-compare disabled={state.session.state !== 'ready'} onClick={checkClick}>Comprobar el estado guardado</button>}
-        {(listOperation.status === 'unknown' && listOperation.readCompleted || listOperation.status === 'conflict' && listOperation.readCompleted)
-          && <button class="button button--outline" type="button" data-owner-use-saved onClick={() => resolveRecovery('saved')}>Usar lo guardado</button>}
-      </section>}
+      {!actionFeedback && listFeedback}
       {props.view === 'series' && <CreatorOwnerSeriesPanel
         state={state}
+        actionFeedback={actionFeedback}
         disabled={writeDisabled}
         onSeriesSearch={(value) => dispatch({ type: 'set-series-search', value })}
         onChapterSearch={(value) => dispatch({ type: 'set-chapter-search', value })}
@@ -1945,6 +2018,7 @@ export default function CreatorOwnerApp(props: Props) {
       />}
       {props.view === 'enlaces' && <CreatorOwnerLinksPanel
         state={state}
+        actionFeedback={actionFeedback}
         disabled={writeDisabled}
         onSearch={onLinkSearch}
         onQueryChange={onLinksQueryChange}

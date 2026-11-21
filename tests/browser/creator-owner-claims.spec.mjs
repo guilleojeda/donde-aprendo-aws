@@ -35,22 +35,35 @@ async function seedCatalogRecord(fixture, item) {
   });
 }
 
-async function serveSelectionIndex(page, entries, { firstStatus = 200, firstBody, alwaysFail = false } = {}) {
+async function serveSelectionIndex(page, initialEntries, {
+  firstStatus = 200,
+  firstBody,
+  alwaysFail = false,
+  failReads = [],
+  failStatus = 503,
+} = {}) {
+  let entries = structuredClone(initialEntries);
+  const failedReads = new Set(failReads);
   let reads = 0;
   await page.route('**/catalog-selection.json', async (route) => {
     if (route.request().method() !== 'GET') return route.continue();
     reads += 1;
-    const failing = alwaysFail || reads === 1;
+    const first = reads === 1;
+    const failing = alwaysFail || first && firstStatus !== 200 || failedReads.has(reads);
     await route.fulfill({
-      status: failing ? firstStatus : 200,
+      status: failing ? (first ? firstStatus : failStatus) : 200,
       contentType: 'application/json',
-      body: failing && firstBody !== undefined
+      body: first && firstBody !== undefined
         ? firstBody
-        : failing && firstStatus !== 200
+        : failing
           ? JSON.stringify({ error: 'CATALOG_UNAVAILABLE' })
           : JSON.stringify(entries),
     });
   });
+  return {
+    get reads() { return reads; },
+    replace(nextEntries) { entries = structuredClone(nextEntries); },
+  };
 }
 
 async function seedResourceWithoutReservation(store, resource) {
@@ -347,6 +360,133 @@ test('una solicitud selecciona contenido y URLs, valida antes de escribir, dedup
   assert.equal(saved.claims.length, 1, 'refreshing owner history does not create duplicate claims');
   assert.equal(saved.claims[0].status, 'partial');
   assert.equal(claimWrites(capture).length, 1, 'complete owner reads never replay claim creation');
+  await capture.stop();
+});
+
+test('una selección de Solicitudes con URL obsoleta exige leer, actualizar el catálogo y elegir de nuevo', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const stale = catalogEntry({
+    id: 'phase5-claim-stale-selected',
+    title: 'Contenido cuyo destino cambió',
+    url: 'https://catalog.example.invalid/claim-stale-old',
+  });
+  const current = { ...stale, url: 'https://catalog.example.invalid/claim-stale-current' };
+  const extra = catalogEntry({
+    id: 'phase5-claim-stale-extra',
+    title: 'Contenido adicional conservado',
+    url: 'https://catalog.example.invalid/claim-stale-extra',
+  });
+  const known = catalogEntry({
+    id: 'phase5-claim-stale-known-url',
+    title: 'Contenido de URL conocida conservado',
+    url: 'https://catalog.example.invalid/claim-stale-known',
+  });
+  await Promise.all([current, extra, known].map((item) => seedCatalogRecord(fixture, item)));
+  const staleEntries = [stale, extra, known];
+  const currentEntries = [current, extra, known];
+  const index = await serveSelectionIndex(page, staleEntries, { failReads: [2] });
+  const capture = await captureCreatorApi(page);
+  await openOwnerClaims(page, fixture);
+  await openClaimComposer(page);
+
+  const form = page.locator('form[data-owner-form="reclamacion"]');
+  const staleCandidate = claimCandidate(page, stale.title);
+  const extraCandidate = claimCandidate(page, extra.title);
+  const urls = page.getByLabel(/URLs conocidas/i);
+  const evidence = page.getByLabel(/Contexto privado/i);
+  await staleCandidate.check();
+  await extraCandidate.check();
+  await urls.fill(known.url);
+  await evidence.fill('Contexto privado conservado durante la actualización del catálogo.');
+  const ownerReadsBefore = ownerReads(capture).length;
+  const writesBefore = claimWrites(capture).length;
+  await form.getByRole('button', { name: /Enviar solicitud/i }).click();
+  await expect.poll(() => claimWrites(capture).length).toBe(writesBefore + 1);
+  await expect.poll(() => claimWrites(capture).at(-1)?.status).toBe(409);
+  await expect.poll(() => ownerReads(capture).length).toBe(ownerReadsBefore + 1);
+  await expect.poll(() => ownerReads(capture).at(-1)?.status).toBe(200);
+  const rejected = claimWrites(capture).at(-1);
+  assert.equal(rejected.responseBody.error, 'RESOURCE_CONFLICT', 'the real claim service rejects the stale selected URL');
+  assert.deepEqual(rejected.body, {
+    resources: [
+      { resourceId: stale.id, url: stale.url },
+      { resourceId: extra.id, url: extra.url },
+      { url: known.url },
+    ],
+    evidence: 'Contexto privado conservado durante la actualización del catálogo.',
+  });
+  assert.equal((await api(fixture, cookie, '/api/creador/perfil')).body.claims.length, 0,
+    'a stale selection does not persist a partial request');
+
+  const submit = form.getByRole('button', { name: /Enviar solicitud/i });
+  await expect(submit).toBeDisabled();
+  await expect(page.locator('[data-owner-recovery][data-recovery-kind="conflict"]')).toBeVisible();
+  await expect(page.locator('[data-claim-selection]')).toContainText(stale.title);
+  await expect(page.locator('[data-claim-selection]')).toContainText(extra.title);
+  await expect(urls).toHaveValue(known.url);
+  await expect(evidence).toHaveValue('Contexto privado conservado durante la actualización del catálogo.');
+
+  await page.getByRole('button', { name: 'Volver al borrador', exact: true }).click();
+  await expect(submit).toBeDisabled();
+  const refresh = form.locator('[data-catalog-retry]');
+  await expect(refresh).toBeVisible();
+  await expect(page.locator('[data-claim-index-retry]')).toHaveCount(0);
+  await expect(page.locator('[data-claim-selection]')).toContainText(stale.title);
+  await expect(page.locator('[data-claim-selection]')).toContainText(extra.title);
+  await expect(urls).toHaveValue(known.url);
+  await expect(evidence).toHaveValue('Contexto privado conservado durante la actualización del catálogo.');
+
+  await refresh.click();
+  const retry = form.locator('[data-catalog-retry]');
+  await expect(retry).toBeVisible();
+  await expect(page.locator('[data-claim-index-retry]')).toHaveCount(0);
+  await expect(submit).toBeDisabled();
+  await expect(page.locator('[data-claim-selection]')).toContainText(stale.title);
+  await expect(page.locator('[data-claim-selection]')).toContainText(extra.title);
+  await expect(urls).toHaveValue(known.url);
+  await expect(evidence).toHaveValue('Contexto privado conservado durante la actualización del catálogo.');
+  assert.equal(index.reads, 2, 'the failed catalog refresh is one explicit read and never a claim write');
+  assert.equal(claimWrites(capture).length, writesBefore + 1);
+
+  index.replace(staleEntries);
+  await retry.click();
+  await expect(staleCandidate).toHaveCount(0);
+  await expect(submit).toBeDisabled();
+  await expect(page.locator('[data-claim-selection]')).toContainText(stale.title);
+  await expect(page.locator('[data-claim-selection]')).toContainText(extra.title);
+  await expect(urls).toHaveValue(known.url);
+  await expect(evidence).toHaveValue('Contexto privado conservado durante la actualización del catálogo.');
+  assert.equal(index.reads, 3, 'an unchanged successful read does not unlock or replay the stale selection');
+  const refreshCurrent = form.locator('[data-catalog-retry]');
+  await expect(refreshCurrent).toBeVisible();
+
+  index.replace(currentEntries);
+  await refreshCurrent.click();
+  await expect.poll(() => index.reads).toBe(4);
+  await expect(staleCandidate).not.toBeChecked();
+  await staleCandidate.check();
+  await expect(staleCandidate).toBeChecked();
+  await expect(extraCandidate).toBeChecked();
+  await expect(submit).toBeEnabled();
+  await expect(urls).toHaveValue(known.url);
+  await expect(evidence).toHaveValue('Contexto privado conservado durante la actualización del catálogo.');
+
+  await submit.click();
+  await expect.poll(() => claimWrites(capture).length).toBe(writesBefore + 2);
+  await expect.poll(() => claimWrites(capture).at(-1)?.status).toBe(202);
+  const accepted = claimWrites(capture).at(-1);
+  assert.deepEqual(accepted.body.resources.slice().sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))), [
+    { resourceId: extra.id, url: extra.url },
+    { resourceId: current.id, url: current.url },
+    { url: known.url },
+  ].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+  'the explicit retry sends the current selected pair, the extra selection, and the known URL');
+  const stored = await fixture.creatorStore.get(`claim:${accepted.responseBody.claimId}`);
+  assert.deepEqual(new Set(stored.resourceIds), new Set([current.id, extra.id, known.id]));
+  assert.equal(stored.evidence, 'Contexto privado conservado durante la actualización del catálogo.');
+  assert.equal((await api(fixture, cookie, '/api/creador/perfil')).body.claims.length, 1,
+    'only the deliberate corrected submission persists a claim');
+  assert.equal(claimWrites(capture).length, writesBefore + 2, 'the stale request is never auto-replayed');
   await capture.stop();
 });
 

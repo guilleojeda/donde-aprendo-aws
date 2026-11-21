@@ -297,7 +297,7 @@ test('el catálogo público carga con reintento y busca por título y URL entre 
   await expect(page.getByRole('status').filter({ hasText: /cargando el cat\u00e1logo/i })).toBeVisible();
   firstLoad.release();
   await expect(page.getByRole('button', { name: /Reintentar.*cat\u00e1logo/i })).toBeVisible();
-  await expect(page.getByRole('status').filter({ hasText: /no pudimos leer el cat\u00e1logo/i })).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: /no pudimos leer el cat\u00e1logo/i })).toHaveCount(1);
   await expect(page.getByRole('status').filter({ hasText: /no hay recursos que coincidan/i })).toHaveCount(0);
   await expect(page.getByRole('list', { name: 'Resultados del cat\u00e1logo' }).getByRole('radio')).toHaveCount(0);
   await page.getByRole('button', { name: /Reintentar.*cat\u00e1logo/i }).click();

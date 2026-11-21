@@ -32,6 +32,8 @@ export default function CreatorOwnerClaimsPanel({ state, disabled, onOpen, onRef
     && state.operation.status === 'reading' && state.operation.fact === 'claims';
   const claimsReadFailure = (recoveryAction.kind === 'retry' || recoveryAction.kind === 'session-check') && recoveryAction.surface === 'claims'
     && state.operation.status === 'refresh-failed' && state.operation.fact === 'claims' ? state.operation : undefined;
+  const showCatalogStatus = state.editor?.kind !== 'claim';
+  const catalogFailed = showCatalogStatus && state.catalog.status === 'error';
 
   return <section class="creator-owner__claims" data-owner-claims aria-labelledby="owner-claims-title">
     <header class="creator-owner__section-heading creator-owner__claims-heading"><div>
@@ -46,8 +48,8 @@ export default function CreatorOwnerClaimsPanel({ state, disabled, onOpen, onRef
     </div>}
     {claimsReadPending && <p class="creator-owner__status" data-claim-index-status role="status" aria-live="polite">Actualizando solicitudes…</p>}
     {claimsReadFailure && <p class="creator-owner__status creator-owner__status--error" data-claim-index-status data-owner-stale role="alert" aria-live="polite">{claimsReadFailure.message}</p>}
-    {state.catalog.status === 'loading' && <p class="creator-owner__status" data-claim-catalog-status role="status" aria-live="polite">Cargando el catálogo público de contenido…</p>}
-    {state.catalog.status === 'error' && <p class="creator-owner__status" data-claim-catalog-status role="status" aria-live="polite">
+    {showCatalogStatus && state.catalog.status === 'loading' && <p class="creator-owner__status" data-claim-catalog-status role="status" aria-live="polite">Cargando el catálogo público de contenido…</p>}
+    {catalogFailed && <p class="creator-owner__status creator-owner__status--error" data-claim-catalog-status role="alert">
       {state.catalog.message ?? 'No pudimos cargar el catálogo.'} Puedes solicitar edición con una URL conocida.
     </p>}
     <div class="creator-owner__claim-history-actions">
@@ -55,7 +57,7 @@ export default function CreatorOwnerClaimsPanel({ state, disabled, onOpen, onRef
         {claimsReadPending ? 'Actualizando solicitudes…' : 'Actualizar solicitudes'}
       </button>
       {claimsReadFailure && <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>}
-      {state.catalog.status === 'error' && <button class="button button--outline" type="button" data-claim-index-retry onClick={onRetryCatalog}>Reintentar carga del catálogo</button>}
+      {catalogFailed && <button class="button button--outline" type="button" data-claim-index-retry onClick={onRetryCatalog}>Reintentar carga del catálogo</button>}
     </div>
     <ul class="creator-owner__claim-history" data-claim-history>
       {state.observed.claims.length ? state.observed.claims.map((claim) => {
