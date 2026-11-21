@@ -36,19 +36,23 @@ async function serveSelectionIndex(page, initialEntries, {
   firstStatus = 200,
   firstBody,
   firstGate,
+  failReads = [],
 } = {}) {
   let entries = structuredClone(initialEntries);
+  const failedReads = new Set(failReads);
   const reads = [];
   await page.route('**/catalog-selection.json', async (route) => {
     if (route.request().method() !== 'GET') return route.continue();
     reads.push(new URL(route.request().url()).pathname);
     if (reads.length === 1 && firstGate) await firstGate.promise;
+    const first = reads.length === 1;
+    const failed = first ? firstStatus !== 200 : failedReads.has(reads.length);
     await route.fulfill({
-      status: reads.length === 1 ? firstStatus : 200,
+      status: failed ? (first ? firstStatus : 503) : 200,
       contentType: 'application/json',
-      body: reads.length === 1 && firstBody !== undefined
+      body: first && firstBody !== undefined
         ? firstBody
-        : reads.length === 1 && firstStatus !== 200
+        : failed
           ? JSON.stringify({ error: 'CATALOG_UNAVAILABLE' })
           : JSON.stringify(entries),
     });
@@ -56,6 +60,7 @@ async function serveSelectionIndex(page, initialEntries, {
   return {
     reads,
     replace(nextEntries) { entries = structuredClone(nextEntries); },
+    failRead(readNumber) { failedReads.add(readNumber); },
   };
 }
 
@@ -556,7 +561,7 @@ test('un RESOURCE_CONFLICT exige actualizar el índice, revisar la URL actual y 
   const cookie = await loggedInOwner(fixture, page);
   const oldItem = catalogEntry({
     id: 'phase5-catalog-stale-url',
-    title: 'Evento con destino actualizado',
+    title: 'F10 evento con destino actualizado',
     url: 'https://events.example.invalid/old-registration',
     tipo: 'event',
   });
@@ -564,10 +569,16 @@ test('un RESOURCE_CONFLICT exige actualizar el índice, revisar la URL actual y 
   // The public index is intentionally stale while the actual resource and URL
   // reservation already contain the current registration destination.
   await seedCatalogRecord(fixture, currentItem);
-  const index = await serveSelectionIndex(page, [oldItem]);
+  const staleEntries = focusCatalogEntries();
+  staleEntries[25] = oldItem;
+  const currentEntries = staleEntries.map((item) => item.id === oldItem.id ? currentItem : item);
+  const index = await serveSelectionIndex(page, staleEntries);
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
 
   await openOwnerCatalog(page, fixture);
+  await typeCatalogSearch(page, 'F10');
+  await catalogPageButton(page, 'next').click();
+  await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 2 de 3');
   await catalogRadio(page, oldItem.title).check();
   const initial = await api(fixture, cookie, '/api/creador/perfil');
   assert.equal(initial.response.status, 200);
@@ -593,11 +604,22 @@ test('un RESOURCE_CONFLICT exige actualizar el índice, revisar la URL actual y 
   await expect(page.locator('[data-catalog-index-status]')).toContainText('Actualiza el catálogo');
   assert.equal(linkWrites(capture).length, 1, 'the rejected pair was not silently converted or resent');
 
-  index.replace([currentItem]);
+  // A catalog read can fail after a stale selection. The active query and
+  // page are still the user's location, and retrying the read never writes.
+  index.failRead(2);
   await refreshCatalog.click();
+  await expect(page.getByRole('button', { name: /Reintentar.*catálogo/i })).toBeVisible();
+  await expect(page.locator('[data-catalog-index-status]')).toContainText(/no pudimos cargar|no pudimos leer/i);
+  await expect(catalogSearch(page)).toHaveValue('F10');
+  assert.equal(linkWrites(capture).length, 1, 'a rejected catalog read does not replay the stale reference');
+
+  index.replace(currentEntries);
+  await page.getByRole('button', { name: /Reintentar.*catálogo/i }).click();
+  await expect(catalogSearch(page)).toHaveValue('F10');
+  await expect(page.locator('[data-catalog-page-label]')).toHaveText('Página 2 de 3');
   await expect(page.getByRole('dialog')).toContainText(currentItem.url);
   await expect(catalogRadio(page, oldItem.title)).not.toBeChecked();
-  assert.equal(index.reads.length, 2, 'the updated public catalog is read only after the explicit retry');
+  assert.equal(index.reads.length, 3, 'the updated public catalog is read only after the explicit retries');
   assert.equal(linkWrites(capture).length, 1, 'refreshing the index itself does not send a new reference');
 
   await catalogRadio(page, currentItem.title).check();

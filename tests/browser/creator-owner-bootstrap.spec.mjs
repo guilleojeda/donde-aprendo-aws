@@ -265,7 +265,7 @@ test('el SSR sólo ofrece una serie pública con perfil publicado, visible y cap
   });
 });
 
-test('la consulta inválida SSR devuelve 400 privado y no finge una colección vacía', async ({ fixture, page, browser }) => {
+test('la consulta inválida SSR devuelve 400 privado y se corrige desde Series sin JavaScript', async ({ fixture, page, browser }) => {
   const cookie = await loggedInOwner(fixture, page);
   const series = await createSeries(fixture, cookie);
   await addLink(fixture, cookie);
@@ -282,6 +282,17 @@ test('la consulta inválida SSR devuelve 400 privado y no finge una colección v
       await expect(ssr.locator('[data-chapter-row]:visible')).toHaveCount(0);
       await expect(ssr.locator('[data-chapter-empty]:visible')).toHaveCount(0);
     }
+    const recoveryUrl = `${fixture.origin}/cuenta/?vista=series`;
+    const seriesSection = ssr.locator('[data-owner-series]');
+    const reset = seriesSection.getByRole('link').and(seriesSection.locator('a[href="/cuenta/?vista=series"]'));
+    await expect(reset).toBeVisible();
+    const recovered = ssr.waitForResponse((response) => response.url() === recoveryUrl
+      && response.request().isNavigationRequest() && response.request().method() === 'GET');
+    await reset.press('Enter');
+    await assertPrivate(await recovered, ssr, 200);
+    await expect(ssr).toHaveURL(recoveryUrl);
+    await expect(seriesSection.locator('[data-series-query-error]')).toBeHidden();
+    await expect(seriesSection.locator(`[data-owner-series-row="${series.id}"]`)).toBeVisible();
   });
 });
 
