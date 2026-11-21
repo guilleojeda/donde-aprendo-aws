@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { COGNITO_DOMAIN } from '../fixtures/account-auth.mjs';
 import { test, expect, addCookie, loggedInOwner } from '../fixtures/creator-browser-test.mjs';
+import { adminPath, openAdmin, resource, root, row } from '../fixtures/creator-admin.mjs';
 import { request as playwrightRequest } from '@playwright/test';
 
 async function openCreatorOutage(fixture, page) {
@@ -280,4 +281,64 @@ test('the signed-in creator shell recovers from a stalled logout body after head
     await provider.close();
     logoutPosts.stop();
   }
+});
+
+test('the shared logout on administration blocks dirty rows, then retries uncertainty without unsafe navigation', async ({ fixture, page }) => {
+  const resourceId = 'admin-logout-action-recovery';
+  const cookie = await openAdmin(fixture, page, [resource(resourceId, 0)]);
+  const adminRoot = root(page);
+  const logoutForm = page.locator('form[data-account-logout]');
+  await expect(adminRoot).toBeVisible();
+  await expect(logoutForm).toBeVisible();
+  await expect(logoutForm.locator('button[type="submit"]')).toBeEnabled();
+  const target = row(page, resourceId);
+  const category = target.getByLabel('Categoría');
+  await category.fill('Cambio administrativo pendiente');
+  await logoutForm.evaluate((form) => form.requestSubmit());
+  await expect(adminRoot.locator('[data-admin-status]')).toContainText(/guarda o revierte los cambios pendientes/i);
+  assert.equal(fixture.accountStore.calls.filter(({ operation }) => operation === 'deleteSession').length, 0,
+    'a pending admin correction blocks the shared logout before it sends');
+
+  await category.fill('Serverless');
+  const provider = await interceptProviderLogout(page);
+  const logoutPosts = watchLogoutPosts(page);
+  let firstLogout = true;
+  const appLogout = async (route) => {
+    if (!firstLogout || route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
+    firstLogout = false;
+    const response = await route.fetch();
+    const headers = response.headers();
+    delete headers['content-length'];
+    delete headers['content-encoding'];
+    await route.fulfill({ status: response.status(), headers, body: '{"redirect":' });
+  };
+  await page.route('**/cuenta/salir/**', appLogout);
+  try {
+    const button = logoutForm.locator('button[type="submit"]');
+    await expect(button).toHaveAccessibleName('Cerrar sesión');
+    await button.click();
+    await expect.poll(() => logoutPosts.posts.length).toBe(1);
+    await expect(logoutForm.locator('[data-account-logout-status]')).toContainText(/no pudimos confirmar el cierre de sesión/i);
+    await expect(button).toBeEnabled();
+    await expect(button).toHaveAccessibleName(/reintentar cierre de sesión/i);
+    assert.equal(new URL(page.url()).pathname, adminPath,
+      'an uncertain logout stays on the administration document');
+    assert.equal(fixture.accountStore.sessions.size, 0,
+      'the application revokes the local session before the malformed acknowledgement');
+
+    await page.unroute('**/cuenta/salir/**', appLogout);
+    await button.click();
+    await expect.poll(() => logoutPosts.posts.length).toBe(2);
+    await assertProviderCompletion(page, provider, fixture.origin);
+    assert.equal(fixture.accountStore.calls.filter(({ operation }) => operation === 'deleteSession').length, 1,
+      'the deliberate retry only continues to provider logout');
+  } finally {
+    await page.unroute('**/cuenta/salir/**', appLogout).catch(() => {});
+    await provider.close();
+    logoutPosts.stop();
+  }
+  assert.equal((await fixture.principal(cookie)).state, 'anonymous');
 });

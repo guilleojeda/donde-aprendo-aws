@@ -296,6 +296,21 @@ test('Copiar enlace llama al portapapeles y muestra feedback accesible junto al 
   await button.click();
   await expect(page.locator('[data-owner-copy-status]')).toHaveText('No pudimos copiar el enlace. Puedes copiarlo desde la dirección de tu página.');
   await expect(button).toBeFocused();
+
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText(value) { window.__copyWrites.push(value); return Promise.resolve(); } },
+    });
+  });
+  await button.click();
+  await expect(page.locator('[data-owner-copy-status]')).toHaveText('Enlace copiado.');
+  await expect(button).toHaveText('Enlace copiado');
+  await expect(button).toBeFocused();
+  await expect(page.locator('[data-owner-copy-status][role="alert"]')).toHaveCount(0);
+  assert.equal((await page.locator('[data-owner-public-url]').textContent()).trim(),
+    `${fixture.origin}/c/ana-browser-final/`);
+  assert.deepEqual((await page.evaluate(() => window.__copyWrites)).at(-1), `${fixture.origin}/c/ana-browser-final/`);
 });
 
 test('un borrador con slug válido muestra la URL completa y permite copiarla sin abrir un enlace público', async ({ fixture, page }) => {
