@@ -1,3 +1,4 @@
+import type { CreatorOwnerListActionFeedback } from './CreatorOwnerLinksPanel';
 import {
   creatorOwnerSeriesHref,
   selectCreatorOwnerChapters,
@@ -12,6 +13,7 @@ import { creatorOwnerChapterRecoveryIsVisibleInDetail, deriveCreatorOwnerRecover
 interface Props {
   state: CreatorOwnerState;
   disabled: boolean;
+  actionFeedback?: CreatorOwnerListActionFeedback;
   onSeriesSearch(value: string): void;
   onChapterSearch(value: string): void;
   onChapterMembership(value: CreatorOwnerSeriesMembership): void;
@@ -28,7 +30,7 @@ function pageHref(query: CreatorOwnerSeriesQuery, page: number): string {
   return creatorOwnerSeriesHref({ ...query, paginaSeries: page });
 }
 
-export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearch, onChapterSearch, onChapterMembership, onCreate, onEditSeries, onDeleteSeries, onAddChapter, onRemoveChapter, onMoveChapter, onRetryRead }: Props) {
+export default function CreatorOwnerSeriesPanel({ state, disabled, actionFeedback, onSeriesSearch, onChapterSearch, onChapterMembership, onCreate, onEditSeries, onDeleteSeries, onAddChapter, onRemoveChapter, onMoveChapter, onRetryRead }: Props) {
   const { observed: snapshot, location } = state;
   const links = joinCreatorOwnerPlacements(snapshot);
   const query = location.query;
@@ -59,6 +61,13 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
     ? state.operation : undefined;
   const canCreateSeries = Boolean(snapshot.profile) && !disabled;
   const canMoveChapter = (chapterSelection?.completeOrder.length ?? 0) > 1;
+  const recoverySeriesId = actionFeedback?.intent.target?.seriesId;
+  const recoveryPlacementId = actionFeedback?.intent.target?.placementId;
+  const recoveryInSeries = !state.seriesQueryError && !query.serie && recoverySeriesId !== undefined
+    && seriesSelection.rows.some((series) => series.id === recoverySeriesId);
+  const recoveryInChapter = !state.seriesQueryError && recoverySeriesId === selectedSeries?.id && recoveryPlacementId !== undefined
+    && Boolean(chapterSelection?.rows.some((link) => link.placementId === recoveryPlacementId));
+  const recoveryAttached = recoveryInSeries || recoveryInChapter;
 
   return <section class="creator-owner__series" data-owner-series aria-labelledby="owner-series-title">
     <header class="creator-owner__section-heading">
@@ -73,9 +82,10 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
       Primero prepara tu página para crear una serie.
     </p>}
 
-    {state.seriesQueryError && <p class="creator-owner__status creator-owner__status--error" data-series-query-error role="alert">
-      La consulta de series no es válida. Revisa la serie, el filtro o la página seleccionada.
-    </p>}
+    {state.seriesQueryError && <div class="creator-owner__status creator-owner__status--error" data-series-query-error role="alert">
+      <p>La consulta de series no es válida. Revisa la serie, el filtro o la página seleccionada.</p>
+      <a class="button button--outline" href="/cuenta/?vista=series">Limpiar consulta de series</a>
+    </div>}
 
     <section class="creator-owner__chapter-view" data-owner-series-chapters hidden={Boolean(state.seriesQueryError) || !selectedSeries} aria-labelledby="owner-series-chapters-title">
       <header class="creator-owner__series-context">
@@ -121,6 +131,7 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
         {chapterSelection?.rows.map((link) => {
           const position = positions.get(link.placementId);
           const included = selectedChapterIds.has(link.placementId);
+          const rowRecovery = recoveryInChapter && recoveryPlacementId === link.placementId ? actionFeedback?.content : undefined;
           return <li class="creator-owner__chapter" data-chapter-row={link.placementId} data-placement-id={link.placementId} key={link.placementId}>
             <div class="creator-owner__chapter-copy">
               <h4>{link.title}</h4>
@@ -134,6 +145,7 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
                 <button class="button button--outline" type="button" data-chapter-remove data-placement-id={link.placementId} disabled={disabled} onClick={() => onRemoveChapter(link.placementId)}>Quitar capítulo</button>
               </> : <button class="button button--outline" type="button" data-chapter-add data-placement-id={link.placementId} disabled={disabled} onClick={() => onAddChapter(link.placementId)}>Agregar capítulo</button>}
             </div>
+            {rowRecovery}
           </li>;
         })}
       </ol>
@@ -169,6 +181,7 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
           const visibleCount = visibleCreatorSeriesChapterCount(chapters);
           const publicPath = snapshot.profile && isPublicCreatorSeries(snapshot.profile, visibleCount)
             ? canonicalCreatorSeriesPath(snapshot.profile.slug, series.slug) : undefined;
+          const rowRecovery = recoveryInSeries && recoverySeriesId === series.id ? actionFeedback?.content : undefined;
           return <li class="creator-owner__series-row" id={series.id} data-owner-series-row={series.id} data-series-id={series.id} key={series.id}>
             <div class="creator-owner__series-copy">
               <h3>{series.name}</h3>
@@ -182,6 +195,7 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
               <button class="button button--outline" type="button" data-series-delete data-series-id={series.id} disabled={disabled} onClick={() => onDeleteSeries(series.id)}>Eliminar</button>
               {publicPath && <a class="button button--outline" href={publicPath} target="_blank" rel="noopener noreferrer">Abrir serie pública</a>}
             </div>
+            {rowRecovery}
           </li>;
         })}
       </ul>
@@ -194,5 +208,7 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, onSeriesSearc
         {seriesPage < seriesSelection.pageCount && <a class="button button--outline" data-series-page href={pageHref(seriesSelection.query, seriesPage + 1)}>Siguiente</a>}
       </nav>
     </section>}
+
+    {actionFeedback && !recoveryAttached && <div class="creator-owner__list-recovery">{actionFeedback.content}</div>}
   </section>;
 }

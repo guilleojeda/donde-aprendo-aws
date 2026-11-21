@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { currentUrlKey, currentUrlReservation } from '../../src/lib/catalog-url.mjs';
+import { CREATOR_FIELD_LIMITS } from '../../src/lib/creator-values.mjs';
 import {
   test,
   expect,
@@ -54,6 +55,17 @@ function writesTo(capture, method, path) {
 async function responseFor(capture, method, path, index = 0) {
   await expect.poll(() => writesTo(capture, method, path)[index]?.status).toBeTruthy();
   return writesTo(capture, method, path)[index];
+}
+
+async function expectLinkFieldError(form, field, message) {
+  await expect(field).toHaveAttribute('aria-invalid', 'true');
+  const error = form.locator('[data-owner-field-error]').filter({ hasText: message });
+  await expect(error).toBeVisible();
+  const errorId = await error.getAttribute('id');
+  const describedBy = (await field.getAttribute('aria-describedby') ?? '').split(/\s+/u);
+  assert.ok(errorId && describedBy.includes(errorId), 'the link field describes its visible error');
+  await expect(field).toHaveCSS('border-top-color', await error.evaluate((element) => getComputedStyle(element).color));
+  await expect(field).toBeFocused();
 }
 
 async function seedSharedCatalogResource(fixture, overrides = {}) {
@@ -212,7 +224,8 @@ test('alta rechazada antes del commit: conserva el formulario y sólo Guardar un
     'the real validation rejection makes no profile or placement write');
   assert.equal(await fixture.creatorStore.get(currentUrlKey(invalidUrl)), null,
     'the rejected URL has no catalog reservation');
-  await expect(form.locator('[data-link-add-status]')).toContainText(/Revisa los datos/i);
+  await expectLinkFieldError(form, form.getByLabel('URL', { exact: true }), /URL|usuario|contrase[ñn]a/iu);
+  await expect(form.locator('[data-link-add-status]')).toHaveCount(0, 'the same problem appears only at its editable field');
   await expect(page.getByRole('button', { name: 'Comprobar', exact: true })).toHaveCount(0,
     'a known validation rejection is not shown as an uncertain write');
   await expect(form.getByLabel('Título', { exact: true })).toHaveValue('Alta que no llegó al servicio');
@@ -233,6 +246,272 @@ test('alta rechazada antes del commit: conserva el formulario y sólo Guardar un
   assert.ok((await fixture.rawOwner(cookie)).profile.version > beforeCreatorVersion);
   assert.equal((await fixture.rawResource(posts[1].responseBody.resourceId)).title, 'Alta que no llegó al servicio');
   await capture.stop();
+});
+
+test('editar una ficha propia conserva el borrador ante rechazos reales de título y URL, y persiste la corrección', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const original = await addLink(fixture, cookie, {
+    title: 'Ficha propia sin cambios',
+    url: 'https://links.example/edit-errors-original',
+  });
+  await openLinksView(page, fixture);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const row = page.locator(`[data-link-row="${original.placementId}"]`);
+  await row.getByRole('button', { name: 'Editar ficha', exact: true }).click();
+  const form = linkEditForm(page);
+  const title = form.getByLabel('Título', { exact: true });
+  const url = form.getByLabel('URL', { exact: true });
+  const description = form.getByLabel(/Descripción/u);
+  await expect(title).toHaveValue('Ficha propia sin cambios');
+  await expect(url).toHaveValue('https://links.example/edit-errors-original');
+  await expect(description).toHaveValue('');
+
+  try {
+    await title.fill('   ');
+    assert.equal(await title.evaluate((input) => input.checkValidity()), true,
+      'whitespace is non-empty to the browser, so the real service owns the title rejection');
+    await form.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'PATCH', `/api/creador/enlaces/${original.placementId}/editar`)[0]?.status).toBe(422);
+    const invalidTitle = writesTo(capture, 'PATCH', `/api/creador/enlaces/${original.placementId}/editar`)[0];
+    assert.equal(invalidTitle.body.title, '   ');
+    await expect(form).toBeVisible();
+    await expect(title).toHaveValue('   ');
+    await expect(url).toHaveValue('https://links.example/edit-errors-original');
+    await expectLinkFieldError(form, title, /t[ií]tulo|completa|obligatorio/iu);
+    await expect(form.locator('[data-owner-recovery]')).toHaveCount(0,
+      'a definitive validation rejection is not presented as uncertain');
+
+    const correctedTitle = 'Ficha propia corregida';
+    await title.fill(correctedTitle);
+    await expect(title).not.toHaveAttribute('aria-invalid', 'true');
+    await url.fill('https://user:secret@links.example/edit-errors-invalid-url');
+    assert.equal(await url.evaluate((input) => input.checkValidity()), true,
+      'the browser accepts credentials in an HTTP URL so the real service owns URL rejection');
+    await form.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'PATCH', `/api/creador/enlaces/${original.placementId}/editar`)[1]?.status).toBe(422);
+    const invalidUrl = writesTo(capture, 'PATCH', `/api/creador/enlaces/${original.placementId}/editar`)[1];
+    assert.equal(invalidUrl.body.title, correctedTitle);
+    assert.equal(invalidUrl.body.url, 'https://user:secret@links.example/edit-errors-invalid-url');
+    await expect(title).toHaveValue(correctedTitle);
+    await expect(url).toHaveValue('https://user:secret@links.example/edit-errors-invalid-url');
+    await expect(description).toHaveValue('');
+    await expectLinkFieldError(form, url, /URL|usuario|contrase[ñn]a/iu);
+    await expect(title).not.toHaveAttribute('aria-invalid', 'true');
+
+    const correctedUrl = 'https://links.example/edit-errors-corrected';
+    await url.fill(correctedUrl);
+    await expect(url).not.toHaveAttribute('aria-invalid', 'true');
+    await form.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'PATCH', `/api/creador/enlaces/${original.placementId}/editar`)[2]?.status).toBe(200);
+    await capture.settle({ skipErrorBodies: true });
+    const saved = await readOwnerSnapshot(fixture, cookie);
+    const savedResource = saved.resources.find(({ id }) => id === original.resourceId);
+    assert.equal(savedResource.title, correctedTitle);
+    assert.equal(savedResource.url, correctedUrl);
+    assert.equal(savedResource.description ?? '', '');
+    assert.equal(writesTo(capture, 'PATCH', `/api/creador/enlaces/${original.placementId}/editar`).length, 3,
+      'the two real rejections and one explicit corrected submit are the only metadata writes');
+    await expect(page.locator(`[data-link-row="${original.placementId}"] [data-link-title]`)).toHaveText(correctedTitle);
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('editar una ficha retirada mantiene otros enlaces y persiste la corrección por su ruta de recurso', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const retired = await addLink(fixture, cookie, {
+    title: 'Ficha retirada con error',
+    url: 'https://links.example/retained-edit-errors',
+  });
+  const sibling = await addLink(fixture, cookie, {
+    title: 'Ficha activa que permanece',
+    url: 'https://links.example/retained-edit-sibling',
+  });
+  const beforeRemove = await readOwnerSnapshot(fixture, cookie);
+  const removed = await api(fixture, cookie, `/api/creador/enlaces/${retired.placementId}`, {
+    method: 'DELETE',
+    body: { creatorVersion: beforeRemove.creatorVersion },
+  });
+  assert.equal(removed.response.status, 200, JSON.stringify(removed.body));
+  await openLinksView(page, fixture);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const retained = page.locator(`[data-retained-resource="${retired.resourceId}"]`);
+  await expect(retained).toBeVisible();
+  await retained.getByRole('button', { name: 'Editar ficha', exact: true }).click();
+  const form = linkEditForm(page);
+  const title = form.getByLabel('Título', { exact: true });
+  const url = form.getByLabel('URL', { exact: true });
+  try {
+    await title.fill('   ');
+    assert.equal(await title.evaluate((input) => input.checkValidity()), true);
+    await form.getByRole('button', { name: 'Guardar ficha', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'PATCH', '/api/creador/recursos')[0]?.status).toBe(422);
+    assert.equal(writesTo(capture, 'PATCH', '/api/creador/recursos')[0].body.title, '   ');
+    await expect(form).toBeVisible();
+    await expectLinkFieldError(form, title, /t[ií]tulo|completa|obligatorio/iu);
+    await expect(page.locator(`[data-link-row="${sibling.placementId}"]`)).toBeVisible('the active sibling remains while the retained editor rejects');
+
+    const correctedTitle = 'Ficha retirada corregida';
+    await title.fill(correctedTitle);
+    await url.fill('https://user:secret@links.example/retained-edit-invalid-url');
+    assert.equal(await url.evaluate((input) => input.checkValidity()), true);
+    await form.getByRole('button', { name: 'Guardar ficha', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'PATCH', '/api/creador/recursos')[1]?.status).toBe(422);
+    const invalidUrl = writesTo(capture, 'PATCH', '/api/creador/recursos')[1];
+    assert.equal(invalidUrl.body.title, correctedTitle);
+    assert.equal(invalidUrl.body.url, 'https://user:secret@links.example/retained-edit-invalid-url');
+    await expectLinkFieldError(form, url, /URL|usuario|contrase[ñn]a/iu);
+    await expect(title).not.toHaveAttribute('aria-invalid', 'true');
+
+    const correctedUrl = 'https://links.example/retained-edit-corrected';
+    await url.fill(correctedUrl);
+    await form.getByRole('button', { name: 'Guardar ficha', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'PATCH', '/api/creador/recursos')[2]?.status).toBe(200);
+    await capture.settle({ skipErrorBodies: true });
+    const saved = await fixture.rawResource(retired.resourceId);
+    assert.equal(saved.title, correctedTitle);
+    assert.equal(saved.url, correctedUrl);
+    assert.equal((await fixture.rawOwner(cookie)).profile.placements[retired.placementId], undefined,
+      'editing a retained resource does not silently recreate its removed placement');
+    await expect(page.locator(`[data-link-row="${sibling.placementId}"] [data-link-title]`)).toHaveText('Ficha activa que permanece');
+    await expect(page.locator(`[data-retained-resource="${retired.resourceId}"]`)).toContainText('links.example');
+    assert.equal(writesTo(capture, 'PATCH', '/api/creador/recursos').length, 3);
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('un conflicto real de Quitar y de Volver a agregar mantiene el alcance de cada fila y exige una decisión nueva', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const target = await addLink(fixture, cookie, { title: 'Fila objetivo', url: 'https://links.example/list-action-target' });
+  const sibling = await addLink(fixture, cookie, { title: 'Fila que permanece', url: 'https://links.example/list-action-sibling' });
+  const initial = await readOwnerSnapshot(fixture, cookie);
+  await openLinksView(page, fixture);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+
+  try {
+    // Advance the real owner revision after the browser installed its list.
+    await addLink(fixture, cookie, { title: 'Fila agregada en otra pestaña', url: 'https://links.example/list-action-concurrent' });
+    const targetRow = page.locator(`[data-link-row="${target.placementId}"]`);
+    page.once('dialog', (dialog) => dialog.accept());
+    await targetRow.getByRole('button', { name: 'Quitar de tu página', exact: true }).click();
+    const deletePath = `/api/creador/enlaces/${target.placementId}`;
+    await expect.poll(() => writesTo(capture, 'DELETE', deletePath)[0]?.status).toBe(409);
+    await expect(targetRow).toBeVisible('a rejected removal leaves its own row visible');
+    await expect(page.locator(`[data-link-row="${sibling.placementId}"]`)).toBeVisible('an unrelated row remains visible');
+    const removeRecovery = targetRow.locator('[data-owner-recovery]');
+    await expect(removeRecovery).toBeVisible();
+    await expect(removeRecovery).toContainText('Comprobar que se quitó el enlace');
+    assert.equal(writesTo(capture, 'DELETE', deletePath).length, 1);
+    await removeRecovery.getByRole('button', { name: 'Usar lo guardado', exact: true }).press('Enter');
+    await expect(removeRecovery).toHaveCount(0);
+    await expect(targetRow).toBeVisible();
+
+    page.once('dialog', (dialog) => dialog.accept());
+    await targetRow.getByRole('button', { name: 'Quitar de tu página', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'DELETE', deletePath)[1]?.status).toBe(200);
+    await expect(page.locator(`[data-link-row="${target.placementId}"]`)).toHaveCount(0);
+    const removed = await readOwnerSnapshot(fixture, cookie);
+    assert.equal(Object.hasOwn(removed.placements, target.placementId), false);
+    assert.ok(removed.creatorVersion > initial.creatorVersion);
+
+    const retained = page.locator(`[data-retained-resource="${target.resourceId}"]`);
+    await expect(retained).toBeVisible();
+    const resource = await fixture.rawResource(target.resourceId);
+    const resourceKey = `resource:${target.resourceId}`;
+    assert.equal(await fixture.creatorStore.transact({
+      checks: [{ key: resourceKey, version: resource.version }],
+      puts: [{ key: resourceKey, value: { ...resource, version: resource.version + 1 } }],
+    }), true, 'the real retained resource revision changes before the stale re-inclusion');
+    await retained.getByRole('button', { name: 'Volver a agregar', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'POST', '/api/creador/enlaces')[0]?.status).toBe(409);
+    await expect(retained).toBeVisible('a rejected re-inclusion leaves the retained row available');
+    const reincludeRecovery = retained.locator('[data-owner-recovery]');
+    await expect(reincludeRecovery).toBeVisible();
+    await expect(reincludeRecovery).toContainText(/reincorporaci[óo]n/iu);
+    assert.equal(writesTo(capture, 'POST', '/api/creador/enlaces').length, 1,
+      'a definitive conflict does not retry the re-inclusion automatically');
+    await reincludeRecovery.getByRole('button', { name: 'Usar lo guardado', exact: true }).press('Enter');
+    await retained.getByRole('button', { name: 'Volver a agregar', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'POST', '/api/creador/enlaces')[1]?.status).toBe(201);
+    const reinclude = writesTo(capture, 'POST', '/api/creador/enlaces')[1];
+    assert.equal(reinclude.body.resourceVersion, resource.version + 1);
+    const final = await readOwnerSnapshot(fixture, cookie);
+    assert.equal(final.placements[reinclude.responseBody.placementId].resourceId, target.resourceId);
+    assert.equal(final.placements[sibling.placementId].resourceId, sibling.resourceId);
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('un editor de ficha compartida conserva el rechazo general y no marca metadatos sin autoridad', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const shared = await seedSharedCatalogResource(fixture);
+  await openLinksView(page, fixture);
+  const capture = await captureCreatorApi(page);
+  try {
+    await page.getByRole('button', { name: 'Buscar en el catálogo', exact: true }).click();
+    await expect(page.locator(`[data-catalog-row="${shared.id}"]`)).toBeVisible();
+    await page.getByRole('radio', { name: `Seleccionar ${shared.title}`, exact: true }).check();
+    const referenceForm = page.locator('[data-owner-dialog] form[data-owner-form="referencia"]');
+    await referenceForm.getByLabel('Proponer al directorio').uncheck();
+    await referenceForm.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+    const row = page.getByRole('row').filter({ hasText: shared.title });
+    await expect(row).toHaveCount(1);
+    const placementId = await row.getAttribute('data-placement-id');
+    assert.ok(placementId);
+    await row.getByRole('button', { name: 'Editar opciones', exact: true }).click();
+    const form = linkEditForm(page);
+    const title = form.getByLabel('Título', { exact: true });
+    const url = form.getByLabel('URL', { exact: true });
+    await expect(title).toHaveAttribute('readonly', '');
+    await expect(url).toHaveAttribute('readonly', '');
+    const feature = form.getByLabel('Destacar en tu página');
+    const save = form.getByRole('button', { name: 'Guardar cambios', exact: true });
+    const endpoint = `/api/creador/enlaces/${placementId}`;
+    const before = await readOwnerSnapshot(fixture, cookie);
+    await feature.check();
+
+    // Feed a known but inapplicable diagnostic from a real service rejection.
+    await page.route(`**${endpoint}/`, async (route) => {
+      const request = route.request();
+      const body = { ...request.postDataJSON(), title: 'x'.repeat(CREATOR_FIELD_LIMITS.title + 1) };
+      const headers = new Headers(request.headers());
+      headers.delete('content-length');
+      const rejection = await fixture.creatorRuntime.handle(new Request(request.url(), {
+        method: request.method(), headers, body: JSON.stringify(body),
+      }));
+      assert.equal(rejection.status, 422);
+      const payload = await rejection.json();
+      assert.equal(payload.error, 'FIELD_TOO_LONG');
+      payload.fieldErrors = [{ field: 'title', reason: 'too_long' }];
+      const responseHeaders = new Headers(rejection.headers);
+      responseHeaders.delete('content-length');
+      await route.fulfill({ status: rejection.status, headers: Object.fromEntries(responseHeaders), json: payload });
+    }, { times: 1 });
+
+    await save.click();
+    const rejected = await responseFor(capture, 'PATCH', endpoint);
+    assert.equal(rejected.status, 422);
+    assert.deepEqual(rejected.body, { creatorVersion: before.creatorVersion, featured: true });
+    await expect(form).toBeVisible();
+    await expect(form.locator('[data-owner-form-status="enlace"]')).toHaveText(/Conservamos el borrador/iu);
+    await expect(feature).toBeChecked();
+    await expect(form.locator('[aria-invalid="true"]')).toHaveCount(0);
+    await expect(form.locator('[data-owner-field-error]:visible')).toHaveCount(0,
+      'the API diagnostic cannot make read-only metadata actionable');
+    assert.equal(writesTo(capture, 'PATCH', endpoint).length, 1);
+    assert.deepEqual(await readOwnerSnapshot(fixture, cookie), before, 'the rejected patch wrote nothing');
+
+    await save.click();
+    assert.equal((await responseFor(capture, 'PATCH', endpoint, 1)).status, 200);
+    await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0);
+    const after = await readOwnerSnapshot(fixture, cookie);
+    assert.ok(after.order.featured.includes(placementId));
+    assert.deepEqual(await fixture.rawResource(shared.id), shared);
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
+  }
 });
 
 test('referencia compartida: guardar opciones no ofrece ni persiste autoridad sobre los metadatos', async ({ fixture, page }) => {

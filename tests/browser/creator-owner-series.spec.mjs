@@ -364,6 +364,82 @@ test('Series: un acuse de capítulo retrasado reconcilia una serie eliminada sin
   }
 });
 
+test('Series: el rechazo real de eliminar una fila queda en su contexto y se resuelve con teclado', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const target = await createSeries(fixture, cookie, { name: 'Serie con rechazo de fila', slug: 'serie-rechazo-fila' });
+  const capture = await captureCreatorApi(page);
+  try {
+    await openSeriesView(page, fixture);
+    const row = seriesRow(page, target.id);
+    const listBefore = await readOwnerSnapshot(fixture, cookie);
+    const concurrentListWrite = await api(fixture, cookie, '/api/creador/series', {
+      method: 'POST',
+      body: { creatorVersion: listBefore.creatorVersion, name: 'Serie concurrente de fila', slug: 'serie-concurrente-fila' },
+    });
+    assert.equal(concurrentListWrite.response.status, 201, JSON.stringify(concurrentListWrite.body));
+    const deleteConfirmation = page.waitForEvent('dialog');
+    const deleteClick = row.locator('[data-series-delete]').click();
+    (await deleteConfirmation).accept();
+    await deleteClick;
+    const deletePath = `/api/creador/series/${target.id}`;
+    await expect.poll(() => writesFor(capture, 'DELETE', deletePath).at(-1)?.status).toBe(409);
+    await capture.settle();
+    await expect(row).toBeVisible('a rejected row action leaves the series visible');
+    const rowRecovery = row.locator('[data-owner-recovery]');
+    await expect(rowRecovery).toBeVisible('the row owns the recovery for its failed no-field action');
+    await expect(rowRecovery).toContainText(/no se guardó|contenido cambió|estado actual/iu);
+    const rowDecision = rowRecovery.getByRole('button', { name: 'Usar lo guardado', exact: true });
+    await expect(rowDecision).toBeFocused();
+    await rowDecision.press('Enter');
+    await expect(rowRecovery).toHaveCount(0);
+    assert.equal(writesFor(capture, 'DELETE', deletePath).length, 1,
+      'resolving a rejected series deletion never retries the DELETE');
+    const afterDeleteRejection = await readOwnerSnapshot(fixture, cookie);
+    assert.ok(afterDeleteRejection.series[target.id], 'the target series remains after the real rejection');
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('Series: el rechazo real de quitar un capítulo queda en el detalle y se resuelve con teclado', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const target = await createSeries(fixture, cookie, { name: 'Serie con rechazo de capítulo', slug: 'serie-rechazo-capitulo' });
+  const chapter = await addLink(fixture, cookie, { title: 'Capítulo para rechazo', url: 'https://links.example/rechazo-capitulo' });
+  await addChapter(fixture, cookie, target.id, chapter.placementId);
+  const capture = await captureCreatorApi(page);
+  try {
+    await openSeriesView(page, fixture);
+    await seriesRow(page, target.id).locator('[data-series-chapters]').click();
+    await expect(page.locator('[data-owner-series-chapters]')).toBeVisible();
+    const detailBefore = await readOwnerSnapshot(fixture, cookie);
+    const concurrentDetailWrite = await api(fixture, cookie, '/api/creador/series', {
+      method: 'POST',
+      body: { creatorVersion: detailBefore.creatorVersion, name: 'Serie concurrente de detalle', slug: 'serie-concurrente-detalle' },
+    });
+    assert.equal(concurrentDetailWrite.response.status, 201, JSON.stringify(concurrentDetailWrite.body));
+    const chapterRow = page.locator(`[data-chapter-row="${chapter.placementId}"]`);
+    await chapterRow.locator('[data-chapter-remove]').click();
+    const removePath = `/api/creador/series/${target.id}/capitulos/${chapter.placementId}`;
+    await expect.poll(() => writesFor(capture, 'DELETE', removePath).at(-1)?.status).toBe(409);
+    await capture.settle();
+    await expect(chapterRow).toContainText(/incluido en la posición/iu,
+      'a rejected chapter action leaves the membership unchanged');
+    const detailRecovery = page.locator('[data-owner-series-chapters] [data-owner-recovery]');
+    await expect(detailRecovery).toBeVisible('the chapter detail owns the recovery for its failed no-field action');
+    const detailDecision = detailRecovery.getByRole('button', { name: 'Usar lo guardado', exact: true });
+    await expect(detailDecision).toBeFocused();
+    await detailDecision.press('Enter');
+    await expect(detailRecovery).toHaveCount(0);
+    assert.equal(writesFor(capture, 'DELETE', removePath).length, 1,
+      'resolving a rejected chapter removal never retries the DELETE');
+    const afterChapterRejection = await readOwnerSnapshot(fixture, cookie);
+    assert.deepEqual(afterChapterRejection.series[target.id].chapters, [chapter.placementId],
+      'the real rejection has no effect on chapter membership');
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
 test('Series: el slug usa validación nativa y acepta segmentos con guiones sencillos', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const capture = await captureCreatorApi(page, { ignoreReads: true });
@@ -388,6 +464,18 @@ test('Series: el slug usa validación nativa y acepta segmentos con guiones senc
     await save.click();
     await expect(form).toBeVisible();
     await expect(slug).toBeFocused();
+    if (index === 0) {
+      await expect(slug).toHaveAttribute('aria-invalid', 'true',
+        'a browser-native slug rejection is exposed as an invalid field, not only through the browser bubble');
+      const describedBy = await slug.getAttribute('aria-describedby');
+      assert.ok(describedBy, 'the native slug rejection has an accessible description reference');
+      const descriptionIds = describedBy.trim().split(/\s+/u);
+      for (const id of descriptionIds) await expect(form.locator(`[id="${id}"]`)).toBeVisible();
+      const error = form.locator('[data-owner-field-error]').filter({ hasText: /dirección/iu });
+      await expect(error).toBeVisible();
+      assert.ok(descriptionIds.includes(await error.getAttribute('id')),
+        'the native slug error is one of the descriptions announced for the slug input');
+    }
     assert.equal(capture.writes().length, writesBefore,
       `native form validation blocks the invalid slug ${JSON.stringify(value)} before any API write`);
   }
@@ -422,6 +510,127 @@ test('Series: el slug usa validación nativa y acepta segmentos con guiones senc
   assert.equal(capture.writes().filter(({ method }) => method === 'POST').length, 3,
     'only the three natively valid slugs reach the real series API');
   await capture.stop({ skipErrorBodies: true });
+});
+
+test('Series: un slug reservado en alta conserva el formulario, cancela Guardar y salir y permite corregirlo', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const reserved = await createSeries(fixture, cookie, {
+    name: 'Serie ya reservada', slug: 'serie-ya-reservada', description: 'La serie existente conserva su texto.',
+  });
+  const before = await readOwnerSnapshot(fixture, cookie);
+  const capture = await captureCreatorApi(page);
+  try {
+    await openSeriesView(page, fixture);
+    await page.getByRole('button', { name: 'Crear serie', exact: true }).click();
+    const form = seriesForm(page);
+    const name = form.getByLabel('Nombre de la serie', { exact: true });
+    const slug = form.getByLabel('Dirección de la serie', { exact: true });
+    const description = form.getByLabel(/Descripción/iu);
+    await name.fill('Borrador de serie retenido');
+    await slug.fill(reserved.slug);
+    await description.fill('Descripción que debe seguir visible después del rechazo.');
+    await form.getByRole('button', { name: 'Cancelar', exact: true }).click();
+    const exit = page.locator('[data-owner-exit-prompt]');
+    await expect(exit).toBeVisible();
+    await exit.getByRole('button', { name: 'Guardar y salir', exact: true }).click();
+
+    await expect.poll(() => writesFor(capture, 'POST', '/api/creador/series').at(-1)?.status).toBe(409);
+    await capture.settle();
+    const rejection = writesFor(capture, 'POST', '/api/creador/series').at(-1);
+    assert.equal(rejection.responseBody?.error, 'SERIES_SLUG_TAKEN');
+    await expect(form).toBeVisible('the failed Guardar y salir returns to the series editor');
+    await expect(exit).toHaveCount(0, 'a definitive series rejection must not resurrect the exit prompt');
+    await expect(name).toHaveValue('Borrador de serie retenido');
+    await expect(slug).toHaveValue(reserved.slug);
+    await expect(description).toHaveValue('Descripción que debe seguir visible después del rechazo.');
+    await expect(slug).toBeFocused();
+    await expect(slug).toHaveAttribute('aria-invalid', 'true');
+    const describedBy = await slug.getAttribute('aria-describedby');
+    assert.ok(describedBy, 'the reserved series slug has an accessible description reference');
+    const descriptionIds = describedBy.trim().split(/\s+/u);
+    for (const id of descriptionIds) await expect(form.locator(`[id="${id}"]`)).toBeVisible();
+    const error = form.locator('[data-owner-field-error]').filter({ hasText: 'Esa dirección ya está reservada. Elige otra.' });
+    await expect(error).toBeVisible();
+    assert.ok(descriptionIds.includes(await error.getAttribute('id')),
+      'the reserved slug error is associated with the editable slug input');
+    assert.equal(Object.keys((await readOwnerSnapshot(fixture, cookie)).series).length, Object.keys(before.series).length,
+      'the definitive reservation rejection creates no series');
+
+    await slug.fill('serie-corregida-en-alta');
+    await expect(slug).not.toHaveAttribute('aria-invalid', 'true');
+    await expect(error).toBeHidden();
+    await form.getByRole('button', { name: 'Guardar serie', exact: true }).click();
+    await expect.poll(() => writesFor(capture, 'POST', '/api/creador/series').length).toBe(2);
+    await expect.poll(() => writesFor(capture, 'POST', '/api/creador/series').at(-1)?.status).toBe(201);
+    await expect(form).toHaveCount(0);
+    await expect(page.locator('[data-owner-exit-prompt]')).toHaveCount(0);
+    const after = await readOwnerSnapshot(fixture, cookie);
+    const created = Object.values(after.series).find(({ slug: value }) => value === 'serie-corregida-en-alta');
+    assert.ok(created, 'the corrected slug is persisted as a new series');
+    assert.equal(created.name, 'Borrador de serie retenido');
+    assert.equal(created.description, 'Descripción que debe seguir visible después del rechazo.');
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('Series: un slug reservado al editar conserva todos los campos y persiste la corrección', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const target = await createSeries(fixture, cookie, {
+    name: 'Serie que se edita', slug: 'serie-que-se-edita', description: 'Descripción original.',
+  });
+  const reserved = await createSeries(fixture, cookie, {
+    name: 'Otra serie reservada', slug: 'otra-serie-reservada', description: 'No modificar.',
+  });
+  const capture = await captureCreatorApi(page);
+  try {
+    await openSeriesView(page, fixture);
+    await seriesRow(page, target.id).locator('[data-series-edit]').click();
+    const form = seriesForm(page);
+    const name = form.getByLabel('Nombre de la serie', { exact: true });
+    const slug = form.getByLabel('Dirección de la serie', { exact: true });
+    const description = form.getByLabel(/Descripción/iu);
+    await name.fill('Serie editada retenida');
+    await slug.fill(reserved.slug);
+    await description.fill('Descripción editada que se conserva.');
+    await form.getByRole('button', { name: 'Guardar serie', exact: true }).click();
+    await expect.poll(() => writesFor(capture, 'PATCH', `/api/creador/series/${target.id}`).at(-1)?.status).toBe(409);
+    await capture.settle();
+    const rejection = writesFor(capture, 'PATCH', `/api/creador/series/${target.id}`).at(-1);
+    assert.equal(rejection.responseBody?.error, 'SERIES_SLUG_TAKEN');
+    await expect(form).toBeVisible();
+    await expect(name).toHaveValue('Serie editada retenida');
+    await expect(slug).toHaveValue(reserved.slug);
+    await expect(description).toHaveValue('Descripción editada que se conserva.');
+    await expect(slug).toBeFocused();
+    await expect(slug).toHaveAttribute('aria-invalid', 'true');
+    const error = form.locator('[data-owner-field-error]').filter({ hasText: 'Esa dirección ya está reservada. Elige otra.' });
+    await expect(error).toBeVisible();
+    const describedBy = await slug.getAttribute('aria-describedby');
+    assert.ok(describedBy?.split(/\s+/u).includes(await error.getAttribute('id')),
+      'the edit rejection remains associated with the slug field');
+    const savedAfterReject = await readOwnerSnapshot(fixture, cookie);
+    assert.equal(savedAfterReject.series[target.id].slug, target.slug);
+    assert.equal(savedAfterReject.series[target.id].name, target.name);
+    assert.equal(savedAfterReject.series[target.id].description, target.description);
+
+    await slug.fill('serie-editada-correctamente');
+    await expect(slug).not.toHaveAttribute('aria-invalid', 'true');
+    await expect(error).toBeHidden();
+    await form.getByRole('button', { name: 'Guardar serie', exact: true }).click();
+    await expect.poll(() => writesFor(capture, 'PATCH', `/api/creador/series/${target.id}`).length).toBe(2);
+    await expect.poll(() => writesFor(capture, 'PATCH', `/api/creador/series/${target.id}`).at(-1)?.status).toBe(200);
+    await expect(form).toHaveCount(0);
+    const saved = await readOwnerSnapshot(fixture, cookie);
+    assert.deepEqual(saved.series[target.id], {
+      ...saved.series[target.id],
+      name: 'Serie editada retenida',
+      slug: 'serie-editada-correctamente',
+      description: 'Descripción editada que se conserva.',
+    });
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
+  }
 });
 
 test('Series: el ordinal de mover capítulo referencia una descripción visible dentro de su diálogo', async ({ fixture, page }) => {

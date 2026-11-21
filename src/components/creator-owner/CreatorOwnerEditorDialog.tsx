@@ -13,11 +13,14 @@ import {
 } from '../../lib/creator-values.mjs';
 import {
   creatorOwnerCanSubmitEditor,
+  creatorOwnerClaimSelectionIsCurrent,
+  creatorOwnerClaimSelectionNeedsRefresh,
   creatorOwnerLinkMoveContext,
   creatorOwnerMoveDestinationIsValid,
   creatorOwnerReferenceSubmissionStatus,
   deriveCreatorOwnerRecoveryAction,
   type CreatorOwnerEditorDraft,
+  type CreatorOwnerClaimSelection,
   type CreatorOwnerLinkDraft,
   type CreatorOwnerRecoveryChoice,
   type CreatorOwnerReferenceCandidate,
@@ -27,10 +30,13 @@ import { creatorOwnerNavigationLists } from '../../lib/creator-owner-presentatio
 import { pageCreatorOwnerCatalog } from '../../lib/creator-owner-catalog';
 import { usableCreatorOwnerFocusTarget } from '../../lib/creator-owner-focus';
 import {
+  nativeCreatorOwnerFieldMessage,
+  type CreatorOwnerField,
   identityFieldDescribedBy,
   identityFieldErrorId,
   identityFieldHelpId,
   IdentityFieldError,
+  useNativeFieldErrors,
   useNativeIdentityFieldErrors,
 } from './CreatorOwnerIdentityFeedback';
 
@@ -72,10 +78,16 @@ function inputLabel(value: string): string {
   return value || '—';
 }
 
+function contentFieldProps(field: CreatorOwnerField, error?: string, helpId?: string, focusError = error) {
+  return {
+    'aria-invalid': error ? true : undefined,
+    'aria-describedby': identityFieldDescribedBy('owner', field, Boolean(error), helpId),
+    'data-owner-content-error-focus': focusError ? true : undefined,
+  };
+}
+
 function referenceFeedback(state: CreatorOwnerState, status: ReturnType<typeof creatorOwnerReferenceSubmissionStatus>, feedback: string): string {
-  if (state.catalog.status === 'error') return state.catalog.message ?? 'No pudimos cargar el catálogo. Puedes volver a intentarlo.';
-  if (state.catalog.needsRefresh) return state.catalog.message ?? 'Actualiza el catálogo y vuelve a elegir una ficha vigente.';
-  if (state.catalog.status === 'loading') return '';
+  if (state.catalog.status !== 'ready' || state.catalog.needsRefresh) return '';
   if (status === 'needs-selection') return 'Elige una ficha del catálogo para agregarla a tu página.';
   if (status === 'rejected') return 'La ficha seleccionada ya no está vigente. Actualiza el catálogo y elige otra.';
   if (status === 'refresh') return 'Actualiza el catálogo y vuelve a elegir una ficha vigente.';
@@ -199,6 +211,7 @@ export default function CreatorOwnerEditorDialog({
   const wasExitPromptOpen = useRef(false);
   const editor = state.editor;
   const nativeIdentity = useNativeIdentityFieldErrors(editor?.key);
+  const nativeContent = useNativeFieldErrors<CreatorOwnerField>(editor?.key, nativeCreatorOwnerFieldMessage);
   const editorIsDialog = Boolean(editor && editor.kind !== 'create-profile');
   const prompt = state.location.prompt === 'exit';
   const inlineCreatePrompt = prompt && editor?.kind === 'create-profile';
@@ -232,7 +245,9 @@ export default function CreatorOwnerEditorDialog({
   const comparison = editor && rows.length > 0 && comparisonReady
     ? rows : undefined;
   const editorFeedback = editor && state.editorFeedback?.editorKey === editor.key ? state.editorFeedback : undefined;
-  const editorFieldErrors = { ...nativeIdentity.errors, ...(editorFeedback?.fieldErrors ?? {}) };
+  const editorFieldErrors = { ...nativeIdentity.errors, ...nativeContent.errors, ...(editorFeedback?.fieldErrors ?? {}) };
+  const contentFieldErrors = editorFieldErrors as Partial<Record<CreatorOwnerField, string>>;
+  const contentError = (field: CreatorOwnerField): string | undefined => contentFieldErrors[field];
   const editorHasFieldErrors = Object.values(editorFieldErrors).some(Boolean);
   const photoError = editorFieldErrors.photo;
   const photoHelpId = identityFieldHelpId('owner', 'photo');
@@ -385,17 +400,24 @@ export default function CreatorOwnerEditorDialog({
       {editorIsDialog && editor?.kind === 'series' && <form class="creator-owner__form" data-owner-form="serie" data-series-form onSubmit={editorSubmit}>
         {sessionRecovery}
         <p class="creator-owner__form-context">{editor.seriesId ? `Editas «${state.observed.series[editor.seriesId]?.name ?? 'esta serie'}».` : 'La serie será pública cuando tu página esté publicada y visible y tenga al menos un capítulo visible.'}</p>
-        <div class="creator-owner__field"><label htmlFor="owner-series-name">Nombre de la serie</label><input id="owner-series-name" name="name" value={editor.draft.name} maxLength={CREATOR_FIELD_LIMITS.name} required data-series-name-suggestion readOnly={locked}
-          onInput={(event) => onUpdateSeries({ name: (event.currentTarget as HTMLInputElement).value })} /></div>
-        <div class="creator-owner__field"><label htmlFor="owner-series-slug">Dirección de la serie</label>
+        <div class={`creator-owner__field${contentError('name') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-series-name">Nombre de la serie</label><input id="owner-series-name" name="name" value={editor.draft.name} maxLength={CREATOR_FIELD_LIMITS.name} required data-series-name-suggestion readOnly={locked}
+          {...contentFieldProps('name', contentError('name'))}
+          onInvalid={(event) => nativeContent.onInvalid('name', event.currentTarget as HTMLInputElement, event)}
+          onInput={(event) => { nativeContent.onInput('name'); onUpdateSeries({ name: (event.currentTarget as HTMLInputElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'name')} text={contentError('name')} /></div>
+        <div class={`creator-owner__field${contentError('slug') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-series-slug">Dirección de la serie</label>
           <div class="creator-owner__slug-field"><span aria-hidden="true">/series/</span><input id="owner-series-slug" name="slug" value={editor.draft.slug} required minLength={CREATOR_SLUG_MIN_LENGTH} maxLength={CREATOR_FIELD_LIMITS.slug}
             pattern={CREATOR_SLUG_PATTERN} autoComplete="off" autoCapitalize="none" spellcheck={false} data-series-slug-suggestion readOnly={locked}
-            onInput={(event) => onUpdateSeries({ slug: (event.currentTarget as HTMLInputElement).value }, true)} /></div>
-          <small>3–40 caracteres: minúsculas, números y guiones sencillos.</small>
+            {...contentFieldProps('slug', contentError('slug'), 'owner-series-slug-help')}
+            onInvalid={(event) => nativeContent.onInvalid('slug', event.currentTarget as HTMLInputElement, event)}
+            onInput={(event) => { nativeContent.onInput('slug'); onUpdateSeries({ slug: (event.currentTarget as HTMLInputElement).value }, true); }} /></div>
+          <small id="owner-series-slug-help">3–40 caracteres: minúsculas, números y guiones sencillos.</small>
+          <IdentityFieldError id={identityFieldErrorId('owner', 'slug')} text={contentError('slug')} />
         </div>
-        <div class="creator-owner__field"><label htmlFor="owner-series-description">Descripción <span>(opcional)</span></label><textarea id="owner-series-description" name="description" rows={4} maxLength={CREATOR_FIELD_LIMITS.description} value={editor.draft.description} readOnly={locked}
-          onInput={(event) => onUpdateSeries({ description: (event.currentTarget as HTMLTextAreaElement).value })} /></div>
-        {feedback && <p class="creator-owner__status" data-owner-form-status="serie" role="status" aria-live="polite">{feedback}</p>}
+        <div class={`creator-owner__field${contentError('description') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-series-description">Descripción <span>(opcional)</span></label><textarea id="owner-series-description" name="description" rows={4} maxLength={CREATOR_FIELD_LIMITS.description} value={editor.draft.description} readOnly={locked}
+          {...contentFieldProps('description', contentError('description'))}
+          onInvalid={(event) => nativeContent.onInvalid('description', event.currentTarget as HTMLTextAreaElement, event)}
+          onInput={(event) => { nativeContent.onInput('description'); onUpdateSeries({ description: (event.currentTarget as HTMLTextAreaElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'description')} text={contentError('description')} /></div>
+        {feedback && <p class={`creator-owner__status${feedbackIsError ? ' creator-owner__status--error' : ''}`} data-owner-form-status="serie" role={feedbackIsError ? 'alert' : 'status'} aria-live="polite">{feedback}</p>}
         {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar serie</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
@@ -403,9 +425,10 @@ export default function CreatorOwnerEditorDialog({
       {editorIsDialog && editor?.kind === 'move-chapter' && <form class="creator-owner__form" data-owner-form="mover-capitulo" data-chapter-move-form aria-label="Mover capítulo en la serie" onSubmit={editorSubmit}>
         {sessionRecovery}
         <p id="owner-chapter-move-context" class="creator-owner__move-context" data-chapter-move-context aria-live="polite">{moveChapterContext}</p>
-        <div class="creator-owner__field"><label htmlFor="owner-chapter-target-position">Posición en esta serie</label><input id="owner-chapter-target-position" name="targetPosition" type="number" min={1} max={Math.max(1, moveChapterSequence.length)} step={1} required inputMode="numeric" aria-describedby="owner-chapter-move-context" value={editor.targetPosition} readOnly={locked}
-          onInput={(event) => onUpdateMove((event.currentTarget as HTMLInputElement).value)} /></div>
-        {feedback && <p class="creator-owner__status" data-owner-form-status="mover-capitulo" role="status" aria-live="polite">{feedback}</p>}
+        <div class={`creator-owner__field${contentError('position') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-chapter-target-position">Posición en esta serie</label><input id="owner-chapter-target-position" name="targetPosition" type="number" min={1} max={Math.max(1, moveChapterSequence.length)} step={1} required inputMode="numeric" {...contentFieldProps('position', contentError('position'))} aria-describedby={`owner-chapter-move-context${contentError('position') ? ` ${identityFieldErrorId('owner', 'position')}` : ''}`} value={editor.targetPosition} readOnly={locked}
+          onInvalid={(event) => nativeContent.onInvalid('position', event.currentTarget as HTMLInputElement, event)}
+          onInput={(event) => { nativeContent.onInput('position'); onUpdateMove((event.currentTarget as HTMLInputElement).value); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'position')} text={contentError('position')} /></div>
+        {feedback && <p class={`creator-owner__status${feedbackIsError ? ' creator-owner__status--error' : ''}`} data-owner-form-status="mover-capitulo" role={feedbackIsError ? 'alert' : 'status'} aria-live="polite">{feedback}</p>}
         {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar posición</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
@@ -417,12 +440,18 @@ export default function CreatorOwnerEditorDialog({
         <fieldset class="creator-owner__field creator-owner__link-fields" data-link-metadata-fields>
           <legend>Ficha del contenido</legend>
           {editor.editable && <details class="creator-owner__link-help"><summary>Sobre esta ficha</summary><p>El título, la URL y la descripción también se muestran a quienes referencian esta ficha.</p></details>}
-          <div class="creator-owner__field"><label htmlFor="owner-link-title">Título</label><input id="owner-link-title" name="title" value={editor.draft.title} maxLength={CREATOR_FIELD_LIMITS.title} required readOnly={locked || !editor.editable}
-            onInput={(event) => onUpdateLink({ title: (event.currentTarget as HTMLInputElement).value })} /></div>
-          <div class="creator-owner__field"><label htmlFor="owner-link-url">URL</label><input id="owner-link-url" name="url" type="url" inputMode="url" value={editor.draft.url} maxLength={CREATOR_FIELD_LIMITS.url} required readOnly={locked || !editor.editable}
-            onInput={(event) => onUpdateLink({ url: (event.currentTarget as HTMLInputElement).value })} /></div>
-          <div class="creator-owner__field"><label htmlFor="owner-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-link-description" name="description" rows={4} value={editor.draft.description} maxLength={CREATOR_FIELD_LIMITS.description} readOnly={locked || !editor.editable}
-            onInput={(event) => onUpdateLink({ description: (event.currentTarget as HTMLTextAreaElement).value })} /></div>
+          <div class={`creator-owner__field${editor.editable && contentError('title') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-link-title">Título</label><input id="owner-link-title" name="title" value={editor.draft.title} maxLength={CREATOR_FIELD_LIMITS.title} required readOnly={locked || !editor.editable}
+            {...contentFieldProps('title', editor.editable ? contentError('title') : undefined)}
+            onInvalid={(event) => nativeContent.onInvalid('title', event.currentTarget as HTMLInputElement, event)}
+            onInput={(event) => { nativeContent.onInput('title'); onUpdateLink({ title: (event.currentTarget as HTMLInputElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'title')} text={editor.editable ? contentError('title') : undefined} /></div>
+          <div class={`creator-owner__field${editor.editable && contentError('url') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-link-url">URL</label><input id="owner-link-url" name="url" type="url" inputMode="url" value={editor.draft.url} maxLength={CREATOR_FIELD_LIMITS.url} required readOnly={locked || !editor.editable}
+            {...contentFieldProps('url', editor.editable ? contentError('url') : undefined)}
+            onInvalid={(event) => nativeContent.onInvalid('url', event.currentTarget as HTMLInputElement, event)}
+            onInput={(event) => { nativeContent.onInput('url'); onUpdateLink({ url: (event.currentTarget as HTMLInputElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'url')} text={editor.editable ? contentError('url') : undefined} /></div>
+          <div class={`creator-owner__field${editor.editable && contentError('description') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-link-description" name="description" rows={4} value={editor.draft.description} maxLength={CREATOR_FIELD_LIMITS.description} readOnly={locked || !editor.editable}
+            {...contentFieldProps('description', editor.editable ? contentError('description') : undefined)}
+            onInvalid={(event) => nativeContent.onInvalid('description', event.currentTarget as HTMLTextAreaElement, event)}
+            onInput={(event) => { nativeContent.onInput('description'); onUpdateLink({ description: (event.currentTarget as HTMLTextAreaElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'description')} text={editor.editable ? contentError('description') : undefined} /></div>
         </fieldset>
         <fieldset class="creator-owner__field creator-owner__link-fields" data-link-options disabled={locked}>
           <legend>Opciones de tu página</legend>
@@ -430,7 +459,7 @@ export default function CreatorOwnerEditorDialog({
           <label class="creator-owner__link-checkbox"><input id="owner-link-directory-option" type="checkbox" name="selectedForDirectory" checked={editor.draft.selectedForDirectory} onChange={(event) => onUpdateLink({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>
           <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Quitarla no quita el enlace de tu página; la actualización del directorio puede demorar.</p></details>
         </fieldset>
-        {feedback && <p class="creator-owner__status" data-owner-form-status="enlace" role="status" aria-live="polite">{feedback}</p>}
+        {feedback && <p class={`creator-owner__status${feedbackIsError ? ' creator-owner__status--error' : ''}`} data-owner-form-status="enlace" role={feedbackIsError ? 'alert' : 'status'} aria-live="polite">{feedback}</p>}
         {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar cambios</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
@@ -440,11 +469,20 @@ export default function CreatorOwnerEditorDialog({
         <p>Editas una ficha propia que ya no está colocada en tu página. Guardar aquí no la reincorpora.</p>
         <fieldset class="creator-owner__field creator-owner__link-fields" data-link-metadata-fields>
           <legend>Ficha del contenido</legend>
-          <div class="creator-owner__field"><label htmlFor="owner-link-title">Título</label><input id="owner-link-title" name="title" value={editor.draft.title} maxLength={CREATOR_FIELD_LIMITS.title} required readOnly={locked} onInput={(event) => onUpdateLink({ title: (event.currentTarget as HTMLInputElement).value })} /></div>
-          <div class="creator-owner__field"><label htmlFor="owner-link-url">URL</label><input id="owner-link-url" name="url" type="url" inputMode="url" value={editor.draft.url} maxLength={CREATOR_FIELD_LIMITS.url} required readOnly={locked} onInput={(event) => onUpdateLink({ url: (event.currentTarget as HTMLInputElement).value })} /></div>
-          <div class="creator-owner__field"><label htmlFor="owner-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-link-description" name="description" rows={4} value={editor.draft.description} maxLength={CREATOR_FIELD_LIMITS.description} readOnly={locked} onInput={(event) => onUpdateLink({ description: (event.currentTarget as HTMLTextAreaElement).value })} /></div>
+          <div class={`creator-owner__field${contentError('title') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-link-title">Título</label><input id="owner-link-title" name="title" value={editor.draft.title} maxLength={CREATOR_FIELD_LIMITS.title} required readOnly={locked}
+            {...contentFieldProps('title', contentError('title'))}
+            onInvalid={(event) => nativeContent.onInvalid('title', event.currentTarget as HTMLInputElement, event)}
+            onInput={(event) => { nativeContent.onInput('title'); onUpdateLink({ title: (event.currentTarget as HTMLInputElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'title')} text={contentError('title')} /></div>
+          <div class={`creator-owner__field${contentError('url') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-link-url">URL</label><input id="owner-link-url" name="url" type="url" inputMode="url" value={editor.draft.url} maxLength={CREATOR_FIELD_LIMITS.url} required readOnly={locked}
+            {...contentFieldProps('url', contentError('url'))}
+            onInvalid={(event) => nativeContent.onInvalid('url', event.currentTarget as HTMLInputElement, event)}
+            onInput={(event) => { nativeContent.onInput('url'); onUpdateLink({ url: (event.currentTarget as HTMLInputElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'url')} text={contentError('url')} /></div>
+          <div class={`creator-owner__field${contentError('description') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-link-description" name="description" rows={4} value={editor.draft.description} maxLength={CREATOR_FIELD_LIMITS.description} readOnly={locked}
+            {...contentFieldProps('description', contentError('description'))}
+            onInvalid={(event) => nativeContent.onInvalid('description', event.currentTarget as HTMLTextAreaElement, event)}
+            onInput={(event) => { nativeContent.onInput('description'); onUpdateLink({ description: (event.currentTarget as HTMLTextAreaElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'description')} text={contentError('description')} /></div>
         </fieldset>
-        {feedback && <p class="creator-owner__status" data-owner-form-status="enlace" role="status" aria-live="polite">{feedback}</p>}
+        {feedback && <p class={`creator-owner__status${feedbackIsError ? ' creator-owner__status--error' : ''}`} data-owner-form-status="enlace" role={feedbackIsError ? 'alert' : 'status'} aria-live="polite">{feedback}</p>}
         {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar ficha</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
@@ -452,12 +490,21 @@ export default function CreatorOwnerEditorDialog({
       {editorIsDialog && editor?.kind === 'add-link' && <form class="creator-owner__form" data-owner-form="alta-enlace" data-link-add-form onSubmit={editorSubmit}>
         {sessionRecovery}
         <p>Agrega una URL a tu página. La propuesta al directorio queda seleccionada inicialmente; puedes cambiarla antes de guardar.</p>
-        <div class="creator-owner__field"><label htmlFor="owner-add-link-title">Título</label><input id="owner-add-link-title" name="title" value={editor.draft.title} maxLength={CREATOR_FIELD_LIMITS.title} required readOnly={locked} onInput={(event) => onUpdateAddLink({ title: (event.currentTarget as HTMLInputElement).value })} /></div>
-        <div class="creator-owner__field"><label htmlFor="owner-add-link-url">URL</label><input id="owner-add-link-url" name="url" type="url" inputMode="url" value={editor.draft.url} maxLength={CREATOR_FIELD_LIMITS.url} required readOnly={locked} onInput={(event) => onUpdateAddLink({ url: (event.currentTarget as HTMLInputElement).value })} /></div>
-        <div class="creator-owner__field"><label htmlFor="owner-add-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-add-link-description" name="description" rows={4} value={editor.draft.description} maxLength={CREATOR_FIELD_LIMITS.description} readOnly={locked} onInput={(event) => onUpdateAddLink({ description: (event.currentTarget as HTMLTextAreaElement).value })} /></div>
+        <div class={`creator-owner__field${contentError('title') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-add-link-title">Título</label><input id="owner-add-link-title" name="title" value={editor.draft.title} maxLength={CREATOR_FIELD_LIMITS.title} required readOnly={locked}
+          {...contentFieldProps('title', contentError('title'))}
+          onInvalid={(event) => nativeContent.onInvalid('title', event.currentTarget as HTMLInputElement, event)}
+          onInput={(event) => { nativeContent.onInput('title'); onUpdateAddLink({ title: (event.currentTarget as HTMLInputElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'title')} text={contentError('title')} /></div>
+        <div class={`creator-owner__field${contentError('url') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-add-link-url">URL</label><input id="owner-add-link-url" name="url" type="url" inputMode="url" value={editor.draft.url} maxLength={CREATOR_FIELD_LIMITS.url} required readOnly={locked}
+          {...contentFieldProps('url', contentError('url'))}
+          onInvalid={(event) => nativeContent.onInvalid('url', event.currentTarget as HTMLInputElement, event)}
+          onInput={(event) => { nativeContent.onInput('url'); onUpdateAddLink({ url: (event.currentTarget as HTMLInputElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'url')} text={contentError('url')} /></div>
+        <div class={`creator-owner__field${contentError('description') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-add-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-add-link-description" name="description" rows={4} value={editor.draft.description} maxLength={CREATOR_FIELD_LIMITS.description} readOnly={locked}
+          {...contentFieldProps('description', contentError('description'))}
+          onInvalid={(event) => nativeContent.onInvalid('description', event.currentTarget as HTMLTextAreaElement, event)}
+          onInput={(event) => { nativeContent.onInput('description'); onUpdateAddLink({ description: (event.currentTarget as HTMLTextAreaElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'description')} text={contentError('description')} /></div>
         <label class="creator-owner__link-checkbox"><input type="checkbox" name="selectedForDirectory" checked={editor.draft.selectedForDirectory} disabled={locked} onChange={(event) => onUpdateAddLink({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>
         <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Quitarla no quita el enlace de tu página; la actualización del directorio puede demorar.</p></details>
-        {feedback && <p class="creator-owner__status" data-link-add-status role="status" aria-live="polite">{feedback}</p>}
+        {feedback && <p class={`creator-owner__status${feedbackIsError ? ' creator-owner__status--error' : ''}`} data-link-add-status role={feedbackIsError ? 'alert' : 'status'} aria-live="polite">{feedback}</p>}
         {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Agregar enlace</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
@@ -469,10 +516,11 @@ export default function CreatorOwnerEditorDialog({
           const position = creatorOwnerLinkMoveContext(state.observed, editor.placementId);
           return <p class="creator-owner__move-context" id="owner-link-move-context" data-link-move-context aria-live="polite">Grupo {position?.group === 'featured' ? 'destacado' : 'sin destacar'}: {position?.count ?? 0} enlaces. {link && position ? `«${link.title}» está en la posición ${position.position}.` : 'El enlace ya no está en tu página.'}</p>;
         })()}
-        <div class="creator-owner__field"><label htmlFor="owner-link-target-position">Posición dentro del grupo</label><input id="owner-link-target-position" name="targetPosition" type="number" min={1}
-          max={Math.max(1, creatorOwnerLinkMoveContext(state.observed, editor.placementId)?.count ?? 0)} step={1} required inputMode="numeric" aria-describedby="owner-link-move-context" value={editor.targetPosition} readOnly={locked}
-          onInput={(event) => onUpdateMoveLink((event.currentTarget as HTMLInputElement).value)} /></div>
-        {feedback && <p class="creator-owner__status" data-owner-form-status="mover-enlace" role="status" aria-live="polite">{feedback}</p>}
+        <div class={`creator-owner__field${contentError('position') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-link-target-position">Posición dentro del grupo</label><input id="owner-link-target-position" name="targetPosition" type="number" min={1}
+          max={Math.max(1, creatorOwnerLinkMoveContext(state.observed, editor.placementId)?.count ?? 0)} step={1} required inputMode="numeric" {...contentFieldProps('position', contentError('position'))} aria-describedby={`owner-link-move-context${contentError('position') ? ` ${identityFieldErrorId('owner', 'position')}` : ''}`} value={editor.targetPosition} readOnly={locked}
+          onInvalid={(event) => nativeContent.onInvalid('position', event.currentTarget as HTMLInputElement, event)}
+          onInput={(event) => { nativeContent.onInput('position'); onUpdateMoveLink((event.currentTarget as HTMLInputElement).value); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'position')} text={contentError('position')} /></div>
+        {feedback && <p class={`creator-owner__status${feedbackIsError ? ' creator-owner__status--error' : ''}`} data-owner-form-status="mover-enlace" role={feedbackIsError ? 'alert' : 'status'} aria-live="polite">{feedback}</p>}
         {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar posición</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
@@ -480,12 +528,17 @@ export default function CreatorOwnerEditorDialog({
       {editorIsDialog && editor?.kind === 'reference' && <form class="creator-owner__form" data-owner-form="referencia" data-catalog-reference-form onSubmit={editorSubmit}>
         {sessionRecovery}
         <p>Busca por título o URL y agrega una ficha existente. Esto crea una referencia; no concede permiso para editarla.</p>
-        <CatalogPicker state={state} mode="reference" selected={[]} selectedReference={editor.selected} onSearch={onCatalogSearch} onPage={onCatalogPage} onRetry={onCatalogRetry}
-          onSelect={(item, checked) => onUpdateReference({ selected: checked ? item : undefined })} disabled={locked} />
+        <fieldset class={`creator-owner__field creator-owner__content-group${contentError('selection') ? ' creator-owner__field--invalid' : ''}`} data-owner-reference-selection aria-invalid={contentError('selection') ? 'true' : undefined}
+          aria-describedby={contentError('selection') ? identityFieldErrorId('owner', 'selection') : undefined}>
+          <legend>Ficha del catálogo</legend>
+          <CatalogPicker state={state} mode="reference" selected={[]} selectedReference={editor.selected} onSearch={onCatalogSearch} onPage={onCatalogPage} onRetry={onCatalogRetry}
+            onSelect={(item, checked) => onUpdateReference({ selected: checked ? item : undefined })} disabled={locked} errorFocus={Boolean(contentError('selection'))} />
+          <IdentityFieldError id={identityFieldErrorId('owner', 'selection')} text={contentError('selection')} />
+        </fieldset>
         {editor.selected && <label class="creator-owner__link-checkbox creator-owner__catalog-directory"><input id="owner-link-directory-option" type="checkbox" name="selectedForDirectory" checked={editor.selectedForDirectory} disabled={locked}
           onChange={(event) => onUpdateReference({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>}
         {editor.selected && <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Agregar una referencia no concede permiso para editar la ficha compartida.</p></details>}
-        <p class="creator-owner__status" data-catalog-status role="status" aria-live="polite">{referenceStatusMessage}</p>
+        <p class={`creator-owner__status${feedbackIsError ? ' creator-owner__status--error' : ''}`} data-catalog-status role={feedbackIsError ? 'alert' : 'status'} aria-live="polite">{referenceStatusMessage}</p>
         {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" data-catalog-reference disabled={!canSubmit}>Agregar a mi página</button><button class="button button--outline" type="button" data-owner-cancel data-catalog-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
@@ -493,18 +546,29 @@ export default function CreatorOwnerEditorDialog({
       {editorIsDialog && editor?.kind === 'claim' && <form class="creator-owner__form" data-owner-form="reclamacion" data-claim-form onSubmit={editorSubmit}>
         {sessionRecovery}
         <p>Selecciona contenido del catálogo o agrega URLs conocidas. Enviar una solicitud no agrega contenido a tu página ni concede permiso para editar.</p>
-        <CatalogPicker state={state} mode="claim" selected={editor.selected.map(({ resourceId }) => resourceId)} onSearch={onCatalogSearch} onPage={onCatalogPage} onRetry={onCatalogRetry}
-          onSelect={(item, checked) => onUpdateClaim({ selected: checked
-            ? [...editor.selected.filter(({ resourceId }) => resourceId !== item.id), { resourceId: item.id, url: item.url, title: item.title }]
-            : editor.selected.filter(({ resourceId }) => resourceId !== item.id) })} disabled={locked} />
-        <ul class="creator-owner__claim-selection" data-claim-selection aria-label="Selección para solicitar edición" hidden={!editor.selected.length}>
-          {editor.selected.map((item) => <li key={item.resourceId}><span>{item.title} — {item.url}</span><button class="button button--outline" type="button" data-claim-deselect={item.resourceId} aria-label={`Quitar ${item.title} de la selección`} disabled={locked}
-            onClick={() => onUpdateClaim({ selected: editor.selected.filter(({ resourceId }) => resourceId !== item.resourceId) })}>Quitar</button></li>)}
-        </ul>
-        <p class="creator-owner__catalog-selected" data-catalog-selected-count aria-live="polite">{editor.selected.length ? `${editor.selected.length} ${editor.selected.length === 1 ? 'recurso seleccionado.' : 'recursos seleccionados.'}` : 'Ningún recurso seleccionado.'}</p>
-        <div class="creator-owner__field"><label htmlFor="owner-claim-urls">URLs conocidas <span>(opcional, una por línea)</span></label><textarea id="owner-claim-urls" name="knownUrls" rows={4} data-claim-urls autoComplete="url" value={editor.knownUrls} readOnly={locked} onInput={(event) => onUpdateClaim({ knownUrls: (event.currentTarget as HTMLTextAreaElement).value })} /></div>
-        <div class="creator-owner__field"><label htmlFor="owner-claim-evidence">Contexto privado <span>(opcional)</span></label><textarea id="owner-claim-evidence" name="evidence" rows={3} maxLength={CREATOR_FIELD_LIMITS.evidence} data-claim-evidence value={editor.evidence} readOnly={locked} onInput={(event) => onUpdateClaim({ evidence: (event.currentTarget as HTMLTextAreaElement).value })} /><small>Hasta {CREATOR_FIELD_LIMITS.evidence} caracteres. Sólo lo ven quienes gestionan esta solicitud.</small></div>
-        {feedback && <p class="creator-owner__status" data-claim-status role="status" aria-live="polite">{feedback}</p>}
+        <fieldset class={`creator-owner__field creator-owner__content-group${contentError('destinations') ? ' creator-owner__field--invalid' : ''}`} data-owner-claim-destinations aria-invalid={contentError('destinations') ? 'true' : undefined}
+          aria-describedby={contentError('destinations') ? identityFieldErrorId('owner', 'destinations') : undefined}>
+          <legend>Destinos de la solicitud</legend>
+          <CatalogPicker state={state} mode="claim" selected={editor.selected} onSearch={onCatalogSearch} onPage={onCatalogPage} onRetry={onCatalogRetry}
+            onSelect={(item, checked) => onUpdateClaim({ selected: checked
+              ? [...editor.selected.filter(({ resourceId }) => resourceId !== item.id), { resourceId: item.id, url: item.url, title: item.title }]
+              : editor.selected.filter(({ resourceId }) => resourceId !== item.id) })} disabled={locked} errorFocus={Boolean(contentError('selection'))} />
+          <ul class="creator-owner__claim-selection" data-claim-selection aria-label="Selección para solicitar edición" hidden={!editor.selected.length}>
+            {editor.selected.map((item) => <li key={item.resourceId}><span>{item.title} — {item.url}</span><button class="button button--outline" type="button" data-claim-deselect={item.resourceId} aria-label={`Quitar ${item.title} de la selección`} disabled={locked}
+              onClick={() => onUpdateClaim({ selected: editor.selected.filter(({ resourceId }) => resourceId !== item.resourceId) })}>Quitar</button></li>)}
+          </ul>
+          <p class="creator-owner__catalog-selected" data-catalog-selected-count aria-live="polite">{editor.selected.length ? `${editor.selected.length} ${editor.selected.length === 1 ? 'recurso seleccionado.' : 'recursos seleccionados.'}` : 'Ningún recurso seleccionado.'}</p>
+          <div class={`creator-owner__field${contentError('knownUrls') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-claim-urls">URLs conocidas <span>(opcional, una por línea)</span></label><textarea id="owner-claim-urls" name="knownUrls" rows={4} data-claim-urls autoComplete="url" value={editor.knownUrls} readOnly={locked}
+            {...contentFieldProps('knownUrls', contentError('knownUrls'), undefined, contentError('destinations'))}
+            onInvalid={(event) => nativeContent.onInvalid('knownUrls', event.currentTarget as HTMLTextAreaElement, event)}
+            onInput={(event) => { nativeContent.onInput('knownUrls'); onUpdateClaim({ knownUrls: (event.currentTarget as HTMLTextAreaElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'knownUrls')} text={contentError('knownUrls')} /></div>
+          <IdentityFieldError id={identityFieldErrorId('owner', 'destinations')} text={contentError('destinations')} />
+        </fieldset>
+        <div class={`creator-owner__field${contentError('evidence') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-claim-evidence">Contexto privado <span>(opcional)</span></label><textarea id="owner-claim-evidence" name="evidence" rows={3} maxLength={CREATOR_FIELD_LIMITS.evidence} data-claim-evidence value={editor.evidence} readOnly={locked}
+          {...contentFieldProps('evidence', contentError('evidence'))}
+          onInvalid={(event) => nativeContent.onInvalid('evidence', event.currentTarget as HTMLTextAreaElement, event)}
+          onInput={(event) => { nativeContent.onInput('evidence'); onUpdateClaim({ evidence: (event.currentTarget as HTMLTextAreaElement).value }); }} /><small>Hasta {CREATOR_FIELD_LIMITS.evidence} caracteres. Sólo lo ven quienes gestionan esta solicitud.</small><IdentityFieldError id={identityFieldErrorId('owner', 'evidence')} text={contentError('evidence')} /></div>
+        {feedback && <p class={`creator-owner__status${feedbackIsError ? ' creator-owner__status--error' : ''}`} data-claim-status role={feedbackIsError ? 'alert' : 'status'} aria-live="polite">{feedback}</p>}
         {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={false} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" data-claim-submit disabled={!canSubmit}>Enviar solicitud</button><button class="button button--outline" type="button" data-owner-cancel data-claim-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
@@ -577,16 +641,17 @@ function OperationFeedback({ state, rows, canSaveDraft, onRetryRead, onResolve, 
   </section>;
 }
 
-function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onPage, onRetry, onSelect, disabled = false }: {
+function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onPage, onRetry, onSelect, disabled = false, errorFocus = false }: {
   state: CreatorOwnerState;
   mode: 'reference' | 'claim';
-  selected: string[];
+  selected: readonly CreatorOwnerClaimSelection[];
   selectedReference?: CreatorOwnerReferenceCandidate;
   onSearch(value: string): void;
   onPage(value: number): void;
   onRetry(): void;
   onSelect(item: CreatorCatalogSelectionDTO, checked: boolean): void;
   disabled?: boolean;
+  errorFocus?: boolean;
 }) {
   const resultsRef = useRef<HTMLUListElement>(null);
   const previousPageRef = useRef<HTMLButtonElement>(null);
@@ -595,15 +660,18 @@ function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onP
   const catalog = state.catalog;
   const entries = catalog.entries ?? [];
   const selection = pageCreatorOwnerCatalog(entries, catalog.search, catalog.page);
-  const rows = catalog.needsRefresh ? [] : selection.rows;
+  const claimNeedsRefresh = mode === 'claim' && creatorOwnerClaimSelectionNeedsRefresh(state, selected);
+  const needsRefresh = catalog.needsRefresh || claimNeedsRefresh;
+  const claimNeedsReselection = mode === 'claim' && !needsRefresh && !creatorOwnerClaimSelectionIsCurrent(state, selected);
+  const rows = needsRefresh ? [] : selection.rows;
   const hasRejectedVisibleReference = mode === 'reference' && selection.rows.some(({ id, url }) =>
     catalog.rejectedReferenceSelections.some((rejected) => rejected.id === id && rejected.url === url));
-  const canRefresh = catalog.status === 'error' || catalog.needsRefresh || catalog.status === 'ready' && hasRejectedVisibleReference;
+  const canRefresh = catalog.status === 'error' || needsRefresh || catalog.status === 'ready' && hasRejectedVisibleReference;
   const loadLabel = catalog.status === 'loading' ? 'Cargando el catálogo…'
     : catalog.status === 'error' ? catalog.message ?? 'No pudimos cargar el catálogo.'
-      : catalog.needsRefresh ? catalog.message ?? 'Actualiza el catálogo antes de continuar.'
+      : needsRefresh ? catalog.message ?? 'Actualiza el catálogo antes de continuar.'
         : 'Busca contenido existente por título o URL.';
-  const showCatalogStatus = catalog.status !== 'ready' || catalog.needsRefresh;
+  const showCatalogStatus = catalog.status !== 'ready' || needsRefresh;
 
   useLayoutEffect(() => {
     const request = pageFocusRequestRef.current;
@@ -627,15 +695,17 @@ function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onP
     <div class="creator-owner__catalog-search" role="search">
       <div class="creator-owner__field"><label htmlFor="owner-catalog-search">Buscar por título o URL</label>
         <input id="owner-catalog-search" type="search" name="buscarCatalogo" data-catalog-search autoComplete="off" value={catalog.search} disabled={disabled}
+          data-owner-content-error-focus={errorFocus ? true : undefined}
           onInput={(event) => updateSearch((event.currentTarget as HTMLInputElement).value)}
           onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); pageFocusRequestRef.current = null; resultsRef.current?.focus(); } }} />
       </div>
-      <button class="button button--outline" type="button" data-catalog-search-submit disabled={disabled || catalog.status !== 'ready' || catalog.needsRefresh}
+      <button class="button button--outline" type="button" data-catalog-search-submit disabled={disabled || catalog.status !== 'ready' || needsRefresh}
         onClick={() => { updateSearch(catalog.search); resultsRef.current?.focus(); }}>Buscar</button>
     </div>
     {showCatalogStatus && <p class="creator-owner__status" data-catalog-index-status role={catalog.status === 'error' ? 'alert' : 'status'} aria-live="polite">{loadLabel}</p>}
     {canRefresh && <button class="button button--outline" type="button" data-catalog-retry disabled={disabled} onClick={onRetry}>{catalog.status === 'error' ? 'Reintentar carga del catálogo' : 'Actualizar catálogo'}</button>}
-    {catalog.status === 'ready' && !catalog.needsRefresh && <>
+    {claimNeedsReselection && <p class="creator-owner__status creator-owner__status--error" data-catalog-claim-selection-status role="alert" aria-live="polite">Una ficha seleccionada cambió de URL. Quítala o vuelve a elegirla antes de enviar la solicitud.</p>}
+    {catalog.status === 'ready' && !needsRefresh && <>
       <p data-catalog-count aria-live="polite">{selection.matches.length} {selection.matches.length === 1 ? 'resultado' : 'resultados'}</p>
       <ul class="creator-owner__catalog-results" data-catalog-results aria-label="Resultados del catálogo" tabIndex={-1} ref={resultsRef}>
         {rows.map((item) => {
@@ -644,7 +714,7 @@ function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onP
             <label><input type={mode === 'reference' ? 'radio' : 'checkbox'} name={mode === 'reference' ? 'catalogReference' : undefined}
               data-catalog-select data-resource-id={item.id} checked={mode === 'reference'
                 ? selectedReference?.id === item.id && selectedReference.url === item.url
-                : selected.includes(item.id)}
+                : selected.some(({ resourceId, url }) => resourceId === item.id && url === item.url)}
               disabled={disabled || rejected}
               aria-label={`${mode === 'claim' ? 'Solicitar edición de' : 'Seleccionar'} ${item.title}`}
               onChange={(event) => onSelect(item, event.currentTarget.checked)} />

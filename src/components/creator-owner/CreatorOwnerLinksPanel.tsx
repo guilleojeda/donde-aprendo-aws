@@ -1,11 +1,18 @@
+import type { ComponentChildren } from 'preact';
 import { creatorOwnerLinksCountLabel, creatorOwnerLinksHref, selectCreatorOwnerLinks, type CreatorOwnerLinksQuery } from '../../lib/creator-owner-links';
 import { creatorOwnerNavigationLists } from '../../lib/creator-owner-presentation';
-import type { CreatorOwnerState } from '../../lib/creator-owner-state';
+import type { CreatorOwnerIntent, CreatorOwnerState } from '../../lib/creator-owner-state';
 import { isPublicCreator } from '../../lib/creator-public.mjs';
+
+export interface CreatorOwnerListActionFeedback {
+  intent: CreatorOwnerIntent;
+  content: ComponentChildren;
+}
 
 interface Props {
   state: CreatorOwnerState;
   disabled: boolean;
+  actionFeedback?: CreatorOwnerListActionFeedback;
   onSearch(value: string): void;
   onQueryChange(query: CreatorOwnerLinksQuery, focusSelector: string): void;
   onQuerySubmit(query: CreatorOwnerLinksQuery): void;
@@ -21,7 +28,7 @@ interface Props {
 
 const DIRECTORY_LABELS: Record<string, string> = { pending: 'Pendiente', approved: 'Aprobado', revoked: 'Revocado' };
 
-export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQueryChange, onQuerySubmit, onAdd, onCatalog, onEditLink, onClaim, onMoveLink, onRemoveLink, onEditRetained, onReinclude }: Props) {
+export default function CreatorOwnerLinksPanel({ state, disabled, actionFeedback, onSearch, onQueryChange, onQuerySubmit, onAdd, onCatalog, onEditLink, onClaim, onMoveLink, onRemoveLink, onEditRetained, onReinclude }: Props) {
   const { observed: snapshot, location } = state;
   const data = creatorOwnerNavigationLists(snapshot);
   const selection = selectCreatorOwnerLinks(data.links, data.series, location.linksQuery);
@@ -32,6 +39,13 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
     || selection.query.destacado !== 'todos' || selection.query.orden !== 'pagina';
   const hasAppliedQuery = Boolean(selection.query.buscar.trim()) || showFilterNote || selection.query.paginaEnlaces > 1;
   const showTrueEmptyState = selection.totalLinks === 0 && !hasAppliedQuery;
+  const recoveryPlacementId = actionFeedback?.intent.target?.placementId;
+  const recoveryResourceId = actionFeedback?.intent.target?.resourceId ?? actionFeedback?.intent.acknowledgement?.resourceId;
+  const recoveryInPlacement = !location.linksQueryError && recoveryPlacementId !== undefined
+    && selection.rows.some((link) => link.placementId === recoveryPlacementId);
+  const recoveryInRetained = recoveryResourceId !== undefined
+    && retained.some((resource) => resource.id === recoveryResourceId);
+  const recoveryAttached = recoveryInPlacement || recoveryInRetained;
 
 
   function submit(event: SubmitEvent) {
@@ -118,6 +132,7 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
             const visibility = snapshot.profile?.hidden ? 'Página oculta por administración'
               : !isPublicCreator(snapshot.profile) ? 'Página no pública hasta publicar'
                 : link.hidden ? 'Ficha oculta en la página pública' : 'Visible en la página pública';
+            const rowRecovery = recoveryPlacementId === link.placementId ? actionFeedback?.content : undefined;
             return <tr data-link-row={link.placementId} data-placement-id={link.placementId} key={link.placementId}>
               <th scope="row"><span class="creator-owner__link-title" data-link-title>{link.title}</span><span class="creator-owner__link-url">{domain}</span></th>
               <td data-label="Series">{seriesNames.length ? seriesNames.join(', ') : 'Sin serie'}</td>
@@ -132,6 +147,7 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
                 {!editable && <button class="button button--outline" type="button" data-claim-open data-placement-id={link.placementId} disabled={disabled} aria-label={`Solicitar edición de ${link.title}`} onClick={() => onClaim(link.placementId)}>Solicitar edición</button>}
                 <button class="button button--outline" type="button" data-link-move data-placement-id={link.placementId} disabled={disabled} aria-label={`Mover ${link.title} a otra posición`} onClick={() => onMoveLink(link.placementId)}>Mover a la posición…</button>
                 <button class="button button--outline" type="button" data-link-remove data-placement-id={link.placementId} disabled={disabled} onClick={() => onRemoveLink(link.placementId)}>Quitar de tu página</button>
+                {rowRecovery}
               </td>
             </tr>;
           })}</tbody>
@@ -147,17 +163,21 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
       </nav>
     </>}
 
+    {actionFeedback && !recoveryAttached && <div class="creator-owner__list-recovery">{actionFeedback.content}</div>}
+
     {snapshot.profile && <section class="creator-owner__retained" data-owner-retained-links aria-labelledby="owner-retained-title" hidden={!retained.length}>
       <h3 id="owner-retained-title">Contenido que puedes volver a agregar</h3>
       <ul data-retained-resources>{retained.map((resource) => {
         let domain = resource.url;
         try { domain = new URL(resource.url).host; } catch { /* DTO validation owns resource URL shape. */ }
+        const rowRecovery = recoveryResourceId === resource.id ? actionFeedback?.content : undefined;
         return <li data-retained-resource={resource.id} key={resource.id}>
           <span><strong>{resource.title}</strong><span class="creator-owner__link-url">{domain}</span></span>
           <span class="creator-owner__link-actions">
             <button class="button button--outline" type="button" data-retained-edit data-resource-id={resource.id} disabled={disabled} onClick={() => onEditRetained(resource.id)}>Editar ficha</button>
             <button class="button button--outline" type="button" data-resource-reinclude data-resource-id={resource.id} disabled={disabled} onClick={() => onReinclude(resource.id)}>Volver a agregar</button>
           </span>
+          {rowRecovery}
         </li>;
       })}</ul>
     </section>}
