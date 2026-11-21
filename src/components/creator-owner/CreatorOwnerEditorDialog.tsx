@@ -234,6 +234,8 @@ export default function CreatorOwnerEditorDialog({
   const editorFeedback = editor && state.editorFeedback?.editorKey === editor.key ? state.editorFeedback : undefined;
   const editorFieldErrors = { ...nativeIdentity.errors, ...(editorFeedback?.fieldErrors ?? {}) };
   const editorHasFieldErrors = Object.values(editorFieldErrors).some(Boolean);
+  const photoError = editorFieldErrors.photo;
+  const photoHelpId = identityFieldHelpId('owner', 'photo');
 
   useLayoutEffect(() => {
     const dialog = dialogRef.current;
@@ -270,6 +272,7 @@ export default function CreatorOwnerEditorDialog({
         ? 'Guardando la acción iniciada. Espera a que termine antes de salir.'
         : ''
       : state.message?.text ?? '';
+  const feedbackIsError = Boolean(editorFeedback?.text || !matches && state.message?.kind === 'error');
   const referenceStatus = editor?.kind === 'reference' ? creatorOwnerReferenceSubmissionStatus(state, editor.selected) : 'ready';
   const referenceStatusMessage = referenceFeedback(state, referenceStatus, feedback);
   const moveChapterSequence = editor?.kind === 'move-chapter' ? state.observed.series[editor.seriesId]?.chapters ?? [] : [];
@@ -343,25 +346,38 @@ export default function CreatorOwnerEditorDialog({
 
       {editorIsDialog && editor?.kind === 'profile' && editor.section === 'redes' && <form class="creator-owner__form" data-owner-form="redes" onSubmit={editorSubmit}>
         {sessionRecovery}
-        <p>Las direcciones deben ser URL HTTP o HTTPS completas. Deja un campo vacío para quitar esa red.</p>
-        {SOCIALS.map(([key, label]) => <div class="creator-owner__field" key={key}>
-          <label htmlFor={`owner-social-${key}`}>{label}</label>
-          <input id={`owner-social-${key}`} name={`social-${key}`} type="url" inputMode="url" autoComplete="url" placeholder="https://" maxLength={CREATOR_FIELD_LIMITS.social} value={editor.draft[key]} readOnly={locked}
-            onInput={(event) => { const input = event.currentTarget as HTMLInputElement; input.setCustomValidity(''); onUpdateSocial(key, input.value); }}
-            onInvalid={(event) => (event.currentTarget as HTMLInputElement).setCustomValidity('Ingresa una URL HTTP o HTTPS sin usuario ni contraseña.')} />
-        </div>)}
-        {feedback && <p class="creator-owner__status" data-owner-form-status="redes" role="status" aria-live="polite">{feedback}</p>}
+        <p id="owner-social-help">Las direcciones deben ser URL HTTP o HTTPS completas. Deja un campo vacío para quitar esa red.</p>
+        {SOCIALS.map(([key, label]) => {
+          const field = `socials.${key}` as const;
+          const error = editorFieldErrors[field];
+          return <div class={`creator-owner__field${error ? ' creator-owner__field--invalid' : ''}`} key={key}>
+            <label htmlFor={`owner-social-${key}`}>{label}</label>
+            <input id={`owner-social-${key}`} name={`social-${key}`} type="url" inputMode="url" autoComplete="url" placeholder="https://" maxLength={CREATOR_FIELD_LIMITS.social} value={editor.draft[key]} readOnly={locked}
+              aria-invalid={error ? 'true' : undefined}
+              aria-describedby={identityFieldDescribedBy('owner', field, Boolean(error), 'owner-social-help')}
+              onInput={(event) => { const input = event.currentTarget as HTMLInputElement; input.setCustomValidity(''); nativeIdentity.onInput(field); onUpdateSocial(key, input.value); }}
+              onInvalid={(event) => nativeIdentity.onInvalid(field, event.currentTarget as HTMLInputElement, event)} />
+            <IdentityFieldError id={identityFieldErrorId('owner', field)} text={error} />
+          </div>;
+        })}
+        {feedback && <p class={`creator-owner__status${feedbackIsError ? ' creator-owner__status--error' : ''}`} data-owner-form-status="redes" role={feedbackIsError ? 'alert' : 'status'}>{feedback}</p>}
         {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar redes</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
 
       {editorIsDialog && editor?.kind === 'photo' && <form class="creator-owner__form" data-owner-form="foto" onSubmit={editorSubmit}>
         {sessionRecovery}
-        <p>{CREATOR_PHOTO_FORMATS.map((format) => format.toUpperCase()).join(', ')}; hasta {CREATOR_PHOTO_MAX_UPLOAD_BYTES / (1024 * 1024)} MiB y {CREATOR_PHOTO_MAX_PIXELS / 1_000_000} megapíxeles. La foto se guarda sólo cuando termina la carga.</p>
+        <p id={photoHelpId}>{CREATOR_PHOTO_FORMATS.map((format) => format.toUpperCase()).join(', ')}; hasta {CREATOR_PHOTO_MAX_UPLOAD_BYTES / (1024 * 1024)} MiB y {CREATOR_PHOTO_MAX_PIXELS / 1_000_000} megapíxeles. La foto se guarda sólo cuando termina la carga.</p>
         {state.observed.profile?.photo && <img class="creator-owner__photo creator-owner__photo--preview" src={`/media/fotos/${encodeURIComponent(state.observed.profile.id)}/${encodeURIComponent(String(state.observed.profile.photo.version))}.webp`} alt="Foto actual del perfil" width={112} height={112} data-owner-photo-preview />}
-        <div class="creator-owner__field"><label htmlFor="owner-photo-file">Elegir una foto</label><input id="owner-photo-file" name="photo" type="file" accept={CREATOR_PHOTO_MIME_TYPES.join(',')} required disabled={locked} data-busy-control
-          onChange={(event) => onSetPhoto((event.currentTarget as HTMLInputElement).files?.[0])} /></div>
-        {feedback && <p class="creator-owner__status" data-owner-form-status="foto" role="status" aria-live="polite">{feedback}</p>}
+        <div class={`creator-owner__field${photoError ? ' creator-owner__field--invalid' : ''}`}>
+          <label htmlFor="owner-photo-file">Elegir una foto</label>
+          <input id="owner-photo-file" name="photo" type="file" accept={CREATOR_PHOTO_MIME_TYPES.join(',')} required disabled={locked} data-busy-control
+            aria-invalid={photoError ? 'true' : undefined} aria-describedby={identityFieldDescribedBy('owner', 'photo', Boolean(photoError), photoHelpId)}
+            onInvalid={(event) => nativeIdentity.onInvalid('photo', event.currentTarget as HTMLInputElement, event)}
+            onChange={(event) => { const input = event.currentTarget as HTMLInputElement; input.setCustomValidity(''); nativeIdentity.onInput('photo'); onSetPhoto(input.files?.[0]); }} />
+          <IdentityFieldError id={identityFieldErrorId('owner', 'photo')} text={photoError} />
+        </div>
+        {feedback && <p class={`creator-owner__status${feedbackIsError ? ' creator-owner__status--error' : ''}`} data-owner-form-status="foto" role={feedbackIsError ? 'alert' : 'status'}>{feedback}</p>}
         {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Subir y guardar foto</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}

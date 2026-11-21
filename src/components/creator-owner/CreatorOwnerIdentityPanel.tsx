@@ -69,6 +69,11 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
   const nativeIdentity = useNativeIdentityFieldErrors(createEditor?.key);
   const wasInlineCreatePrompt = useRef(false);
   const createFeedback = createEditor && state.editorFeedback?.editorKey === createEditor.key ? state.editorFeedback : undefined;
+  // Publication rejections belong to the action that produced them. Keep them
+  // out of the page-level status region so they remain visible beside Publicar.
+  const publicationMessage = state.message?.scope === 'publish-profile'
+    ? state.message
+    : undefined;
   const createFieldErrors = { ...nativeIdentity.errors, ...(createFeedback?.fieldErrors ?? {}) };
   const createHasFieldErrors = Object.values(createFieldErrors).some(Boolean);
   const createGeneralFeedback = createFeedback
@@ -159,7 +164,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
         <p>Administra tu página y comparte su enlace cuando esté visible.</p>
       </header>
 
-      {state.message && !hasActiveEditorSurface && <p class={`creator-owner__status${state.message.kind === 'error' ? ' creator-owner__status--error' : ''}`} data-owner-status role={state.message.kind === 'error' ? 'alert' : 'status'} aria-live="polite">{state.message.text}</p>}
+      {state.message && !publicationMessage && !hasActiveEditorSurface && <p class={`creator-owner__status${state.message.kind === 'error' ? ' creator-owner__status--error' : ''}`} data-owner-status role={state.message.kind === 'error' ? 'alert' : 'status'} aria-live="polite">{state.message.text}</p>}
       {state.session.state !== 'ready' && profile && !state.editor && state.location.prompt !== 'exit' && sessionRecovery}
 
       {(createEditor || !profile) && <section class="creator-owner__create" data-owner-create-panel aria-labelledby="creator-owner-create-title">
@@ -265,6 +270,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
             {copyFeedback && <p class={`creator-owner__copy-status${copyFeedback.kind === 'success' ? ' sr-only' : ''}`} data-owner-copy-status role={copyFeedback.kind === 'error' ? 'alert' : 'status'} aria-live="polite">{copyFeedback.text}</p>}
           </> : <p data-owner-no-public-url>Completa una dirección válida para compartir tu página. No hay una URL pública disponible todavía.</p>}
           {!profile.published && !profile.hidden && <button class="button button--dark" type="button" data-owner-publish disabled={disabled} onClick={onPublish}>Publicar página</button>}
+          {publicationMessage && <p class="creator-owner__status creator-owner__status--error" data-owner-publish-error role="alert" aria-live="polite">{publicationMessage.text}</p>}
           {publishRecoveryAction?.kind === 'pending' && operation.status === 'reading' && <p class="creator-owner__status" data-owner-operation-message role="status" aria-live="polite">{operation.message}</p>}
           {(publishRecoveryAction?.kind === 'retry' || publishRecoveryAction?.kind === 'session-check') && operation.status === 'refresh-failed' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind={operation.fact === 'unknown' ? 'unknown' : 'refresh-failed'} data-owner-stale role="alert" aria-live="polite">
             <h3>{operation.fact === 'unknown' ? 'No sabemos si se publicó' : 'No pudimos actualizar la publicación'}</h3>
@@ -295,7 +301,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
               <div><span>Visitantes estimados</span><strong data-owner-activity-total="visitors">{formattedCount(activity.report?.totals.visitors)}</strong></div>
               <div><span>Clics en enlaces</span><strong data-owner-activity-total="clicks">{formattedCount(activity.report?.totals.clicks)}</strong></div>
             </div>
-            <div class="creator-owner__activity-feedback"><p data-owner-activity-status role="status" aria-live="polite">
+            <div class="creator-owner__activity-feedback"><p data-owner-activity-status data-kind={activity.status === 'error' ? 'error' : undefined} role="status" aria-live="polite">
               {activityStatus}{hasActivityWarning && <span class="creator-owner__activity-warning" data-owner-activity-warning>Parte del detalle puede estar incompleto.</span>}
             </p>
               {activity.status === 'error' || activity.report?.freshness === 'stale' ? <button class="button button--outline" data-owner-activity-retry type="button" onClick={onRetryActivity}>Reintentar</button> : null}

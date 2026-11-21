@@ -11,7 +11,7 @@ const { csrfToken, label = 'Cerrar sesión', buttonClass } = Astro.props;
 <form method="post" action="/cuenta/salir/" class="account-logout" data-account-logout>
   <input type="hidden" name="csrfToken" value={csrfToken} />
   <button class={buttonClass} type="submit" disabled>{label}</button>
-  <p data-account-logout-status role="status" aria-live="polite" hidden></p>
+  <p class="account-logout__status" data-account-logout-status data-state="idle" role="status" aria-live="polite" aria-atomic="true" hidden></p>
   <noscript><p>Activa JavaScript para cerrar la sesión en este navegador.</p></noscript>
 </form>
 

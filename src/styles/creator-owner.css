@@ -879,6 +879,10 @@
   color: var(--color-error-text);
 }
 
+.creator-owner__public .creator-owner__status--error {
+  color: var(--color-error-text);
+}
+
 .creator-owner__public [hidden],
 .creator-owner__profile[hidden],
 .creator-owner__create[hidden],
@@ -1024,10 +1028,9 @@
   line-height: 1.45;
 }
 
-.creator-owner__field--invalid input:not([type="checkbox"]):not([type="file"]),
+.creator-owner__form .creator-owner__field--invalid > input[aria-invalid="true"]:not([type="checkbox"]):not([type="radio"]),
 .creator-owner__field--invalid textarea {
-  border-width: 2px;
-  border-color: var(--color-error-text);
+  border: 2px solid var(--color-error-text);
 }
 
 .creator-owner__field--invalid .creator-owner__slug-field input:not([type="checkbox"]):not([type="file"]) {

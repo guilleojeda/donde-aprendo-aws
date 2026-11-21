@@ -19,7 +19,7 @@ export type CreatorOwnerProfileDraft = {
   bio: string;
 };
 export type CreatorOwnerProfileField = keyof CreatorOwnerProfileDraft;
-export type CreatorOwnerIdentityField = CreatorOwnerProfileField;
+export type CreatorOwnerIdentityField = CreatorOwnerProfileField | `socials.${CreatorSocial}` | 'photo';
 
 export type CreatorOwnerSocialsDraft = Record<CreatorSocial, string>;
 export type CreatorOwnerSeriesDraft = { name: string; slug: string; description: string };
@@ -144,7 +144,7 @@ export interface CreatorOwnerState {
     needsRefresh: boolean;
     rejectedReferenceSelections: Pick<CreatorCatalogSelectionDTO, 'id' | 'url'>[];
   };
-  message?: { text: string; kind: 'info' | 'success' | 'error'; sessionDerived?: true };
+  message?: { text: string; kind: 'info' | 'success' | 'error'; sessionDerived?: true; scope?: 'publish-profile' };
   editorFeedback?: {
     editorKey: string;
     text?: string;
@@ -448,18 +448,19 @@ export function deriveCreatorOwnerRecoveryFocus(state: CreatorOwnerState): strin
 export function creatorOwnerWriteRejectedFocus(state: CreatorOwnerState, intent: CreatorOwnerIntent): string {
   if (state.editor && intent.editorKey && state.editor.key === intent.editorKey) {
     const feedback = state.editorFeedback?.editorKey === state.editor.key ? state.editorFeedback.fieldErrors : undefined;
-    const field = feedback && (Object.keys(feedback).find((key) => feedback[key as CreatorOwnerIdentityField]) as CreatorOwnerIdentityField | undefined);
-    if (field) {
-      if (field === 'programs') return '#owner-program-user-group-leaders';
-      if (state.editor.kind === 'create-profile') {
-        if (field === 'displayName') return '#owner-create-name';
-        if (field === 'slug') return '#owner-create-slug';
-      }
+    if (feedback) {
+      if (state.editor.kind === 'create-profile') return feedback.displayName ? '#owner-create-name' : '#owner-create-slug';
       if (state.editor.kind === 'profile' && state.editor.section === 'datos') {
-        const selectors: Record<Exclude<CreatorOwnerIdentityField, 'programs'>, string> = {
-          displayName: '#owner-display-name', slug: '#owner-slug', city: '#owner-city', country: '#owner-country', bio: '#owner-bio',
+        const selectors: Record<CreatorOwnerProfileField, string> = {
+          displayName: '#owner-display-name', slug: '#owner-slug', city: '#owner-city', country: '#owner-country',
+          programs: '#owner-program-user-group-leaders', bio: '#owner-bio',
         };
-        return selectors[field as Exclude<CreatorOwnerIdentityField, 'programs'>];
+        const field = (Object.keys(selectors) as CreatorOwnerProfileField[]).find((key) => feedback[key]);
+        if (field) return selectors[field];
+      }
+      if (state.editor.kind === 'profile' && state.editor.section === 'redes') {
+        const key = CREATOR_SOCIALS.find((social: CreatorSocial) => feedback[`socials.${social}`]);
+        if (key) return `#owner-social-${key}`;
       }
     }
     return creatorOwnerEditorDraftFocus(state.editor);
@@ -655,8 +656,12 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
           ? { ...editor, draft: { ...editor.draft, ...action.value }, touchedFields: [...new Set([...editor.touchedFields, ...Object.keys(action.value) as CreatorOwnerProfileField[]])] } : editor);
       return clearEditorFeedback(nextState, Object.keys(action.value));
     }
-    case 'update-socials-draft': return updateEditor(state, (editor) => editor.kind === 'profile' && editor.section === 'redes'
-      ? { ...editor, draft: { ...editor.draft, ...action.value }, touchedFields: [...new Set([...editor.touchedFields, ...Object.keys(action.value) as CreatorSocial[]])] } : editor);
+    case 'update-socials-draft': {
+      const fields = Object.keys(action.value) as CreatorSocial[];
+      const nextState = updateEditor(state, (editor) => editor.kind === 'profile' && editor.section === 'redes'
+        ? { ...editor, draft: { ...editor.draft, ...action.value }, touchedFields: [...new Set([...editor.touchedFields, ...fields])] } : editor);
+      return nextState === state ? state : clearEditorFeedback(nextState, fields.map((key) => `socials.${key}`));
+    }
     case 'update-series-draft': return updateEditor(state, (editor) => editor.kind === 'series'
       ? { ...editor, draft: { ...editor.draft, ...action.value },
         touchedFields: [...new Set([...editor.touchedFields, ...Object.keys(action.value) as CreatorOwnerSeriesField[]])],
@@ -676,7 +681,10 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
     case 'update-claim-draft': return updateEditor(state, (editor) => editor.kind === 'claim'
       ? { ...editor, ...(action.value.selected ? { selected: action.value.selected.map((item) => ({ ...item })) } : {}),
         ...(action.value.knownUrls !== undefined ? { knownUrls: action.value.knownUrls } : {}), ...(action.value.evidence !== undefined ? { evidence: action.value.evidence } : {}) } : editor);
-    case 'update-photo-file': return updateEditor(state, (editor) => editor.kind === 'photo' ? { ...editor, file: action.file } : editor);
+    case 'update-photo-file': {
+      const nextState = updateEditor(state, (editor) => editor.kind === 'photo' ? { ...editor, file: action.file } : editor);
+      return nextState === state ? state : clearEditorFeedback(nextState, ['photo']);
+    }
     case 'catalog-load-started': return { ...state, catalog: { ...state.catalog, status: 'loading', message: undefined } };
     case 'catalog-load-ready': return { ...state, catalog: { ...state.catalog, status: 'ready', entries: action.entries.map((entry) => ({ ...entry })), message: action.message,
       needsRefresh: false, rejectedReferenceSelections: state.catalog.rejectedReferenceSelections.filter(({ id, url }) => action.entries.some((entry) => entry.id === id && entry.url === url)) } };
@@ -739,7 +747,11 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       const sessionFeedback = editorMatches && state.session.state !== 'ready' && state.message?.sessionDerived === true;
       const nextState = { ...state, operation: { status: 'idle' as const }, location,
         ...(editorMatches && !sessionFeedback ? { editorFeedback: fieldErrors ? { editorKey: intent.editorKey!, fieldErrors } : { editorKey: intent.editorKey!, text: action.message } } : {}),
-        ...(!editorMatches ? { message: { text: action.message, kind: 'error' as const } } : { message: undefined }) };
+        message: editorMatches ? undefined : {
+          text: action.message,
+          kind: 'error' as const,
+          ...(intent.action === 'publish-profile' ? { scope: 'publish-profile' as const } : {}),
+        } };
       const recoveryFocus = creatorOwnerWriteRejectedFocus(nextState, intent);
       return recoveryFocus ? { ...nextState, location: { ...nextState.location, focusAfterRender: recoveryFocus } } : nextState;
     }

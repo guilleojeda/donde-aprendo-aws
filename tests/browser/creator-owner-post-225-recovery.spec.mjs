@@ -466,6 +466,127 @@ test('un 401 en la escritura enfoca la comprobación y permite publicar con otra
   }
 });
 
+test('un conflicto real al publicar queda junto a la acción y exige adoptar antes de volver a intentarlo', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+    const before = await readOwnerSnapshot(fixture, cookie);
+    const external = await api(fixture, cookie, '/api/creador/perfil', {
+      method: 'PUT',
+      body: {
+        creatorVersion: before.creatorVersion,
+        displayName: 'Cambio concurrente antes de publicar',
+        slug: before.profile.slug,
+        socials: before.profile.socials ?? {},
+      },
+    });
+    assert.equal(external.response.status, 200, JSON.stringify(external.body));
+
+    await page.getByRole('button', { name: 'Publicar página', exact: true }).click();
+    await expect.poll(() => capture.writes().filter(({ method, path }) => method === 'POST'
+      && path === '/api/creador/perfil/publicar').length).toBe(1);
+    await expect.poll(() => capture.writes().find(({ method, path }) => method === 'POST'
+      && path === '/api/creador/perfil/publicar')?.status).toBe(409);
+    const rejected = capture.writes().find(({ method, path }) => method === 'POST'
+      && path === '/api/creador/perfil/publicar');
+    assert.equal(rejected.status, 409);
+    assert.equal((await readOwnerSnapshot(fixture, cookie)).profile.published, false,
+      'the rejected publication does not change the persisted draft');
+
+    const publicSection = page.locator('[data-owner-public]');
+    const recovery = publicSection.locator('[data-owner-recovery]');
+    await expect(recovery).toHaveCount(1);
+    await expect(recovery).toContainText(/estado de publicación comprobado|esta acción no se guardó/iu);
+    await expect(recovery.getByRole('button', { name: 'Usar lo guardado', exact: true })).toBeVisible();
+    assert.equal(capture.writes().filter(({ method, path }) => method === 'POST'
+      && path === '/api/creador/perfil/publicar').length, 1,
+    'the conflict is not retried automatically');
+
+    await recovery.getByRole('button', { name: 'Usar lo guardado', exact: true }).click();
+    await expect(publicSection.locator('[data-owner-recovery]')).toHaveCount(0);
+    await expect(publicSection.getByRole('button', { name: 'Publicar página', exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Publicar página', exact: true }).click();
+    await expect.poll(() => capture.writes().filter(({ method, path }) => method === 'POST'
+      && path === '/api/creador/perfil/publicar').length).toBe(2);
+    await expect.poll(() => capture.writes().filter(({ method, path }) => method === 'POST'
+      && path === '/api/creador/perfil/publicar')[1]?.status).toBe(200);
+    const retried = capture.writes().filter(({ method, path }) => method === 'POST'
+      && path === '/api/creador/perfil/publicar')[1];
+    assert.equal(retried.status, 200);
+    assert.equal((await readOwnerSnapshot(fixture, cookie)).profile.published, true,
+      'the explicit retry publishes the profile after adopting the current state');
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('un rechazo real por identidad pública incompleta queda junto a Publicar y permite un reintento explícito', async ({ fixture, page, publicPage }) => {
+  const cookie = await loggedInOwner(fixture, page, { profileFields: { displayName: '', slug: '' } });
+  const capture = await captureCreatorApi(page);
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+    const before = await readOwnerSnapshot(fixture, cookie);
+    assert.equal(before.profile.displayName, '');
+    assert.equal(before.profile.slug, '');
+
+    const publicSection = page.locator('[data-owner-public]');
+    const publish = publicSection.getByRole('button', { name: 'Publicar página', exact: true });
+    await publish.click();
+    await expect.poll(() => capture.writes().filter(({ method, path }) => method === 'POST'
+      && path === '/api/creador/perfil/publicar').length).toBe(1);
+    await expect.poll(() => capture.writes().find(({ method, path }) => method === 'POST'
+      && path === '/api/creador/perfil/publicar')?.status).toBe(422);
+    const rejected = capture.writes().find(({ method, path }) => method === 'POST'
+      && path === '/api/creador/perfil/publicar');
+    assert.equal(rejected.responseBody?.error, 'PROFILE_INCOMPLETE');
+    assert.equal((await readOwnerSnapshot(fixture, cookie)).profile.published, false,
+      'an incomplete identity is rejected before publication');
+
+    const actionErrors = publicSection.locator('[role="alert"], [data-owner-operation-message]')
+      .filter({ hasText: /revisa los datos|nombre|dirección/iu });
+    await expect(actionErrors).toHaveCount(1);
+    const actionError = actionErrors.first();
+    await expect(actionError).toBeVisible();
+    await expect(actionError).toContainText(/completa|revisa|nombre|dirección/iu);
+    const message = await actionError.innerText();
+    const visibleErrorCopies = page.getByText(message, { exact: true }).filter({ visible: true });
+    await expect(visibleErrorCopies).toHaveCount(1);
+    await expect.poll(async () => (await publish.evaluate((element) => element === document.activeElement))
+      || (await actionError.evaluate((element) => element.contains(document.activeElement)))).toBe(true);
+    assert.equal(new URL(page.url()).pathname, '/cuenta/');
+    assert.equal(capture.writes().filter(({ method, path }) => method === 'POST'
+      && path === '/api/creador/perfil/publicar').length, 1,
+    'a definitive publication rejection is not retried automatically');
+
+    await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
+    const form = page.locator('[data-owner-dialog] form[data-owner-form="datos"]');
+    await expect(form).toBeVisible();
+    await form.getByLabel('Nombre visible', { exact: true }).fill('Ana publicada tras corregir');
+    await form.getByLabel('Dirección de tu página', { exact: true }).fill('ana-publicada-tras-corregir');
+    await form.getByRole('button', { name: 'Guardar datos', exact: true }).click();
+    await expect(form).not.toBeVisible();
+    const repaired = await readOwnerSnapshot(fixture, cookie);
+    assert.equal(repaired.profile.displayName, 'Ana publicada tras corregir');
+    assert.equal(repaired.profile.slug, 'ana-publicada-tras-corregir');
+    assert.equal(repaired.profile.published, false);
+
+    await publish.click();
+    await expect.poll(() => capture.writes().filter(({ method, path }) => method === 'POST'
+      && path === '/api/creador/perfil/publicar').length).toBe(2);
+    await expect.poll(() => capture.writes().filter(({ method, path }) => method === 'POST'
+      && path === '/api/creador/perfil/publicar')[1]?.status).toBe(200);
+    assert.equal((await readOwnerSnapshot(fixture, cookie)).profile.published, true,
+      'the deliberate retry publishes after the identity is repaired');
+    const publicResponse = await publicPage.goto(`${fixture.origin}/c/ana-publicada-tras-corregir/`);
+    assert.equal(publicResponse?.status(), 200);
+    await expect(publicPage.getByRole('heading', { name: 'Ana publicada tras corregir', exact: true })).toBeVisible();
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
 test('una nueva decisión de salida deja accesible el reintento de lectura con teclado en móvil', async ({ fixture, page }) => {
   await page.setViewportSize({ width: 390, height: 450 });
   const cookie = await loggedInOwner(fixture, page);

@@ -413,6 +413,111 @@ test('creador, período, rango y totales inválidos quedan sin cifras hasta un r
   }
 });
 
+test('una lectura fallida del resumen se corrige en Actividad y reintenta solamente el período elegido', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  assert.equal((await publishOwner(fixture, cookie)).response.status, 200);
+  const saved = await readOwnerSnapshot(fixture, cookie);
+  const capture = await captureCreatorApi(page, { ignoreReads: true });
+  const summaryReads = [];
+  page.on('response', (response) => {
+    const url = new URL(response.url());
+    if (url.pathname === SUMMARY_PATH && response.request().method() === 'GET') {
+      summaryReads.push([url.searchParams.get('periodo'), response.status()]);
+    }
+  });
+  let available = false;
+  fixture.statistics.setProviderResponder(({ body }) => {
+    if (!available && (body.requests ?? [body]).some((request) => queryDays(request) === 7)) {
+      return new Response(null, { status: 503 });
+    }
+    return undefined;
+  });
+
+  await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+  const summary = page.getByRole('region', { name: 'Estadísticas de tu página' });
+  await expect(summary.locator('[data-owner-activity-total="views"]')).toHaveText('12');
+  const failed = page.waitForResponse((response) => new URL(response.url()).pathname === SUMMARY_PATH
+    && new URL(response.url()).searchParams.get('periodo') === '7');
+  await summary.getByRole('button', { name: '7 días', exact: true }).press('Enter');
+  assert.equal((await failed).status(), 503);
+
+  const status = summary.getByRole('status').filter({ hasText: 'No pudimos cargar las estadísticas' });
+  await expect(status).toBeVisible();
+  await expect(summary.getByRole('button', { name: '7 días', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(summary.locator('[data-owner-activity-total]')).toHaveText(['—', '—', '—']);
+  const retry = summary.getByRole('button', { name: 'Reintentar', exact: true });
+  await expect(retry).toBeVisible();
+  assert.equal(await page.getByText('No pudimos cargar las estadísticas', { exact: false }).count(), 1);
+  const color = await status.evaluate((element) => {
+    const sample = document.createElement('span');
+    sample.hidden = true;
+    sample.style.color = 'var(--color-error-text)';
+    element.append(sample);
+    const colors = [getComputedStyle(element).color, getComputedStyle(sample).color];
+    sample.remove();
+    return colors;
+  });
+
+  available = true;
+  const recovered = page.waitForResponse((response) => new URL(response.url()).pathname === SUMMARY_PATH
+    && new URL(response.url()).searchParams.get('periodo') === '7');
+  await retry.press('Enter');
+  assert.equal((await recovered).status(), 200);
+  await expect(summary.locator('[data-owner-activity-total]')).toHaveText(['5', '3', '8']);
+  await expect(status).toHaveCount(0);
+  assert.deepEqual(summaryReads, [['30', 200], ['7', 503], ['7', 200]]);
+  assert.deepEqual(capture.writes(), []);
+  assert.deepEqual(await readOwnerSnapshot(fixture, cookie), saved);
+  assert.equal(color[0], color[1], 'el fallo de Actividad usa el color semántico de error');
+});
+
+test('el detalle inválido permite corregir la consulta y un 503 conserva período y página al reintentar sin JavaScript', async ({ fixture, page, publicPage }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  assert.equal((await publishOwner(fixture, cookie)).response.status, 200);
+  const saved = await readOwnerSnapshot(fixture, cookie);
+  await addCookie(publicPage.context(), fixture, cookie);
+  let available = false;
+  fixture.statistics.setProviderResponder(({ body }) => available
+    ? expandedStatisticsResponse(body)
+    : new Response(null, { status: 503 }));
+
+  const invalid = await publicPage.goto(`${fixture.origin}/cuenta/?vista=estadisticas&periodo=9&pagina=2`);
+  assert.equal(invalid.status(), 400);
+  const detail = publicPage.getByRole('region', { name: 'Estadísticas de tu página' });
+  const invalidQuery = detail.getByRole('alert', { name: 'El período o la página no son válidos' });
+  await expect(invalidQuery).toBeVisible();
+  assert.deepEqual(fixture.statistics.requests, []);
+  available = true;
+  await invalidQuery.getByRole('link', { name: 'Abrir estadísticas' }).press('Enter');
+  await expect(publicPage).toHaveURL(`${fixture.origin}/cuenta/?vista=estadisticas&periodo=7&pagina=1`);
+  await expect(detail.getByLabel('Período', { exact: true })).toHaveValue('7');
+  await expect(invalidQuery).toHaveCount(0);
+
+  available = false;
+  const selected = `${fixture.origin}/cuenta/?vista=estadisticas&periodo=30&pagina=2`;
+  const unavailable = await publicPage.goto(selected);
+  assert.equal(unavailable.status(), 503);
+  assert.match(unavailable.headers()['cache-control'], /private.*no-store/iu);
+  const failure = detail.getByRole('alert', { name: 'No pudimos cargar tus estadísticas' });
+  await expect(failure).toBeVisible();
+  await expect(detail.locator('[data-owner-activity-total]')).toHaveCount(0);
+  const retry = failure.getByRole('link', { name: 'Reintentar', exact: true });
+  assert.ok(fixture.statistics.requests.some(({ requests }) => requests.some((request) => queryDays(request) === 30)),
+    'el informe de 30 días llegó al lector de Analytics');
+
+  available = true;
+  const response = publicPage.waitForResponse((candidate) => candidate.request().isNavigationRequest()
+    && candidate.url() === selected);
+  await retry.press('Enter');
+  assert.equal((await response).status(), 200);
+  await expect(publicPage).toHaveURL(selected);
+  await expect(failure).toHaveCount(0);
+  await expect(detail.getByLabel('Período', { exact: true })).toHaveValue('30');
+  await expect(detail.locator('[data-owner-activity-total]')).toHaveText(['12', '6', '20']);
+  await expect(detail.getByText('content-100', { exact: true })).toBeVisible();
+  assert.deepEqual(await readOwnerSnapshot(fixture, cookie), saved);
+});
+
 test('las limitaciones, los valores desconocidos, el cero medido y la recuperación stale permanecen visibles', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const published = await publishOwner(fixture, cookie);

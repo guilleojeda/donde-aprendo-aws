@@ -252,11 +252,20 @@ test('a failed session read keeps logout unavailable and offers no unvalidated t
   const response = await render(logoutPage, logoutPost(login.sessionCookie, csrfToken));
   const html = await response.text();
   assert.equal(response.status, 303);
-  assert.equal(location(response).pathname, '/cuenta/');
-  assert.equal(location(response).searchParams.get('estado'), 'no-disponible');
+  const destination = location(response);
+  assert.equal(destination.pathname, '/cuenta/');
+  assert.equal(destination.searchParams.get('estado'), 'no-disponible');
   assert.equal(responseCookies(response).length, 0);
   assert.doesNotMatch(html, /name="csrfToken"/);
   assert.equal(harness.store.sessions.size, 1);
+
+  const account = await render(accountPage, sessionRequest(login.sessionCookie, `${destination.pathname}${destination.search}`));
+  const accountHtml = await account.text();
+  assert.equal(account.status, 503);
+  assert.match(account.headers.get('cache-control') ?? '', /private.*no-store/i);
+  assert.match(accountHtml, /No pudimos confirmar el cierre de sesión/);
+  assert.match(accountHtml, /href="\/cuenta\/">Volver a mi cuenta/);
+  assert.doesNotMatch(accountHtml, /name="csrfToken"|Volver a ingresar/);
 });
 
 test('a failed delete keeps an actionable retry, while invalid or cross-origin submissions do not revoke', async () => {
