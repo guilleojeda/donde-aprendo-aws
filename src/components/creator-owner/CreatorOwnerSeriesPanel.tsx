@@ -181,7 +181,7 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, actionFeedbac
           const visibleCount = visibleCreatorSeriesChapterCount(chapters);
           const publicPath = snapshot.profile && isPublicCreatorSeries(snapshot.profile, visibleCount)
             ? canonicalCreatorSeriesPath(snapshot.profile.slug, series.slug) : undefined;
-          const rowRecovery = recoverySeriesId === series.id ? actionFeedback?.content : undefined;
+          const rowRecovery = recoveryInSeries && recoverySeriesId === series.id ? actionFeedback?.content : undefined;
           return <li class="creator-owner__series-row" id={series.id} data-owner-series-row={series.id} data-series-id={series.id} key={series.id}>
             <div class="creator-owner__series-copy">
               <h3>{series.name}</h3>

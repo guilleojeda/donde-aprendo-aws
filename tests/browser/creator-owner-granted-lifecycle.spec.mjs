@@ -306,7 +306,10 @@ test('URL_COLLISION keeps Add-by-URL rejected after a later exact grant', async 
     const rejected = await responseFor(capture, 'POST', '/api/creador/enlaces');
     assert.equal(rejected.status, 409, JSON.stringify(rejected.responseBody));
     assert.equal(rejected.responseBody.error, 'URL_COLLISION');
-    await expect(addForm.getByRole('status')).toContainText('Hay varias fichas con esa URL');
+    const collisionNotice = addForm.getByRole('alert').filter({ hasText: 'Hay varias fichas con esa URL' });
+    await expect(collisionNotice).toHaveCount(1);
+    await expect(collisionNotice).toBeVisible();
+    await expect(addForm.locator('[aria-invalid="true"]')).toHaveCount(0);
     await expect(addForm.getByLabel('URL', { exact: true })).toBeEditable();
     await expect(page.locator('[data-owner-form="alta-enlace"]')).toBeVisible();
     await expect(addForm.getByLabel('Título', { exact: true })).toHaveValue('No autorizado sobre un cohost');
