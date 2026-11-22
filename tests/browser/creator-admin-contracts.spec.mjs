@@ -188,7 +188,19 @@ test('a current-version classification 422 remains correctable and does not requ
       postData: JSON.stringify({ ...body, kind: 'community', format: 'Blog' }),
     });
     assert.equal(response.status(), 422, 'the real endpoint rejects the invalid taxonomy at version 1');
-    await route.fulfill({ response });
+    const payload = await response.json();
+    const headers = Object.fromEntries(Object.entries(response.headers()).filter(([name]) => name !== 'content-length'));
+    await route.fulfill({
+      status: response.status(),
+      headers,
+      json: {
+        ...payload,
+        fieldErrors: [
+          { field: 'kind', reason: 'unknown_reason' },
+          { field: 'not-a-control', reason: 'required' },
+        ],
+      },
+    });
   };
   await page.route('**/api/admin/**', routeHandler);
   try {
@@ -200,6 +212,8 @@ test('a current-version classification 422 remains correctable and does not requ
     await expect(target.locator('[data-item-status]')).toContainText('Revisa la clasificación');
     await expect(saveButton(page, id)).toBeEnabled();
     await expect(root(page).locator('[data-refresh-view]')).toBeHidden();
+    await expect(target.locator('[aria-invalid="true"]')).toHaveCount(0,
+      'unusable field details stay at row scope instead of marking a control');
     assert.deepEqual(await fixture.rawResource(id), resource(id, 0),
       'the current-version validation rejection leaves storage unchanged');
 
@@ -330,8 +344,17 @@ test('a real profile moderation storage 503 requires verified Refresh before one
     assert.deepEqual(await fixture.creatorStore.get(`profile:${profile.id}`), before,
       'the failed storage transaction left the profile unchanged');
 
+    const recovery = root(page).getByRole('button', { name: 'Actualizar vista' });
+    const feedback = target.getByRole('status').or(target.getByRole('alert'));
+    await expect(target.locator('[aria-invalid="true"]')).toHaveCount(0);
+    await expect.soft(feedback.or(recovery).and(page.locator(':focus')),
+      'when moderation disables the initiating control, focus moves to its feedback or recovery').toHaveCount(1);
+    const announcedErrors = root(page).getByRole('status').or(root(page).getByRole('alert'))
+      .filter({ hasText: 'No pudimos guardar el cambio.' });
+    await expect.soft(announcedErrors, 'only the affected row announces the moderation failure').toHaveCount(1);
+
     const refreshed = page.waitForNavigation({ waitUntil: 'load' });
-    await root(page).locator('[data-refresh-view]').click();
+    await recovery.click();
     await refreshed;
     assert.notEqual(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin,
       'Refresh performs a new real admin read before the manual retry');

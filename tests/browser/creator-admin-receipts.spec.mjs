@@ -17,6 +17,9 @@ const profileRow = (page, id) => page.locator(`[data-admin-profile="${id}"]`);
 const claimRow = (page, id) => page.locator(`[data-admin-claim="${id}"]`);
 const claimForm = (page, id) => claimRow(page, id).locator('form[data-claim-resolution]');
 const claimSelection = (form, id) => form.locator(`input[name="resourceIds"][value="${id}"]`);
+const claimSelectionGroup = (form) => form.locator(
+  ':is(fieldset.creator-admin__claim-resources, [role="group"]):has(input[name="resourceIds"])',
+);
 const saveButton = (page, id) => row(page, id).getByRole('button', { name: 'Guardar clasificación' });
 const moderateResource = (page, id) => row(page, id).getByRole('button', { name: 'Ocultar recurso' });
 
@@ -171,6 +174,12 @@ async function submitClassification(page, id, category) {
     && adminResourceCommandMatches(response.url(), id));
   await saveButton(page, id).click();
   return responsePromise;
+}
+
+async function expectClaimSelectionNotInvalid(form) {
+  await expect(claimSelectionGroup(form)).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(form.locator('input[name="resourceIds"][aria-invalid="true"]')).toHaveCount(0,
+    'partial, uncertain, and general claim results never color an individual selection');
 }
 
 const badClassificationReceipts = [
@@ -727,6 +736,7 @@ test(`a real partial claim with ${delivery.label} pauses submitted targets and k
       }
     }
     await expect(status).toContainText(/recibo no coincide/i);
+    await expectClaimSelectionNotInvalid(form);
 
     await expect(saveButton(page, ids[0])).toBeDisabled();
     await expect(saveButton(page, ids[1])).toBeDisabled();
@@ -822,6 +832,7 @@ test(scenario.title, async ({ fixture, page }) => {
     await expect(status).toContainText(`Ya vinculados: ${ids[0]}. Sin confirmar: ${ids[1]}, ${ids[2]}.`);
     await expect(status).not.toContainText('Pendientes:');
     await expect(status).not.toContainText(/reintenta|reenviar/i);
+    await expectClaimSelectionNotInvalid(form);
     for (const id of ids.slice(0, 3)) await expect(claimSelection(form, id)).toBeDisabled();
     await expect(form.getByRole('button', { name: 'Vincular recursos seleccionados' })).toBeDisabled();
     await expect(root(page).getByRole('button', { name: 'Actualizar vista' })).toBeVisible();
@@ -1111,6 +1122,7 @@ for (const { stop, contradictory } of [{ stop: 0 }, { stop: 1 }, { stop: 1, cont
         if (contradictory) {
           await fulfillActual(currentRoute, response, {
             ...actual.body, linkedResourceIds: ids.slice(0, 2), failedResourceId: ids[2],
+            fieldErrors: [{ field: 'resourceIds', reason: 'invalid_selection' }],
           });
         } else await currentRoute.fulfill({ response });
       });
@@ -1122,6 +1134,7 @@ for (const { stop, contradictory } of [{ stop: 0 }, { stop: 1 }, { stop: 1, cont
         ? 'No pudimos confirmar el resultado de la vinculación.'
         : `No pudimos confirmar si se vinculó ${ids[stop]}.`);
       await expect(status).not.toContainText('Pendientes:');
+      await expectClaimSelectionNotInvalid(form);
       if (stop > 0) await expect(status).toContainText(`Ya vinculados: ${ids[0]}.`);
       await waitForAdminWriteToSettle(page, draftId);
       assert.equal(lost, 1);
@@ -1343,6 +1356,7 @@ test('a definitive pre-write claim 503 preserves the same selection for an expli
     await expect(submit).toBeEnabled();
     await expect(form.locator('[data-item-status]')).toContainText('No pudimos guardar el cambio.');
     await expect(form.locator('[data-item-status]')).not.toContainText(/parcial|pendientes/i);
+    await expectClaimSelectionNotInvalid(form);
     assert.equal(route.observed.length, 1, 'no automatic retry follows the pre-write 503');
 
     const retry = page.waitForResponse((candidate) => candidate.request().method() === 'POST'
@@ -1365,7 +1379,7 @@ test('a definitive pre-write claim 503 preserves the same selection for an expli
 });
 
 const quotaPartialClaimScenarios = [
-  { suffix: 'append', label: 'a confirmed committed prefix' },
+  { suffix: 'append', label: 'a confirmed committed prefix carrying an ambiguous field diagnostic', fieldErrors: true },
   { suffix: 'resource-only', label: 'profileChanged false without linked IDs', includeFirstPlacement: true, mutation: 'omit-ids' },
   { suffix: 'profile-flag', label: 'an exact prefix without profileChanged', mutation: 'omit-profile-flag' },
   { suffix: 'versions-only', label: 'nonempty versions without IDs or flag', mutation: 'omit-ids-and-flag' },
@@ -1424,6 +1438,7 @@ test(`a real quota 422 reports its cause and protects the committed prefix (${sc
         return;
       }
       const delivered = { ...actual.body };
+      if (scenario.fieldErrors) delivered.fieldErrors = [{ field: 'resourceIds', reason: 'invalid_selection' }];
       if (scenario.mutation?.startsWith('omit-ids')) delete delivered.linkedResourceIds;
       if (scenario.mutation === 'omit-profile-flag') delete delivered.profileChanged;
       if (scenario.mutation === 'omit-ids-and-flag') {
@@ -1489,6 +1504,7 @@ test(`a real quota 422 reports its cause and protects the committed prefix (${sc
         await expect(form.locator('[data-item-status]')).not.toContainText(/reintenta sólo esos IDs/i);
       }
     }
+    await expectClaimSelectionNotInvalid(form);
     if (scenario.mutation) {
       for (const id of ids) await expect(saveButton(page, id)).toBeDisabled();
       await expect(profileRow(page, owner.profile.id).getByRole('button', { name: 'Ocultar perfil' })).toBeDisabled();
@@ -1782,6 +1798,7 @@ test(`an impossible claim receipt pauses its targets but preserves a separate dr
     await waitForAdminWriteToSettle(page, ids[2]);
     await expect(form).toHaveAttribute('aria-busy', 'false');
     await expect(form.locator('[data-item-status]')).toContainText(/recibo no coincide/i);
+    await expectClaimSelectionNotInvalid(form);
     await expect(saveButton(page, ids[0])).toBeDisabled();
     await expect(saveButton(page, ids[1])).toBeDisabled();
     await expect(moderateResource(page, ids[0])).toBeDisabled();
@@ -1817,15 +1834,24 @@ test('a genuine no-write claim rejection stays editable and allows another real 
   const claim = await createClaim(fixture, owner.cookie, ids.slice(0, 2));
   await openAdmin(fixture, page);
   const form = claimForm(page, claim.id);
+  const selectionGroup = claimSelectionGroup(form);
+  const originalDescriptions = (await selectionGroup.getAttribute('aria-describedby') ?? '').split(/\s+/u).filter(Boolean);
+  await row(page, ids[2]).getByLabel('Categoría').fill('Borrador conservado durante la corrección');
   await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
   const route = await interceptAdminWrite(page,
     (request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/reclamaciones/vincular/',
     async (currentRoute, response, actual) => {
-      assert.equal(actual.status, 409);
-      assert.equal(actual.body.error, 'RESOURCE_ALREADY_CLAIMED');
-      assert.equal(actual.body.failureStage, 'before-grant-write');
-      assert.equal(Object.hasOwn(actual.body, 'linkedResourceIds'), false,
-        'the service rejected the request during preflight before committing A');
+      if (route.observed.length === 1) {
+        assert.equal(actual.status, 409);
+        assert.equal(actual.body.error, 'RESOURCE_ALREADY_CLAIMED');
+        assert.equal(actual.body.failureStage, 'before-grant-write');
+        assert.equal(Object.hasOwn(actual.body, 'linkedResourceIds'), false,
+          'the service rejected the request during preflight before committing A');
+      } else {
+        assert.equal(actual.status, 200, 'the corrected A-only selection reaches the real grant service');
+        assert.deepEqual(actual.requestBody.resourceIds, [ids[0]]);
+        assert.deepEqual(actual.body.linkedResourceIds, [ids[0]]);
+      }
       await currentRoute.fulfill({ response });
     });
   try {
@@ -1833,6 +1859,8 @@ test('a genuine no-write claim rejection stays editable and allows another real 
       && new URL(candidate.url()).pathname === '/api/admin/reclamaciones/vincular/');
     await form.getByRole('button', { name: 'Vincular recursos seleccionados' }).click();
     assert.equal((await responsePromise).status(), 409);
+    assert.deepEqual(route.observed[0].body.fieldErrors, [{ field: 'resourceIds', reason: 'invalid_selection' }],
+      'the definite pre-grant conflict identifies only the correctable resource selection group');
     assert.equal((await fixture.creatorStore.get(`profile:${owner.profile.id}`)).version, 1);
     assert.equal((await fixture.rawResource(ids[0])).version, 1);
     assert.equal((await fixture.rawResource(ids[0])).directoryControl, 'editorial');
@@ -1848,12 +1876,36 @@ test('a genuine no-write claim rejection stays editable and allows another real 
     }
     await expect(profileRow(page, owner.profile.id).getByRole('button', { name: 'Ocultar perfil' })).toBeEnabled();
     await expect(form.locator('[data-item-status]')).not.toContainText(/vinculación parcial/i);
+    await expect(selectionGroup).toHaveAttribute('aria-invalid', 'true');
+    const selectionDescriptions = (await selectionGroup.getAttribute('aria-describedby') ?? '').split(/\s+/u).filter(Boolean);
+    const errorDescriptions = selectionDescriptions.filter((id) => !originalDescriptions.includes(id));
+    assert.ok(errorDescriptions.length, 'the definite selection rejection adds a group description');
+    await expect(claimSelection(form, ids[0])).toBeChecked();
+    await expect(claimSelection(form, ids[1])).toBeChecked();
+
+    await claimSelection(form, ids[1]).uncheck();
+    await expect(selectionGroup).not.toHaveAttribute('aria-invalid', 'true');
+    const remainingDescriptions = (await selectionGroup.getAttribute('aria-describedby') ?? '').split(/\s+/u).filter(Boolean);
+    assert.deepEqual(remainingDescriptions, originalDescriptions,
+      'correcting the selection removes the obsolete group diagnosis while retaining any unrelated help');
+    await expectClaimSelectionNotInvalid(form);
+    const retry = page.waitForResponse((candidate) => candidate.request().method() === 'POST'
+      && new URL(candidate.url()).pathname === '/api/admin/reclamaciones/vincular/');
+    await form.getByRole('button', { name: 'Vincular recursos seleccionados' }).click();
+    assert.equal((await retry).status(), 200);
+    assert.deepEqual(route.observed.map(({ requestBody }) => requestBody.resourceIds), [[ids[0], ids[1]], [ids[0]]]);
+    assert.equal((await fixture.rawResource(ids[0])).directoryControl, 'creator');
+    assert.equal((await fixture.rawResource(ids[0])).version, 2);
+    assert.deepEqual(Object.values((await fixture.rawOwner(owner.cookie)).profile.placements)
+      .map(({ resourceId }) => resourceId), [ids[0]]);
+    assert.equal((await fixture.creatorStore.get(`claim:${claim.id}`)).status, 'partial');
+    await expect(row(page, ids[2]).getByLabel('Categoría')).toHaveValue('Borrador conservado durante la corrección');
 
     const saved = await submitClassification(page, ids[0], 'Después del rechazo previo');
     assert.equal(saved.status(), 200, 'the genuine no-write rejection did not stale resource A');
-    assert.equal(JSON.parse(saved.request().postData()).version, 1);
+    assert.equal(JSON.parse(saved.request().postData()).version, 2);
     assert.equal((await fixture.rawResource(ids[0])).category, 'Después del rechazo previo');
-    assert.equal(route.observed.length, 1, 'the failed claim was not automatically retried');
+    assert.equal(route.observed.length, 2, 'the failed claim was followed only by the explicit corrected retry');
   } finally {
     await route.stop();
   }
@@ -2286,7 +2338,7 @@ test('a bad receipt remains stale through same-account session recovery, unrelat
   }
 });
 
-test('classification sends the raw scalar, persists server normalization, and gives taxonomy feedback', async ({ fixture, page }) => {
+test('classification sends the raw scalar and persists server normalization', async ({ fixture, page }) => {
   const ids = ['admin-classification-ownership', 'admin-classification-draft'];
   await prepareAdmin(fixture, page, ids);
   await openAdmin(fixture, page);
@@ -2304,17 +2356,7 @@ test('classification sends the raw scalar, persists server normalization, and gi
       { entity: 'resource', id: ids[0], before: 1, after: 2 },
     ]);
 
-    await row(page, ids[0]).getByLabel('Tipo').selectOption('community');
-    await row(page, ids[0]).getByLabel('Formato').selectOption('Blog');
-    await row(page, ids[0]).getByLabel('Categoría').fill('Seguridad');
-    await saveButton(page, ids[0]).click();
-    await expect(row(page, ids[0]).locator('[data-item-status]')).toBeVisible();
-    await waitForAdminWriteToSettle(page, ids[1]);
-    const itemStatus = row(page, ids[0]).locator('[data-item-status]');
-    await expect(itemStatus).toHaveAttribute('data-kind', 'error');
-    assert.equal(route.observed.length, 1, 'invalid kind/format combinations are rejected before another write');
-    assert.equal((await fixture.rawResource(ids[0])).version, 2, 'invalid taxonomy feedback is not a persisted write');
-    assert.equal((await fixture.rawResource(ids[0])).kind, 'content');
+    await expect(row(page, ids[1]).getByLabel('Categoría')).toHaveValue('Borrador concurrente');
     assert.equal(route.observed[0].requestBody.category, '  Seguridad  ',
       'the browser serializes the user scalar without applying server-owned canonicalization');
   } finally {
