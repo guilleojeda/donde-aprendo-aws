@@ -171,6 +171,49 @@ representativeTest('Enter on an exactly empty query prevents a held real index f
   }
 });
 
+for (const failure of [
+  { name: 'an HTTP failure', status: 503, json: { error: 'unavailable' } },
+  { name: 'a decoded body with the wrong index shape', status: 200, json: { entries: [] } },
+]) {
+  representativeTest(`a search recovers from ${failure.name} with the same query, filter and focus`, async ({ app, page }) => {
+    await page.goto(`${app.origin}/buscar/`);
+    const loads = watchSearchIndex(page);
+    await page.route('**/search-index.json', (route) => route.fulfill({
+      status: failure.status,
+      json: failure.json,
+    }), { times: 1 });
+
+    const form = page.getByRole('search');
+    const input = form.getByLabel('¿Qué quieres aprender?');
+    const filter = form.getByLabel('Tipo de contenido');
+    const status = page.locator('[data-search-status]');
+    const results = page.locator('[data-search-results] .search-results__result-link');
+    const query = 'Taller secreto';
+    const destination = '/aprender/#resource-search-competitor';
+
+    await filter.selectOption('content');
+    await input.fill(query);
+    await input.press('Enter');
+
+    const unavailable = /La búsqueda no está disponible.*Intenta de nuevo/u;
+    await expect(status).toHaveText(unavailable);
+    await expect.soft(form.getByRole('status')).toHaveText(unavailable, { timeout: 2_000 });
+    await expect(input).toHaveValue(query);
+    await expect(filter).toHaveValue('content');
+    await expect(input).toBeFocused();
+    await expect(results).toHaveCount(0);
+    await expect(page.locator('[data-search-more]')).toBeHidden();
+    assert.equal(new URL(page.url()).search, '', 'the typed query stays out of the URL');
+    assert.deepEqual(loads.responses.map(({ status }) => status), [failure.status], 'failure does not retry automatically');
+
+    await input.press('Enter');
+    await expect(status).toHaveText('1 resultado.');
+    await expect(results).toHaveAttribute('href', destination);
+    await expect(input).toBeFocused();
+    assert.deepEqual(loads.responses.map(({ status }) => status), [failure.status, 200], 'one explicit retry loads the real index');
+  });
+}
+
 representativeTest('a surviving member destination resolves to its real agenda card', async ({ app, page }) => {
   await page.clock.setFixedTime(new Date('2100-01-01T11:30:00Z'));
   await page.goto(`${app.origin}/eventos/argentina/#event-event-z-current-representative`);

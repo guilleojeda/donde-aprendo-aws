@@ -423,7 +423,7 @@ function createSearch({
   });
 
   return {
-    document, form, queryInput, list, more, status: selectors.get('[data-search-status]'),
+    document, form, queryInput, typeSelect: selectors.get('#site-type'), list, more, status: selectors.get('[data-search-status]'),
     async submit() {
       await form.emitAsync('submit', { preventDefault() {} });
     },
@@ -950,7 +950,7 @@ test('a whitespace submit invalidates an earlier pending search response', async
   assert.equal(search.more.hidden, true);
 });
 
-test('search shares one pending index request, renders only the latest query, and caches success', async () => {
+test('search shares one pending index request, renders only the latest submitted query and type, and caches success', async () => {
   const request = deferred();
   let fetchCalls = 0;
   const search = createSearch({ fetchIndex: () => {
@@ -959,19 +959,29 @@ test('search shares one pending index request, renders only the latest query, an
   } });
 
   search.queryInput.value = 'S3';
+  search.typeSelect.value = 'content';
   const firstSearch = search.submit();
   await Promise.resolve();
   search.queryInput.value = 'IAM';
+  search.typeSelect.value = 'article';
   const latestSearch = search.submit();
   await Promise.resolve();
   assert.equal(fetchCalls, 1, 'overlapping searches share the same pending index request');
 
-  request.resolve({ ok: true, json: async () => makeTargetSearchIndex() });
+  search.typeSelect.value = 'content';
+  request.resolve({
+    ok: true,
+    json: async () => [
+      ...makeTargetSearchIndex(),
+      { type: 'content', title: 'Curso de IAM', description: 'Identidades en AWS', search: '', url: '/curso-iam/' },
+    ],
+  });
   await Promise.all([firstSearch, latestSearch]);
   assert.equal(search.list.children.length, 1);
   assert.equal(search.list.children[0].children[0].children[1].textContent, 'Guía de IAM');
 
   search.queryInput.value = 'S3';
+  search.typeSelect.value = 'article';
   await search.submit();
   assert.equal(fetchCalls, 1, 'a successful index remains cached for later searches');
   assert.equal(search.list.children[0].children[0].children[1].textContent, 'Guía de S3');

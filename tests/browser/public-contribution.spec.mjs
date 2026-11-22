@@ -64,6 +64,453 @@ async function expectUncertainStatus(status) {
   await expect(status).toContainText(/(?:no pudimos|no se pudo|no fue posible) (?:confirmar|verificar)/iu);
 }
 
+function ariaIds(control) {
+  return control.getAttribute('aria-describedby').then((value) => (
+    value ?? ''
+  ).split(/\s+/u).filter(Boolean));
+}
+
+async function findVisibleDescription(form, ids, pattern) {
+  for (const id of ids) {
+    const candidate = form.locator(`[id="${id}"]`);
+    if (await candidate.count() === 0 || !(await candidate.isVisible())) continue;
+    if (pattern.test(await candidate.innerText())) return candidate;
+  }
+  return undefined;
+}
+
+async function expectContributionFieldError(control, form, pattern, { focus = true } = {}) {
+  await expect(control).toHaveAttribute('aria-invalid', 'true');
+  const ids = await ariaIds(control);
+  assert.ok(ids.includes('contribution-help'), 'the field keeps its permanent help association');
+  const error = await findVisibleDescription(form, ids, pattern);
+  assert.ok(error, `the field exposes a visible corrective message (${ids.join(', ')})`);
+  const errorId = await error.getAttribute('id');
+  assert.ok(errorId, 'the field error has a stable association target');
+  assert.ok(ids.includes(errorId), 'the field points to its visible error');
+  assert.equal(await error.evaluate((element) => element.closest('form')?.matches('[data-contribution-form]')), true,
+    'the field error belongs to this contribution form');
+  if (focus) await expect(control).toBeFocused();
+  return error;
+}
+
+async function expectContributionGroupError(controls, form, pattern, { group, focus = true } = {}) {
+  const errorIds = [];
+  for (const control of controls) {
+    await expect(control).toHaveAttribute('aria-invalid', 'true');
+    const ids = await ariaIds(control);
+    assert.ok(ids.includes('contribution-help'), 'group controls keep their permanent help association');
+    const error = await findVisibleDescription(form, ids, pattern);
+    assert.ok(error, 'each group control points to the visible group correction');
+    errorIds.push(await error.getAttribute('id'));
+  }
+  assert.equal(new Set(errorIds).size, 1, 'group controls share one accessible diagnosis');
+  if (group) await expect(group).toHaveAttribute('aria-invalid', 'true');
+  if (focus) await expect(controls[0]).toBeFocused();
+  return form.locator(`[id="${errorIds[0]}"]`);
+}
+
+async function expectContributionTopicsError(form, pattern, { focus = true } = {}) {
+  const group = form.locator('fieldset:has(input[data-contribution-topic])').first();
+  await expect(group).toBeVisible();
+  await expect(group).toHaveAttribute('aria-invalid', 'true');
+  await expect(group.locator('legend')).toContainText(/hasta tres/iu);
+  const groupIds = await ariaIds(group);
+  const error = await findVisibleDescription(form, groupIds, pattern);
+  assert.ok(error, 'the topics group exposes a visible corrective message');
+  const errorId = await error.getAttribute('id');
+  assert.ok(errorId, 'the topics group error has a stable association target');
+  const controls = form.locator('input[data-contribution-topic]');
+  for (let index = 0; index < await controls.count(); index += 1) {
+    const ids = await ariaIds(controls.nth(index));
+    assert.ok(ids.includes(errorId), 'each topic checkbox points to the group correction');
+  }
+  if (focus) await expect(controls.first()).toBeFocused();
+  return { group, error };
+}
+
+async function expectContributionFieldCleared(control, error) {
+  await expect(control).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(error).toBeHidden();
+  assert.ok((await ariaIds(control)).includes('contribution-help'),
+    'correcting the field keeps its permanent help association');
+}
+
+async function installSubmissionMutation(page, fixture, {
+  mutate = (payload) => payload,
+  responseBody,
+  responseStatus,
+  hold = false,
+} = {}) {
+  const started = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const endpoint = `${fixture.apiOrigin}/submissions`;
+  const handler = async (route) => {
+    const request = route.request();
+    if (request.method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    const payload = mutate(structuredClone(request.postDataJSON()));
+    const actual = await route.fetch({
+      postData: JSON.stringify(payload),
+      headers: { ...request.headers(), 'content-type': 'application/json' },
+    });
+    const actualBodyText = await actual.text();
+    let actualBody;
+    try {
+      actualBody = JSON.parse(actualBodyText);
+    } catch {
+      actualBody = undefined;
+    }
+    const body = typeof responseBody === 'function'
+      ? responseBody({ actual, payload, body: actualBody })
+      : responseBody === undefined ? actualBody : responseBody;
+    started.resolve({ request, actual, payload, body, status: actual.status() });
+    if (hold) await release.promise;
+    const headers = actual.headers();
+    delete headers['content-length'];
+    await route.fulfill({
+      status: responseStatus ?? actual.status(),
+      headers,
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    });
+  };
+  await page.route(endpoint, handler);
+  return {
+    started: started.promise,
+    release: () => release.resolve(),
+    async remove() { await page.unroute(endpoint, handler).catch(() => {}); },
+  };
+}
+
+test('native invalidity is keyboard-locatable, keeps help, and clears on correction', async ({ fixture, page }) => {
+  const controls = await openContribution(page, fixture);
+
+  await controls.form.evaluate((form) => {
+    window.__contributionInvalidEvents = [];
+    form.addEventListener('invalid', (event) => {
+      window.__contributionInvalidEvents.push({
+        id: event.target.id,
+        defaultPrevented: event.defaultPrevented,
+      });
+    }, true);
+  });
+
+  await controls.submit.focus();
+  await controls.submit.press('Enter');
+  await expectContributionFieldError(controls.email, controls.form, /completa|obligator/iu);
+  await expect(controls.status).toBeHidden();
+  assert.ok((await ariaIds(controls.email)).includes('contribution-privacy'),
+    'the email field keeps its privacy help beside the native error');
+  await expect.poll(() => page.evaluate(() => window.__contributionInvalidEvents.length)).toBeGreaterThan(0);
+  assert.equal(await page.evaluate(() => window.__contributionInvalidEvents.some((event) => (
+    event.id === 'contribution-email' && event.defaultPrevented
+  ))), true, 'the inline presentation prevents a duplicate native bubble');
+  assert.equal(fixture.requests.length, 0, 'native invalidity blocks the network request');
+
+  await fillContribution(controls, { email: 'correo-invalido', url: 'not-a-url' });
+  await controls.submit.focus();
+  await controls.submit.press('Enter');
+  const emailError = await expectContributionFieldError(controls.email, controls.form, /correo electr[oó]nico v[aá]lido/iu);
+  const urlError = await expectContributionFieldError(controls.url, controls.form, /URL v[aá]lida/iu, { focus: false });
+  await expect(controls.status).toBeHidden();
+  await controls.email.fill('ana@example.invalid');
+  await expectContributionFieldCleared(controls.email, emailError);
+  assert.ok((await ariaIds(controls.email)).includes('contribution-privacy'),
+    'clearing the email error keeps its privacy help association');
+  await expect(urlError).toBeVisible();
+  await expect(controls.url).toHaveAttribute('aria-invalid', 'true');
+  await controls.submit.focus();
+  await controls.submit.press('Enter');
+  await expect(controls.url).toBeFocused();
+  assert.equal(fixture.requests.length, 0, 'a native URL mismatch remains client-side');
+
+  await controls.url.fill('https://example.invalid/contribution/native-corrected');
+  await expectContributionFieldCleared(controls.url, urlError);
+  await expect(controls.url).toBeFocused();
+  assert.ok((await ariaIds(controls.url)).includes('contribution-help'));
+});
+
+test('the fourth topic is explained as one correctable group and does not submit', async ({ fixture, page }) => {
+  const controls = await openContribution(page, fixture);
+  await fillContribution(controls, { url: 'https://example.invalid/contribution/fourth-topic' });
+  const topics = controls.form.locator('input[data-contribution-topic]');
+  for (const index of [0, 1, 2]) await topics.nth(index).check();
+  await topics.nth(3).click();
+  await expect(topics.nth(3)).not.toBeChecked();
+  const { error } = await expectContributionTopicsError(controls.form, /tema|tres|3/iu, { focus: false });
+  await expect(topics.nth(3)).toBeFocused();
+  await expect(controls.status).toBeHidden();
+  await expect(controls.form.locator('[data-contribution-error]:visible')).toHaveCount(1);
+  assert.equal(fixture.requests.length, 0, 'the local topic limit does not call the service');
+
+  await topics.nth(0).uncheck();
+  await expect(error).toBeHidden();
+  await expect(controls.form.locator('fieldset:has(input[data-contribution-topic])').first())
+    .not.toHaveAttribute('aria-invalid', 'true');
+  await expect(topics.nth(0)).not.toHaveAttribute('aria-invalid', 'true');
+  await topics.nth(3).check();
+  await expect(controls.form.locator('input[data-contribution-topic]:checked')).toHaveCount(3);
+});
+
+test('a real invalid URL rejection identifies the field, preserves the draft, and persists a deliberate correction', async ({ fixture, page }) => {
+  const controls = await openContribution(page, fixture);
+  const submitted = await fillContribution(controls, {
+    url: 'ftp://example.invalid/no-segura',
+    title: 'Título conservado ante rechazo de URL',
+  });
+
+  await controls.submit.click();
+  const request = await fixture.waitForRequestCount(1);
+  assert.equal(request.status, 400);
+  assert.deepEqual(JSON.parse(request.resultBody).fieldErrors, [{ field: 'url', reason: 'invalid_url' }]);
+  const urlError = await expectContributionFieldError(controls.url, controls.form, /URL|direcci[oó]n|HTTP/iu);
+  await expect(controls.status).toBeHidden();
+  await expect(controls.form.locator('[data-contribution-error]:visible')).toHaveCount(1);
+  await expect(controls.title).toHaveValue(submitted.title);
+  await expect(controls.url).toHaveValue(submitted.url);
+  assert.equal(fixture.pendingRows().length, 0, 'a definitive field rejection writes nothing');
+
+  await controls.url.fill('https://example.invalid/contribution/server-url-corrected');
+  await expectContributionFieldCleared(controls.url, urlError);
+  await controls.submit.click();
+  await fixture.waitForRequestCount(2);
+  await expect(controls.status).toHaveAttribute('data-status', 'success');
+  const stored = await waitForStoredSubmission(fixture, 'https://example.invalid/contribution/server-url-corrected');
+  assert.equal(stored.title, submitted.title, 'the corrected submission preserves the other draft values');
+});
+
+test('a real kind-format rejection shares one group diagnosis and accepts only the corrected retry', async ({ fixture, page }) => {
+  const controls = await openContribution(page, fixture);
+  const submitted = await fillContribution(controls, {
+    kind: 'source',
+    format: 'Blog',
+    url: 'https://example.invalid/contribution/server-kind-format',
+    title: 'Título conservado ante rechazo de combinación',
+  });
+  const mutation = await installSubmissionMutation(page, fixture, {
+    mutate: (payload) => ({ ...payload, format: 'Video' }),
+  });
+  try {
+    await controls.submit.click();
+    const rejected = await mutation.started;
+    assert.equal(rejected.status, 400);
+    assert.deepEqual(rejected.body.fieldErrors, [{
+      field: 'kind-format', reason: 'invalid_combination',
+    }]);
+    await expectContributionGroupError(
+      [controls.kind, controls.format],
+      controls.form,
+      /tipo|formato|combin/iu,
+    );
+    await expect(controls.status).toBeHidden();
+    await expect(controls.form.locator('[data-contribution-error]:visible')).toHaveCount(1);
+    await expect(controls.title).toHaveValue(submitted.title);
+    await expect(controls.url).toHaveValue(submitted.url);
+    assert.equal(fixture.pendingRows().length, 0, 'a definitive group rejection writes nothing');
+  } finally {
+    await mutation.remove();
+  }
+
+  await controls.kind.selectOption('content');
+  await controls.format.selectOption('Curso');
+  await expect(controls.kind).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(controls.format).not.toHaveAttribute('aria-invalid', 'true');
+  await controls.submit.click();
+  await fixture.waitForRequestCount(2);
+  await expect(controls.status).toHaveAttribute('data-status', 'success');
+  const stored = await waitForStoredSubmission(fixture, submitted.url);
+  assert.deepEqual({ kind: stored.kind, format: stored.format }, { kind: 'content', format: 'Curso' });
+});
+
+test('a late topics diagnosis applies to the submitted value without stealing newer focus or draft fields', async ({ fixture, page }) => {
+  const controls = await openContribution(page, fixture);
+  const submitted = await fillContribution(controls, {
+    url: 'https://example.invalid/contribution/late-topics',
+    title: 'Título enviado antes de la respuesta tardía',
+  });
+  const topics = controls.form.locator('input[data-contribution-topic]');
+  for (const index of [0, 1, 2]) await topics.nth(index).check();
+  const mutation = await installSubmissionMutation(page, fixture, {
+    mutate: (payload) => ({ ...payload, topics: [...payload.topics, 'Redes'] }),
+    hold: true,
+  });
+  let newerTitle;
+  try {
+    await controls.submit.click();
+    await mutation.started;
+    newerTitle = 'Título editado mientras llegaba el rechazo';
+    await controls.title.fill(newerTitle);
+    await controls.title.focus();
+    mutation.release();
+    const { group, error } = await expectContributionTopicsError(controls.form, /tema|tres|3/iu, { focus: false });
+    await expect(controls.title).toHaveValue(newerTitle);
+    await expect(controls.title).toBeFocused();
+    await expect(controls.title).not.toHaveAttribute('aria-invalid', 'true');
+    await expect(controls.url).toHaveValue(submitted.url);
+    await expect(group).toBeVisible();
+    await expect(error).toBeVisible();
+    await expect(controls.status).toBeHidden();
+  } finally {
+    mutation.release();
+    await mutation.remove();
+  }
+
+  await topics.nth(0).uncheck();
+  await expect(controls.form.locator('fieldset:has(input[data-contribution-topic])').first())
+    .not.toHaveAttribute('aria-invalid', 'true');
+  await controls.submit.click();
+  await fixture.waitForRequestCount(2);
+  await expect(controls.status).toHaveAttribute('data-status', 'success');
+  const stored = await waitForStoredSubmission(fixture, submitted.url);
+  assert.deepEqual(stored.topics, ['Certificaciones', 'Comunidad']);
+  assert.equal(stored.title, newerTitle);
+});
+
+test('a late topics diagnosis is discarded when the submitted topic value changes first', async ({ fixture, page }) => {
+  const controls = await openContribution(page, fixture);
+  const submitted = await fillContribution(controls, {
+    url: 'https://example.invalid/contribution/stale-topics',
+    title: 'Título cuyo diagnóstico queda obsoleto',
+  });
+  const topics = controls.form.locator('input[data-contribution-topic]');
+  for (const index of [0, 1, 2]) await topics.nth(index).check();
+  const mutation = await installSubmissionMutation(page, fixture, {
+    mutate: (payload) => ({ ...payload, topics: [...payload.topics, 'Redes'] }),
+    hold: true,
+  });
+  try {
+    await controls.submit.click();
+    const rejected = await mutation.started;
+    assert.equal(rejected.status, 400);
+    await topics.nth(0).uncheck();
+    await topics.nth(0).focus();
+    mutation.release();
+    await expect(controls.status).toHaveAttribute('data-status', 'error');
+    await expect(controls.status).toContainText(/revisa los datos/iu);
+    await expect(controls.status).not.toBeFocused();
+    await expect(topics.nth(0)).toBeFocused();
+    await expect(controls.form.locator('fieldset:has(input[data-contribution-topic])').first())
+      .not.toHaveAttribute('aria-invalid', 'true');
+    await expect(controls.form.locator('[data-contribution-error]:visible')).toHaveCount(0);
+    await expect(controls.title).toHaveValue(submitted.title);
+    await expect(controls.url).toHaveValue(submitted.url);
+    assert.deepEqual(rejected.body.fieldErrors, [{ field: 'topics', reason: 'invalid_option' }]);
+  } finally {
+    mutation.release();
+    await mutation.remove();
+  }
+
+  await controls.submit.click();
+  await fixture.waitForRequestCount(2);
+  await expect(controls.status).toHaveAttribute('data-status', 'success');
+  const stored = await waitForStoredSubmission(fixture, submitted.url);
+  assert.deepEqual(stored.topics, ['Certificaciones', 'Comunidad']);
+});
+
+const generalResponseCases = [
+  ['without diagnostics', {
+    mutate: (payload) => ({ ...payload, website: 'https://bot.invalid' }),
+  }],
+  ['with a known field and an unknown reason', {
+    mutate: (payload) => ({ ...payload, website: 'https://bot.invalid' }),
+    responseBody: ({ body }) => ({
+      ...body,
+      fieldErrors: [{ field: 'url', reason: 'unknown_reason' }],
+    }),
+  }],
+  ['with an unreadable response body', {
+    mutate: (payload) => ({ ...payload, website: 'https://bot.invalid' }),
+    responseBody: 'not-json',
+  }],
+  ['with a 500 and a field diagnostic', {
+    mutate: (payload) => ({ ...payload, website: 'https://bot.invalid' }),
+    responseStatus: 500,
+    responseBody: {
+      ok: false,
+      code: 'storage_error',
+      fieldErrors: [{ field: 'url', reason: 'invalid_url' }],
+    },
+  }],
+];
+
+for (const [label, mutationOptions] of generalResponseCases) {
+  test(`a response ${label} stays general and editable`, async ({ fixture, page }) => {
+    const controls = await openContribution(page, fixture);
+    const submitted = await fillContribution(controls, {
+      url: `https://example.invalid/contribution/general-${label.replaceAll(/\s+/gu, '-')}`,
+      title: 'Borrador conservado ante rechazo general',
+    });
+    const mutation = await installSubmissionMutation(page, fixture, mutationOptions);
+    try {
+      const response = page.waitForResponse((received) => received.request().method() === 'POST'
+        && received.url() === `${fixture.apiOrigin}/submissions`);
+      await controls.submit.click();
+      const rejected = await mutation.started;
+      assert.equal(rejected.status, 400, 'the fixture handler rejects before storage');
+      assert.equal((await response).status(), mutationOptions.responseStatus ?? 400);
+      if (mutationOptions.responseStatus === 500) {
+        await expectUncertainStatus(controls.status);
+      } else {
+        await expect(controls.status).toHaveAttribute('data-status', 'error');
+        await expect(controls.status).toContainText(/revisa los datos/iu);
+      }
+      await expect(controls.status).toBeFocused();
+      await expect(controls.form.locator('[aria-invalid="true"]')).toHaveCount(0);
+      await expect(controls.form.locator('[data-contribution-error]:visible')).toHaveCount(0);
+      await expect(controls.email).toHaveValue(submitted.email);
+      await expect(controls.title).toHaveValue(submitted.title);
+      await expect(controls.url).toHaveValue(submitted.url);
+      assert.equal(fixture.pendingRows().length, 0, 'general rejection writes nothing');
+    } finally {
+      await mutation.remove();
+    }
+
+    await controls.title.fill(`${submitted.title} corregido`);
+    await controls.submit.click();
+    await fixture.waitForRequestCount(2);
+    await expect(controls.status).toHaveAttribute('data-status', 'success');
+    const stored = await waitForStoredSubmission(fixture, submitted.url);
+    assert.equal(stored.title, `${submitted.title} corregido`);
+  });
+}
+
+test('a definitive 400 with timely headers stays general while its response body is late', async ({ fixture, page }) => {
+  test.setTimeout(45_000);
+  await page.clock.install({ time: new Date('2026-10-21T11:00:00.000Z') });
+  const controls = await openContribution(page, fixture);
+  const submitted = await fillContribution(controls, {
+    url: 'ftp://example.invalid/late-rejection-body',
+    title: 'Borrador ante rechazo con cuerpo tardío',
+  });
+  const held = fixture.queueResponse({ mode: 'hold-body' });
+
+  const response = page.waitForResponse((received) => received.request().method() === 'POST'
+    && received.url() === `${fixture.apiOrigin}/submissions`);
+  await controls.submit.click();
+  await held.headersSent;
+  assert.equal((await response).status(), 400, 'the browser received definitive rejection headers');
+  await page.clock.runFor(13_000);
+  await expect(controls.status).toHaveAttribute('data-status', 'error');
+  await expect(controls.status).toContainText(/revisa los datos/iu);
+  await expect(controls.status).toBeFocused();
+  await expect(controls.form.locator('[aria-invalid="true"]')).toHaveCount(0);
+  await expect(controls.form.locator('[data-contribution-error]:visible')).toHaveCount(0);
+  await expect(controls.submit).toBeEnabled();
+  await expect(controls.title).toHaveValue(submitted.title);
+  await expect(controls.url).toHaveValue(submitted.url);
+  assert.equal(fixture.pendingRows().length, 0, 'a definitive invalid request does not write while its body is late');
+
+  await held.release();
+  await held.bodySent;
+  await controls.url.fill('https://example.invalid/contribution/late-rejection-corrected');
+  await controls.submit.click();
+  await fixture.waitForRequestCount(2);
+  await expect(controls.status).toHaveAttribute('data-status', 'success');
+  await waitForStoredSubmission(fixture, 'https://example.invalid/contribution/late-rejection-corrected');
+});
+
 async function advancePastDeliveryDeadline(page, controls) {
   await page.clock.runFor(6_000);
   await expect(controls.submit).toBeDisabled();
@@ -380,6 +827,12 @@ test('bounds a stalled response before headers without replaying or clearing the
 
 const invalidReceiptCases = [
   ['missing id', { ok: true, code: 'created', submittedAt: SUBMITTED_AT }],
+  ['field diagnostics without a valid receipt', {
+    ok: true,
+    code: 'created',
+    submittedAt: SUBMITTED_AT,
+    fieldErrors: [{ field: 'url', reason: 'invalid_url' }],
+  }],
   ['whitespace-padded id', { ok: true, code: 'created', id: ' resource-browser-submission-1 ', submittedAt: SUBMITTED_AT }],
   ['control-character id', { ok: true, code: 'created', id: 'resource-browser-submission-1\u0000', submittedAt: SUBMITTED_AT }],
   ['overlong id', { ok: true, code: 'created', id: `resource-${'x'.repeat(257)}`, submittedAt: SUBMITTED_AT }],
@@ -405,6 +858,10 @@ for (const [label, receipt] of invalidReceiptCases) {
     await expect(controls.status).not.toContainText('¡Gracias!');
     await expect(controls.status.locator('code')).toHaveCount(0);
     await expect(controls.status.locator('time')).toHaveCount(0);
+    await expect(controls.form.locator('[aria-invalid="true"]')).toHaveCount(0,
+      'receipt diagnostics cannot turn an unconfirmed outcome into a field error');
+    await expect(controls.form.locator('[data-contribution-error]:visible')).toHaveCount(0,
+      'an unconfirmed outcome keeps its general recovery message only');
     await expect(controls.submit).toBeEnabled();
     await expect(controls.title).toHaveValue(submitted.title);
     await expect(controls.url).toHaveValue(submitted.url);
