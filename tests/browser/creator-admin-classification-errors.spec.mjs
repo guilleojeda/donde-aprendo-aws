@@ -138,10 +138,13 @@ test('native category rejection from the mobile viewport edge reveals its label,
   const writes = captureAdminWrites(page, id);
   try {
     await category.fill('');
-    await category.evaluate((element) => element.scrollIntoView({ block: 'end', behavior: 'instant' }));
-    const before = await category.boundingBox();
-    assert.ok(before && Math.abs(before.y + before.height - 844) < 2,
-      `the category control starts at the mobile viewport edge: ${JSON.stringify(before)}`);
+    await page.evaluate(async () => { await document.fonts.ready; });
+    await expect.poll(() => category.evaluate((element) => {
+      const distanceFromBottom = () => window.innerHeight - element.getBoundingClientRect().bottom;
+      const inset = 4;
+      window.scrollBy({ top: inset - distanceFromBottom(), behavior: 'instant' });
+      return Math.abs(distanceFromBottom() - inset);
+    }), { message: 'the category control starts near the bottom of the mobile viewport' }).toBeLessThan(2);
     await category.press('Enter');
     await expectFieldError(category, form, /categor|completa|obligator/iu);
     await expect.poll(() => writes.writes.length).toBe(0);
