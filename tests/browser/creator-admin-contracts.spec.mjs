@@ -110,8 +110,14 @@ test('known event moderation permission and validation feedback stays correctabl
 });
 
 for (const failure of [
-  { label: 'a raw 503', status: 503, body: {}, message: 'No pudimos guardar el cambio.' },
-  { label: 'a network failure', status: 'network', body: {}, message: 'No pudimos conectar con el servicio.' },
+  {
+    label: 'a raw 503', status: 503, body: {},
+    message: 'No pudimos confirmar el resultado del cambio. Actualiza la vista para revisar el estado.',
+  },
+  {
+    label: 'a network failure', status: 'network', body: {},
+    message: 'No pudimos confirmar el resultado del cambio. Actualiza la vista para revisar el estado.',
+  },
 ]) {
   test(`${failure.label} on event moderation pauses the target until verified Refresh`, async ({ fixture, page }) => {
     const eventId = `admin-event-unknown-${failure.status}`;
@@ -336,7 +342,9 @@ test('a real profile moderation storage 503 requires verified Refresh before one
     assert.equal(failedResponse.status(), 503, 'the actual profile moderation transaction returned the injected storage failure');
     assert.deepEqual(JSON.parse(failedResponse.request().postData()), { version: before.version });
     assert.equal(writes.length, 1, 'the failed action was sent once and was not replayed');
-    await expect(target.locator('[data-item-status]')).toContainText('No pudimos guardar el cambio.');
+    await expect(target.locator('[data-item-status]')).toContainText(
+      'No pudimos confirmar el resultado del cambio. Actualiza la vista para revisar el estado.',
+    );
     await expect(hide).toBeDisabled();
     await expect(root(page).locator('[data-refresh-view]')).toBeVisible();
     assert.equal(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin,
@@ -350,7 +358,7 @@ test('a real profile moderation storage 503 requires verified Refresh before one
     await expect.soft(feedback.or(recovery).and(page.locator(':focus')),
       'when moderation disables the initiating control, focus moves to its feedback or recovery').toHaveCount(1);
     const announcedErrors = root(page).getByRole('status').or(root(page).getByRole('alert'))
-      .filter({ hasText: 'No pudimos guardar el cambio.' });
+      .filter({ hasText: 'No pudimos confirmar el resultado del cambio. Actualiza la vista para revisar el estado.' });
     await expect.soft(announcedErrors, 'only the affected row announces the moderation failure').toHaveCount(1);
 
     const refreshed = page.waitForNavigation({ waitUntil: 'load' });

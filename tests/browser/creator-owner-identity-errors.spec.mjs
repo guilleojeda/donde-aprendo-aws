@@ -394,6 +394,36 @@ test('Guardar y salir cancela la salida tras una colisión y una decisión poste
   }
 });
 
+test('la validación nativa de Datos mantiene etiqueta, control y mensaje dentro del viewport', async ({ fixture, page }) => {
+  await loggedInOwner(fixture, page, { profileFields: { city: 'Ciudad vigente' } });
+  for (const viewport of [{ width: 390, height: 844 }, { width: 1265, height: 720 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+    const form = await openDataEditor(page);
+    const slug = form.getByLabel('Dirección de tu página', { exact: true });
+    await slug.fill('a--b');
+    await form.getByRole('button', { name: 'Cancelar', exact: true }).click();
+    const prompt = exitPrompt(page);
+    await expect(prompt).toBeVisible();
+    await prompt.getByRole('button', { name: 'Guardar y salir', exact: true }).click();
+    await expect(prompt).toBeHidden();
+    await expect(slug).toBeFocused();
+    await expect(slug).toHaveAttribute('aria-invalid', 'true');
+    const label = form.locator('label[for="owner-slug"]');
+    const error = form.locator('#owner-slug-error');
+    await expect(error).toBeVisible();
+    for (const [target, description] of [[label, 'the slug label'], [slug, 'the slug control'], [error, 'the slug error']]) {
+      await expect.poll(async () => {
+        const box = await target.boundingBox();
+        return Boolean(box && box.y >= 0 && box.y + box.height <= viewport.height);
+      }, { message: `${description} stays inside the viewport at ${viewport.width}x${viewport.height}` }).toBe(true);
+    }
+    await form.getByRole('button', { name: 'Cancelar', exact: true }).click();
+    await exitPrompt(page).getByRole('button', { name: 'Descartar cambios', exact: true }).click();
+    await expect(page.locator('[data-owner-dialog]')).toBeHidden();
+  }
+});
+
 test('Programas muestra el grupo para un rechazo real y conserva el aviso general sin diagnóstico aplicable', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page, {
     profileFields: { city: 'Ciudad vigente', bio: 'Presentación vigente.' },

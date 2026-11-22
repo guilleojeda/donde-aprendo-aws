@@ -168,6 +168,14 @@ async function assertReceiptFallback(page, targetId, unrelatedId) {
   await expect(moderateResource(page, targetId)).toBeDisabled();
 }
 
+async function assertUncertainWriteFeedback(page, targetId) {
+  await expect(row(page, targetId).locator('[data-item-status]')).toHaveText(
+    'No pudimos confirmar el resultado del cambio. Actualiza la vista para revisar el estado.',
+  );
+  await expect(root(page).getByRole('button', { name: 'Actualizar vista' })).toBeVisible();
+  await expect(root(page).locator('[data-view-transition]')).toBeHidden();
+}
+
 async function submitClassification(page, id, category) {
   await row(page, id).getByLabel('Categoría').fill(category);
   const responsePromise = page.waitForResponse((response) => response.request().method() === 'PATCH'
@@ -238,6 +246,7 @@ for (const scenario of badClassificationReceipts) {
       assert.equal((await fixture.rawResource(ids[0])).category, 'Seguridad');
 
       await assertReceiptFallback(page, ids[0], ids[1]);
+      await assertUncertainWriteFeedback(page, ids[0]);
       await expect(row(page, ids[0]).locator('[data-classification-form]')).toHaveAttribute('aria-busy', 'false');
       await expect(row(page, ids[1]).getByLabel('Categoría')).toHaveValue('Borrador conservado');
       assert.equal((await fixture.rawResource(ids[1])).category, 'Serverless', 'the unrelated field remains a local draft');

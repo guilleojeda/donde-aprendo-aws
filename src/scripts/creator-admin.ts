@@ -774,9 +774,7 @@ async function finishAdminCompletion(
         ? receiptGap
           ? 'La vinculación se completó, pero el recibo no coincide con las versiones observadas. Actualiza la vista para revisar esta solicitud.'
           : 'No pudimos confirmar el resultado de la vinculación. Actualiza la vista para revisar esta solicitud.'
-        : response
-          ? await responseErrorMessage(response, completion.payload)
-          : requestFailureMessage(requestError, 'No pudimos conectar con el servicio. Inténtalo de nuevo.')
+        : 'No pudimos confirmar el resultado del cambio. Actualiza la vista para revisar el estado.'
       : response
         ? await responseErrorMessage(response, completion.payload)
         : requestFailureMessage(requestError, 'No pudimos completar la acción. Revisa los datos e inténtalo de nuevo.');
