@@ -78,10 +78,11 @@ function inputLabel(value: string): string {
   return value || '—';
 }
 
-function contentFieldProps(field: CreatorOwnerField, error?: string, helpId?: string, focusError = error) {
+function contentFieldProps(field: CreatorOwnerField, error?: string, helpId?: string, focusError = error,
+  additionalDescribedBy?: string) {
   return {
     'aria-invalid': error ? true : undefined,
-    'aria-describedby': identityFieldDescribedBy('owner', field, Boolean(error), helpId),
+    'aria-describedby': identityFieldDescribedBy('owner', field, Boolean(error), helpId, additionalDescribedBy),
     'data-owner-content-error-focus': focusError ? true : undefined,
   };
 }
@@ -251,6 +252,8 @@ export default function CreatorOwnerEditorDialog({
   const editorHasFieldErrors = Object.values(editorFieldErrors).some(Boolean);
   const photoError = editorFieldErrors.photo;
   const photoHelpId = identityFieldHelpId('owner', 'photo');
+  const claimDestinationsErrorId = identityFieldErrorId('owner', 'destinations');
+  const claimDestinationsError = contentError('destinations');
 
   useLayoutEffect(() => {
     const dialog = dialogRef.current;
@@ -546,23 +549,25 @@ export default function CreatorOwnerEditorDialog({
       {editorIsDialog && editor?.kind === 'claim' && <form class="creator-owner__form" data-owner-form="reclamacion" data-claim-form onSubmit={editorSubmit}>
         {sessionRecovery}
         <p>Selecciona contenido del catálogo o agrega URLs conocidas. Enviar una solicitud no agrega contenido a tu página ni concede permiso para editar.</p>
-        <fieldset class={`creator-owner__field creator-owner__content-group${contentError('destinations') ? ' creator-owner__field--invalid' : ''}`} data-owner-claim-destinations aria-invalid={contentError('destinations') ? 'true' : undefined}
-          aria-describedby={contentError('destinations') ? identityFieldErrorId('owner', 'destinations') : undefined}>
+        <fieldset class={`creator-owner__field creator-owner__content-group${claimDestinationsError ? ' creator-owner__field--invalid' : ''}`} data-owner-claim-destinations aria-invalid={claimDestinationsError ? 'true' : undefined}
+          aria-describedby={claimDestinationsError ? claimDestinationsErrorId : undefined}>
           <legend>Destinos de la solicitud</legend>
           <CatalogPicker state={state} mode="claim" selected={editor.selected} onSearch={onCatalogSearch} onPage={onCatalogPage} onRetry={onCatalogRetry}
             onSelect={(item, checked) => onUpdateClaim({ selected: checked
               ? [...editor.selected.filter(({ resourceId }) => resourceId !== item.id), { resourceId: item.id, url: item.url, title: item.title }]
-              : editor.selected.filter(({ resourceId }) => resourceId !== item.id) })} disabled={locked} errorFocus={Boolean(contentError('selection'))} />
+              : editor.selected.filter(({ resourceId }) => resourceId !== item.id) })} disabled={locked} errorFocus={Boolean(contentError('selection'))}
+            errorDescriptionId={claimDestinationsError ? claimDestinationsErrorId : undefined} />
           <ul class="creator-owner__claim-selection" data-claim-selection aria-label="Selección para solicitar edición" hidden={!editor.selected.length}>
             {editor.selected.map((item) => <li key={item.resourceId}><span>{item.title} — {item.url}</span><button class="button button--outline" type="button" data-claim-deselect={item.resourceId} aria-label={`Quitar ${item.title} de la selección`} disabled={locked}
               onClick={() => onUpdateClaim({ selected: editor.selected.filter(({ resourceId }) => resourceId !== item.resourceId) })}>Quitar</button></li>)}
           </ul>
           <p class="creator-owner__catalog-selected" data-catalog-selected-count aria-live="polite">{editor.selected.length ? `${editor.selected.length} ${editor.selected.length === 1 ? 'recurso seleccionado.' : 'recursos seleccionados.'}` : 'Ningún recurso seleccionado.'}</p>
           <div class={`creator-owner__field${contentError('knownUrls') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-claim-urls">URLs conocidas <span>(opcional, una por línea)</span></label><textarea id="owner-claim-urls" name="knownUrls" rows={4} data-claim-urls autoComplete="url" value={editor.knownUrls} readOnly={locked}
-            {...contentFieldProps('knownUrls', contentError('knownUrls'), undefined, contentError('destinations'))}
+            {...contentFieldProps('knownUrls', contentError('knownUrls'), undefined, claimDestinationsError,
+              claimDestinationsError ? claimDestinationsErrorId : undefined)}
             onInvalid={(event) => nativeContent.onInvalid('knownUrls', event.currentTarget as HTMLTextAreaElement, event)}
             onInput={(event) => { nativeContent.onInput('knownUrls'); onUpdateClaim({ knownUrls: (event.currentTarget as HTMLTextAreaElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'knownUrls')} text={contentError('knownUrls')} /></div>
-          <IdentityFieldError id={identityFieldErrorId('owner', 'destinations')} text={contentError('destinations')} />
+          <IdentityFieldError id={claimDestinationsErrorId} text={claimDestinationsError} />
         </fieldset>
         <div class={`creator-owner__field${contentError('evidence') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-claim-evidence">Contexto privado <span>(opcional)</span></label><textarea id="owner-claim-evidence" name="evidence" rows={3} maxLength={CREATOR_FIELD_LIMITS.evidence} data-claim-evidence value={editor.evidence} readOnly={locked}
           {...contentFieldProps('evidence', contentError('evidence'))}
@@ -641,7 +646,8 @@ function OperationFeedback({ state, rows, canSaveDraft, onRetryRead, onResolve, 
   </section>;
 }
 
-function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onPage, onRetry, onSelect, disabled = false, errorFocus = false }: {
+function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onPage, onRetry, onSelect, disabled = false, errorFocus = false,
+  errorDescriptionId }: {
   state: CreatorOwnerState;
   mode: 'reference' | 'claim';
   selected: readonly CreatorOwnerClaimSelection[];
@@ -652,6 +658,7 @@ function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onP
   onSelect(item: CreatorCatalogSelectionDTO, checked: boolean): void;
   disabled?: boolean;
   errorFocus?: boolean;
+  errorDescriptionId?: string;
 }) {
   const resultsRef = useRef<HTMLUListElement>(null);
   const previousPageRef = useRef<HTMLButtonElement>(null);
@@ -716,6 +723,7 @@ function CatalogPicker({ state, mode, selected, selectedReference, onSearch, onP
                 ? selectedReference?.id === item.id && selectedReference.url === item.url
                 : selected.some(({ resourceId, url }) => resourceId === item.id && url === item.url)}
               disabled={disabled || rejected}
+              aria-describedby={errorDescriptionId}
               aria-label={`${mode === 'claim' ? 'Solicitar edición de' : 'Seleccionar'} ${item.title}`}
               onChange={(event) => onSelect(item, event.currentTarget.checked)} />
               <span class="creator-owner__catalog-item"><strong>{item.title}</strong><span>{item.url}</span>{rejected && <span data-catalog-rejected>URL desactualizada.</span>}</span>

@@ -22,9 +22,10 @@ export function identityFieldHelpId(prefix: string, field: CreatorOwnerField): s
 }
 
 export function identityFieldDescribedBy(prefix: string, field: CreatorOwnerField, hasError: boolean,
-  help = field === 'slug' || field === 'bio' ? identityFieldHelpId(prefix, field) : undefined): string | undefined {
+  help = field === 'slug' || field === 'bio' ? identityFieldHelpId(prefix, field) : undefined,
+  additionalId?: string): string | undefined {
   const error = hasError ? identityFieldErrorId(prefix, field) : undefined;
-  const value = [help, error].filter(Boolean).join(' ');
+  const value = [help, error, additionalId].filter(Boolean).join(' ');
   return value || undefined;
 }
 
@@ -107,7 +108,8 @@ export function useNativeFieldErrors<T extends string = IdentityFeedbackField>(s
         firstInvalid.current = null;
         if (!target || !target.isConnected || target.matches(':disabled')) return;
         target.focus({ preventScroll: true });
-        target.scrollIntoView?.({ block: 'nearest' });
+        const field = target.closest<HTMLElement>('.creator-owner__field') ?? target;
+        field.scrollIntoView?.({ block: 'center', inline: 'nearest' });
       }, 0);
     }
   }, []);

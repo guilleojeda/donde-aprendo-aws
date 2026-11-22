@@ -198,6 +198,10 @@ test('lost classification delivery preserves the commit, pauses only its scope, 
     await expect(hideResource(page, ids[3])).toBeEnabled();
     await expect(row(page, ids[2]).getByLabel('Categoría')).toHaveValue('Borrador independiente');
     await expect(root(page).locator('[data-refresh-view]')).toBeVisible();
+    await expect(row(page, ids[0]).locator('[data-item-status]')).toHaveText(
+      'No pudimos confirmar el resultado del cambio. Actualiza la vista para revisar el estado.',
+    );
+    await expect(root(page).locator('[data-view-transition]')).toBeHidden();
 
     await preserveDraftThroughVerifiedRefresh(page, ids[2], 'Serverless', ids[0]);
     assert.equal((await fixture.rawResource(ids[0])).category, 'Seguridad');

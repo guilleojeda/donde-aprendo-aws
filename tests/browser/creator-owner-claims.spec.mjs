@@ -519,12 +519,28 @@ test('Solicitudes trata destinos vacíos como un error del grupo y conserva una 
   const emptyDestinationError = await expectClaimDestinationGroupError(form, /selecciona una ficha|URL conocida|destino/iu);
   await expect(urls).toBeFocused();
   await expect(evidence).toHaveValue(privateContext);
+  const destinationErrorId = await emptyDestinationError.error.getAttribute('id');
+  assert.ok(destinationErrorId, 'the empty destination message has a stable id');
+  const urlDescriptionIds = (await urls.getAttribute('aria-describedby') ?? '').split(/\s+/u).filter(Boolean);
+  assert.ok(urlDescriptionIds.includes(destinationErrorId),
+    'the focused known-URLs textarea is described by the active destination error');
+  const catalogControls = form.locator('[data-catalog-select]');
+  assert.ok(await catalogControls.count() > 0, 'the fixture exposes a catalog selection control');
+  for (const control of await catalogControls.all()) {
+    const describedBy = (await control.getAttribute('aria-describedby') ?? '').split(/\s+/u).filter(Boolean);
+    assert.ok(describedBy.includes(destinationErrorId),
+      'each catalog selection control is described by the active destination error');
+  }
   assert.equal(claimWrites(capture).length, 0, 'an empty destination group is rejected before any POST');
   assert.equal((await api(fixture, cookie, '/api/creador/perfil')).body.claims.length, 0);
 
   const candidate = claimCandidate(page, item.title);
   await candidate.check();
   await expect(candidate).toBeChecked();
+  await expect(urls).not.toHaveAttribute('aria-describedby', new RegExp(`(?:^|\\s)${destinationErrorId}(?:\\s|$)`));
+  for (const control of await catalogControls.all()) {
+    await expect(control).not.toHaveAttribute('aria-describedby', new RegExp(`(?:^|\\s)${destinationErrorId}(?:\\s|$)`));
+  }
   await expect(page.locator('[data-claim-selection]')).toContainText(item.title);
   await candidate.uncheck();
   await expect(candidate).not.toBeChecked();
@@ -573,6 +589,8 @@ test('Solicitudes atribuye sólo diagnósticos aplicables y deja selección, con
     assert.deepEqual(knownUrlRejected.body, { resources: [{ url: 'https://claim.example.invalid/escrita' }], evidence: privateContext });
     assert.equal(JSON.stringify(knownUrlRejected.responseBody).includes(privateContext), false);
     const knownUrlError = await expectClaimFieldError(page, /URLs conocidas/i, /URL|HTTP|HTTPS|dirección/iu);
+    await expect(urls).not.toHaveAttribute('aria-describedby', /destinations-error/u,
+      'a known-URLs rejection does not retain an unrelated destination association');
     await expect(urls).toHaveValue('https://claim.example.invalid/escrita');
     await expect(evidence).toHaveValue(privateContext);
     assert.equal((await api(fixture, cookie, '/api/creador/perfil')).body.claims.length, 0);
