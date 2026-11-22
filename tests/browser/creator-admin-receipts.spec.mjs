@@ -1693,7 +1693,8 @@ test(phantomProfile ? 'an authority-only single grant rejects an appended phanto
     await expect(saveButton(page, ids[1])).toBeEnabled();
 
     if (phantomProfile) {
-      await expect(form.locator('[data-item-status]')).toContainText(/recibo no coincide/i);
+      await expect(form.locator('[data-item-status]')).toContainText(/No pudimos confirmar el resultado de la vinculación/i);
+      await expect(form.locator('[data-item-status]')).not.toContainText(/La vinculación se completó/i);
       await expect(profileRow(page, owner.profile.id).getByRole('button', { name: 'Ocultar perfil' })).toBeDisabled();
       await expect(saveButton(page, ids[0])).toBeDisabled();
       const savedDraft = await submitClassification(page, ids[1], 'Certificaciones');
@@ -1806,7 +1807,10 @@ test(`an impossible claim receipt pauses its targets but preserves a separate dr
 
     await waitForAdminWriteToSettle(page, ids[2]);
     await expect(form).toHaveAttribute('aria-busy', 'false');
-    await expect(form.locator('[data-item-status]')).toContainText(/recibo no coincide/i);
+    await expect(form.locator('[data-item-status]')).toContainText(/No pudimos confirmar el resultado de la vinculación/i);
+    await expect(form.locator('[data-item-status]')).not.toContainText(/La vinculación se completó/i);
+    await expect(form.locator('[data-item-status]')).not.toContainText(/Ya vinculados:/i,
+      'an invalid successful receipt does not present its IDs as confirmed');
     await expectClaimSelectionNotInvalid(form);
     await expect(saveButton(page, ids[0])).toBeDisabled();
     await expect(saveButton(page, ids[1])).toBeDisabled();
@@ -2120,6 +2124,58 @@ test('a real already-linked claim with linkedResourceIds and [] remains a valid 
     assert.equal((await fixture.rawResource(ids[0])).version, 3);
     assert.equal(route.observed.length, 1);
     assert.equal((await fixture.creatorStore.get(`claim:${firstClaim.id}`)).status, 'resolved');
+  } finally {
+    await route.stop();
+  }
+});
+
+test('a successful claim with an unverifiable receipt stays uncertain and refreshes without replay', async ({ fixture, page }) => {
+  const [id, draftId] = ['admin-unverifiable-success-receipt', 'admin-unverifiable-success-draft'];
+  await prepareAdmin(fixture, page, [id, draftId]);
+  const owner = await createOwnerProfile(fixture, 'admin-unverifiable-success-owner', 'admin-unverifiable-success@example.invalid');
+  const claim = await createClaim(fixture, owner.cookie, [id]);
+  await openAdmin(fixture, page);
+  const form = claimForm(page, claim.id);
+  await form.getByRole('checkbox', { name: 'Confirmo que revisé la referencia y los recursos seleccionados.' }).check();
+  await row(page, draftId).getByLabel('Categoría').fill('Borrador independiente');
+
+  const route = await interceptAdminWrite(page,
+    (request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/reclamaciones/vincular/',
+    async (currentRoute, response, actual) => {
+      assert.equal(actual.status, 200);
+      assert.deepEqual(actual.body.linkedResourceIds, [id], 'the real service supplied a usable receipt before delivery was stripped');
+      await currentRoute.fulfill({ response, json: {} });
+    });
+  try {
+    const responsePromise = page.waitForResponse((response) => response.request().method() === 'POST'
+      && new URL(response.url()).pathname === '/api/admin/reclamaciones/vincular/');
+    await form.getByRole('button', { name: 'Vincular recursos seleccionados' }).click();
+    assert.equal((await responsePromise).status(), 200);
+    assert.equal(route.observed.length, 1, 'the browser attempted exactly one real grant');
+    assert.equal((await fixture.rawResource(id)).directoryControl, 'creator', 'the grant committed before proof was stripped');
+    assert.equal((await fixture.creatorStore.get(`claim:${claim.id}`)).status, 'resolved');
+
+    const status = form.locator('[data-item-status]');
+    await expect(status).toContainText('No pudimos confirmar el resultado de la vinculación.');
+    await expect(status).not.toContainText('La vinculación se completó');
+    await expect(root(page).getByRole('button', { name: 'Actualizar vista' })).toBeVisible();
+    await expect(form.getByRole('button', { name: 'Vincular recursos seleccionados' })).toBeDisabled();
+    await expect(claimSelection(form, id)).toBeDisabled();
+    await expect(saveButton(page, id)).toBeDisabled();
+    await expect(row(page, draftId).getByLabel('Categoría')).toHaveValue('Borrador independiente');
+    await expect(saveButton(page, draftId)).toBeEnabled();
+
+    // Clear the independent draft before an explicit refresh so beforeunload cannot
+    // mask the recovery action being verified.
+    await row(page, draftId).getByLabel('Categoría').fill('Serverless');
+    await expect(row(page, draftId).getByLabel('Categoría')).toHaveValue('Serverless');
+    const reload = page.waitForNavigation({ waitUntil: 'load' });
+    await root(page).getByRole('button', { name: 'Actualizar vista' }).click();
+    await reload;
+    assert.equal(route.observed.length, 1, 'explicit refresh does not replay the grant');
+    assert.equal((await fixture.rawResource(id)).directoryControl, 'creator');
+    assert.equal((await fixture.creatorStore.get(`claim:${claim.id}`)).status, 'resolved');
+    await expect(page.getByText('No hay solicitudes pendientes.')).toBeVisible();
   } finally {
     await route.stop();
   }

@@ -12,6 +12,7 @@ if (form) {
   const formatSelect = form.querySelector('[data-contribution-format]');
   const topicBoxes = [...form.querySelectorAll('[data-contribution-topic]')];
   const topicsGroup = form.querySelector('[data-contribution-topics-group]');
+  const topicOptions = form.querySelector('.contribution-form__topic-options');
   const taxonomyGroup = form.querySelector('[data-contribution-taxonomy]');
   let draftRevision = 0;
   let activeAttempt;
@@ -128,6 +129,15 @@ if (form) {
   const groupControls = (group) => group === 'topics' ? topicBoxes : [kindSelect, formatSelect].filter(Boolean);
   const groupError = (group) => form.querySelector(`#contribution-${group === 'topics' ? 'topics' : 'kind-format'}-error`);
   const groupContainer = (group) => group === 'topics' ? topicsGroup : taxonomyGroup;
+  const restoreTopicErrorPlacement = () => {
+    const error = groupError('topics');
+    if (error && topicOptions && error.parentElement === topicOptions) topicOptions.after(error);
+  };
+  const placeTopicErrorNear = (box) => {
+    const error = groupError('topics');
+    const label = box.closest('label');
+    if (error && label) label.after(error);
+  };
   const setGroupError = (group, visible, message = '') => {
     const error = groupError(group);
     const container = groupContainer(group);
@@ -158,7 +168,20 @@ if (form) {
   };
 
   const clearGroupError = (group) => {
+    if (group === 'topics') restoreTopicErrorPlacement();
     if (groupError(group)?.hidden === false) setGroupError(group, false);
+  };
+
+  const revealGroupError = (group) => {
+    const error = groupError(group);
+    if (!error || error.hidden) return;
+    setTimeout(() => {
+      if (error.hidden) return;
+      const bounds = error.getBoundingClientRect();
+      if (bounds.top < 0 || bounds.bottom > window.innerHeight) {
+        error.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+      }
+    }, 0);
   };
 
   const updateVisibleFieldError = (event) => {
@@ -196,7 +219,9 @@ if (form) {
     const selected = topicBoxes.filter((item) => item.checked);
     if (selected.length <= 3) return;
     box.checked = false;
+    placeTopicErrorNear(box);
     setGroupError('topics', true, 'Puedes elegir hasta tres temas.');
+    revealGroupError('topics');
   }));
 
   const uncertainMessage = 'No pudimos confirmar el resultado de tu envío. Conserva el formulario y revisa antes de intentarlo de nuevo.';
