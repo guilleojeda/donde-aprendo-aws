@@ -174,6 +174,14 @@ representativeTest('Enter on an exactly empty query prevents a held real index f
 for (const failure of [
   { name: 'an HTTP failure', status: 503, json: { error: 'unavailable' } },
   { name: 'a decoded body with the wrong index shape', status: 200, json: { entries: [] } },
+  {
+    name: 'a decoded body with unusable result data',
+    status: 200,
+    json: [{
+      type: 'content', title: 'Taller secreto', description: 'Resultado inválido',
+      url: '/aprender/#unusable', series: { length: 1 },
+    }],
+  },
 ]) {
   representativeTest(`a search recovers from ${failure.name} with the same query, filter and focus`, async ({ app, page }) => {
     await page.goto(`${app.origin}/buscar/`);

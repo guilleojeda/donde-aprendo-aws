@@ -155,6 +155,11 @@ if (agenda && empty) {
   const setAttributeIfChanged = (element, name, value) => {
     if (element && element.getAttribute(name) !== String(value)) element.setAttribute(name, String(value));
   };
+  const setShareStatus = (message, { error = false } = {}) => {
+    if (!shareStatus) return;
+    shareStatus.textContent = message;
+    shareStatus.setAttribute('data-event-share-state', error ? 'error' : 'normal');
+  };
   const setFilters = (filters) => {
     ensureModeOption(filters.mode);
     ensureCountryOption(filters.country);
@@ -284,7 +289,7 @@ if (agenda && empty) {
       && lastShareStateSignature !== stateSignature;
     if (stateChanged) {
       shareRevision += 1;
-      if (shareStatus) shareStatus.textContent = '';
+      setShareStatus('');
     }
     lastShareStateSignature = stateSignature;
     let nextShare;
@@ -320,7 +325,7 @@ if (agenda && empty) {
     ]);
     if (lastShareSignature !== undefined && lastShareSignature !== signature && !stateChanged) {
       shareRevision += 1;
-      if (shareStatus) shareStatus.textContent = '';
+      setShareStatus('');
     }
     lastShareSignature = signature;
     latestShare = nextShare;
@@ -816,14 +821,14 @@ if (agenda && empty) {
     refresh();
     const capturedShare = latestShare;
     if (!capturedShare || typeof capturedShare.text !== 'string') {
-      if (shareStatus) shareStatus.textContent = copyFailureMessage;
+      setShareStatus(copyFailureMessage, { error: true });
       return;
     }
 
-    if (shareStatus) shareStatus.textContent = '';
+    setShareStatus('');
     const clipboard = window.navigator?.clipboard;
     if (typeof clipboard?.writeText !== 'function') {
-      if (shareStatus) shareStatus.textContent = 'No se pudo copiar: el portapapeles no está disponible en este navegador.';
+      setShareStatus('No se pudo copiar: el portapapeles no está disponible en este navegador.', { error: true });
       return;
     }
 
@@ -831,7 +836,7 @@ if (agenda && empty) {
     copyPending = true;
     copyButton.disabled = true;
     const recoverCopyFailure = () => {
-      if (shareStatus) shareStatus.textContent = copyFailureMessage;
+      setShareStatus(copyFailureMessage, { error: true });
       copyPending = false;
       copyButton.disabled = false;
     };
@@ -846,16 +851,14 @@ if (agenda && empty) {
       recoverCopyFailure();
       return;
     }
-    if (shareStatus) shareStatus.textContent = 'Copiando la agenda al portapapeles…';
+    setShareStatus('Copiando la agenda al portapapeles…');
     shareToggle?.focus({ preventScroll: true });
     write.then(
       () => {
         const changedWhileCopying = shareRevision !== capturedRevision;
-        if (shareStatus) {
-          shareStatus.textContent = changedWhileCopying
-            ? 'Se copió la selección anterior; la agenda cambió mientras se copiaba.'
-            : 'Agenda copiada al portapapeles.';
-        }
+        setShareStatus(changedWhileCopying
+          ? 'Se copió la selección anterior; la agenda cambió mientras se copiaba.'
+          : 'Agenda copiada al portapapeles.');
         closeShareMenu(Boolean(shareMenu?.contains(document.activeElement)));
         copyPending = false;
         copyButton.disabled = false;

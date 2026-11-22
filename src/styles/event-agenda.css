@@ -223,6 +223,11 @@
   text-align: right;
 }
 
+.event-agenda__share-status[data-event-share-state='error'] {
+  color: var(--color-error-text);
+  font-size: 14px;
+}
+
 .event-agenda__filter-area {
   margin: 0;
   padding: 9px 0 7px;

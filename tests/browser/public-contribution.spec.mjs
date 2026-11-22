@@ -420,6 +420,14 @@ const generalResponseCases = [
       fieldErrors: [{ field: 'url', reason: 'unknown_reason' }],
     }),
   }],
+  ['with a field diagnostic under a different code', {
+    mutate: (payload) => ({ ...payload, website: 'https://bot.invalid' }),
+    responseBody: {
+      ok: false,
+      code: 'duplicate',
+      fieldErrors: [{ field: 'url', reason: 'invalid_url' }],
+    },
+  }],
   ['with an unreadable response body', {
     mutate: (payload) => ({ ...payload, website: 'https://bot.invalid' }),
     responseBody: 'not-json',

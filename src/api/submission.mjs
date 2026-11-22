@@ -49,7 +49,11 @@ export function createSubmissionHandler(options = {}) {
     try {
       submission = parseSubmissionRequest(event);
     } catch (error) {
-      return response(error.statusCode ?? 400, error.responseCode ?? 'invalid_request');
+      const details = error.statusCode === 400 && error.responseCode === 'invalid_request'
+        && Array.isArray(error.fieldErrors) && error.fieldErrors.length > 0
+        ? { fieldErrors: error.fieldErrors }
+        : {};
+      return response(error.statusCode ?? 400, error.responseCode ?? 'invalid_request', details);
     }
 
     const resolvedTableName = resolveTableName(tableName);
@@ -128,22 +132,28 @@ function parseSubmissionRequest(event) {
   for (const field of REQUIRED_FIELDS) {
     const value = payload[field];
     const limit = SUBMISSION_FIELD_LIMITS[field];
-    if (typeof value !== 'string' || value.length === 0 || value.length > limit || value.trim().length === 0) {
+    if (typeof value !== 'string') {
       throw requestError(400, 'invalid_request');
     }
+    if (value.length > limit) {
+      throw requestError(400, 'invalid_request', [{ field, reason: 'too_long' }]);
+    }
+    if (value.length === 0 || value.trim().length === 0) {
+      throw requestError(400, 'invalid_request', [{ field, reason: 'required' }]);
+    }
     if (CONTROL_CHARACTERS.test(value)) {
-      throw requestError(400, 'invalid_request');
+      throw requestError(400, 'invalid_request', [{ field, reason: 'invalid_value' }]);
     }
   }
 
   if (!EMAIL_PATTERN.test(payload.email) || payload.email.includes('..')) {
-    throw requestError(400, 'invalid_request');
+    throw requestError(400, 'invalid_request', [{ field: 'email', reason: 'invalid_email' }]);
   }
   try {
     // Preserve the exact literal for URL uniqueness, including query strings.
     validateCatalogUrl(payload.url);
   } catch {
-    throw requestError(400, 'invalid_request');
+    throw requestError(400, 'invalid_request', [{ field: 'url', reason: 'invalid_url' }]);
   }
 
   let taxonomy;
@@ -156,8 +166,8 @@ function parseSubmissionRequest(event) {
     }
     try {
       taxonomy = validateTaxonomy(payload);
-    } catch {
-      throw requestError(400, 'invalid_request');
+    } catch (error) {
+      throw requestError(400, 'invalid_request', error.fieldErrors);
     }
     category = legacyCategoryFor(taxonomy);
   } else {
@@ -235,10 +245,11 @@ function isJsonContentType(value) {
     && value.split(';', 1)[0].trim().toLowerCase() === 'application/json';
 }
 
-function requestError(statusCode, responseCode) {
+function requestError(statusCode, responseCode, fieldErrors) {
   const error = new Error(responseCode);
   error.statusCode = statusCode;
   error.responseCode = responseCode;
+  if (Array.isArray(fieldErrors) && fieldErrors.length > 0) error.fieldErrors = fieldErrors;
   return error;
 }
 

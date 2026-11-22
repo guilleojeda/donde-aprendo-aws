@@ -10,8 +10,33 @@ if (form) {
   const kindSelect = form.querySelector('[data-contribution-kind]');
   const formatSelect = form.querySelector('[data-contribution-format]');
   const topicBoxes = [...form.querySelectorAll('[data-contribution-topic]')];
+  const topicsGroup = form.querySelector('[data-contribution-topics-group]');
+  const taxonomyGroup = form.querySelector('[data-contribution-taxonomy]');
   let draftRevision = 0;
   let activeAttempt;
+  let invalidCycle = false;
+
+  const diagnosticMessages = Object.freeze({
+    'email:required': 'Completa tu correo electrónico.',
+    'email:invalid_email': 'Escribe un correo electrónico válido.',
+    'email:too_long': 'Tu correo electrónico es demasiado largo.',
+    'email:invalid_value': 'Quita los caracteres no permitidos del correo electrónico.',
+    'full_name:required': 'Completa tu nombre completo.',
+    'full_name:too_long': 'Tu nombre completo es demasiado largo.',
+    'full_name:invalid_value': 'Quita los caracteres no permitidos de tu nombre completo.',
+    'title:required': 'Completa el título o nombre.',
+    'title:too_long': 'El título o nombre es demasiado largo.',
+    'title:invalid_value': 'Quita los caracteres no permitidos del título o nombre.',
+    'url:required': 'Completa la URL.',
+    'url:too_long': 'La URL es demasiado larga.',
+    'url:invalid_url': 'Escribe una URL HTTP o HTTPS válida.',
+    'url:invalid_value': 'Quita los caracteres no permitidos de la URL.',
+    'text:required': 'Completa la descripción.',
+    'text:too_long': 'La descripción es demasiado larga.',
+    'text:invalid_value': 'Quita los caracteres no permitidos de la descripción.',
+    'topics:invalid_option': 'Elige hasta tres temas válidos.',
+    'kind-format:invalid_combination': 'Elige una combinación válida de tipo y formato.',
+  });
 
   const isValidReceiptDate = (value) => {
     if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(value)) return false;
@@ -23,6 +48,7 @@ if (form) {
     && value.code === 'created'
     && isPublicCatalogResourceId(value.id)
     && isValidReceiptDate(value.submittedAt);
+
   const resetFormatOptions = () => {
     if (!formatSelect) return;
     formatSelect.value = '';
@@ -32,6 +58,18 @@ if (form) {
       option.disabled = true;
     }
   };
+
+  const updateFormatOptions = () => {
+    if (!kindSelect || !formatSelect) return;
+    formatSelect.value = '';
+    for (const option of formatSelect.options) {
+      if (!option.value) continue;
+      const available = option.dataset.formatKind === kindSelect.value;
+      option.hidden = !available;
+      option.disabled = !available;
+    }
+  };
+
   const formSnapshot = () => {
     const data = new FormData(form);
     return {
@@ -46,12 +84,14 @@ if (form) {
       website: data.get('website'),
     };
   };
+
   const restoreSubmitControl = () => {
     if (!submitButton) return;
     submitButton.disabled = false;
     submitButton.removeAttribute('aria-busy');
     submitButton.textContent = 'Enviar para revisión';
   };
+
   const fieldError = (field) => [...form.querySelectorAll('[data-contribution-error]')]
     .find((error) => error.id === `${field.id}-error`);
   const fieldMessage = (field) => {
@@ -62,58 +102,130 @@ if (form) {
       if (field.type === 'email') return 'Escribe un correo electrónico válido.';
       if (field.type === 'url') return 'Escribe una URL válida.';
     }
+    if (field.validity?.tooLong) return 'Reduce la longitud de este campo.';
     return 'Revisa este campo.';
   };
-  const setFieldError = (field, visible) => {
+
+  const addDescription = (element, id) => {
+    const ids = (element.getAttribute('aria-describedby') || '').split(/\s+/u).filter(Boolean);
+    if (!ids.includes(id)) ids.push(id);
+    element.setAttribute('aria-describedby', ids.join(' '));
+  };
+  const removeDescription = (element, id) => {
+    const ids = (element.getAttribute('aria-describedby') || '').split(/\s+/u)
+      .filter((candidate) => candidate && candidate !== id);
+    if (ids.length) element.setAttribute('aria-describedby', ids.join(' '));
+    else element.removeAttribute('aria-describedby');
+  };
+
+  const setFieldError = (field, visible, message = fieldMessage(field)) => {
     const error = fieldError(field);
     if (!error) return;
 
-    const describedBy = (field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
     if (visible) {
-      error.textContent = fieldMessage(field);
+      error.textContent = message;
       error.hidden = false;
       field.setAttribute('aria-invalid', 'true');
-      if (!describedBy.includes(error.id)) describedBy.push(error.id);
-      field.setAttribute('aria-describedby', describedBy.join(' '));
+      addDescription(field, error.id);
       return;
     }
 
     error.textContent = '';
     error.hidden = true;
     field.removeAttribute('aria-invalid');
-    const remainingDescriptions = describedBy.filter((id) => id !== error.id);
-    if (remainingDescriptions.length) field.setAttribute('aria-describedby', remainingDescriptions.join(' '));
-    else field.removeAttribute('aria-describedby');
+    removeDescription(field, error.id);
   };
+
+  const groupControls = (group) => group === 'topics' ? topicBoxes : [kindSelect, formatSelect].filter(Boolean);
+  const groupError = (group) => form.querySelector(`#contribution-${group === 'topics' ? 'topics' : 'kind-format'}-error`);
+  const groupContainer = (group) => group === 'topics' ? topicsGroup : taxonomyGroup;
+  const setGroupError = (group, visible, message = '') => {
+    const error = groupError(group);
+    const container = groupContainer(group);
+    if (!error || !container) return;
+    const controls = groupControls(group);
+
+    if (visible) {
+      error.textContent = message;
+      error.hidden = false;
+      container.setAttribute('aria-invalid', 'true');
+      addDescription(container, error.id);
+      for (const control of controls) {
+        control.setAttribute('aria-invalid', 'true');
+        addDescription(control, error.id);
+      }
+      return;
+    }
+
+    error.textContent = '';
+    error.hidden = true;
+    container.removeAttribute('aria-invalid');
+    removeDescription(container, error.id);
+    for (const control of controls) {
+      if (fieldError(control)?.hidden === false) control.setAttribute('aria-invalid', 'true');
+      else control.removeAttribute('aria-invalid');
+      removeDescription(control, error.id);
+    }
+  };
+
+  const diagnosticTargetForControl = (control) => {
+    if (topicBoxes.includes(control)) return 'topics';
+    if (control === kindSelect || control === formatSelect) return 'kind-format';
+    return control?.name || control?.id;
+  };
+  const clearDiagnostic = (target) => {
+    if (target === 'topics' || target === 'kind-format') {
+      if (groupError(target)?.hidden !== false) return;
+      setGroupError(target, false);
+      return;
+    }
+    const field = form.elements.namedItem(target);
+    if (field && typeof field !== 'string' && fieldError(field)?.hidden === false) setFieldError(field, false);
+  };
+  const clearDiagnosticForControl = (control) => clearDiagnostic(diagnosticTargetForControl(control));
+
   const updateVisibleFieldError = (event) => {
     const field = event.target;
-    const error = field?.id ? fieldError(field) : null;
-    if (!error || error.hidden || !field.validity) return;
-    setFieldError(field, !field.validity.valid);
+    if (!field?.id || !field.validity) return;
+    const error = fieldError(field);
+    if (!error) return;
+    const wasVisible = !error.hidden;
+    clearDiagnosticForControl(field);
+    if (wasVisible) setFieldError(field, !field.validity.valid);
   };
 
   form.addEventListener('invalid', (event) => {
     const field = event.target;
-    if (field?.id && fieldError(field)) setFieldError(field, true);
+    if (!field?.id || !fieldError(field)) return;
+    event.preventDefault();
+    setFieldError(field, true);
+    if (invalidCycle) return;
+    invalidCycle = true;
+    setTimeout(() => {
+      field.focus();
+      invalidCycle = false;
+    }, 0);
   }, true);
-  form.addEventListener('input', updateVisibleFieldError);
-  form.addEventListener('change', updateVisibleFieldError);
+  form.addEventListener('input', (event) => {
+    draftRevision += 1;
+    updateVisibleFieldError(event);
+  });
+  form.addEventListener('change', (event) => {
+    draftRevision += 1;
+    updateVisibleFieldError(event);
+  });
 
   kindSelect?.addEventListener('change', () => {
-    if (formatSelect) {
-      formatSelect.value = '';
-      for (const option of formatSelect.options) {
-        if (!option.value) continue;
-        const available = option.dataset.formatKind === kindSelect.value;
-        option.hidden = !available;
-        option.disabled = !available;
-      }
-    }
+    clearDiagnostic('kind-format');
+    updateFormatOptions();
   });
 
   topicBoxes.forEach((box) => box.addEventListener('change', () => {
+    clearDiagnostic('topics');
     const selected = topicBoxes.filter((item) => item.checked);
-    if (selected.length > 3) box.checked = false;
+    if (selected.length <= 3) return;
+    box.checked = false;
+    setGroupError('topics', true, 'Puedes elegir hasta tres temas.');
   }));
 
   const uncertainMessage = 'No pudimos confirmar el resultado de tu envío. Conserva el formulario y revisa antes de intentarlo de nuevo.';
@@ -173,22 +285,82 @@ if (form) {
     return true;
   };
 
-  const showUncertain = (attempt) => {
-    showStatus(uncertainMessage, 'error', { focus: draftRevision === attempt.revision });
+  const canFocusAttemptResult = (attempt) => {
+    if (draftRevision !== attempt.revision) return false;
+    const current = document.activeElement;
+    if (!current || current === document.documentElement || current === document.body) return true;
+    return current === submitButton || (current === attempt.focusedElement && form.contains(current));
   };
 
-  form.addEventListener('input', () => {
-    draftRevision += 1;
-  });
-  form.addEventListener('change', () => {
-    draftRevision += 1;
-  });
+  const showUncertain = (attempt) => {
+    showStatus(uncertainMessage, 'error', { focus: canFocusAttemptResult(attempt) });
+  };
+
+  const diagnosticMessage = ({ field, reason }) => diagnosticMessages[`${field}:${reason}`];
+  const readFieldDiagnostics = (body) => {
+    if (!body || typeof body !== 'object' || Array.isArray(body) || body.ok !== false
+      || body.code !== 'invalid_request' || !Array.isArray(body.fieldErrors)
+      || body.fieldErrors.length === 0) return [];
+    const seen = new Set();
+    const diagnostics = [];
+    for (const item of body.fieldErrors) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)
+        || typeof item.field !== 'string' || typeof item.reason !== 'string') return [];
+      const key = `${item.field}:${item.reason}`;
+      if (!Object.hasOwn(diagnosticMessages, key) || !diagnosticMessage(item)) return [];
+      if (seen.has(key)) continue;
+      seen.add(key);
+      diagnostics.push({ field: item.field, reason: item.reason });
+    }
+    return diagnostics;
+  };
+
+  const snapshotValue = (target, snapshot) => {
+    if (target === 'topics') return JSON.stringify(snapshot.topics);
+    if (target === 'kind-format') return JSON.stringify([snapshot.kind, snapshot.format]);
+    return JSON.stringify(snapshot[target]);
+  };
+  const currentValue = (target) => {
+    if (target === 'topics') return JSON.stringify(topicBoxes.filter((box) => box.checked).map((box) => box.value));
+    if (target === 'kind-format') return JSON.stringify([kindSelect?.value ?? '', formatSelect?.value ?? '']);
+    const field = form.elements.namedItem(target);
+    return JSON.stringify(field && typeof field !== 'string' ? field.value : undefined);
+  };
+  const diagnosticControl = (target) => {
+    if (target === 'topics') return topicBoxes[0];
+    if (target === 'kind-format') return kindSelect || formatSelect;
+    const field = form.elements.namedItem(target);
+    return field && typeof field !== 'string' ? field : undefined;
+  };
+  const showDiagnostic = (diagnostic) => {
+    const { field } = diagnostic;
+    const message = diagnosticMessage(diagnostic);
+    if (field === 'topics' || field === 'kind-format') {
+      setGroupError(field, true, message);
+      return;
+    }
+    const control = diagnosticControl(field);
+    if (control) setFieldError(control, true, message);
+  };
+
+  const applyFieldDiagnostics = (attempt, diagnostics) => {
+    const applicable = diagnostics.filter(({ field }) => (
+      snapshotValue(field, attempt.payload) === currentValue(field)
+    ));
+    if (applicable.length === 0) return false;
+    for (const diagnostic of applicable) showDiagnostic(diagnostic);
+    if (canFocusAttemptResult(attempt)) diagnosticControl(applicable[0].field)?.focus();
+    return true;
+  };
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
 
-    if (activeAttempt || !form.reportValidity() || !endpoint || !submitButton) return;
+    // Native validation has already run before submit is dispatched. Calling
+    // reportValidity here would dispatch every invalid event a second time.
+    if (activeAttempt || !endpoint || !submitButton) return;
 
+    const focusedElement = document.activeElement;
     submitButton.disabled = true;
     submitButton.setAttribute('aria-busy', 'true');
     submitButton.textContent = 'Enviando…';
@@ -197,13 +369,22 @@ if (form) {
     const attempt = {
       payload: formSnapshot(),
       revision: draftRevision,
+      focusedElement,
       controller: new AbortController(),
+      headersReceived: false,
+      responseStatus: undefined,
     };
     activeAttempt = attempt;
     attempt.deadlineId = setTimeout(() => {
+      if (activeAttempt !== attempt) return;
+      const definitiveInvalidRequest = attempt.headersReceived && attempt.responseStatus === 400;
       if (!finishAttempt(attempt)) return;
       attempt.controller.abort();
-      showUncertain(attempt);
+      if (definitiveInvalidRequest) {
+        showStatus(messages[400], 'error', { focus: canFocusAttemptResult(attempt) });
+      } else {
+        showUncertain(attempt);
+      }
     }, deliveryDeadlineMs);
 
     try {
@@ -213,15 +394,29 @@ if (form) {
         body: JSON.stringify(attempt.payload),
         signal: attempt.controller.signal,
       });
-      const receipt = response.status === 201 ? await response.json() : undefined;
+      attempt.headersReceived = true;
+      attempt.responseStatus = response.status;
+
+      let body;
+      if (response.status === 201 || response.status === 400) {
+        try {
+          body = await response.json();
+        } catch {
+          body = undefined;
+        }
+      }
       if (!finishAttempt(attempt)) return;
 
       const unchanged = draftRevision === attempt.revision;
       if (response.status !== 201) {
-        showStatus(messages[response.status] ?? uncertainMessage, 'error', { focus: unchanged });
+        if (response.status === 400) {
+          const diagnostics = readFieldDiagnostics(body);
+          if (applyFieldDiagnostics(attempt, diagnostics)) return;
+        }
+        showStatus(messages[response.status] ?? uncertainMessage, 'error', { focus: canFocusAttemptResult(attempt) });
         return;
       }
-      if (!validReceipt(receipt)) {
+      if (!validReceipt(body)) {
         showUncertain(attempt);
         return;
       }
@@ -229,7 +424,7 @@ if (form) {
         form.reset();
         resetFormatOptions();
       }
-      showReceipt({ id: receipt.id, submittedAt: receipt.submittedAt, title: attempt.payload.title }, { focus: unchanged });
+      showReceipt({ id: body.id, submittedAt: body.submittedAt, title: attempt.payload.title }, { focus: canFocusAttemptResult(attempt) });
     } catch {
       if (finishAttempt(attempt)) showUncertain(attempt);
     }

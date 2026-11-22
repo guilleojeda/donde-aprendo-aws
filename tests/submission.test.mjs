@@ -153,6 +153,24 @@ test('attributes a structurally invalid email without writing or echoing it', as
   assert.equal(result.body.includes('a..b@example.invalid'), false);
 });
 
+test('attributes a control character in visible text without writing or echoing it', async () => {
+  let writes = 0;
+  const handler = handlerWithWriter(async () => { writes += 1; });
+  const submittedText = 'Descripción con control\u000bprivado';
+
+  const result = await handler(request({ text: submittedText }));
+
+  assert.equal(result.statusCode, 400);
+  assert.deepEqual(responseBody(result), {
+    ok: false,
+    code: 'invalid_request',
+    fieldErrors: [{ field: 'text', reason: 'invalid_value' }],
+  });
+  assert.equal(writes, 0);
+  assert.equal(result.body.includes('Descripción con control'), false);
+  assert.equal(result.body.includes('privado'), false);
+});
+
 test('keeps malformed whole requests generic rather than guessing a field', async (t) => {
   const cases = [
     ['malformed JSON', { headers: { 'content-type': 'application/json' }, body: '{not-json' }],

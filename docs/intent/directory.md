@@ -18,11 +18,12 @@ and shows the empty-query guidance. A previous asynchronous search cannot restor
 those results afterward. Revealing more search results focuses the first new
 result link; the initial search response leaves the visitor’s focus in place.
 The initial public-index download has a bounded wait, including reading its
-response body. A stalled or failed download shows the existing retry guidance
-and clears the failed request even when its original query is no longer current.
-The next submitted search can retry immediately; successful downloads remain
-cached for subsequent searches on the page. Only the latest submitted query
-can replace results or status.
+response body. A stalled, failed or unusable download shows retry guidance in
+the search form and clears the failed request even when its original query is
+no longer current. The visitor keeps the query, type and focus. The next
+submitted search can retry immediately. Successful downloads remain cached for
+subsequent searches on the page. Only the latest submission can replace results
+or status, using the query and type captured when it was submitted.
 
 `/recorridos/` provides four editorial sequences for fundamentals, serverless, security and generative AI. Each step resolves a published learning resource or a blog article to its existing internal destination; it does not copy that content. The paths are also available in global search. See [learning paths](learning-paths.md) for the editing contract.
 
@@ -50,7 +51,7 @@ LinkedIn prepares “Eventos para aprender AWS…” with period and attendance/
 
 The shared URL always targets `/eventos/`, rebuilt with concrete view/date/zone and effective attendance/location/community filters; route defaults become explicit when needed. It drops fragments, unrelated parameters and checkbox state. The recipient always starts with ended events included, so it may show more than a sender who excluded them. It is a live selection over the public catalog, not an immutable snapshot. X Web Intent and LinkedIn share-offsite receive the entire body, including the final URL, through `text` alone; passing a separate `url` would change placement or duplicate the link. Both require the visitor to review and confirm in the network. LinkedIn text prefilling is observed in its authenticated web editor, without a public parameter contract found; continuation after a fresh login and native mobile apps remain unverified. This compatibility limitation does not authorize a manual-copy fallback or account connection. The static global route supplies social preview metadata; filters do not generate separate previews.
 
-Copy confirms success only after clipboard writing resolves. Only Copy is disabled while one write is pending; filters and social links remain available. Missing clipboard access or a rejected write gives a brief honest error and allows retry. A pending write retains the selection captured at the click, and feedback distinguishes it if the visitor changed the query. Compartir, Más filtros and the agenda country menu use native nonmodal disclosures with positioned panels bounded to the viewport. Opening or closing them does not add document height or move the event rows. Escape closes and restores focus to the trigger; Tab/Shift+Tab or an outside click close on exit without stealing focus or altering filters/history. Moving to or activating the theme toggle preserves the panel; leaving the toggle resumes normal dismissal. Selecting a filter inside an open panel keeps it open while updating results. Copy feedback remains visible and announced outside its menu when the menu closes. Share controls stay hidden without JavaScript. Image export and Instagram are not available yet.
+Copy confirms success only after clipboard writing resolves. Only Copy is disabled while one write is pending; filters and social links remain available. Missing clipboard access or a rejected write gives a retry notice beside Compartir that stays visible when the disclosure closes. A pending write retains the selection captured at the click, and feedback distinguishes it if the visitor changed the query. Compartir, Más filtros and the agenda country menu use native nonmodal disclosures with positioned panels bounded to the viewport. Opening or closing them does not add document height or move the event rows. Escape closes and restores focus to the trigger; Tab/Shift+Tab or an outside click close on exit without stealing focus or altering filters/history. Moving to or activating the theme toggle preserves the panel; leaving the toggle resumes normal dismissal. Selecting a filter inside an open panel keeps it open while updating results. Copy feedback remains visible and announced outside its menu when the menu closes. Share controls stay hidden without JavaScript. Image export and Instagram are not available yet.
 
 The agenda groups complete public occurrences, then chooses a member that satisfies the period, attendance/location, community and checkbox together. When a listing connects existing compatible session and registration groups, those groups and their registration references are reconciled into one occurrence; a weak session match cannot bridge incompatible physical venues. It retains all co-hosts, preferring a matching in-progress/upcoming member over an ended one, then sorting by start/ID. Displayed facts, original URL and calendar download belong to that member; it does not invent a combined interval. Upcoming wrappers filter ended members before grouping so the homepage/search representatives do not become historical. Every public ID, including a co-host and an ended event, has its own static `.ics` using its own UID, UTC instants and original registration URL. A download is a one-time copy, not a subscription; it changes with later builds and is removed when its record is unpublished.
 
@@ -132,17 +133,23 @@ for reviewing the contribution and excluded from the public directory. It links
 to the existing contact mailbox for requests to delete those details; requests
 are handled by the owner, not an automated deletion endpoint. The notice does
 not invent a retention period. When JavaScript is disabled, native HTML explains
-that it must be enabled to send the form. The normal JavaScript validation,
-submission and receipt flow stays available. A receipt is shown only for a
-201 response with the handler's affirmative status, a valid public resource ID
-and an exact UTC timestamp. It identifies the submitted title, not a later
-local edit. A twelve-second deadline covers both response headers and body;
-unreadable, malformed, timed-out, transport and storage-uncertain results keep
-the draft and require a deliberate new submission. If the draft changed while
-the request was in flight, all of those newer fields and their focus remain;
-only an unchanged submitted draft is reset. Duplicate URLs stay authoritative
-and do not manufacture a receipt or replay the write, and a late completion
-from an older attempt cannot replace a newer draft or receipt.
+that it must be enabled to send the form. Native validation points to the first
+invalid control. Attempting to add a fourth topic leaves the existing selection
+in place and explains the limit beside Temas. A definitive rejection can include
+known field or group diagnoses alongside its existing HTTP status and code.
+The form associates each applicable message with its controls and retains
+permanent help. A diagnosis remains applicable while the submitted field and
+its dependencies match the draft.
+
+A twelve-second deadline covers both response headers and body. Headers that
+establish a rejection are sufficient for general feedback, including when the
+optional diagnosis is unreadable or late. An unconfirmed outcome preserves the
+draft and requires a deliberate new submission. A receipt requires a 201 with
+the handler's affirmative status, a valid public resource ID and an exact UTC
+timestamp. The receipt identifies the submitted title. Newer edits and their
+focus stay in place, and only an unchanged confirmed draft is reset. Duplicate
+URLs receive general feedback. Late completion of an expired attempt cannot
+replace a newer draft or receipt.
 
 Resource and event cards offer a contextual email draft for a broken link or incorrect data. The draft includes only the public title, record ID and destination URL; the record ID is a JSON string literal so the complete identity can be recovered even when it contains quotes or whitespace. The visitor must send the URI-encoded draft from their own mail client. A generic footer link covers pages without a card. This reuses the existing contact mailbox and does not create a second submission or moderation store. Editors investigate these messages and correct the authoritative DynamoDB record, or the versioned article file when the report concerns an article.
 
