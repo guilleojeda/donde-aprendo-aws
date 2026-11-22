@@ -40,6 +40,201 @@ const initial = document.querySelector<HTMLScriptElement>('#creator-admin-data')
 const MAX_REQUEST_BYTES = 32 * 1024;
 const REQUEST_TOO_LARGE = 'creator-request-too-large';
 const CLAIM_RESOLUTION_CONTROLS = '[data-claim-resolution] button, [data-claim-resolution] input[type="checkbox"]';
+type AdminField = 'category' | 'kind' | 'format' | 'kind-format' | 'topics' | 'reviewed' | 'resourceIds';
+
+type AdminControl = HTMLInputElement | HTMLSelectElement;
+
+interface AdminFormAttempt {
+  form: HTMLFormElement;
+  submittedValues: FormValueSnapshot | undefined;
+  focusAtSubmit: Element | null;
+}
+
+const pendingNativeFocus = new WeakSet<HTMLFormElement>();
+
+const ADMIN_FIELD_MESSAGES: Record<AdminField, Record<string, string>> = {
+  category: { required: 'Completa la categoría.' },
+  kind: { required: 'Selecciona un tipo.' },
+  format: { required: 'Selecciona un formato.' },
+  'kind-format': { invalid_combination: 'Elige una combinación válida de tipo y formato.' },
+  topics: { invalid_option: 'Elige hasta 3 temas válidos y distintos.' },
+  reviewed: { required: 'Confirma que revisaste la referencia y los recursos seleccionados.' },
+  resourceIds: {
+    invalid_selection: 'Selecciona los recursos exactos que verificaste.',
+    invalid_selection_unavailable: 'Ese recurso ya no está disponible. Elige otro ID exacto.',
+    invalid_selection_claimed: 'Ese recurso ya está vinculado a otra página. Elige otro ID exacto.',
+  },
+};
+
+function formFieldError(form: HTMLFormElement, field: AdminField) {
+  return form.querySelector<HTMLElement>(`[data-admin-field-error="${field}"]`);
+}
+
+function fieldGroup(form: HTMLFormElement, field: AdminField) {
+  return form.querySelector<HTMLElement>(`[data-admin-field-group="${field}"]`);
+}
+
+function fieldControls(form: HTMLFormElement, field: AdminField): AdminControl[] {
+  const group = fieldGroup(form, field);
+  return group
+    ? [...group.querySelectorAll<AdminControl>('input, select')]
+    : [...form.querySelectorAll<AdminControl>(`[name="${field}"]`)];
+}
+
+function fieldTargets(form: HTMLFormElement, field: AdminField): HTMLElement[] {
+  const group = fieldGroup(form, field);
+  const controls = fieldControls(form, field);
+  return group ? [group, ...controls] : controls;
+}
+
+function unchangedSinceSubmit(attempt: AdminFormAttempt, field: AdminField): boolean {
+  const controls = fieldControls(attempt.form, field);
+  const current = formState?.capture(attempt.form);
+  return controls.length > 0 && controls.every((control) => attempt.submittedValues?.has(control)
+    && attempt.submittedValues.get(control) === current?.get(control));
+}
+
+function describedBy(control: HTMLElement): string[] {
+  return (control.getAttribute('aria-describedby') ?? '').split(/\s+/u).filter(Boolean);
+}
+
+function setDescribedBy(control: HTMLElement, ids: readonly string[]) {
+  if (ids.length > 0) control.setAttribute('aria-describedby', ids.join(' '));
+  else control.removeAttribute('aria-describedby');
+}
+
+function messageForField(field: AdminField, reason: string): string | undefined {
+  const messages = ADMIN_FIELD_MESSAGES[field];
+  if (!messages || !Object.hasOwn(messages, reason)) return undefined;
+  const message = messages[reason];
+  return typeof message === 'string' ? message : undefined;
+}
+
+function showFieldError(form: HTMLFormElement, field: AdminField, reason: string): HTMLElement | undefined {
+  const error = formFieldError(form, field);
+  const message = messageForField(field, reason);
+  if (!error || !message || !error.id) return undefined;
+  error.textContent = message;
+  error.hidden = false;
+  fieldTargets(form, field).forEach((target) => {
+    target.setAttribute('aria-invalid', 'true');
+    const ids = describedBy(target);
+    if (!ids.includes(error.id)) ids.push(error.id);
+    setDescribedBy(target, ids);
+  });
+  return error;
+}
+
+function clearFieldError(form: HTMLFormElement, field: AdminField) {
+  const error = formFieldError(form, field);
+  if (!error || error.hidden) return;
+  error.hidden = true;
+  error.textContent = '';
+  const remainingIds = new Set([...form.querySelectorAll<HTMLElement>('[data-admin-field-error]:not([hidden])')]
+    .map((element) => element.id));
+  fieldTargets(form, field).forEach((target) => {
+    const ids = describedBy(target).filter((id) => id !== error.id);
+    if (!ids.some((id) => remainingIds.has(id))) target.removeAttribute('aria-invalid');
+    setDescribedBy(target, ids);
+  });
+}
+
+function clearAllFieldErrors(form: HTMLFormElement) {
+  for (const error of form.querySelectorAll<HTMLElement>('[data-admin-field-error]:not([hidden])')) {
+    clearFieldError(form, error.dataset.adminFieldError as AdminField);
+  }
+}
+
+function shouldRestoreFocus(focusAtSubmit: Element | null): boolean {
+  const active = document.activeElement;
+  return !active || active === document.body || active === document.documentElement || active === focusAtSubmit;
+}
+
+function focusVisible(target: HTMLElement) {
+  target.focus({ preventScroll: true });
+  target.scrollIntoView?.({ block: 'nearest' });
+}
+
+function focusFieldError(form: HTMLFormElement, field: AdminField, attempt?: AdminFormAttempt) {
+  if (attempt && !shouldRestoreFocus(attempt.focusAtSubmit)) return;
+  const active = document.activeElement;
+  if ((active instanceof HTMLInputElement || active instanceof HTMLSelectElement)
+    && attempt?.submittedValues?.has(active)
+    && attempt.submittedValues.get(active) !== formState?.capture(active).get(active)) return;
+  const target = fieldControls(form, field).find((control) => !control.matches(':disabled'));
+  if (target) focusVisible(target);
+}
+
+function nativeField(field: HTMLElement): AdminField | undefined {
+  const name = field.getAttribute('name');
+  if (name === 'category' || name === 'kind' || name === 'format' || name === 'topics'
+    || name === 'reviewed' || name === 'resourceIds') return name;
+  return undefined;
+}
+
+function handleNativeInvalid(event: Event, form: HTMLFormElement, control: AdminControl) {
+  const field = nativeField(control);
+  if (!field || !control.validity.valueMissing || !showFieldError(form, field, 'required')) return;
+  event.preventDefault();
+  if (pendingNativeFocus.has(form)) return;
+  pendingNativeFocus.add(form);
+  const focusAtInvalid = document.activeElement;
+  setTimeout(() => {
+    pendingNativeFocus.delete(form);
+    if (control.isConnected && !control.matches(':disabled') && !control.validity.valid
+      && shouldRestoreFocus(focusAtInvalid)) focusVisible(control);
+  }, 0);
+}
+
+function handleFieldChange(form: HTMLFormElement, control: AdminControl) {
+  const field = nativeField(control);
+  if (!field) return;
+  if (field === 'kind' || field === 'format') clearFieldError(form, 'kind-format');
+  if (field === 'topics' || field === 'resourceIds'
+    || (control.validity.valid && (field !== 'category' || control.value.trim()))) clearFieldError(form, field);
+}
+
+function diagnosticsFor(
+  payload: Record<string, unknown> | null,
+  response: Response,
+  context: AdminCommandContext,
+): Array<{ field: AdminField; reason: string }> {
+  if (!payload || !Array.isArray(payload.fieldErrors) || payload.fieldErrors.length === 0 || payload.fieldErrors.length > 8) return [];
+  if (context.kind === 'classification' && (response.status !== 422 || payload.error !== 'INVALID_CLASSIFICATION')) return [];
+  if (context.kind === 'claim' && (payload.failureStage !== 'before-grant-write'
+    || !((response.status === 404 && payload.error === 'RESOURCE_NOT_FOUND')
+      || (response.status === 409 && payload.error === 'RESOURCE_ALREADY_CLAIMED'))
+    || Object.hasOwn(payload, 'linkedResourceIds') || Object.hasOwn(payload, 'versionChanges')
+    || Object.hasOwn(payload, 'uncertainResourceId') || Object.hasOwn(payload, 'failedResourceId'))) return [];
+  const allowed = new Set<AdminField>(context.kind === 'classification'
+    ? ['category', 'topics', 'kind-format']
+    : context.kind === 'claim' ? ['resourceIds'] : []);
+  const details: Array<{ field: AdminField; reason: string }> = [];
+  for (const entry of payload.fieldErrors) {
+    if (!isRecord(entry) || typeof entry.field !== 'string' || typeof entry.reason !== 'string'
+      || !allowed.has(entry.field as AdminField) || !messageForField(entry.field as AdminField, entry.reason)) return [];
+    const reason = context.kind === 'claim' && entry.field === 'resourceIds'
+      ? payload.error === 'RESOURCE_NOT_FOUND' ? 'invalid_selection_unavailable'
+        : payload.error === 'RESOURCE_ALREADY_CLAIMED' ? 'invalid_selection_claimed' : entry.reason
+      : entry.reason;
+    details.push({ field: entry.field as AdminField, reason });
+  }
+  return details;
+}
+
+function applyFieldDiagnostics(
+  completion: AdminCompletion,
+  response: Response,
+  context: AdminCommandContext,
+  attempt: AdminFormAttempt,
+): AdminField | undefined {
+  if (completion.outcome !== 'validation' || completion.claimReviewRequired) return undefined;
+  let first: AdminField | undefined;
+  for (const { field, reason } of diagnosticsFor(completion.payload, response, context)) {
+    if (unchangedSinceSubmit(attempt, field) && showFieldError(attempt.form, field, reason)) first ??= field;
+  }
+  return first;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -80,8 +275,14 @@ const sessionRecovery = root ? createCreatorSessionRecovery({
   },
 }) : undefined;
 
-function announce(target: Element | null | undefined, message: string, kind: 'error' | 'success' = 'success') {
+function announce(
+  target: Element | null | undefined,
+  message: string,
+  kind: 'error' | 'success' = 'success',
+  live = true,
+) {
   if (!(target instanceof HTMLElement)) return;
+  target.setAttribute('aria-live', live ? 'polite' : 'off');
   target.hidden = false;
   target.textContent = message;
   target.dataset.kind = kind;
@@ -116,10 +317,31 @@ function onAdminLogout(event: Event) {
     'Guarda o revierte los cambios pendientes antes de cerrar sesión.', 'error');
 }
 
+function managedAdminForm(element: Element | null): element is HTMLFormElement {
+  return element instanceof HTMLFormElement
+    && (element.matches('[data-classification-form]') || element.matches('[data-claim-resolution]'));
+}
+
 if (root) {
   root.addEventListener('input', onFormStateChange);
   root.addEventListener('change', onFormStateChange);
   root.addEventListener('account:logout', onAdminLogout);
+  root.addEventListener('invalid', (event) => {
+    const control = event.target;
+    const form = control instanceof HTMLElement ? control.closest('form') : null;
+    if (managedAdminForm(form) && (control instanceof HTMLInputElement || control instanceof HTMLSelectElement)) {
+      handleNativeInvalid(event, form, control);
+    }
+  }, true);
+  const clearChangedField = (event: Event) => {
+    const control = event.target;
+    const form = control instanceof HTMLElement ? control.closest('form') : null;
+    if (managedAdminForm(form) && (control instanceof HTMLInputElement || control instanceof HTMLSelectElement)) {
+      handleFieldChange(form, control);
+    }
+  };
+  root.addEventListener('input', clearChangedField);
+  root.addEventListener('change', clearChangedField);
   syncBeforeUnload();
   root.querySelector<HTMLElement>('[data-admin-logout-shell]')?.removeAttribute('inert');
 }
@@ -129,11 +351,14 @@ function observedVersion(record: Record<string, unknown> | undefined): number | 
   return typeof version === 'number' && Number.isSafeInteger(version) && version >= 0 ? version : undefined;
 }
 
+function requiresSessionRecovery(status?: number): boolean {
+  return (status === 401 || status === 403) && sessionRecovery?.blocksWrites() === true;
+}
+
 function errorMessage(status: number): string {
-  if (status === 401) return sessionRecovery?.writeFailureMessage() ?? 'Tu sesión terminó. Inicia sesión y vuelve a intentarlo.';
-  if (status === 403) return sessionRecovery?.blocksWrites()
-    ? sessionRecovery.writeFailureMessage()
-    : 'Esta cuenta no tiene permiso para completar esta acción.';
+  if (requiresSessionRecovery(status)) return 'El cambio quedó sin guardar. Usa los controles de sesión para continuar.';
+  if (status === 401) return 'Tu sesión terminó. Inicia sesión y vuelve a intentarlo.';
+  if (status === 403) return 'Esta cuenta no tiene permiso para completar esta acción.';
   if (status === 409) return 'El registro cambió desde la última lectura. Recarga la página antes de volver a guardar.';
   if (status === 422) return 'Revisa la clasificación o los IDs seleccionados e inténtalo de nuevo.';
   if (status === 413) return 'La solicitud supera el límite de 32 KiB. Reduce los IDs seleccionados e inténtalo de nuevo.';
@@ -506,11 +731,28 @@ function pauseRelatedClaims(
   });
 }
 
-function showViewTransition(message: string) {
+function showViewTransition(message?: string) {
   const shell = root?.querySelector<HTMLElement>('[data-view-transition-shell]');
   if (shell) shell.hidden = false;
   const status = root?.querySelector<HTMLElement>('[data-view-transition]');
-  announce(status, message, 'success');
+  if (message) announce(status, message, 'success');
+  else if (status) {
+    status.hidden = true;
+    status.textContent = '';
+    delete status.dataset.kind;
+  }
+}
+
+function clearContextualStatus(target: Element | null | undefined) {
+  if (!(target instanceof HTMLElement)) return;
+  target.textContent = '';
+  target.hidden = true;
+}
+
+function focusContextualStatus(target: Element | null | undefined, focusAtSubmit: Element | null | undefined) {
+  if (!(target instanceof HTMLElement) || !shouldRestoreFocus(focusAtSubmit ?? null)) return;
+  const active = document.activeElement;
+  if (!target.hidden && !(active instanceof HTMLInputElement || active instanceof HTMLSelectElement)) focusVisible(target);
 }
 
 async function finishAdminCompletion(
@@ -523,10 +765,20 @@ async function finishAdminCompletion(
   requestError?: unknown,
   options: {
     structural?: boolean;
+    attempt?: AdminFormAttempt;
+    focusAtSubmit?: Element | null;
   } = {},
 ) {
   const receiptGap = completion.receiptProblem || completion.gaps.length > 0;
   const uncertainReceipt = receiptGap || completion.outcome === 'uncertain';
+  if (response && options.attempt) {
+    const appliedField = applyFieldDiagnostics(completion, response, context, options.attempt);
+    if (appliedField !== undefined) {
+      clearContextualStatus(target);
+      focusFieldError(options.attempt.form, appliedField, options.attempt);
+      return;
+    }
+  }
   if (completion.outcome !== 'confirmed' || receiptGap) {
     const message = uncertainReceipt
       ? context.kind === 'claim'
@@ -540,18 +792,15 @@ async function finishAdminCompletion(
         ? await responseErrorMessage(response, completion.payload)
         : requestFailureMessage(requestError, 'No pudimos completar la acción. Revisa los datos e inténtalo de nuevo.');
     if (completion.outcome === 'validation') {
-      announce(target, message, 'error');
+      announce(target, message, 'error', !requiresSessionRecovery(response?.status));
+      focusContextualStatus(target, options.focusAtSubmit);
       return;
     }
     if (context.kind === 'claim') formState?.allowPausedSnapshot(submittedValues);
     syncBeforeUnload();
-    const transition = uncertainReceipt
-      ? context.kind === 'claim'
-        ? message
-        : `${message} Actualiza la vista para comprobar el resultado antes de volver a intentarlo.`
-      : `${message} Actualiza la vista antes de volver a intentarlo.`;
-    showViewTransition(transition);
+    showViewTransition();
     announce(target, message, 'error');
+    focusContextualStatus(target, options.focusAtSubmit);
     return;
   }
 
@@ -583,6 +832,8 @@ async function finishAdminWrite(
   requestError?: unknown,
   options: {
     structural?: boolean;
+    attempt?: AdminFormAttempt;
+    focusAtSubmit?: Element | null;
   } = {},
 ) {
   const completion = response ? await completeAdminWrite(response, context) : unknownAdminWrite(context);
@@ -599,7 +850,7 @@ if (root && state && csrfToken) {
   root.querySelectorAll<HTMLFormElement>('[data-classification-form]').forEach((form) => {
     onWrite(form, 'submit', async (event) => {
       event.preventDefault();
-      if (!form.reportValidity()) return;
+      clearAllFieldErrors(form);
       const item = form.closest<HTMLElement>('[data-admin-resource]');
       const domToken = item?.dataset.adminResource;
       const resource = state?.resources.find((candidate) => typeof candidate.id === 'string'
@@ -613,8 +864,18 @@ if (root && state && csrfToken) {
       const format = String(values.get('format') ?? '');
       try {
         validateTaxonomy({ kind, format, topics: topicValues });
-      } catch {
-        announce(itemStatus(item), 'Revisa el tipo, formato y los temas seleccionados.', 'error');
+      } catch (error) {
+        const details = isRecord(error) && Array.isArray(error.fieldErrors) ? error.fieldErrors : [];
+        const detail = details.length === 1 && isRecord(details[0])
+          && typeof details[0].field === 'string' && typeof details[0].reason === 'string'
+          ? details[0] : undefined;
+        const field = detail?.field as AdminField | undefined;
+        const reason = typeof detail?.reason === 'string' ? detail.reason : undefined;
+        if (field && reason && ['category', 'topics', 'kind-format'].includes(field)
+          && showFieldError(form, field, reason)) {
+          clearContextualStatus(itemStatus(item));
+          focusFieldError(form, field);
+        } else announce(itemStatus(item), 'Revisa el tipo, formato y los temas seleccionados.', 'error');
         return;
       }
       const body = {
@@ -629,15 +890,20 @@ if (root && state && csrfToken) {
         targets: [{ entity: 'resource', id: resourceId, ...(version !== undefined ? { version } : {}) }],
       };
       const submittedValues = formState?.capture(form);
+      const attempt = { form, submittedValues, focusAtSubmit: document.activeElement };
       busy(form, true);
       try {
         const response = await api(adminResourceCommandUrl(resourceId), 'PATCH', body);
-        await finishAdminWrite(response, itemStatus(item), 'Clasificación guardada.', submittedValues, context);
+        await finishAdminWrite(response, itemStatus(item), 'Clasificación guardada.', submittedValues, context, undefined, {
+          attempt, focusAtSubmit: attempt.focusAtSubmit,
+        });
       } catch (error) {
         if (error instanceof Error && error.message === REQUEST_TOO_LARGE) {
           announce(itemStatus(item), requestFailureMessage(error, ''), 'error');
         } else {
-          await finishAdminWrite(null, itemStatus(item), 'Clasificación guardada.', submittedValues, context, error);
+          await finishAdminWrite(null, itemStatus(item), 'Clasificación guardada.', submittedValues, context, error, {
+            attempt, focusAtSubmit: attempt.focusAtSubmit,
+          });
         }
       } finally {
         busy(form, false);
@@ -659,6 +925,7 @@ if (root && state && csrfToken) {
         kind: 'resource-action',
         targets: [{ entity: 'resource', id: resourceId, ...(version !== undefined ? { version } : {}) }],
       };
+      const focusAtSubmit = document.activeElement;
       button.disabled = true;
       try {
         const response = await api(adminResourceCommandUrl(resourceId, action), 'POST', {
@@ -670,7 +937,7 @@ if (root && state && csrfToken) {
             ? 'Aprobación revocada. El enlace puede seguir visible en páginas de creadores.'
             : action === 'ocultar'
               ? 'Recurso oculto en las páginas públicas.'
-              : 'Recurso restaurado.', undefined, context, undefined, { structural: true });
+                : 'Recurso restaurado.', undefined, context, undefined, { structural: true, focusAtSubmit });
       } catch (error) {
         if (error instanceof Error && error.message === REQUEST_TOO_LARGE) {
           announce(itemStatus(item), requestFailureMessage(error, ''), 'error');
@@ -681,7 +948,7 @@ if (root && state && csrfToken) {
               ? 'Aprobación revocada. El enlace puede seguir visible en páginas de creadores.'
               : action === 'ocultar'
                 ? 'Recurso oculto en las páginas públicas.'
-                : 'Recurso restaurado.', undefined, context, error, { structural: true });
+                : 'Recurso restaurado.', undefined, context, error, { structural: true, focusAtSubmit });
         }
       } finally {
         button.disabled = false;
@@ -702,17 +969,18 @@ if (root && state && csrfToken) {
         kind: 'profile-action',
         targets: [{ entity: 'profile', id: profileId, ...(version !== undefined ? { version } : {}) }],
       };
+      const focusAtSubmit = document.activeElement;
       button.disabled = true;
       try {
         const response = await api(`/api/admin/perfiles/${encodeURIComponent(profileId)}/${action}/`, 'POST', {
           ...(version === undefined ? {} : { version }),
         });
-        await finishAdminWrite(response, itemStatus(item), action === 'ocultar' ? 'Perfil oculto.' : 'Perfil restaurado.', undefined, context, undefined, { structural: true });
+        await finishAdminWrite(response, itemStatus(item), action === 'ocultar' ? 'Perfil oculto.' : 'Perfil restaurado.', undefined, context, undefined, { structural: true, focusAtSubmit });
       } catch (error) {
         if (error instanceof Error && error.message === REQUEST_TOO_LARGE) {
           announce(itemStatus(item), requestFailureMessage(error, ''), 'error');
         } else {
-          await finishAdminWrite(null, itemStatus(item), action === 'ocultar' ? 'Perfil oculto.' : 'Perfil restaurado.', undefined, context, error, { structural: true });
+          await finishAdminWrite(null, itemStatus(item), action === 'ocultar' ? 'Perfil oculto.' : 'Perfil restaurado.', undefined, context, error, { structural: true, focusAtSubmit });
         }
       } finally {
         button.disabled = false;
@@ -723,7 +991,7 @@ if (root && state && csrfToken) {
   root.querySelectorAll<HTMLFormElement>('[data-claim-resolution]').forEach((form) => {
     onWrite(form, 'submit', async (event) => {
       event.preventDefault();
-      if (!form.reportValidity()) return;
+      clearAllFieldErrors(form);
       const item = form.closest<HTMLElement>('[data-admin-claim]');
       const claimId = item?.dataset.adminClaim;
       const claim = state?.claims.find((candidate) => candidate.id === claimId);
@@ -744,9 +1012,12 @@ if (root && state && csrfToken) {
         selectedIds.push(id);
       }
       if (selectedIds.length === 0) {
-        announce(itemStatus(item), 'Selecciona uno o más IDs incluidos en la solicitud.', 'error');
+        showFieldError(form, 'resourceIds', 'invalid_selection');
+        clearContextualStatus(itemStatus(item));
+        focusFieldError(form, 'resourceIds');
         return;
       }
+      const attempt = { form, submittedValues, focusAtSubmit: document.activeElement };
       const selectionControls = [...form.querySelectorAll<HTMLInputElement>('input[name="resourceIds"]')];
       const selectionDisabled = selectionControls.map((control) => control.disabled);
       const profileId = typeof claim.profileId === 'string' && claim.profileId.length > 0 ? claim.profileId : undefined;
@@ -768,6 +1039,8 @@ if (root && state && csrfToken) {
       };
       selectionControls.forEach((control) => { control.disabled = true; });
       busy(form, true);
+      let responseField: AdminField | undefined;
+      let focusStatus = false;
       try {
         const response = await api('/api/admin/reclamaciones/vincular/', 'POST', {
           accountId: claim.accountId,
@@ -776,6 +1049,11 @@ if (root && state && csrfToken) {
         });
         const completion = await completeAdminWrite(response, context);
         if (!response.ok) {
+          responseField = applyFieldDiagnostics(completion, response, context, attempt);
+          if (responseField !== undefined) {
+            clearContextualStatus(itemStatus(item));
+            return;
+          }
           const linkedIds = completion.linkedIds;
           if (completion.claimReviewRequired) {
             formState?.allowPausedSnapshot(formState.capture(form));
@@ -787,29 +1065,25 @@ if (root && state && csrfToken) {
                 ? `No pudimos confirmar si se vinculó ${completion.uncertainResourceId}.`
                 : 'No pudimos confirmar el resultado de la vinculación.';
               const message = `${confirmed}${uncertain} Actualiza la vista para revisar esta solicitud.`;
-              showViewTransition(message);
+              showViewTransition();
               announce(itemStatus(item), message, 'error');
+              focusStatus = true;
               return;
             }
             const remainingIds = selectedIds.slice(linkedIds.length);
-            let transitionMessage: string;
             let partialMessage: string;
             if (linkedIds.length === 0 || (completion.receiptProblem && remainingIds.length === 0)) {
-              transitionMessage = 'No pudimos confirmar el resultado de la vinculación. Actualiza la vista para revisar esta solicitud.';
               partialMessage = linkedIds.length === 0
                 ? 'No pudimos confirmar qué recursos se vincularon. Conservamos tus checks y bloqueamos esta solicitud hasta que actualices la vista.'
                 : 'No pudimos confirmar el resultado de la vinculación. Actualiza la vista para revisar esta solicitud.';
             } else if (completion.receiptProblem) {
-              transitionMessage = 'Solo pudimos confirmar parte del resultado. Actualiza la vista para comprobar qué recursos se vincularon.';
               partialMessage = `Ya vinculados: ${linkedIds.join(', ')}. Sin confirmar: ${remainingIds.join(', ')}. Actualiza la vista para revisar el resultado.`;
             } else if (remainingIds.length > 0) {
-              transitionMessage = 'La vinculación se completó parcialmente. Actualiza la vista antes de resolver otra vez esta solicitud.';
               partialMessage = `Vinculación parcial. Ya vinculados: ${linkedIds.join(', ')}. Pendientes: ${remainingIds.join(', ')}. Los checks de los pendientes se conservaron; recarga para actualizar el estado y reintenta sólo esos IDs.`;
             } else {
-              transitionMessage = 'Los recursos seleccionados están vinculados. Actualiza la vista para comprobar el estado de la solicitud.';
               partialMessage = `Los recursos ya vinculados son: ${linkedIds.join(', ')}. Recarga para actualizar el estado de la solicitud.`;
             }
-            showViewTransition(transitionMessage);
+            showViewTransition();
             if (completion.receiptProblem || completion.gaps.length > 0) {
               partialMessage += ' El recibo no coincide con las versiones observadas; actualiza la vista antes de resolver otra vez esta solicitud.';
             }
@@ -817,13 +1091,16 @@ if (root && state && csrfToken) {
               partialMessage += ` ${await responseErrorMessage(response, completion.payload)}`;
             }
             announce(itemStatus(item), partialMessage, 'error');
+            focusStatus = true;
             return;
           }
-          announce(itemStatus(item), await responseErrorMessage(response, completion.payload), 'error');
+          announce(itemStatus(item), await responseErrorMessage(response, completion.payload), 'error',
+            !requiresSessionRecovery(response.status));
+          focusStatus = true;
           return;
         }
         await finishAdminCompletion(completion, itemStatus(item), 'Recursos vinculados a la cuenta.', submittedValues, context, response, undefined, {
-          structural: true,
+          structural: true, attempt, focusAtSubmit: attempt.focusAtSubmit,
         });
       } catch (error) {
         if (error instanceof Error && error.message === REQUEST_TOO_LARGE) {
@@ -833,14 +1110,17 @@ if (root && state && csrfToken) {
           formState?.allowPausedSnapshot(submittedValues);
           syncBeforeUnload();
           const message = 'No pudimos confirmar el resultado de la vinculación. Actualiza la vista para revisar esta solicitud.';
-          showViewTransition(message);
+          showViewTransition();
           announce(itemStatus(item), message, 'error');
+          focusStatus = true;
         }
       } finally {
         selectionControls.forEach((control, index) => {
           if (!control.hasAttribute('data-creator-stale')) control.disabled = selectionDisabled[index] ?? false;
         });
         busy(form, false);
+        if (responseField !== undefined) focusFieldError(form, responseField, attempt);
+        else if (focusStatus) focusContextualStatus(itemStatus(item), attempt.focusAtSubmit);
       }
     });
   });

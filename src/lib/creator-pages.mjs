@@ -140,6 +140,24 @@ function fieldErrorDetails(field, reason) {
   return { fieldErrors: [{ field, reason }] };
 }
 
+function preGrantFieldErrorDetails(field, reason) {
+  return { ...fieldErrorDetails(field, reason), failureStage: 'before-grant-write' };
+}
+
+function adminClassificationDetails(error, body) {
+  const fieldErrors = error?.fieldErrors;
+  if (!Array.isArray(fieldErrors) || fieldErrors.length !== 1) return undefined;
+  const [entry] = fieldErrors;
+  if (!isRecord(entry) || typeof entry.field !== 'string' || typeof entry.reason !== 'string') return undefined;
+  let applicable = false;
+  if (entry.field === 'category' && entry.reason === 'required') applicable = Object.hasOwn(body, 'category');
+  else if (entry.field === 'topics' && entry.reason === 'invalid_option') applicable = Object.hasOwn(body, 'topics');
+  else if (entry.field === 'kind-format' && entry.reason === 'invalid_combination') {
+    applicable = Object.hasOwn(body, 'kind') || Object.hasOwn(body, 'format');
+  }
+  return applicable ? { fieldErrors: [{ field: entry.field, reason: entry.reason }] } : undefined;
+}
+
 function textField(value, name, { optional = false } = {}) {
   if (value === undefined && optional) return undefined;
   if (typeof value !== 'string') fail(422, 'INVALID_FIELD', `${name} must be text`);
@@ -1702,8 +1720,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
           ? updated : classifyLegacyResource(updated);
         validateTaxonomy(taxonomy);
       }
-    } catch {
-      fail(422, 'INVALID_CLASSIFICATION', 'resource classification is incomplete or invalid');
+    } catch (error) {
+      fail(422, 'INVALID_CLASSIFICATION', 'resource classification is incomplete or invalid',
+        adminClassificationDetails(error, body));
     }
     if (['category', 'kind', 'format', 'topics'].every((field) =>
       JSON.stringify(updated[field]) === JSON.stringify(resource[field]))) {
@@ -1958,12 +1977,14 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const observedResources = new Map();
     for (const resourceId of requestedIds) {
       const resource = await store.get(`resource:${resourceId}`);
-      if (!resource) fail(404, 'RESOURCE_NOT_FOUND', `resource ${resourceId} does not exist`);
+      if (!resource) fail(404, 'RESOURCE_NOT_FOUND', `resource ${resourceId} does not exist`,
+        preGrantFieldErrorDetails('resourceIds', 'invalid_selection'));
       if (resource.id !== resourceId) fail(503, 'INVALID_RESOURCE', 'catalog resource identity is inconsistent');
       if (!isCatalogResource(resource)) fail(422, 'EXACT_RESOURCES_REQUIRED', `resource ${resourceId} is not a catalog resource`);
       if ((resource.editorProfileId && resource.editorProfileId !== profile.id)
         || (resource.directoryControl === 'creator' && resource.editorProfileId !== profile.id)) {
-        fail(409, 'RESOURCE_ALREADY_CLAIMED', `resource ${resourceId} has another editor`);
+        fail(409, 'RESOURCE_ALREADY_CLAIMED', `resource ${resourceId} has another editor`,
+          preGrantFieldErrorDetails('resourceIds', 'invalid_selection'));
       }
       const { version } = resourceProjectionFacts(resource, resourceId);
       observedResources.set(resourceId, { resource, version });

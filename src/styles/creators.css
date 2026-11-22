@@ -835,6 +835,30 @@
   margin-top: 14px;
 }
 
+.creator-admin__category,
+.creator-admin__classification-pair {
+  grid-column: 1 / -1;
+}
+
+.creator-admin__classification > button {
+  align-self: end;
+  justify-self: start;
+}
+
+.creator-admin__classification-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  min-inline-size: 0;
+  margin: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+}
+
+.creator-admin__classification-pair > .creator-form__field-error {
+  grid-column: 1 / -1;
+}
+
 .creator-admin__classification label {
   display: grid;
   gap: 5px;
@@ -853,9 +877,23 @@
   font: inherit;
 }
 
+.creator-admin__classification :is(input, select)[aria-invalid="true"],
+.creator-admin__review-confirm input[aria-invalid="true"],
+.creator-admin__item fieldset[aria-invalid="true"] {
+  border-color: var(--color-error-text);
+  box-shadow: 0 0 0 1px var(--color-error-text);
+}
+
+.creator-admin__item .creator-form__field-error {
+  margin: 5px 0 0;
+  color: var(--color-error-text);
+  line-height: 1.45;
+}
+
 .creator-admin__claim-resources {
   display: grid;
   gap: 8px;
+  min-inline-size: 0;
   margin-block: 12px;
 }
 
@@ -884,10 +922,15 @@
   margin-top: 12px;
 }
 
+.creator-admin__review-confirm:has(input[aria-invalid="true"]) {
+  color: var(--color-error-text);
+}
+
 @media (max-width: 700px) {
   .creator-form__grid,
   .creator-social-fields,
   .creator-admin__classification,
+  .creator-admin__classification-pair,
   .creator-admin__resource-filters {
     grid-template-columns: minmax(0, 1fr);
   }

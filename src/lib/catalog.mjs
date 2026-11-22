@@ -471,7 +471,9 @@ export function validatePublicRecord(record, index = 0) {
     throw new Error(`Catalog record ${index + 1} has an invalid description`);
   }
   if (typeof record.category !== 'string' || record.category.length === 0) {
-    throw new Error(`Catalog record ${index + 1} has an invalid category`);
+    const error = new Error(`Catalog record ${index + 1} has an invalid category`);
+    if (record.category === '') error.fieldErrors = [{ field: 'category', reason: 'required' }];
+    throw error;
   }
   if (!Number.isSafeInteger(record.order)) {
     throw new Error(`Catalog record ${index + 1} has an invalid order`);

@@ -14,6 +14,7 @@ export const prerender = false;
 const result = await loadCreatorAdmin(Astro.request);
 Astro.response.status = result.status;
 for (const [name, value] of Object.entries(CREATOR_PRIVATE_HEADERS)) Astro.response.headers.set(name, value);
+const retryHref = `/cuenta/administracion/${Astro.url.search}`;
 
 const pendingClaims = result.data?.claims.filter((claim) => claim.status !== 'resolved') ?? [];
 const resourcePage = result.data?.resourcePage;
@@ -107,28 +108,44 @@ const message = result.status === 401
                   {resource.recordType === 'event'
                     ? <p>Los eventos se revisan sin clasificación de recursos.</p>
                     : <form class="creator-admin__classification" data-classification-form>
-                      <label>Categoría<input name="category" value={String(resource.category ?? '')} required /></label>
-                      <label>Tipo
-                        <select name="kind" required>
-                          <option value="" disabled selected={!['content', 'source', 'community'].includes(String(resource.kind ?? ''))}>Selecciona un tipo</option>
-                          {Object.entries(KIND_LABELS).map(([value, label]) => <option value={value} selected={resource.kind === value}>{label}</option>)}
-                        </select>
-                      </label>
-                      <label>Formato
-                        <select name="format" required>
-                          <option value="" disabled selected={!formats.includes(String(resource.format ?? ''))}>Selecciona un formato</option>
-                          {formats.map((format) => <option value={format} selected={resource.format === format}>{format}</option>)}
-                        </select>
-                      </label>
-                      <label>Temas (hasta 3, separados por coma)
-                        <input name="topics" list={`creator-topics-${domId}`} value={topics.join(', ')} />
-                        <datalist id={`creator-topics-${domId}`}>
-                          {TOPICS.map((topic) => <option value={topic} />)}
-                        </datalist>
-                      </label>
+                      <div class="creator-admin__category">
+                        <label>Categoría<input name="category" value={String(resource.category ?? '')} required /></label>
+                        <p class="creator-form__field-error" data-admin-field-error="category" id={`admin-category-error-${domId}`} hidden></p>
+                      </div>
+                      <fieldset class="creator-admin__classification-pair" data-admin-field-group="kind-format">
+                        <legend>Tipo y formato</legend>
+                        <div>
+                          <label>Tipo
+                            <select name="kind" required>
+                              <option value="" disabled selected={!['content', 'source', 'community'].includes(String(resource.kind ?? ''))}>Selecciona un tipo</option>
+                              {Object.entries(KIND_LABELS).map(([value, label]) => <option value={value} selected={resource.kind === value}>{label}</option>)}
+                            </select>
+                          </label>
+                          <p class="creator-form__field-error" data-admin-field-error="kind" id={`admin-kind-error-${domId}`} hidden></p>
+                        </div>
+                        <div>
+                          <label>Formato
+                            <select name="format" required>
+                              <option value="" disabled selected={!formats.includes(String(resource.format ?? ''))}>Selecciona un formato</option>
+                              {formats.map((format) => <option value={format} selected={resource.format === format}>{format}</option>)}
+                            </select>
+                          </label>
+                          <p class="creator-form__field-error" data-admin-field-error="format" id={`admin-format-error-${domId}`} hidden></p>
+                        </div>
+                        <p class="creator-form__field-error" data-admin-field-error="kind-format" id={`admin-kind-format-error-${domId}`} hidden></p>
+                      </fieldset>
+                      <div>
+                        <label>Temas (hasta 3, separados por coma)
+                          <input name="topics" list={`creator-topics-${domId}`} value={topics.join(', ')} />
+                          <datalist id={`creator-topics-${domId}`}>
+                            {TOPICS.map((topic) => <option value={topic} />)}
+                          </datalist>
+                        </label>
+                        <p class="creator-form__field-error" data-admin-field-error="topics" id={`admin-topics-error-${domId}`} hidden></p>
+                      </div>
                       <button class="button button--outline" type="submit">Guardar clasificación</button>
                     </form>}
-                  <p class="creator-form__status" data-item-status role="status" aria-live="polite"></p>
+                  <p class="creator-form__status" data-item-status role="status" tabindex="-1"></p>
                   <div class="creator-admin__actions">
                     {approval !== 'approved' && <button class="button button--dark" type="button" data-resource-action="aprobar">Aprobar para el directorio</button>}
                     {approval === 'approved' && <button class="button button--outline" type="button" data-resource-action="revocar">Revocar aprobación</button>}
@@ -172,7 +189,7 @@ const message = result.status === 401
                   {hidden
                     ? <button class="button button--outline" type="button" data-profile-action="restaurar">Restaurar perfil</button>
                     : <button class="button button--outline" type="button" data-profile-action="ocultar">Ocultar perfil</button>}
-                  <p class="creator-form__status" data-item-status role="status" aria-live="polite"></p>
+                  <p class="creator-form__status" data-item-status role="status" tabindex="-1"></p>
                 </li>
               );
             })}
@@ -205,7 +222,7 @@ const message = result.status === 401
                   <p>Source ID: {String(claim.sourceId ?? 'No indicado')}</p>
                   {evidence && <div class="creator-admin__claim-evidence"><strong>Referencia privada</strong><br />{evidence}</div>}
                   <form data-claim-resolution>
-                    <fieldset class="creator-admin__claim-resources">
+                    <fieldset class="creator-admin__claim-resources" data-admin-field-group="resourceIds">
                       <legend>Selecciona los IDs exactos que verificaste</legend>
                       {resourceIds.map((resourceId) => (
                         <label>
@@ -213,10 +230,12 @@ const message = result.status === 401
                           <span>{resourceId}{observedUrls.has(resourceId) && <><br /><small>{observedUrls.get(resourceId)}</small></>}</span>
                         </label>
                       ))}
+                      <p class="creator-form__field-error" data-admin-field-error="resourceIds" id={`admin-resource-selection-error-${encodeURIComponent(claimId)}`} hidden></p>
                     </fieldset>
                     <label class="creator-check creator-admin__review-confirm"><input type="checkbox" name="reviewed" required /><span>Confirmo que revisé la referencia y los recursos seleccionados.</span></label>
+                    <p class="creator-form__field-error" data-admin-field-error="reviewed" id={`admin-reviewed-error-${encodeURIComponent(claimId)}`} hidden></p>
                     <button class="button button--dark" type="submit">Vincular recursos seleccionados</button>
-                    <p class="creator-form__status" data-item-status role="status" aria-live="polite"></p>
+                    <p class="creator-form__status" data-item-status role="status" tabindex="-1"></p>
                   </form>
                 </li>
               );
@@ -235,7 +254,7 @@ const message = result.status === 401
         <h1 id="creator-admin-error-title">{result.status === 401 ? 'Inicia sesión' : result.status === 403 ? 'Acceso restringido' : 'No pudimos cargar administración'}</h1>
         <p>{message}</p>
         <a class="button button--dark" href={result.status === 401 ? '/cuenta/ingresar/' : '/cuenta/'}>{result.status === 401 ? 'Ingresar' : 'Volver a mi cuenta'}</a>
-        {result.status === 503 && <a class="button button--outline" href="/cuenta/administracion/">Reintentar</a>}
+        {result.status === 503 && <a class="button button--outline" href={retryHref}>Reintentar</a>}
       </section>
     </main>
   )}

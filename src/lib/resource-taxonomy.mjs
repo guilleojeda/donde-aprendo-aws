@@ -74,10 +74,18 @@ function inferFormat(kind, category, host, path, title) {
 export function validateTaxonomy(value, index = 0) {
   const { kind, format, topics } = value ?? {};
   if (!Object.hasOwn(KIND_LABELS, kind)) throw new Error(`Catalog record ${index + 1} has an invalid kind`);
-  if (!FORMATS_BY_KIND[kind].includes(format)) throw new Error(`Catalog record ${index + 1} has an invalid format`);
+  if (!FORMATS_BY_KIND[kind].includes(format)) {
+    const error = new Error(`Catalog record ${index + 1} has an invalid format`);
+    if (typeof format === 'string') error.fieldErrors = [{ field: 'kind-format', reason: 'invalid_combination' }];
+    throw error;
+  }
   if (!Array.isArray(topics) || topics.length > 3 || new Set(topics).size !== topics.length
     || topics.some((topic) => !TOPICS.includes(topic))) {
-    throw new Error(`Catalog record ${index + 1} has invalid topics`);
+    const error = new Error(`Catalog record ${index + 1} has invalid topics`);
+    if (Array.isArray(topics) && topics.every((topic) => typeof topic === 'string')) {
+      error.fieldErrors = [{ field: 'topics', reason: 'invalid_option' }];
+    }
+    throw error;
   }
   return { kind, format, topics: [...topics] };
 }
