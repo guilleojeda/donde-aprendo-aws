@@ -234,7 +234,8 @@ test('native invalidity is keyboard-locatable, keeps help, and clears on correct
 
 test('the fourth topic is explained as one correctable group and does not submit', async ({ fixture, page }) => {
   const controls = await openContribution(page, fixture);
-  await fillContribution(controls, { url: 'https://example.invalid/contribution/fourth-topic' });
+  const url = 'https://example.invalid/contribution/fourth-topic';
+  await fillContribution(controls, { url });
   const topics = controls.form.locator('input[data-contribution-topic]');
   for (const index of [0, 1, 2]) await topics.nth(index).check();
   await topics.nth(3).click();
@@ -252,6 +253,19 @@ test('the fourth topic is explained as one correctable group and does not submit
   await expect(topics.nth(0)).not.toHaveAttribute('aria-invalid', 'true');
   await topics.nth(3).check();
   await expect(controls.form.locator('input[data-contribution-topic]:checked')).toHaveCount(3);
+
+  await topics.nth(0).click();
+  await expect(error).toBeVisible();
+  await controls.submit.click();
+  await expect(controls.status).toHaveAttribute('data-status', 'success');
+  const stored = await waitForStoredSubmission(fixture, url);
+  assert.deepEqual(stored.topics, ['Certificaciones', 'Comunidad', 'Contenedores']);
+  await expect(error).toBeHidden();
+  const descriptions = await ariaIds(topics.nth(0));
+  assert.ok(descriptions.includes('contribution-help'), 'the reset keeps the permanent help');
+  assert.ok(!descriptions.includes(await error.getAttribute('id')), 'the reset removes the stale error reference');
+  await expect(controls.form.locator('[aria-invalid="true"]')).toHaveCount(0);
+  await expect(controls.form.locator('input[data-contribution-topic]:checked')).toHaveCount(0);
 });
 
 test('a real invalid URL rejection identifies the field, preserves the draft, and persists a deliberate correction', async ({ fixture, page }) => {

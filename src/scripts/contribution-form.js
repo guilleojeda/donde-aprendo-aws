@@ -168,30 +168,15 @@ if (form) {
     }
   };
 
-  const diagnosticTargetForControl = (control) => {
-    if (topicBoxes.includes(control)) return 'topics';
-    if (control === kindSelect || control === formatSelect) return 'kind-format';
-    return control?.name || control?.id;
+  const clearGroupError = (group) => {
+    if (groupError(group)?.hidden === false) setGroupError(group, false);
   };
-  const clearDiagnostic = (target) => {
-    if (target === 'topics' || target === 'kind-format') {
-      if (groupError(target)?.hidden !== false) return;
-      setGroupError(target, false);
-      return;
-    }
-    const field = form.elements.namedItem(target);
-    if (field && typeof field !== 'string' && fieldError(field)?.hidden === false) setFieldError(field, false);
-  };
-  const clearDiagnosticForControl = (control) => clearDiagnostic(diagnosticTargetForControl(control));
 
   const updateVisibleFieldError = (event) => {
     const field = event.target;
     if (!field?.id || !field.validity) return;
-    const error = fieldError(field);
-    if (!error) return;
-    const wasVisible = !error.hidden;
-    clearDiagnosticForControl(field);
-    if (wasVisible) setFieldError(field, !field.validity.valid);
+    if (field === kindSelect || field === formatSelect) clearGroupError('kind-format');
+    if (fieldError(field)?.hidden === false) setFieldError(field, !field.validity.valid);
   };
 
   form.addEventListener('invalid', (event) => {
@@ -215,13 +200,10 @@ if (form) {
     updateVisibleFieldError(event);
   });
 
-  kindSelect?.addEventListener('change', () => {
-    clearDiagnostic('kind-format');
-    updateFormatOptions();
-  });
+  kindSelect?.addEventListener('change', updateFormatOptions);
 
   topicBoxes.forEach((box) => box.addEventListener('change', () => {
-    clearDiagnostic('topics');
+    clearGroupError('topics');
     const selected = topicBoxes.filter((item) => item.checked);
     if (selected.length <= 3) return;
     box.checked = false;
@@ -421,6 +403,11 @@ if (form) {
         return;
       }
       if (unchanged) {
+        clearGroupError('topics');
+        clearGroupError('kind-format');
+        for (const field of form.querySelectorAll('input[aria-invalid], select[aria-invalid], textarea[aria-invalid]')) {
+          setFieldError(field, false);
+        }
         form.reset();
         resetFormatOptions();
       }
