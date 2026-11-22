@@ -175,12 +175,15 @@ for (const failure of [
   { name: 'an HTTP failure', status: 503, json: { error: 'unavailable' } },
   { name: 'a decoded body with the wrong index shape', status: 200, json: { entries: [] } },
   {
-    name: 'a decoded body with unusable result data',
+    name: 'a decoded body with unusable result data past the first page',
     status: 200,
-    json: [{
-      type: 'content', title: 'Taller secreto', description: 'Resultado inválido',
-      url: '/aprender/#unusable', series: { length: 1 },
-    }],
+    json: Array.from({ length: 21 }, (_, index) => ({
+      type: 'content',
+      title: 'Taller secreto',
+      description: 'Taller de prueba',
+      url: `/aprender/#candidate-${index}`,
+      ...(index === 20 ? { series: { length: 1 } } : {}),
+    })),
   },
 ]) {
   representativeTest(`a search recovers from ${failure.name} with the same query, filter and focus`, async ({ app, page }) => {

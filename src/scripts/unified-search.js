@@ -13,6 +13,13 @@ let matches = [];
 let shown = 0;
 let searchVersion = 0;
 
+function usableSeriesLinks(series) {
+  return series == null || (Array.isArray(series) && series.every((link) => link
+    && typeof link.href === 'string'
+    && typeof link.name === 'string'
+    && typeof link.creatorName === 'string'));
+}
+
 function usableSearchIndex(value) {
   return Array.isArray(value) && value.every((entry) => entry
     && typeof entry === 'object'
@@ -20,7 +27,8 @@ function usableSearchIndex(value) {
     && typeof entry.type === 'string'
     && typeof entry.title === 'string'
     && typeof entry.description === 'string'
-    && typeof entry.url === 'string');
+    && typeof entry.url === 'string'
+    && usableSeriesLinks(entry.series));
 }
 
 function loadIndex() {
