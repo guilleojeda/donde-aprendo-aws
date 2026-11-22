@@ -910,6 +910,8 @@ for (const { label, failure } of [
     assert.equal(Object.hasOwn(result.body, 'linkedResourceIds'), false);
     assert.equal(Object.hasOwn(result.body, 'versionChanges'), false);
     assert.equal(Object.hasOwn(result.body, 'uncertainResourceId'), false);
+    assert.equal(Object.hasOwn(result.body, 'fieldErrors'), false,
+      'a provider rejection before any grant is not reclassified as a field validation error');
     assert.equal(harness.mock.transactions.length, 1, 'the provider rejection is not retried by the grant service');
 
     const after = {
@@ -946,6 +948,8 @@ test('a modeled one-attempt DynamoDB rejection before the second physical grant 
   assert.equal(result.body.failedResourceId, ids[1]);
   assert.equal(Object.hasOwn(result.body, 'uncertainResourceId'), false);
   assert.equal(Object.hasOwn(result.body, 'failureStage'), false);
+  assert.equal(Object.hasOwn(result.body, 'fieldErrors'), false,
+    'a partial grant keeps its receipt and is not reclassified as field validation');
   assert.equal(harness.mock.transactions.length, 2, 'the definitive rejection stops before attempting the suffix');
 
   const profileAfter = await harness.store.get(`profile:${profileId}`);
@@ -982,6 +986,8 @@ test('a modeled transaction rejection after a provider retry remains uncertain a
   assert.equal(result.body.profileChanged, false);
   assert.equal(Object.hasOwn(result.body, 'failedResourceId'), false);
   assert.equal(Object.hasOwn(result.body, 'failureStage'), false);
+  assert.equal(Object.hasOwn(result.body, 'fieldErrors'), false,
+    'an uncertain grant keeps its uncertainty and is not reclassified as field validation');
   assert.equal(harness.mock.transactions.length, 1);
   assert.deepEqual({
     profile: await harness.store.get(`profile:${profileId}`),
@@ -1032,6 +1038,8 @@ for (const { reasonCode, attempts } of [
           assert.equal(Object.hasOwn(result.body, 'failedResourceId'), false);
         }
       }
+      assert.equal(Object.hasOwn(result.body, 'fieldErrors'), false,
+        'a conflict or uncertain grant never becomes a field validation receipt');
       assert.equal(harness.mock.transactions.length, stop + 1, 'the command never attempts a suffix transaction');
 
       const afterProfile = await harness.store.get(`profile:${profileId}`);
@@ -1070,6 +1078,8 @@ for (const stop of [0, 1]) {
     assert.equal(grant.body.uncertainResourceId, ids[stop]);
     assert.equal(Object.hasOwn(grant.body, 'failedResourceId'), false);
     assert.equal(Object.hasOwn(grant.body, 'failureStage'), false);
+    assert.equal(Object.hasOwn(grant.body, 'fieldErrors'), false,
+      'a lost grant acknowledgement remains uncertain rather than becoming field validation');
     assert.deepEqual(grant.body.linkedResourceIds, ids.slice(0, stop));
     assert.equal(grant.body.profileChanged, stop > 0);
     assert.deepEqual(grant.body.versionChanges, stop === 0 ? [] : [

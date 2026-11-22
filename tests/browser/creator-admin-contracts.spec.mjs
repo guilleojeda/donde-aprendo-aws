@@ -188,7 +188,19 @@ test('a current-version classification 422 remains correctable and does not requ
       postData: JSON.stringify({ ...body, kind: 'community', format: 'Blog' }),
     });
     assert.equal(response.status(), 422, 'the real endpoint rejects the invalid taxonomy at version 1');
-    await route.fulfill({ response });
+    const payload = await response.json();
+    const headers = Object.fromEntries(Object.entries(response.headers()).filter(([name]) => name !== 'content-length'));
+    await route.fulfill({
+      status: response.status(),
+      headers,
+      json: {
+        ...payload,
+        fieldErrors: [
+          { field: 'kind', reason: 'unknown_reason' },
+          { field: 'not-a-control', reason: 'required' },
+        ],
+      },
+    });
   };
   await page.route('**/api/admin/**', routeHandler);
   try {
@@ -200,6 +212,8 @@ test('a current-version classification 422 remains correctable and does not requ
     await expect(target.locator('[data-item-status]')).toContainText('Revisa la clasificación');
     await expect(saveButton(page, id)).toBeEnabled();
     await expect(root(page).locator('[data-refresh-view]')).toBeHidden();
+    await expect(target.locator('[aria-invalid="true"]')).toHaveCount(0,
+      'unusable field details stay at row scope instead of marking a control');
     assert.deepEqual(await fixture.rawResource(id), resource(id, 0),
       'the current-version validation rejection leaves storage unchanged');
 
@@ -330,8 +344,17 @@ test('a real profile moderation storage 503 requires verified Refresh before one
     assert.deepEqual(await fixture.creatorStore.get(`profile:${profile.id}`), before,
       'the failed storage transaction left the profile unchanged');
 
+    const recovery = root(page).getByRole('button', { name: 'Actualizar vista' });
+    const feedback = target.getByRole('status').or(target.getByRole('alert'));
+    await expect(target.locator('[aria-invalid="true"]')).toHaveCount(0);
+    await expect.soft(feedback.or(recovery).and(page.locator(':focus')),
+      'when moderation disables the initiating control, focus moves to its feedback or recovery').toHaveCount(1);
+    const announcedErrors = root(page).getByRole('status').or(root(page).getByRole('alert'))
+      .filter({ hasText: 'No pudimos guardar el cambio.' });
+    await expect.soft(announcedErrors, 'only the affected row announces the moderation failure').toHaveCount(1);
+
     const refreshed = page.waitForNavigation({ waitUntil: 'load' });
-    await root(page).locator('[data-refresh-view]').click();
+    await recovery.click();
     await refreshed;
     assert.notEqual(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin,
       'Refresh performs a new real admin read before the manual retry');
@@ -395,73 +418,97 @@ test('admin recovery rejects a changed role before reads or writes and keeps the
   assert.deepEqual(await fixture.rawResource(id), before, 'a changed role leaves the persisted resource unchanged');
 });
 
-test('expired admin profile moderation requires a real bound-session check and an explicit renewed retry', async ({ fixture, page }) => {
-  const resourceId = 'admin-profile-session-resource';
-  const adminCookie = await prepareAdmin(fixture, page, [resourceId]);
-  const ownerCookie = await loginAsSeparateOwner(
-    fixture,
-    'admin-profile-session-owner',
-    'admin-profile-session-owner@example.invalid',
-  );
-  const profile = await createProfile(fixture, ownerCookie, {
-    displayName: 'Perfil para renovar sesión',
-    slug: 'perfil-renovar-sesion',
-  });
-  await addCookie(page.context(), fixture, adminCookie);
-  await page.goto(`${fixture.origin}${adminPath}?state=all&page=1`);
-  await expect(root(page)).toBeVisible();
-  const target = profileRow(page, profile.id);
-  const hide = target.getByRole('button', { name: 'Ocultar perfil' });
-  await expect(hide).toBeVisible();
+for (const scenario of [
+  { label: 'an expired session', status: 401, message: 'La sesión terminó' },
+  { label: 'an out-of-date CSRF', status: 403, message: 'La sesión cambió' },
+]) {
+  test(`admin profile moderation with ${scenario.label} requires a session check and an explicit retry`, async ({ fixture, page }) => {
+    const resourceId = 'admin-profile-session-resource';
+    const adminCookie = await prepareAdmin(fixture, page, [resourceId]);
+    const ownerCookie = await loginAsSeparateOwner(
+      fixture,
+      'admin-profile-session-owner',
+      'admin-profile-session-owner@example.invalid',
+    );
+    const profile = await createProfile(fixture, ownerCookie, {
+      displayName: 'Perfil para renovar sesión',
+      slug: 'perfil-renovar-sesion',
+    });
+    await addCookie(page.context(), fixture, adminCookie);
+    await page.goto(`${fixture.origin}${adminPath}?state=all&page=1`);
+    await expect(root(page)).toBeVisible();
+    const target = profileRow(page, profile.id);
+    const hide = target.getByRole('button', { name: 'Ocultar perfil' });
+    await expect(hide).toBeVisible();
+    const draft = row(page, resourceId).getByLabel('Categoría');
+    const originalCategory = await draft.inputValue();
+    await draft.fill('Borrador conservado');
 
-  const writes = [];
-  const navigations = [];
-  page.on('request', (request) => {
-    if (request.method() === 'POST' && new URL(request.url()).pathname === `/api/admin/perfiles/${profile.id}/ocultar/`) {
-      writes.push(request);
+    const writes = [];
+    const navigations = [];
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === `/api/admin/perfiles/${profile.id}/ocultar/`) {
+        writes.push(request);
+      }
+    });
+    page.on('framenavigated', (frame) => {
+      if (frame === page.mainFrame()) navigations.push(frame.url());
+    });
+
+    const adminSessionKey = `SESSION#${createHash('sha256').update(adminCookie.value, 'utf8').digest('base64url')}`;
+    if (scenario.status === 401) {
+      assert.equal(fixture.accountStore.sessions.delete(adminSessionKey), true,
+        'only the fixture admin session is expired for this profile command');
+    } else {
+      const replacement = await fixture.login();
+      const principal = await fixture.principal(replacement);
+      assert.notEqual(principal.csrfToken, await root(page).getAttribute('data-csrf'),
+        'the current account has a new session token while the open page retains its old CSRF');
+      await addCookie(page.context(), fixture, replacement);
     }
+    const before = await fixture.creatorStore.get(`profile:${profile.id}`);
+    const expired = page.waitForResponse((response) => response.request().method() === 'POST'
+      && new URL(response.url()).pathname === `/api/admin/perfiles/${profile.id}/ocultar/`);
+    await hide.click();
+    assert.equal((await expired).status(), scenario.status, 'the rejected profile command reaches the real admin endpoint');
+    assert.equal((await fixture.creatorStore.get(`profile:${profile.id}`)).hidden, false,
+      'the rejected command does not persist profile moderation');
+    assert.equal(writes.length, 1);
+    const rowStatus = target.locator('[data-item-status]');
+    await expect(rowStatus).toBeVisible();
+    await expect(rowStatus).toContainText('sin guardar');
+    const live = root(page).locator(':is([role="status"], [role="alert"], [aria-live="polite"], [aria-live="assertive"]):not([aria-live="off"])');
+    await expect(live.filter({ hasText: scenario.message })).toHaveCount(1);
+    await expect(live.and(rowStatus)).toHaveCount(0);
+
+    const navigationCountBeforeCheck = navigations.length;
+    const renewed = await fixture.login();
+    const renewedPrincipal = await fixture.principal(renewed);
+    assert.equal(renewedPrincipal.isAdmin, true);
+    await addCookie(page.context(), fixture, renewed);
+    const checked = page.waitForResponse((response) => response.request().method() === 'GET'
+      && new URL(response.url()).pathname === '/api/creador/sesion/');
+    await root(page).locator('[data-session-recovery-check]').click();
+    assert.equal((await checked).status(), 200, 'the real bound-session check accepts the renewed same-admin session');
+    assert.equal(writes.length, 1, 'session recovery does not replay profile moderation');
+    assert.equal(navigations.length, navigationCountBeforeCheck, 'session recovery does not navigate away from the draft page');
+    await expect(hide).toBeEnabled();
+    await expect(draft).toHaveValue('Borrador conservado');
+    assert.equal((await fixture.creatorStore.get(`profile:${profile.id}`)).hidden, false);
+    await draft.fill(originalCategory);
+
+    const manual = page.waitForResponse((response) => response.request().method() === 'POST'
+      && new URL(response.url()).pathname === `/api/admin/perfiles/${profile.id}/ocultar/`);
+    const reload = page.waitForNavigation({ waitUntil: 'load' });
+    await hide.click();
+    const manualResponse = await manual;
+    assert.equal(manualResponse.status(), 200);
+    assert.equal(manualResponse.request().headers()['x-csrf-token'], renewedPrincipal.csrfToken,
+      'the explicit retry sends the renewed CSRF token');
+    await reload;
+    assert.equal(writes.length, 2, 'only the explicit retry sends the second profile command');
+    const saved = await fixture.creatorStore.get(`profile:${profile.id}`);
+    assert.equal(saved.hidden, true);
+    assert.equal(saved.version, before.version + 1);
   });
-  page.on('framenavigated', (frame) => {
-    if (frame === page.mainFrame()) navigations.push(frame.url());
-  });
-
-  const adminSessionKey = `SESSION#${createHash('sha256').update(adminCookie.value, 'utf8').digest('base64url')}`;
-  assert.equal(fixture.accountStore.sessions.delete(adminSessionKey), true,
-    'only the fixture admin session is expired for this profile command');
-  const before = await fixture.creatorStore.get(`profile:${profile.id}`);
-  const expired = page.waitForResponse((response) => response.request().method() === 'POST'
-    && new URL(response.url()).pathname === `/api/admin/perfiles/${profile.id}/ocultar/`);
-  await hide.click();
-  assert.equal((await expired).status(), 401, 'the expired profile command reaches the real admin endpoint');
-  assert.equal((await fixture.creatorStore.get(`profile:${profile.id}`)).hidden, false,
-    'the expired command does not persist profile moderation');
-  assert.equal(writes.length, 1);
-
-  const navigationCountBeforeCheck = navigations.length;
-  const renewed = await fixture.login();
-  const renewedPrincipal = await fixture.principal(renewed);
-  assert.equal(renewedPrincipal.isAdmin, true);
-  await addCookie(page.context(), fixture, renewed);
-  const checked = page.waitForResponse((response) => response.request().method() === 'GET'
-    && new URL(response.url()).pathname === '/api/creador/sesion/');
-  await root(page).locator('[data-session-recovery-check]').click();
-  assert.equal((await checked).status(), 200, 'the real bound-session check accepts the renewed same-admin session');
-  assert.equal(writes.length, 1, 'session recovery does not replay profile moderation');
-  assert.equal(navigations.length, navigationCountBeforeCheck, 'session recovery does not navigate away from the draft page');
-  await expect(hide).toBeEnabled();
-  assert.equal((await fixture.creatorStore.get(`profile:${profile.id}`)).hidden, false);
-
-  const manual = page.waitForResponse((response) => response.request().method() === 'POST'
-    && new URL(response.url()).pathname === `/api/admin/perfiles/${profile.id}/ocultar/`);
-  const reload = page.waitForNavigation({ waitUntil: 'load' });
-  await hide.click();
-  const manualResponse = await manual;
-  assert.equal(manualResponse.status(), 200);
-  assert.equal(manualResponse.request().headers()['x-csrf-token'], renewedPrincipal.csrfToken,
-    'the explicit retry sends the renewed CSRF token');
-  await reload;
-  assert.equal(writes.length, 2, 'only the explicit retry sends the second profile command');
-  const saved = await fixture.creatorStore.get(`profile:${profile.id}`);
-  assert.equal(saved.hidden, true);
-  assert.equal(saved.version, before.version + 1);
-});
+}
