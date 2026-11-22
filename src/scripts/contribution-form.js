@@ -1,3 +1,4 @@
+import { updateFieldDescription } from '../lib/field-description.mjs';
 import { isPublicCatalogResourceId } from '../lib/catalog-identity.mjs';
 
 const form = document.querySelector('[data-contribution-form]');
@@ -106,18 +107,6 @@ if (form) {
     return 'Revisa este campo.';
   };
 
-  const addDescription = (element, id) => {
-    const ids = (element.getAttribute('aria-describedby') || '').split(/\s+/u).filter(Boolean);
-    if (!ids.includes(id)) ids.push(id);
-    element.setAttribute('aria-describedby', ids.join(' '));
-  };
-  const removeDescription = (element, id) => {
-    const ids = (element.getAttribute('aria-describedby') || '').split(/\s+/u)
-      .filter((candidate) => candidate && candidate !== id);
-    if (ids.length) element.setAttribute('aria-describedby', ids.join(' '));
-    else element.removeAttribute('aria-describedby');
-  };
-
   const setFieldError = (field, visible, message = fieldMessage(field)) => {
     const error = fieldError(field);
     if (!error) return;
@@ -126,14 +115,14 @@ if (form) {
       error.textContent = message;
       error.hidden = false;
       field.setAttribute('aria-invalid', 'true');
-      addDescription(field, error.id);
+      updateFieldDescription(field, error.id, true);
       return;
     }
 
     error.textContent = '';
     error.hidden = true;
     field.removeAttribute('aria-invalid');
-    removeDescription(field, error.id);
+    updateFieldDescription(field, error.id, false);
   };
 
   const groupControls = (group) => group === 'topics' ? topicBoxes : [kindSelect, formatSelect].filter(Boolean);
@@ -149,10 +138,10 @@ if (form) {
       error.textContent = message;
       error.hidden = false;
       container.setAttribute('aria-invalid', 'true');
-      addDescription(container, error.id);
+      updateFieldDescription(container, error.id, true);
       for (const control of controls) {
         control.setAttribute('aria-invalid', 'true');
-        addDescription(control, error.id);
+        updateFieldDescription(control, error.id, true);
       }
       return;
     }
@@ -160,11 +149,11 @@ if (form) {
     error.textContent = '';
     error.hidden = true;
     container.removeAttribute('aria-invalid');
-    removeDescription(container, error.id);
+    updateFieldDescription(container, error.id, false);
     for (const control of controls) {
       if (fieldError(control)?.hidden === false) control.setAttribute('aria-invalid', 'true');
       else control.removeAttribute('aria-invalid');
-      removeDescription(control, error.id);
+      updateFieldDescription(control, error.id, false);
     }
   };
 

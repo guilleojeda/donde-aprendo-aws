@@ -204,6 +204,7 @@ builtTest('built native Copy reports the captured selection after a deferred wri
 });
 
 builtTest('a clipboard denial remains visible by Compartir and the next deliberate copy succeeds', async ({ app, page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => {
     window.copyAttempts = [];
     Object.defineProperty(navigator, 'clipboard', {
@@ -244,6 +245,11 @@ builtTest('a clipboard denial remains visible by Compartir and the next delibera
   await toggle.press('Escape');
   await expect(copy).toBeHidden();
   await expect(status).toBeVisible();
+  const bounds = await status.boundingBox();
+  assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= 390,
+    'the entire error message fits inside the viewport');
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390,
+    'showing the clipboard error does not add horizontal overflow');
   await expect(toggle).toBeFocused();
   await toggle.press('Enter');
   await copy.press('Enter');
