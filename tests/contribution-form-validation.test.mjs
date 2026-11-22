@@ -18,21 +18,25 @@ const bundledSource = buildSync({
 class Field {
   constructor({ id, type = 'text', tagName = 'INPUT', validity, describedBy = 'contribution-help' }) {
     this.id = id;
+    this.name = id.replace(/^contribution-/u, '');
     this.type = type;
     this.tagName = tagName;
     this.validity = validity;
+    this.focusCount = 0;
     this.attributes = new Map([['aria-describedby', describedBy]]);
   }
 
   getAttribute(name) { return this.attributes.get(name) ?? null; }
   setAttribute(name, value) { this.attributes.set(name, value); }
   removeAttribute(name) { this.attributes.delete(name); }
+  focus() { this.focusCount += 1; }
 }
 
 class ErrorMessage {
   constructor(id) {
     this.id = id;
     this.hidden = true;
+    this.dataset = {};
     this.textContent = '';
   }
 }
@@ -42,6 +46,7 @@ function createForm(fields) {
   const listeners = new Map();
   const form = {
     dataset: {},
+    elements: { namedItem: (name) => fields.find((field) => field.name === name) ?? null },
     addEventListener(type, handler, options) {
       const handlers = listeners.get(type) ?? [];
       handlers.push({ handler, options });
@@ -57,17 +62,22 @@ function createForm(fields) {
   runInNewContext(bundledSource, {
     document: { querySelector: () => form },
     TextEncoder,
+    clearTimeout,
+    setTimeout,
   });
   return {
     errors,
     listeners,
     emit(type, target) {
-      for (const { handler } of listeners.get(type) ?? []) handler({ target });
+      const event = new Event(type, { cancelable: type === 'invalid' });
+      Object.defineProperty(event, 'target', { value: target });
+      for (const { handler } of listeners.get(type) ?? []) handler(event);
+      return event;
     },
   };
 }
 
-test('shows native required errors next to fields and keeps help linked', () => {
+test('shows native required errors next to fields and keeps help linked', async () => {
   const email = new Field({
     id: 'contribution-email', type: 'email',
     validity: { valid: false, valueMissing: true, typeMismatch: false },
@@ -76,7 +86,9 @@ test('shows native required errors next to fields and keeps help linked', () => 
   const [error] = errors;
 
   assert.equal(listeners.get('invalid')[0].options, true);
-  emit('invalid', email);
+  assert.equal(emit('invalid', email).defaultPrevented, true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(email.focusCount, 1);
 
   assert.equal(error.textContent, 'Completa este campo.');
   assert.equal(error.hidden, false);

@@ -34,11 +34,11 @@ import '../../styles/search.css';
         </select>
         <button type="submit">Buscar</button>
       </div>
+      <p class="search-form__status" data-search-status role="status" aria-live="polite">Escribe una búsqueda para ver resultados.</p>
     </form>
 
     <section class="search-results" aria-labelledby="search-results-title">
       <h2 id="search-results-title">Resultados</h2>
-      <p data-search-status role="status" aria-live="polite">Escribe una búsqueda para ver resultados.</p>
       <ol data-search-results></ol>
       <button class="search-results__more" type="button" data-search-more hidden>Mostrar más resultados</button>
     </section>

@@ -22,7 +22,7 @@ const packageEnvKeys = [
   'AMPLIFY_APP_ID', 'AMPLIFY_BRANCH', 'PUBLICATION_MANIFEST_URL',
 ];
 
-test('submission Lambda archive persists an atomic pair and leaves a lost receipt unconfirmed', async () => {
+test('submission Lambda archive persists an atomic pair and leaves a lost receipt unconfirmed', async (t) => {
   const temporaryDirectory = await mkdtemp(join(tmpdir(), 'submission-archive-'));
   const records = new Map();
   const requests = [];
@@ -101,6 +101,29 @@ test('submission Lambda archive persists an atomic pair and leaves a lost receip
     await run('unzip', ['-q', archivePath, '-d', extractedDirectory]);
 
     const shippedModule = await import(pathToFileURL(join(extractedDirectory, `${declaration.module}.mjs`)).href);
+    await t.test('serializes a field diagnosis before storage', async () => {
+      const invalid = await shippedModule[declaration.exportName]({
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          email: 'tester@example.invalid',
+          full_name: 'Archive Tester',
+          title: 'x'.repeat(241),
+          url: 'https://example.invalid/archive-submission-invalid',
+          text: 'Debe ser rechazado antes de tocar DynamoDB.',
+          Category: 'Blog',
+          website: '',
+        }),
+      });
+      assert.equal(invalid.statusCode, 400);
+      assert.equal(transactionCount, 0, 'a packaged field rejection does not start a DynamoDB transaction');
+      assert.equal(requests.length, 0, 'a packaged field rejection does not read or write DynamoDB');
+      assert.deepEqual(JSON.parse(invalid.body), {
+        ok: false,
+        code: 'invalid_request',
+        fieldErrors: [{ field: 'title', reason: 'too_long' }],
+      });
+    });
+
     const event = {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({

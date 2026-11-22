@@ -101,6 +101,96 @@ test('writes a pending public record with private contact fields and returns 201
   assert.equal(result.body.includes(BASE_SUBMISSION.url), false);
 });
 
+test('attributes a concrete URL rejection without writing or exposing submitted values', async () => {
+  let writes = 0;
+  const handler = handlerWithWriter(async () => { writes += 1; });
+
+  const result = await handler(request({ url: 'javascript:alert(1)' }));
+
+  assert.equal(result.statusCode, 400);
+  assert.deepEqual(responseBody(result), {
+    ok: false,
+    code: 'invalid_request',
+    fieldErrors: [{ field: 'url', reason: 'invalid_url' }],
+  });
+  assert.equal(writes, 0);
+  assert.equal(result.body.includes('javascript:alert(1)'), false);
+  assert.equal(result.body.includes(BASE_SUBMISSION.email), false);
+});
+
+test('attributes missing required fields while retaining the existing rejection code', async (t) => {
+  for (const [field, value] of [['email', ''], ['title', '   ']]) {
+    await t.test(field, async () => {
+      let writes = 0;
+      const handler = handlerWithWriter(async () => { writes += 1; });
+
+      const result = await handler(request({ [field]: value }));
+
+      assert.equal(result.statusCode, 400);
+      assert.deepEqual(responseBody(result), {
+        ok: false,
+        code: 'invalid_request',
+        fieldErrors: [{ field, reason: 'required' }],
+      });
+      assert.equal(writes, 0);
+    });
+  }
+});
+
+test('attributes a structurally invalid email without writing or echoing it', async () => {
+  let writes = 0;
+  const handler = handlerWithWriter(async () => { writes += 1; });
+
+  const result = await handler(request({ email: 'a..b@example.invalid' }));
+
+  assert.equal(result.statusCode, 400);
+  assert.deepEqual(responseBody(result), {
+    ok: false,
+    code: 'invalid_request',
+    fieldErrors: [{ field: 'email', reason: 'invalid_email' }],
+  });
+  assert.equal(writes, 0);
+  assert.equal(result.body.includes('a..b@example.invalid'), false);
+});
+
+test('attributes a control character in visible text without writing or echoing it', async () => {
+  let writes = 0;
+  const handler = handlerWithWriter(async () => { writes += 1; });
+  const submittedText = 'Descripción con control\u000bprivado';
+
+  const result = await handler(request({ text: submittedText }));
+
+  assert.equal(result.statusCode, 400);
+  assert.deepEqual(responseBody(result), {
+    ok: false,
+    code: 'invalid_request',
+    fieldErrors: [{ field: 'text', reason: 'invalid_value' }],
+  });
+  assert.equal(writes, 0);
+  assert.equal(result.body.includes('Descripción con control'), false);
+  assert.equal(result.body.includes('privado'), false);
+});
+
+test('keeps malformed whole requests generic rather than guessing a field', async (t) => {
+  const cases = [
+    ['malformed JSON', { headers: { 'content-type': 'application/json' }, body: '{not-json' }],
+    ['wrong title shape', request({ title: { value: 'not a title' } })],
+    ['unknown nested field', request({ metadata: { title: 'not an accepted field' } })],
+  ];
+
+  for (const [label, event] of cases) {
+    await t.test(label, async () => {
+      let writes = 0;
+      const handler = handlerWithWriter(async () => { writes += 1; });
+      const result = await handler(event);
+
+      assert.equal(result.statusCode, 400);
+      assert.deepEqual(responseBody(result), { ok: false, code: 'invalid_request' });
+      assert.equal(writes, 0);
+    });
+  }
+});
+
 test('rejects a generated submission ID over 256 UTF-8 bytes before catalog access', async () => {
   let reads = 0;
   let writes = 0;
@@ -132,19 +222,35 @@ test('accepts the new kind, format, and topic fields as a pending submission', a
   assert.deepEqual(resource.topics, ['Seguridad', 'Fundamentos']);
 });
 
-test('rejects invalid new taxonomy before writing', async () => {
-  let writes = 0;
-  const handler = handlerWithWriter(async () => { writes += 1; });
+test('rejects invalid new taxonomy before writing', async (t) => {
   const { Category, ...base } = BASE_SUBMISSION;
-  for (const taxonomy of [
-    { kind: 'source', format: 'Video', topics: [] },
-    { kind: 'content', format: 'Video', topics: ['Seguridad', 'Seguridad'] },
-    { kind: 'content', format: 'Video', topics: ['Unlisted'] },
+  for (const { label, taxonomy, fieldErrors } of [
+    {
+      label: 'kind and format do not match',
+      taxonomy: { kind: 'source', format: 'Video', topics: [] },
+      fieldErrors: [{ field: 'kind-format', reason: 'invalid_combination' }],
+    },
+    {
+      label: 'duplicate topics',
+      taxonomy: { kind: 'content', format: 'Video', topics: ['Seguridad', 'Seguridad'] },
+      fieldErrors: [{ field: 'topics', reason: 'invalid_option' }],
+    },
+    {
+      label: 'unknown topic',
+      taxonomy: { kind: 'content', format: 'Video', topics: ['Unlisted'] },
+      fieldErrors: [{ field: 'topics', reason: 'invalid_option' }],
+    },
   ]) {
-    const result = await handler({ headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...base, ...taxonomy }) });
-    assert.equal(result.statusCode, 400);
+    await t.test(label, async () => {
+      const handler = handlerWithWriter(async () => assert.fail('invalid taxonomy must not reach the transaction'));
+      const result = await handler({
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ...base, ...taxonomy }),
+      });
+      assert.equal(result.statusCode, 400);
+      assert.deepEqual(responseBody(result), { ok: false, code: 'invalid_request', fieldErrors });
+    });
   }
-  assert.equal(writes, 0);
 });
 
 test('returns 409 for a literal URL duplicate without exposing submitted values', async () => {
@@ -195,6 +301,7 @@ test('rejects a filled honeypot and does not write', async () => {
   const result = await handler(request({ website: 'https://bot.invalid' }));
 
   assert.equal(result.statusCode, 400);
+  assert.deepEqual(responseBody(result), { ok: false, code: 'invalid_request' });
   assert.equal(writes, 0);
 });
 
@@ -207,15 +314,18 @@ test('rejects malformed JSON, unsupported content type, and oversized bodies', a
     body: '{not-json',
   });
   assert.equal(malformed.statusCode, 400);
+  assert.deepEqual(responseBody(malformed), { ok: false, code: 'invalid_request' });
 
   const unsupported = await handler({
     headers: { 'content-type': 'text/plain' },
     body: JSON.stringify(BASE_SUBMISSION),
   });
   assert.equal(unsupported.statusCode, 415);
+  assert.deepEqual(responseBody(unsupported), { ok: false, code: 'unsupported_media_type' });
 
   const oversized = await handler(request({ text: 'x'.repeat(MAX_SUBMISSION_BODY_BYTES) }));
   assert.equal(oversized.statusCode, 413);
+  assert.deepEqual(responseBody(oversized), { ok: false, code: 'too_large' });
   assert.equal(writes, 0);
 });
 
@@ -223,9 +333,7 @@ test('rejects missing, malformed, and out-of-contract fields before storage', as
   let writes = 0;
   const handler = handlerWithWriter(async () => { writes += 1; });
   const invalidRequests = [
-    request({ email: '' }),
     request({ email: 'not-an-email' }),
-    request({ url: 'javascript:alert(1)' }),
     request({ Category: 'Not a category' }),
     request({ full_name: '   ' }),
     request({ submitterEmail: 'private@example.invalid' }),
@@ -247,7 +355,11 @@ test('rejects an overlong field even when the request stays under the body limit
   const result = await handler(oversizedTitleRequest);
 
   assert.equal(result.statusCode, 400);
-  assert.deepEqual(responseBody(result), { ok: false, code: 'invalid_request' });
+  assert.deepEqual(responseBody(result), {
+    ok: false,
+    code: 'invalid_request',
+    fieldErrors: [{ field: 'title', reason: 'too_long' }],
+  });
   assert.equal(writes, 0);
 });
 

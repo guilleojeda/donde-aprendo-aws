@@ -13,30 +13,49 @@ let matches = [];
 let shown = 0;
 let searchVersion = 0;
 
+function usableSeriesLinks(series) {
+  return series == null || (Array.isArray(series) && series.every((link) => link
+    && typeof link.href === 'string'
+    && typeof link.name === 'string'
+    && typeof link.creatorName === 'string'));
+}
+
+function usableSearchIndex(value) {
+  return Array.isArray(value) && value.every((entry) => entry
+    && typeof entry === 'object'
+    && !Array.isArray(entry)
+    && typeof entry.type === 'string'
+    && typeof entry.title === 'string'
+    && typeof entry.description === 'string'
+    && typeof entry.url === 'string'
+    && usableSeriesLinks(entry.series));
+}
+
 function loadIndex() {
   if (!indexPromise) {
     const controller = new AbortController();
-    const request = (async () => {
+    indexPromise = (async () => {
       const timeoutId = setTimeout(() => {
         controller.abort();
       }, indexTimeoutMs);
       try {
         const response = await fetch('/search-index.json', { signal: controller.signal });
         if (!response.ok) throw new Error(`Search index: HTTP ${response.status}`);
-        return await response.json();
+        const index = await response.json();
+        if (!usableSearchIndex(index)) throw new Error('Search index: unusable response');
+        return index;
       } finally {
         clearTimeout(timeoutId);
       }
     })();
-
-    let cachedPromise;
-    cachedPromise = request.catch((error) => {
-      if (indexPromise === cachedPromise) indexPromise = undefined;
-      throw error;
-    });
-    indexPromise = cachedPromise;
   }
   return indexPromise;
+}
+
+function setStatus(message, { error = false } = {}) {
+  if (!status) return;
+  status.textContent = message;
+  status.setAttribute('data-search-state', error ? 'error' : 'normal');
 }
 
 function showNextPage({ focusFirstResult = false } = {}) {
@@ -94,27 +113,35 @@ form?.addEventListener('submit', async (event) => {
     shown = 0;
     list.replaceChildren();
     more.hidden = true;
-    status.textContent = 'Escribe una búsqueda para ver resultados.';
+    setStatus('Escribe una búsqueda para ver resultados.');
     return;
   }
   const type = typeSelect.value;
-  status.textContent = 'Buscando…';
+  setStatus('Buscando…');
   list.replaceChildren();
   more.hidden = true;
+  const requestedIndex = loadIndex();
   try {
-    const index = await loadIndex();
+    const index = await requestedIndex;
     if (version !== searchVersion) return;
     matches = searchIndex(index, query, type);
     shown = 0;
-    status.textContent = matches.length
-      ? `${matches.length} ${matches.length === 1 ? 'resultado' : 'resultados'}.`
-      : 'No encontramos resultados. Prueba con otras palabras o elige «Todo el sitio».';
     showNextPage();
-    recordAggregateSearch(query, type, matches.length);
   } catch {
+    // A failed download or unusable data can be replaced on the next search.
+    if (indexPromise === requestedIndex) indexPromise = undefined;
     if (version !== searchVersion) return;
-    status.textContent = 'La búsqueda no está disponible en este momento. Intenta de nuevo.';
+    matches = [];
+    shown = 0;
+    list.replaceChildren();
+    more.hidden = true;
+    setStatus('La búsqueda no está disponible en este momento. Intenta de nuevo.', { error: true });
+    return;
   }
+  setStatus(matches.length
+    ? `${matches.length} ${matches.length === 1 ? 'resultado' : 'resultados'}.`
+    : 'No encontramos resultados. Prueba con otras palabras o elige «Todo el sitio».');
+  recordAggregateSearch(query, type, matches.length);
 });
 
 more?.addEventListener('click', () => showNextPage({ focusFirstResult: true }));

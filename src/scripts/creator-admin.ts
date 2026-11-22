@@ -1,3 +1,4 @@
+import { updateFieldDescription } from '../lib/field-description.mjs';
 import { createCreatorFormState, type FormValueSnapshot } from './creator-form-state';
 import { createCreatorSessionRecovery } from './creator-session-recovery';
 import { createCreatorWriteGuard, readCreatorVersionChanges, type CreatorVersionChange } from './creator-write-state';
@@ -94,15 +95,6 @@ function unchangedSinceSubmit(attempt: AdminFormAttempt, field: AdminField): boo
     && attempt.submittedValues.get(control) === current?.get(control));
 }
 
-function describedBy(control: HTMLElement): string[] {
-  return (control.getAttribute('aria-describedby') ?? '').split(/\s+/u).filter(Boolean);
-}
-
-function setDescribedBy(control: HTMLElement, ids: readonly string[]) {
-  if (ids.length > 0) control.setAttribute('aria-describedby', ids.join(' '));
-  else control.removeAttribute('aria-describedby');
-}
-
 function messageForField(field: AdminField, reason: string): string | undefined {
   const messages = ADMIN_FIELD_MESSAGES[field];
   if (!messages || !Object.hasOwn(messages, reason)) return undefined;
@@ -118,9 +110,7 @@ function showFieldError(form: HTMLFormElement, field: AdminField, reason: string
   error.hidden = false;
   fieldTargets(form, field).forEach((target) => {
     target.setAttribute('aria-invalid', 'true');
-    const ids = describedBy(target);
-    if (!ids.includes(error.id)) ids.push(error.id);
-    setDescribedBy(target, ids);
+    updateFieldDescription(target, error.id, true);
   });
   return error;
 }
@@ -133,9 +123,8 @@ function clearFieldError(form: HTMLFormElement, field: AdminField) {
   const remainingIds = new Set([...form.querySelectorAll<HTMLElement>('[data-admin-field-error]:not([hidden])')]
     .map((element) => element.id));
   fieldTargets(form, field).forEach((target) => {
-    const ids = describedBy(target).filter((id) => id !== error.id);
+    const ids = updateFieldDescription(target, error.id, false);
     if (!ids.some((id) => remainingIds.has(id))) target.removeAttribute('aria-invalid');
-    setDescribedBy(target, ids);
   });
 }
 

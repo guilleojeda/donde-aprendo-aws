@@ -203,6 +203,64 @@ builtTest('built native Copy reports the captured selection after a deferred wri
   await expect(page.locator('[data-event-share-copy]')).toBeEnabled();
 });
 
+builtTest('a clipboard denial remains visible by Compartir and the next deliberate copy succeeds', async ({ app, page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    window.copyAttempts = [];
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText(value) {
+          window.copyAttempts.push(value);
+          if (window.copyAttempts.length === 1) return Promise.reject(new DOMException('Denied', 'NotAllowedError'));
+          return Promise.resolve();
+        },
+      },
+    });
+  });
+  await page.goto(agendaUrl(app.origin, '?view=month&date=2099-01-01&tz=UTC&mode=in-person&country=PE&city=PE%3ALima'));
+
+  const share = page.locator('[data-event-share-controls]');
+  const toggle = share.getByText('Compartir', { exact: true });
+  const copy = share.getByRole('button', { name: 'Copiar', exact: true });
+  const status = share.getByRole('status');
+  const errorColor = await status.evaluate((element) => {
+    const sample = document.createElement('span');
+    sample.style.color = 'var(--color-error-text)';
+    element.append(sample);
+    const color = getComputedStyle(sample).color;
+    sample.remove();
+    return color;
+  });
+
+  await toggle.focus();
+  await toggle.press('Enter');
+  await copy.press('Enter');
+  await expect(status).toHaveText(/No se pudo copiar.*Inténtalo de nuevo/u);
+  await expect.soft(status).toHaveCSS('color', errorColor, { timeout: 2_000 });
+  await expect(copy).toBeEnabled();
+  await expect(toggle).toBeFocused();
+  assert.equal(await page.evaluate(() => window.copyAttempts.length), 1);
+
+  await toggle.press('Escape');
+  await expect(copy).toBeHidden();
+  await expect(status).toBeVisible();
+  const bounds = await status.boundingBox();
+  assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= 390,
+    'the entire error message fits inside the viewport');
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390,
+    'showing the clipboard error does not add horizontal overflow');
+  await expect(toggle).toBeFocused();
+  await toggle.press('Enter');
+  await copy.press('Enter');
+  await expect(status).toHaveText('Agenda copiada al portapapeles.');
+  await expect(status).not.toHaveCSS('color', errorColor);
+  const attempts = await page.evaluate(() => window.copyAttempts);
+  assert.equal(attempts.length, 2);
+  assert.match(attempts[1], /Encuentro AWS en Lima/u);
+  assert.equal(attempts[1], attempts[0], 'the retry copies the same selected agenda');
+});
+
 builtTest('an unchanged empty built selection does not mutate retained archive cards on a zone change', async ({ app, page }) => {
   await page.goto(agendaUrl(app.origin, '?view=month&date=2099-02-01&tz=UTC&mode=online'));
   await expect(page.locator('[data-event-count]')).toHaveText('0 eventos');

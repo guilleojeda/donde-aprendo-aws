@@ -189,7 +189,7 @@ aws cloudformation describe-stacks --region us-east-1 --stack-name donde-aprendo
 
 The `SubmissionEndpoint` output is the value for Amplify's `PUBLIC_SUBMISSION_API_URL`. Do not publish the site with a missing endpoint. On later Lambda code updates, package and upload the new zip under its new hash and redeploy the stack with the new `ArtifactKey`.
 
-The contribution form confirms success only after receiving a valid `201` with `ok`, `code`, the stored `id`, and `submittedAt`. The receipt excludes contact details. Headers and body share a twelve-second deadline. An uncertain result keeps the draft and requires a deliberate new submission. A confirmed receipt identifies the submitted version when the visitor has made later edits.
+The contribution form confirms success only after receiving a valid `201` with `ok`, `code`, the stored `id`, and `submittedAt`. The receipt excludes contact details and identifies the version submitted. A `400 invalid_request` can include optional `fieldErrors` with known field and reason pairs. Older clients can keep using the status and code. Headers and body share a twelve-second deadline. Definitive rejection headers support a general message when the optional body cannot be read. Uncertain results keep the draft and require a deliberate new submission.
 
 The catalog resource and its literal-URL reservation commit in one transaction. The writer checks any existing reservation and the current URLs of its members before reporting a duplicate. A bounded fresh read can resolve a concurrent URL move. A lost write acknowledgement yields a storage error and leaves the outcome unconfirmed. The writer can retry after a definite conditional conflict, with one SDK attempt per request.
 

@@ -60,8 +60,11 @@ conserva sus vínculos editoriales y sociales ordinarios.
 
 El rediseño conserva rutas, enlaces compartibles, filtros, búsqueda privada,
 agenda y zonas horarias, calendario, campos del formulario y recibo real. Los
-errores nativos de validación se muestran junto a cada campo y se asocian con
-aria-describedby; al corregirse desaparecen sin perder las ayudas.
+errores de validación se muestran junto al campo o grupo, con un mensaje
+asociado a los controles mediante `aria-describedby`. La indicación de error y
+el foco son visibles a la vez. Al corregir el valor desaparece su aviso y se
+conservan las ayudas. Los fallos de servicio sin un campo claro quedan en el
+formulario o junto a la acción que los produjo.
 
 Las respuestas del FAQ de portada se abren y cierran con puntero y teclado,
 también cuando JavaScript está desactivado o no se ejecuta. El navegador maneja

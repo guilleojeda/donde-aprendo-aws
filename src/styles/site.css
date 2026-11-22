@@ -888,6 +888,18 @@ h3 {
   grid-column: 1 / -1;
 }
 
+.contribution-form__taxonomy {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.contribution-form__taxonomy-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
 .contribution-form__field label {
   color: var(--color-heading);
   font-size: 14px;
@@ -1229,6 +1241,10 @@ h3 {
 
 @media (max-width: 500px) {
   .contribution-form__fields {
+    grid-template-columns: 1fr;
+  }
+
+  .contribution-form__taxonomy-fields {
     grid-template-columns: 1fr;
   }
 
@@ -2170,6 +2186,14 @@ input:not([type='checkbox']):not([type='radio']):not([type='submit']):not([type=
   line-height: 1.4;
 }
 
+.contribution-form__group-error {
+  display: block;
+}
+
+.contribution-form__group-error[hidden] {
+  display: none;
+}
+
 .contribution-form [aria-invalid='true'] {
   border: 2px solid var(--color-error-text) !important;
 }
@@ -2427,6 +2451,10 @@ input:not([type='checkbox']):not([type='radio']):not([type='submit']):not([type=
   .contribution-form__fields {
     grid-template-columns: 1fr;
     gap: 18px;
+  }
+
+  .contribution-form__taxonomy-fields {
+    grid-template-columns: 1fr;
   }
 
   .site-footer {
