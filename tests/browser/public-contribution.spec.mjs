@@ -233,15 +233,40 @@ test('native invalidity is keyboard-locatable, keeps help, and clears on correct
 });
 
 test('the fourth topic is explained as one correctable group and does not submit', async ({ fixture, page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   const controls = await openContribution(page, fixture);
   const url = 'https://example.invalid/contribution/fourth-topic';
   await fillContribution(controls, { url });
   const topics = controls.form.locator('input[data-contribution-topic]');
   for (const index of [0, 1, 2]) await topics.nth(index).check();
+  await topics.nth(3).scrollIntoViewIfNeeded();
+  await topics.nth(3).evaluate((element) => {
+    window.scrollBy(0, element.getBoundingClientRect().top - 464);
+  });
+  const beforeRejection = await topics.nth(3).boundingBox();
+  assert.ok(beforeRejection && beforeRejection.y >= 450 && beforeRejection.y <= 560,
+    `the rejected topic starts in the controlled mobile viewport: ${JSON.stringify(beforeRejection)}`);
   await topics.nth(3).click();
   await expect(topics.nth(3)).not.toBeChecked();
   const { error } = await expectContributionTopicsError(controls.form, /tema|tres|3/iu, { focus: false });
   await expect(topics.nth(3)).toBeFocused();
+  const rejectedGeometry = await page.evaluate(() => {
+    const focused = document.activeElement?.getBoundingClientRect();
+    const error = document.querySelector('#contribution-topics-error')?.getBoundingClientRect();
+    return {
+      focused: focused && { top: focused.top, bottom: focused.bottom },
+      error: error && { top: error.top, bottom: error.bottom },
+      viewport: window.innerHeight,
+    };
+  });
+  assert.ok(rejectedGeometry.focused
+    && rejectedGeometry.focused.top >= 0
+    && rejectedGeometry.focused.bottom <= rejectedGeometry.viewport,
+  `the rejected topic keeps focus in the mobile viewport: ${JSON.stringify(rejectedGeometry)}`);
+  assert.ok(rejectedGeometry.error
+    && rejectedGeometry.error.top >= 0
+    && rejectedGeometry.error.bottom <= rejectedGeometry.viewport,
+  `the topic correction stays in the mobile viewport: ${JSON.stringify(rejectedGeometry)}`);
   await expect(controls.status).toBeHidden();
   await expect(controls.form.locator('[data-contribution-error]:visible')).toHaveCount(1);
   assert.equal(fixture.requests.length, 0, 'the local topic limit does not call the service');

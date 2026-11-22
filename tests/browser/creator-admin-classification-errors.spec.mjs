@@ -126,6 +126,39 @@ test('required classification fields are native, associated, focused, and isolat
   }
 });
 
+test('native category rejection from the mobile viewport edge reveals its label, control, and diagnostic', async ({ fixture, page }) => {
+  const id = 'admin-mobile-category-edge';
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openClassificationPage(fixture, page, [resource(id, 0)]);
+  const target = row(page, id);
+  const form = target.locator('[data-classification-form]');
+  const category = target.getByLabel('Categoría');
+  const label = category.locator('xpath=ancestor::label[1]');
+  const error = form.locator('[data-admin-field-error="category"]');
+  const writes = captureAdminWrites(page, id);
+  try {
+    await category.fill('');
+    await category.evaluate((element) => element.scrollIntoView({ block: 'end', behavior: 'instant' }));
+    const before = await category.boundingBox();
+    assert.ok(before && Math.abs(before.y + before.height - 844) < 2,
+      `the category control starts at the mobile viewport edge: ${JSON.stringify(before)}`);
+    await category.press('Enter');
+    await expectFieldError(category, form, /categor|completa|obligator/iu);
+    await expect.poll(() => writes.writes.length).toBe(0);
+    const boxes = await Promise.all([label, category, error].map(async (locator) => locator.boundingBox()));
+    const viewportBottom = await page.evaluate(() => innerHeight);
+    for (const [name, box] of [['label', boxes[0]], ['category', boxes[1]], ['error', boxes[2]]]) {
+      assert.ok(box, `${name} remains measurable after native validation`);
+      assert.ok(box.y >= 0 && box.y + box.height <= viewportBottom,
+        `${name} is fully visible with the native diagnostic: ${JSON.stringify({ box, viewportBottom })}`);
+    }
+    assert.equal(await page.evaluate(() => innerWidth), 390);
+    assert.equal(viewportBottom, 844);
+  } finally {
+    writes.stop();
+  }
+});
+
 test('local taxonomy validation attributes topics separately and cleans the message on correction', async ({ fixture, page }) => {
   const [targetId, otherId] = ['admin-local-topics', 'admin-local-topics-other'];
   await openClassificationPage(fixture, page, [resource(targetId, 0), resource(otherId, 1)]);

@@ -151,7 +151,16 @@ function focusFieldError(form: HTMLFormElement, field: AdminField, attempt?: Adm
     && attempt?.submittedValues?.has(active)
     && attempt.submittedValues.get(active) !== formState?.capture(active).get(active)) return;
   const target = fieldControls(form, field).find((control) => !control.matches(':disabled'));
-  if (target) focusVisible(target);
+  if (!target) return;
+  target.focus({ preventScroll: true });
+  const error = formFieldError(form, field);
+  const controlRegion = target.closest<HTMLElement>('label') ?? target.parentElement ?? target;
+  const groupedRegion = fieldGroup(form, field);
+  const errorRegion = error?.parentElement;
+  const candidate = groupedRegion ?? errorRegion;
+  const scrollTarget = candidate && candidate.getBoundingClientRect().height <= window.innerHeight
+    ? candidate : controlRegion;
+  scrollTarget?.scrollIntoView?.({ block: 'center', behavior: 'instant' });
 }
 
 function nativeField(field: HTMLElement): AdminField | undefined {
@@ -171,7 +180,7 @@ function handleNativeInvalid(event: Event, form: HTMLFormElement, control: Admin
   setTimeout(() => {
     pendingNativeFocus.delete(form);
     if (control.isConnected && !control.matches(':disabled') && !control.validity.valid
-      && shouldRestoreFocus(focusAtInvalid)) focusVisible(control);
+      && shouldRestoreFocus(focusAtInvalid)) focusFieldError(form, field);
   }, 0);
 }
 
@@ -758,8 +767,9 @@ async function finishAdminCompletion(
     focusAtSubmit?: Element | null;
   } = {},
 ) {
-  const receiptGap = completion.receiptProblem || completion.gaps.length > 0;
-  const uncertainReceipt = receiptGap || completion.outcome === 'uncertain';
+  const receiptGap = completion.gaps.length > 0;
+  const unverifiableReceipt = completion.receiptProblem;
+  const uncertainReceipt = unverifiableReceipt || receiptGap || completion.outcome === 'uncertain';
   if (response && options.attempt) {
     const appliedField = applyFieldDiagnostics(completion, response, context, options.attempt);
     if (appliedField !== undefined) {
@@ -771,7 +781,7 @@ async function finishAdminCompletion(
   if (completion.outcome !== 'confirmed' || receiptGap) {
     const message = uncertainReceipt
       ? context.kind === 'claim'
-        ? receiptGap
+        ? !completion.receiptProblem && receiptGap
           ? 'La vinculación se completó, pero el recibo no coincide con las versiones observadas. Actualiza la vista para revisar esta solicitud.'
           : 'No pudimos confirmar el resultado de la vinculación. Actualiza la vista para revisar esta solicitud.'
         : 'No pudimos confirmar el resultado del cambio. Actualiza la vista para revisar el estado.'
