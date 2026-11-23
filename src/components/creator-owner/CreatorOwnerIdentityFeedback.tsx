@@ -111,7 +111,7 @@ export function useNativeFieldErrors<T extends string = IdentityFeedbackField>(s
         firstInvalid.current = null;
         if (!target || !target.isConnected || target.matches(':disabled')) return;
         target.focus({ preventScroll: true });
-        const field = target.closest<HTMLElement>('.creator-owner__field') ?? target;
+        const field = target.closest<HTMLElement>('.resource-metadata-fields__field, .resource-classification__field, .resource-classification__topics, .creator-owner__field') ?? target;
         field.scrollIntoView?.({ block: 'center', inline: 'nearest' });
       }, 0);
     }

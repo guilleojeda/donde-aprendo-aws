@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { validateCatalogUrl } from './catalog-url-safety.mjs';
 import { resolveResourceClassification, validateTaxonomy } from './resource-taxonomy.mjs';
-import { DISCOVERY_FIELDS, validateDiscoveryMetadata } from './resource-discovery.mjs';
+import { DISCOVERY_FIELDS, projectDiscoveryRecord, validateDiscoveryMetadata } from './resource-discovery.mjs';
 import { projectPublicEvent } from './events.mjs';
 import { CREATOR_FIELD_LIMITS, hasCreatorPublicIdentity, isCreatorSlug, isCreatorStateId } from './creator-values.mjs';
 import { canonicalCreatorSeriesPath, isPublicCreator } from './creator-public.mjs';
@@ -442,7 +442,7 @@ export function projectPublicRecord(item, index = 0) {
     throw new Error(`Catalog record ${index + 1} has an invalid or absent classification`);
   }
   const taxonomy = validateTaxonomy(classification, index);
-  const record = {
+  const record = projectDiscoveryRecord({
     id: item.id,
     title: item.title,
     url: item.url,
@@ -452,8 +452,8 @@ export function projectPublicRecord(item, index = 0) {
     featured: item.featured,
     ...taxonomy,
     ...Object.fromEntries(DISCOVERY_FIELDS.filter((field) => Object.hasOwn(item, field)).map((field) => [field, item[field]])),
-    ...(taxonomy.kind === 'community' && Object.hasOwn(item, 'city') ? { city: item.city } : {}),
-  };
+    ...(Object.hasOwn(item, 'city') ? { city: item.city } : {}),
+  });
   validatePublicRecord(record, index);
   return record;
 }

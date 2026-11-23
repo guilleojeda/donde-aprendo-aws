@@ -7,7 +7,7 @@ import {
   resolveResourceClassification,
   validateTaxonomy,
 } from './resource-taxonomy.mjs';
-import { validateDiscoveryMetadata } from './resource-discovery.mjs';
+import { projectDiscoveryRecord, validateDiscoveryMetadata } from './resource-discovery.mjs';
 import {
   currentUrlCollision,
   currentUrlKey,
@@ -798,7 +798,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       : candidate;
     if (classification.state === 'explicit' || classification.state === 'legacy') {
       try {
-        validateDiscoveryMetadata(classifiedCandidate);
+        validateDiscoveryMetadata(projectDiscoveryRecord(classifiedCandidate));
       } catch {
         fail(422, 'INVALID_CLASSIFICATION', 'resource metadata is incompatible with its classification');
       }

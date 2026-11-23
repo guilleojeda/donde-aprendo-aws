@@ -125,6 +125,77 @@ test('owner create sends classification through the real form and persists the e
   }
 });
 
+test('owner add omits an optional classification after its topic is checked and unchecked', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  await openLinks(page, fixture);
+  await page.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+  const editor = form(page, 'alta-enlace');
+  const fields = await expectTaxonomy(editor);
+  await editor.getByLabel('Título', { exact: true }).fill('Ficha sin clasificación después de corregir');
+  await editor.getByLabel('URL', { exact: true }).fill('https://links.example.invalid/owner-classification-empty');
+  const topic = editor.locator('input[name="topics"][value="Seguridad"]');
+  await topic.check();
+  await topic.uncheck();
+  await expect(fields.kind).toHaveValue('');
+  await expect(fields.format).toHaveValue('');
+  await expect(editor.locator('input[name="topics"]:checked')).toHaveCount(0);
+
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  try {
+    await editor.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'POST', '/api/creador/enlaces')[0]?.status).toBe(201);
+    const write = writesTo(capture, 'POST', '/api/creador/enlaces')[0];
+    assert.equal(Object.hasOwn(write.body, 'kind'), false);
+    assert.equal(Object.hasOwn(write.body, 'format'), false);
+    assert.equal(Object.hasOwn(write.body, 'topics'), false);
+    const saved = (await ownerSnapshot(fixture, cookie)).resources.find(({ id }) => id === write.responseBody.resourceId);
+    assert.deepEqual(saved.classification, { state: 'absent' });
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('owner native description feedback scrolls the shared field and keeps the imported draft', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const created = await addClassified(fixture, cookie, {
+    title: 'Ficha con descripción importada', url: 'https://links.example.invalid/imported-long-description', description: 'Descripción inicial',
+  });
+  const current = await fixture.rawResource(created.resourceId);
+  const longDescription = 'D'.repeat(4_000);
+  assert.equal(await fixture.creatorStore.transact({
+    checks: [{ key: `resource:${created.resourceId}`, version: current.version }],
+    puts: [{ key: `resource:${created.resourceId}`, value: { ...current, description: longDescription, version: current.version + 1 } }],
+  }), true);
+
+  await page.setViewportSize({ width: 390, height: 420 });
+  await openLinks(page, fixture);
+  await page.getByRole('row').filter({ hasText: 'Ficha con descripción importada' })
+    .getByRole('button', { name: 'Editar ficha', exact: true }).click();
+  const editor = form(page);
+  const description = editor.getByLabel(/Descripción/iu);
+  await expect(description).toHaveValue(longDescription);
+  await description.focus();
+  await description.press('End');
+  await description.press('Backspace');
+  const attemptedDescription = await description.inputValue();
+  assert.ok(attemptedDescription.length > 2_000);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  try {
+    await editor.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect(description).toBeFocused();
+    const error = editor.locator('[data-owner-error="description"]');
+    await expect(error).toBeVisible();
+    await expect(description).toHaveValue(attemptedDescription);
+    const field = editor.locator('[data-resource-metadata-field="description"]');
+    const bounds = await field.boundingBox();
+    assert.ok(bounds && bounds.y >= 0 && bounds.y + bounds.height <= 420, JSON.stringify(bounds));
+    assert.equal(capture.writes().length, 0, 'native validation rejects the overlong imported draft before any network write');
+    assert.equal((await fixture.rawResource(created.resourceId)).description, longDescription);
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
 test('owner classification resets incompatible format and keeps the draft while correcting a fourth topic on mobile', async ({ fixture, page }) => {
   await loggedInOwner(fixture, page);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -369,6 +440,44 @@ test('approved, revoked, shared, and event links keep classification read-only w
     else await expect(titleField).toHaveAttribute('readonly', '');
     await expect(editor.getByLabel('Proponer al directorio', { exact: false })).toBeEnabled();
     await page.locator('[data-owner-dialog][open]').getByRole('button', { name: /Cerrar edición/iu }).click();
+  }
+  const legacyApproved = {
+    id: 'phase1-approved-legacy-level', title: 'Ficha legado aprobada', url: 'https://links.example.invalid/approved-legacy-level',
+    description: 'La clasificación histórica conserva un nivel incompatible.', category: 'Blog', level: 'inicial', order: 1,
+    featured: false, published: true, hidden: false, approvalRevoked: false, directoryControl: 'creator',
+    editorProfileId: snapshot.profile.id, version: 1,
+  };
+  await seedResource(fixture.creatorStore, legacyApproved);
+  snapshot = await ownerSnapshot(fixture, cookie);
+  const legacyReference = await ownerApi(fixture, cookie, '/api/creador/referencias/', {
+    method: 'POST', body: { creatorVersion: snapshot.creatorVersion, resourceId: legacyApproved.id, url: legacyApproved.url, selectedForDirectory: true },
+  });
+  assert.equal(legacyReference.response.status, 201, JSON.stringify(legacyReference.body));
+  await openLinks(page, fixture);
+  const legacyRow = page.getByRole('row').filter({ hasText: legacyApproved.title });
+  await legacyRow.getByRole('button', { name: 'Editar ficha', exact: true }).click();
+  const legacyEditor = form(page);
+  const legacyFields = await expectTaxonomy(legacyEditor);
+  await expect(legacyFields.kind).toBeDisabled();
+  await expect(legacyFields.format).toBeDisabled();
+  const legacyTitle = legacyEditor.getByLabel('Título', { exact: true });
+  await expect(legacyTitle).toBeEnabled();
+  await expect(legacyTitle).not.toHaveAttribute('readonly', '');
+  const legacyBefore = await fixture.rawResource(legacyApproved.id);
+  await legacyTitle.fill('Intento de cambiar la ficha legado');
+  const legacyCapture = await captureCreatorApi(page);
+  try {
+    await legacyEditor.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    const path = `/api/creador/enlaces/${legacyReference.body.placementId}/editar`;
+    await expect.poll(() => writesTo(legacyCapture, 'PATCH', path)[0]?.status).toBe(422);
+    const rejected = writesTo(legacyCapture, 'PATCH', path)[0];
+    assert.equal(rejected.responseBody.error, 'INVALID_CLASSIFICATION');
+    assert.deepEqual(await fixture.rawResource(legacyApproved.id), legacyBefore, 'the candidate rejection does not mutate the approved legacy row');
+    await expect(legacyEditor.locator('[data-owner-form-status="enlace"]')).toContainText(/administración|clasificación/iu);
+    await expect(legacyFields.kind).not.toHaveAttribute('aria-invalid', 'true');
+    await expect(legacyTitle).toHaveValue('Intento de cambiar la ficha legado');
+  } finally {
+    await legacyCapture.stop({ skipErrorBodies: true });
   }
   assert.deepEqual(await fixture.rawResource(shared.id), shared);
   assert.deepEqual(await fixture.rawResource(event.id), event);

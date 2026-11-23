@@ -241,6 +241,57 @@ test('pending active classification remains creator-editable, and retained repla
   assert.equal(resource.classificationEditable, true);
 });
 
+for (const retired of [false, true]) {
+  test(`approved community reclassification permits creator metadata edits (${retired ? 'retained' : 'active'})`, async () => {
+    const harness = await createCreatorPagesHarness();
+    const profile = await createProfile(harness, 'creator-a', { slug: `community-city-${retired ? 'retained' : 'active'}` });
+    const resource = {
+      id: `community-city-${retired ? 'retained' : 'active'}`,
+      title: 'Community with reviewed city', url: 'https://classification.example/community-city',
+      description: 'Community description', category: 'Comunidad', kind: 'community', format: 'User Group', topics: [],
+      country: 'AR', city: 'Córdoba', order: 1, featured: false, published: true, hidden: false,
+      approvalRevoked: false, directoryControl: 'creator', editorProfileId: profile.profile.id, version: 1,
+    };
+    await seedResource(harness.store, resource);
+    await grant(harness, resource.id);
+    const before = await harness.store.get(`resource:${resource.id}`);
+    const classified = await adminPatch(harness, resource.id, {
+      version: before.version, category: 'Blog', kind: 'source', format: 'Blog', topics: [],
+    });
+    assert.equal(classified.response.status, 200, JSON.stringify(classified.body));
+    const afterClassification = await harness.store.get(`resource:${resource.id}`);
+    assert.equal(afterClassification.city, 'Córdoba', 'reclassification preserves inactive city storage');
+    assert.equal(afterClassification.kind, 'source');
+    assert.equal(Object.hasOwn(projectPublicRecord(afterClassification), 'city'), false,
+      'public source projection omits the inactive city');
+    if (retired) await removePlacement(harness, 'creator-a', resource.id);
+    const edited = await editLink(harness, 'creator-a', resource.id, { title: 'Source title correction' }, { retired });
+    assert.equal(edited.response.status, 200, JSON.stringify(edited.body));
+    const saved = await harness.store.get(`resource:${resource.id}`);
+    assert.equal(saved.title, 'Source title correction');
+    assert.equal(saved.city, 'Córdoba', 'inactive city remains retained after metadata edit');
+  });
+}
+
+test('pending community city remains stored when its classification changes to source', async () => {
+  const harness = await createCreatorPagesHarness();
+  const profile = await createProfile(harness, 'creator-a', { slug: 'pending-community-city' });
+  const resource = {
+    id: 'pending-community-city', title: 'Pending community',
+    url: 'https://classification.example/pending-community-city', description: 'Pending description',
+    category: 'Comunidad', kind: 'community', format: 'User Group', topics: [],
+    country: 'AR', city: 'Córdoba', order: 1, featured: false, published: false, hidden: false,
+    approvalRevoked: false, directoryControl: 'creator', editorProfileId: profile.profile.id, version: 1,
+  };
+  await seedResource(harness.store, resource);
+  await reference(harness, 'creator-a', resource);
+  const edited = await editLink(harness, 'creator-a', resource.id, { ...SOURCE, title: 'Pending source' });
+  assert.equal(edited.response.status, 200, JSON.stringify(edited.body));
+  const saved = await harness.store.get(`resource:${resource.id}`);
+  assert.equal(saved.kind, 'source');
+  assert.equal(saved.city, 'Córdoba');
+});
+
 test('owner Add and edit reject partial, incompatible, and invalid-topic taxonomy without persisted effects', async (t) => {
   const cases = [
     { name: 'partial taxonomy', fields: { kind: 'content' } },

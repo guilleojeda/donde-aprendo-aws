@@ -46,6 +46,7 @@ import {
   type CreatorOwnerSessionPolicyAction,
   type CreatorOwnerSessionPolicyState,
   type CreatorOwnerEditorDraft,
+  type CreatorOwnerClassificationDraft,
   type CreatorOwnerSocialsDraft,
   type CreatorOwnerIntent,
   type CreatorOwnerOperation,
@@ -155,6 +156,20 @@ function ownerResource(snapshot: CreatorOwnerSnapshotDTO, resourceId: string) {
   return snapshot.resources.find((resource) => resource.id === resourceId);
 }
 
+function ownerClassificationEditable(editor: CreatorOwnerEditorDraft, snapshot: CreatorOwnerSnapshotDTO): boolean {
+  if (editor.kind === 'add-link') return true;
+  const resource = editor.kind === 'link-placement'
+    ? snapshot.placements[editor.placementId] && ownerResource(snapshot, snapshot.placements[editor.placementId].resourceId)
+    : editor.kind === 'link-resource' ? ownerResource(snapshot, editor.resourceId) : undefined;
+  return Boolean(resource?.classificationEditable);
+}
+
+function ownerClassificationRejectionMessage(editor: CreatorOwnerEditorDraft, snapshot: CreatorOwnerSnapshotDTO): string {
+  return ownerClassificationEditable(editor, snapshot)
+    ? 'La ficha no se puede guardar con esta clasificación y sus datos públicos. Conservamos el borrador para que puedas corregirla.'
+    : 'La ficha no se puede guardar con la clasificación y los datos públicos actuales. Conservamos el borrador; Administración debe corregir la clasificación o sus datos públicos.';
+}
+
 type ListRecoveryOperation = Extract<CreatorOwnerOperation,
   { status: 'reading' | 'refresh-failed' | 'unknown' | 'conflict' }> & { intent: CreatorOwnerIntent };
 
@@ -251,6 +266,7 @@ function ownerContentFieldErrors(error: unknown, payload: CreatorSessionResponse
   let lengthMessages: CreatorOwnerFieldMessages;
   if (action === 'add-link' || action === 'edit-link' || action === 'edit-resource') {
     if (error === 'INVALID_CLASSIFICATION') {
+      if (!ownerClassificationEditable(editor, snapshot)) return undefined;
       const messages = {
         'kind-format': 'Elige un tipo y un formato compatibles.',
         topics: 'Elige hasta tres temas válidos.',
@@ -259,7 +275,7 @@ function ownerContentFieldErrors(error: unknown, payload: CreatorSessionResponse
         const mapped = readOwnerFieldErrors(payload, reason, messages);
         if (mapped) return mapped;
       }
-      return { 'kind-format': messages['kind-format'] };
+      return undefined;
     }
     if (error === 'INVALID_TITLE' && Object.hasOwn(fields, 'title')) return { title: 'Ingresa un título.' };
     if ((error === 'INVALID_URL' || error === 'URL_TAKEN') && Object.hasOwn(fields, 'url')) {
@@ -1465,6 +1481,10 @@ export default function CreatorOwnerApp(props: Props) {
           return;
         }
         let message = rejectedOwnerWriteMessage(error, response.status);
+        const { editor, observed } = stateRef.current;
+        if (error === 'INVALID_CLASSIFICATION' && editor && intent.editorKey === editor.key) {
+          message = ownerClassificationRejectionMessage(editor, observed);
+        }
         if (intent.action === 'publish-profile') {
           message = error === 'PROFILE_INCOMPLETE' ? 'Completa el nombre y la dirección de tu página antes de publicar.'
             : 'No pudimos publicar tu página. Revisa tus datos o vuelve a intentarlo.';
@@ -1472,7 +1492,6 @@ export default function CreatorOwnerApp(props: Props) {
           message = error === 'CREATOR_CONTENT_TOO_LARGE' ? 'No hay espacio para este cambio. Quita contenido antes de volver a intentarlo.'
             : 'La acción no se guardó. Revisa el contenido de esta sección antes de volver a intentarlo.';
         }
-        const { editor, observed } = stateRef.current;
         const fieldErrors = editor && (ownerIdentityFieldErrors(error, payload, storedIntent, editor)
           ?? ownerContentFieldErrors(error, payload, intent, editor, observed));
         operationGenerationRef.current += 1;
@@ -1522,8 +1541,10 @@ export default function CreatorOwnerApp(props: Props) {
     const profile = snapshot.profile;
     if (!profile) return undefined;
     const classificationChanged = (fields: readonly string[]) => fields.some((field) => ['kind', 'format', 'topics'].includes(field));
-    const classificationFields = (draft: { kind: string; format: string; topics: string[] }, fields: readonly string[]) =>
-      classificationChanged(fields) ? { kind: draft.kind, format: draft.format, topics: [...draft.topics] } : {};
+    const classificationFields = (draft: { kind: string; format: string; topics: string[] }, fields: readonly string[], omitEmpty = false) => {
+      if (!classificationChanged(fields) || omitEmpty && !draft.kind && !draft.format && draft.topics.length === 0) return {};
+      return { kind: draft.kind, format: draft.format, topics: [...draft.topics] };
+    };
     if (editor.kind === 'profile') {
       if (editor.section === 'redes') {
         const socials = Object.fromEntries(editor.touchedFields.map((key) => [key, editor.draft[key]]));
@@ -1581,7 +1602,7 @@ export default function CreatorOwnerApp(props: Props) {
         .map((key) => [key, editor.draft[key]]));
       return makeIntent('add-link', { title: editor.draft.title, url: editor.draft.url,
         selectedForDirectory: editor.draft.selectedForDirectory, ...optionalFields,
-        ...classificationFields(editor.draft, editor.touchedFields) }, { editor });
+        ...classificationFields(editor.draft, editor.touchedFields, true) }, { editor });
     }
     if (editor.kind === 'move-link') {
       if (!creatorOwnerMoveDestinationIsValid(editor, snapshot)) return rejectEditorField(editor, 'position', creatorOwnerMovePositionMessage(editor, snapshot));
@@ -1875,7 +1896,12 @@ export default function CreatorOwnerApp(props: Props) {
       dispatch({ type: 'editor-field-rejected', editorKey: editor.key, field: 'topics', message: 'Elige hasta tres temas.' });
       return;
     }
-    const value = { kind: transition.value.kind, format: transition.value.format, topics: transition.value.topics };
+    const value: Partial<CreatorOwnerClassificationDraft> = {};
+    if (transition.value.kind !== editor.draft.kind) value.kind = transition.value.kind;
+    if (transition.value.format !== editor.draft.format) value.format = transition.value.format;
+    if (transition.value.topics.length !== editor.draft.topics.length
+      || transition.value.topics.some((topic, index) => topic !== editor.draft.topics[index])) value.topics = transition.value.topics;
+    if (Object.keys(value).length === 0) return;
     if (editor.kind === 'add-link') dispatch({ type: 'update-add-link-draft', value });
     else dispatch({ type: 'update-link-draft', value });
   }
