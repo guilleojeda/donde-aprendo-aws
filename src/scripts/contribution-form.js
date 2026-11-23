@@ -172,16 +172,31 @@ if (form) {
     if (groupError(group)?.hidden === false) setGroupError(group, false);
   };
 
-  const revealGroupError = (group) => {
-    const error = groupError(group);
-    if (!error || error.hidden) return;
-    setTimeout(() => {
-      if (error.hidden) return;
-      const bounds = error.getBoundingClientRect();
-      if (bounds.top < 0 || bounds.bottom > window.innerHeight) {
-        error.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
-      }
-    }, 0);
+  const errorLabel = (control) => control?.labels?.[0] ?? control?.closest('label');
+  const revealErrorContext = (control, error, { focus = false } = {}) => {
+    if (!control || !error || error.hidden) return false;
+    if (focus) {
+      control.focus({ preventScroll: true });
+      if (document.activeElement !== control) return false;
+    }
+
+    const rects = [errorLabel(control), control, error]
+      .filter((element) => typeof element?.getBoundingClientRect === 'function')
+      .map((element) => element.getBoundingClientRect());
+    if (rects.length === 0) return true;
+    const bounds = rects
+      .reduce((combined, element) => {
+        return {
+          top: Math.min(combined.top, element.top),
+          bottom: Math.max(combined.bottom, element.bottom),
+        };
+      }, { top: Number.POSITIVE_INFINITY, bottom: Number.NEGATIVE_INFINITY });
+    const viewportHeight = window.innerHeight;
+    if (viewportHeight > 0 && (bounds.top < 0 || bounds.bottom > viewportHeight)) {
+      const distance = (bounds.top + bounds.bottom - viewportHeight) / 2;
+      window.scrollBy({ top: distance, behavior: 'instant' });
+    }
+    return true;
   };
 
   const updateVisibleFieldError = (event) => {
@@ -199,7 +214,7 @@ if (form) {
     if (invalidCycle) return;
     invalidCycle = true;
     setTimeout(() => {
-      field.focus();
+      revealErrorContext(field, fieldError(field), { focus: true });
       invalidCycle = false;
     }, 0);
   }, true);
@@ -221,7 +236,7 @@ if (form) {
     box.checked = false;
     placeTopicErrorNear(box);
     setGroupError('topics', true, 'Puedes elegir hasta tres temas.');
-    revealGroupError('topics');
+    revealErrorContext(box, groupError('topics'));
   }));
 
   const uncertainMessage = 'No pudimos confirmar el resultado de tu envío. Conserva el formulario y revisa antes de intentarlo de nuevo.';
@@ -328,15 +343,18 @@ if (form) {
     const field = form.elements.namedItem(target);
     return field && typeof field !== 'string' ? field : undefined;
   };
-  const showDiagnostic = (diagnostic) => {
+  const showDiagnostic = (diagnostic, { nearFocus = true } = {}) => {
     const { field } = diagnostic;
     const message = diagnosticMessage(diagnostic);
     if (field === 'topics' || field === 'kind-format') {
+      if (field === 'topics' && nearFocus) placeTopicErrorNear(topicBoxes[0]);
       setGroupError(field, true, message);
-      return;
+      return { control: diagnosticControl(field), error: groupError(field) };
     }
     const control = diagnosticControl(field);
-    if (control) setFieldError(control, true, message);
+    if (!control) return undefined;
+    setFieldError(control, true, message);
+    return { control, error: fieldError(control) };
   };
 
   const applyFieldDiagnostics = (attempt, diagnostics) => {
@@ -344,8 +362,12 @@ if (form) {
       snapshotValue(field, attempt.payload) === currentValue(field)
     ));
     if (applicable.length === 0) return false;
-    for (const diagnostic of applicable) showDiagnostic(diagnostic);
-    if (canFocusAttemptResult(attempt)) diagnosticControl(applicable[0].field)?.focus();
+    const shouldFocus = canFocusAttemptResult(attempt);
+    const shown = applicable.map((diagnostic) => showDiagnostic(diagnostic, { nearFocus: shouldFocus })).filter(Boolean);
+    if (shouldFocus) {
+      const first = shown[0];
+      if (first) revealErrorContext(first.control, first.error, { focus: true });
+    }
     return true;
   };
 

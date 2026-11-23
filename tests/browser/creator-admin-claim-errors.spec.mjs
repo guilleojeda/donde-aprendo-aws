@@ -184,3 +184,78 @@ test('an empty resource selection is a correctable local group error before a re
     page.off('request', onRequest);
   }
 });
+
+for (const { colorScheme, viewport } of [
+  { colorScheme: 'dark', viewport: { width: 390, height: 844 } },
+  { colorScheme: 'light', viewport: { width: 1265, height: 720 } },
+]) {
+  test(`a long real claim keeps its group correction beside the focused control (${viewport.width}px, ${colorScheme})`, async ({ fixture, page }) => {
+    await page.setViewportSize(viewport);
+    await page.emulateMedia({ colorScheme });
+    const suffix = `${viewport.width}-${colorScheme}`;
+    const ids = Array.from({ length: 12 }, (_, index) => `admin-claim-errors-long-${suffix}-${index}`);
+    const longUrlPrefix = 'https://admin-fixture.example.invalid/';
+    const longFirstUrl = `${longUrlPrefix}${'x'.repeat(2048 - longUrlPrefix.length)}`;
+    assert.equal(longFirstUrl.length, 2048, 'the first observed URL stays at the supported 2048-character limit');
+    await prepareAdmin(fixture, page, ids.map((id, index) => resource(id, index,
+      index === 0 ? { url: longFirstUrl } : {})));
+    const owner = await createOwnerProfile(fixture, `long-${suffix}`);
+    const claim = await createClaim(fixture, owner.cookie, ids);
+    await openAdmin(fixture, page);
+
+    const form = claimForm(page, claim.id);
+    const selections = form.locator('input[name="resourceIds"]');
+    const firstSelection = selections.first();
+    const review = reviewCheckbox(form);
+    const submit = claimSubmit(form);
+    for (const control of await selections.all()) await control.uncheck();
+    await review.check();
+
+    let writes = 0;
+    const onRequest = (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/reclamaciones/vincular/') writes += 1;
+    };
+    page.on('request', onRequest);
+    try {
+      await submit.click();
+      const selectionError = await expectSelectionError(form, /selecciona|elige|recurso|ID/iu);
+      await expect(firstSelection).toBeFocused();
+      await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe(colorScheme);
+
+      const geometry = await form.evaluate((element) => {
+        const control = element.querySelector('input[name="resourceIds"]')?.getBoundingClientRect();
+        const error = element.querySelector('[data-admin-field-error="resourceIds"]')?.getBoundingClientRect();
+        return {
+          viewport: window.innerHeight,
+          control: control?.toJSON(),
+          error: error?.toJSON(),
+        };
+      });
+      assert.ok(geometry.control && geometry.error, 'the focused control and group diagnostic remain measurable');
+      assert.ok(geometry.control.top >= 0 && geometry.control.bottom <= geometry.viewport,
+        `the focused first checkbox is visible: ${JSON.stringify(geometry)}`);
+      assert.ok(geometry.error.top >= 0 && geometry.error.bottom <= geometry.viewport,
+        `the group correction is visible with the focused control: ${JSON.stringify(geometry)}`);
+      assert.equal(writes, 0, 'the empty selection is rejected without a POST');
+
+      await firstSelection.check();
+      await expectSelectionErrorCleared(form, selectionError.error);
+      assert.equal(writes, 0, 'correcting the selection does not write until an explicit retry');
+      for (const control of (await selections.all()).slice(1)) await control.check();
+
+      const retry = page.waitForResponse((response) => response.request().method() === 'POST'
+        && new URL(response.url()).pathname === '/api/admin/reclamaciones/vincular/');
+      await submit.click();
+      const response = await retry;
+      assert.equal(response.status(), 200, 'the deliberate corrected retry reaches the real claim service');
+      assert.equal(writes, 1, 'the deliberate retry performs one POST');
+      assert.deepEqual(JSON.parse(response.request().postData()), {
+        accountId: owner.principal.accountId,
+        resourceIds: ids,
+      });
+      assert.equal((await fixture.creatorStore.get(`claim:${claim.id}`)).status, 'resolved');
+    } finally {
+      page.off('request', onRequest);
+    }
+  });
+}
