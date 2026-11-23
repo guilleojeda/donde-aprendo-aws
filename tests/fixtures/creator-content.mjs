@@ -1,6 +1,7 @@
 import { createCreatorPagesHarness, seedResource, sessionCsrf, SITE_ORIGIN, callApi } from './creator-pages.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../../src/lib/creator-values.mjs';
 
-export const CREATOR_CONTRACT = '2';
+const LEGACY_OWNER_READ_CONTRACT = '2';
 export const CREATOR_ACCOUNT_ID = 'private-account-a';
 export const CREATOR_PROFILE_ID = 'creator-content-profile';
 const FIXED_TIMESTAMP = Date.UTC(2026, 10, 14);
@@ -113,16 +114,25 @@ async function insert(store, key, value) {
   if (!result) throw new Error(`creator fixture record already exists: ${key}`);
 }
 
-export function creatorRequest(harness, path, {
-  session = 'creator-a',
-  method = 'GET',
-  body,
-  origin = SITE_ORIGIN,
-  creatorContract = CREATOR_CONTRACT,
-  extraHeaders = {},
-} = {}) {
+export function creatorRequest(harness, path, options = {}) {
+  const {
+    session = 'creator-a',
+    method = 'GET',
+    body,
+    origin = SITE_ORIGIN,
+    creatorContract,
+    extraHeaders = {},
+  } = options;
   const headers = { ...extraHeaders };
-  if (creatorContract !== null) headers['X-Creator-Contract'] = String(creatorContract);
+  // Keep legacy owner reads on the exact v2 projection while every current
+  // mutating request uses the negotiated v3 writer contract. Explicit null or
+  // undefined still lets callers exercise missing-header/admin paths.
+  const requestedContract = Object.hasOwn(options, 'creatorContract')
+    ? creatorContract
+    : method === 'GET' ? LEGACY_OWNER_READ_CONTRACT : CREATOR_CONTRACT_VERSION;
+  if (requestedContract !== null && requestedContract !== undefined) {
+    headers['X-Creator-Contract'] = String(requestedContract);
+  }
   return callApi(harness, path, {
     session,
     csrf: sessionCsrf[session],

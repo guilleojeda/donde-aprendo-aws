@@ -3,6 +3,7 @@ import test from 'node:test';
 import { createGA4StatisticsReader } from '../src/lib/creator-statistics-ga4.mjs';
 import { createGA4TokenProvider } from '../src/lib/creator-statistics-token.mjs';
 import { createCreatorStatisticsStore } from '../src/lib/creator-statistics-store.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 import { callApi, createCreatorPagesHarness, sessionCsrf } from './fixtures/creator-pages.mjs';
 import { analyticsReport } from './fixtures/creator-statistics-ga4.mjs';
 
@@ -631,7 +632,7 @@ test('an authenticated request after property midnight does not join a fresh res
   const saved = await callApi(harness, '/api/creador/perfil', {
     session: 'creator-a',
     method: 'PUT',
-    creatorContract: '2',
+    creatorContract: CREATOR_CONTRACT_VERSION,
     csrf: sessionCsrf['creator-a'],
     body: { creatorVersion: null, displayName: 'Creador de prueba', slug: 'creador-de-prueba' },
   });
@@ -643,7 +644,7 @@ test('an authenticated request after property midnight does not join a fresh res
   const published = await callApi(harness, '/api/creador/perfil/publicar', {
     session: 'creator-a',
     method: 'POST',
-    creatorContract: '2',
+    creatorContract: CREATOR_CONTRACT_VERSION,
     csrf: sessionCsrf['creator-a'],
     body: { creatorVersion: snapshot.creatorVersion },
   });

@@ -7,6 +7,7 @@ import { transform } from '@astrojs/compiler-rs';
 import { experimental_AstroContainer } from 'astro/container';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { callApi, createCreatorPagesHarness, responseJson, sessionCsrf } from './fixtures/creator-pages.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const scratchParent = path.join(root, '.work/creator-pages');
@@ -70,7 +71,7 @@ async function mutate(harness, pathname, method, body) {
   const response = await callApi(harness, pathname, {
     session: 'creator-a',
     csrf: sessionCsrf['creator-a'],
-    creatorContract: '2',
+    creatorContract: CREATOR_CONTRACT_VERSION,
     method,
     body,
   });

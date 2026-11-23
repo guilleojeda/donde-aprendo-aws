@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { callApi, sessionCsrf } from './fixtures/creator-pages.mjs';
 import { createDynamoMoveHarness, seedMoveProfile, seedMoveResource } from './fixtures/creator-link-move.mjs';
 import { currentUrlCollision, currentUrlKey } from '../src/lib/catalog-url.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 
 const CATALOG_TABLE = 'catalog-test';
 const PROFILES_TABLE = 'profiles-test';
@@ -10,14 +11,18 @@ const PROFILE_ID = 'profile-move-a';
 const PROFILE_SLUG = 'admission-boundary';
 const ACCOUNT_ID = 'private-account-a';
 
-async function request(harness, path, {
-  method = 'GET', body, session = 'creator-a', creatorContract = '2',
-} = {}) {
+async function request(harness, path, options = {}) {
+  const {
+    method = 'GET', body, session = 'creator-a', creatorContract,
+  } = options;
+  const requestedContract = Object.hasOwn(options, 'creatorContract')
+    ? creatorContract
+    : method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION;
   const response = await callApi(harness, path, {
     method,
     session,
     csrf: sessionCsrf[session],
-    creatorContract,
+    creatorContract: requestedContract,
     ...(body === undefined ? {} : { body }),
   });
   return {

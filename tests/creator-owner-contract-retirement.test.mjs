@@ -7,6 +7,7 @@ import {
 import { createPhotoObjects, rasterPhotoFixtures } from './fixtures/creator-photos.mjs';
 import { createCreatorPhotoService } from '../src/lib/creator-photos.mjs';
 import { createCreatorHttpHandler } from '../src/lib/creator-http.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 
 const profileId = 'old-document-profile';
 const accountId = 'private-account-a';
@@ -122,7 +123,7 @@ test('the separate photo authorization boundary rejects an obsolete document bef
   }));
   await assertObsolete(wrongVersion);
   const retiredBody = await harness.handle(apiRequest('/api/creador/foto/autorizar', {
-    method: 'POST', csrf: principal.csrfToken, extraHeaders: { 'x-creator-contract': '2' },
+    method: 'POST', csrf: principal.csrfToken, extraHeaders: { 'x-creator-contract': CREATOR_CONTRACT_VERSION },
     body: { version: 1 },
   }));
   assert.equal(retiredBody.status, 422, 'a current discriminator does not adapt the retired body version field');
@@ -159,7 +160,7 @@ test('the separate photo finalize boundary rejects obsolete input without select
   }));
   await assertObsolete(wrongVersion);
   const retiredBody = await harness.handle(apiRequest('/api/creador/foto/finalizar', {
-    method: 'POST', csrf: principal.csrfToken, extraHeaders: { 'x-creator-contract': '2' },
+    method: 'POST', csrf: principal.csrfToken, extraHeaders: { 'x-creator-contract': CREATOR_CONTRACT_VERSION },
     body: { version: 1, uploadId },
   }));
   assert.equal(retiredBody.status, 422, 'a current discriminator does not adapt the retired body version field');

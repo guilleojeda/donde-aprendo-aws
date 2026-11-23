@@ -6,7 +6,7 @@ import AccountLogout from '../../../components/AccountLogout.astro';
 import '../../../styles/account.css';
 import '../../../styles/creators.css';
 import { CREATOR_PRIVATE_HEADERS, loadCreatorAdmin, safeJsonForScript } from '../_creator-page';
-import { FORMATS_BY_KIND, KIND_LABELS, TOPICS } from '../../../lib/resource-taxonomy.mjs';
+import ResourceClassificationFields from '../../../components/ResourceClassificationFields';
 import { adminResourcePageHref } from '../../../lib/creator-admin-pagination.mjs';
 
 export const prerender = false;
@@ -28,7 +28,6 @@ const initial = safeJsonForScript({
   profiles: result.data?.profiles ?? [],
   claims: pendingClaims,
 });
-const formats = [...new Set(Object.values(FORMATS_BY_KIND).flat())];
 const message = result.status === 401
   ? 'Inicia sesión con tu cuenta administrativa.'
   : result.status === 403
@@ -112,37 +111,12 @@ const message = result.status === 401
                         <label>Categoría<input name="category" value={String(resource.category ?? '')} required /></label>
                         <p class="creator-form__field-error" data-admin-field-error="category" id={`admin-category-error-${domId}`} hidden></p>
                       </div>
-                      <fieldset class="creator-admin__classification-pair" data-admin-field-group="kind-format">
-                        <legend>Tipo y formato</legend>
-                        <div>
-                          <label>Tipo
-                            <select name="kind" required>
-                              <option value="" disabled selected={!['content', 'source', 'community'].includes(String(resource.kind ?? ''))}>Selecciona un tipo</option>
-                              {Object.entries(KIND_LABELS).map(([value, label]) => <option value={value} selected={resource.kind === value}>{label}</option>)}
-                            </select>
-                          </label>
-                          <p class="creator-form__field-error" data-admin-field-error="kind" id={`admin-kind-error-${domId}`} hidden></p>
-                        </div>
-                        <div>
-                          <label>Formato
-                            <select name="format" required>
-                              <option value="" disabled selected={!formats.includes(String(resource.format ?? ''))}>Selecciona un formato</option>
-                              {formats.map((format) => <option value={format} selected={resource.format === format}>{format}</option>)}
-                            </select>
-                          </label>
-                          <p class="creator-form__field-error" data-admin-field-error="format" id={`admin-format-error-${domId}`} hidden></p>
-                        </div>
-                        <p class="creator-form__field-error" data-admin-field-error="kind-format" id={`admin-kind-format-error-${domId}`} hidden></p>
-                      </fieldset>
-                      <div>
-                        <label>Temas (hasta 3, separados por coma)
-                          <input name="topics" list={`creator-topics-${domId}`} value={topics.join(', ')} />
-                          <datalist id={`creator-topics-${domId}`}>
-                            {TOPICS.map((topic) => <option value={topic} />)}
-                          </datalist>
-                        </label>
-                        <p class="creator-form__field-error" data-admin-field-error="topics" id={`admin-topics-error-${domId}`} hidden></p>
-                      </div>
+                      <ResourceClassificationFields
+                        idPrefix={`admin-${domId}`}
+                        value={{ kind: String(resource.kind ?? ''), format: String(resource.format ?? ''), topics }}
+                        preserveInvalidValues
+                        hookPrefix="admin"
+                      />
                       <button class="button button--outline" type="submit">Guardar clasificación</button>
                     </form>}
                   <p class="creator-form__status" data-item-status role="status" tabindex="-1"></p>

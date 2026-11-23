@@ -16,6 +16,9 @@ export const TOPICS = Object.freeze([
   'Internet de las Cosas', 'Novedades', 'Operaciones', 'Redes', 'Seguridad', 'Serverless',
 ]);
 
+/** The maximum number of explicit topics accepted by every resource writer. */
+export const MAX_RESOURCE_TOPICS = 3;
+
 const TOPIC_FOR_CATEGORY = Object.freeze({
   'Aplicaciones Móviles': 'Desarrollo web',
   'Aplicaciones Web': 'Desarrollo web',
@@ -79,7 +82,7 @@ export function validateTaxonomy(value, index = 0) {
     if (typeof format === 'string') error.fieldErrors = [{ field: 'kind-format', reason: 'invalid_combination' }];
     throw error;
   }
-  if (!Array.isArray(topics) || topics.length > 3 || new Set(topics).size !== topics.length
+  if (!Array.isArray(topics) || topics.length > MAX_RESOURCE_TOPICS || new Set(topics).size !== topics.length
     || topics.some((topic) => !TOPICS.includes(topic))) {
     const error = new Error(`Catalog record ${index + 1} has invalid topics`);
     if (Array.isArray(topics) && topics.every((topic) => typeof topic === 'string')) {
@@ -89,6 +92,53 @@ export function validateTaxonomy(value, index = 0) {
   }
   return { kind, format, topics: [...topics] };
 }
+
+const TAXONOMY_FIELDS = Object.freeze(['kind', 'format', 'topics']);
+
+/**
+ * Resolve the stored classification without changing the row.  A row that
+ * contains any explicit taxonomy key is never interpreted as legacy data: a
+ * partial or malformed tuple is `invalid`, even when its category or URL
+ * could otherwise be inferred.
+ */
+export function resolveResourceClassification(record = {}, index = 0) {
+  if (record?.recordType === 'event') return { state: 'event' };
+
+  const hasExplicit = TAXONOMY_FIELDS.some((field) => Object.hasOwn(record, field));
+  if (hasExplicit) {
+    try {
+      return { state: 'explicit', ...validateTaxonomy(record, index) };
+    } catch {
+      return { state: 'invalid' };
+    }
+  }
+
+  const hasCategory = Object.hasOwn(record ?? {}, 'category') || Object.hasOwn(record ?? {}, 'Category');
+  const category = Object.hasOwn(record ?? {}, 'category') ? record.category : record.Category;
+  if (!hasCategory) return { state: 'absent' };
+  if (typeof category !== 'string' || category.trim() === '') {
+    return { state: 'invalid' };
+  }
+  try {
+    return { state: 'legacy', ...validateTaxonomy(classifyLegacyResource(record), index) };
+  } catch {
+    return { state: 'invalid' };
+  }
+}
+
+/** Return the three-key explicit tuple, or undefined for an omitted group. */
+export function explicitTaxonomyFrom(value) {
+  const present = TAXONOMY_FIELDS.filter((field) => Object.hasOwn(value ?? {}, field));
+  if (present.length === 0) return undefined;
+  if (present.length !== TAXONOMY_FIELDS.length) {
+    const error = new Error('classification must include kind, format, and topics');
+    error.fieldErrors = [{ field: 'kind-format', reason: 'required' }];
+    throw error;
+  }
+  return validateTaxonomy(value);
+}
+
+export const RESOURCE_TAXONOMY_FIELDS = TAXONOMY_FIELDS;
 
 // Retain the old field for existing integrations while the new taxonomy owns filtering.
 export function legacyCategoryFor(taxonomy) {

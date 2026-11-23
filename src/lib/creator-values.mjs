@@ -1,5 +1,10 @@
+import { RESOURCE_METADATA_POLICIES } from './resource-form-policy.mjs';
+
 export const CREATOR_CONTRACT_HEADER = 'X-Creator-Contract';
-export const CREATOR_CONTRACT_VERSION = '2';
+// v2 remains readable for already-open owner pages; new owner writes and the
+// classification-aware read use v3. Receipts and persisted creator state stay
+// at their existing schema versions.
+export const CREATOR_CONTRACT_VERSION = '3';
 
 /** @type {readonly import('../types/creators').CreatorProgram[]} */
 export const CREATOR_PROGRAMS = Object.freeze(['User Group Leaders', 'Community Builders', 'Heroes']);
@@ -12,9 +17,9 @@ export const CREATOR_FIELD_LIMITS = Object.freeze({
   city: 100,
   country: 100,
   bio: 2000,
-  title: 200,
-  url: 2048,
-  description: 2000,
+  title: RESOURCE_METADATA_POLICIES.owner.title.maxLength,
+  url: RESOURCE_METADATA_POLICIES.owner.url.maxLength,
+  description: RESOURCE_METADATA_POLICIES.owner.description.maxLength,
   sourceId: 2000,
   evidence: 2000,
   social: 500,

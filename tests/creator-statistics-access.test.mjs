@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 import {
   callApi,
   createCreatorPagesHarness,
@@ -58,7 +59,7 @@ async function api(harness, path, session, options = {}) {
   return callApi(harness, path, {
     session,
     ...(session && sessionCsrf[session] ? { csrf: sessionCsrf[session] } : {}),
-    ...(creatorWrite ? { creatorContract: '2' } : {}),
+    ...(creatorWrite ? { creatorContract: CREATOR_CONTRACT_VERSION } : {}),
     ...options,
   });
 }

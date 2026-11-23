@@ -47,6 +47,9 @@ export function nativeIdentityFieldMessage(field: IdentityFeedbackField, control
 
 export function nativeCreatorOwnerFieldMessage(field: CreatorOwnerField, control: HTMLInputElement | HTMLTextAreaElement): string {
   if (control.validity.customError) return control.validationMessage;
+  if (field === 'kind' || field === 'format') {
+    return control.validity.valueMissing ? `Elige un ${field === 'kind' ? 'tipo de recurso' : 'formato'}.` : 'Revisa la clasificación.';
+  }
   if (field === 'name') {
     if (control.validity.valueMissing) return 'Completa el nombre de la serie.';
     if (control.validity.tooLong) return 'Reduce el nombre de la serie para respetar el límite.';

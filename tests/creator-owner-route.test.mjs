@@ -286,8 +286,8 @@ test('el consumidor SSR rechaza una proyección contradictoria devuelta por la c
   const saved = await ownerSnapshot();
   const readCreatorEditor = runtime.pages.service.readCreatorEditor.bind(runtime.pages.service);
   let corrupted = false;
-  runtime.pages.service.readCreatorEditor = async (context) => {
-    const actual = await readCreatorEditor(context);
+  runtime.pages.service.readCreatorEditor = async (context, options) => {
+    const actual = await readCreatorEditor(context, options);
     if (corrupted) return actual;
     corrupted = true;
     const result = structuredClone(actual);

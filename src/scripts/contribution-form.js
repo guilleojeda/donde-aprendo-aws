@@ -1,5 +1,6 @@
 import { updateFieldDescription } from '../lib/field-description.mjs';
 import { isPublicCatalogResourceId } from '../lib/catalog-identity.mjs';
+import { bindResourceClassification } from '../lib/resource-classification-dom.mjs';
 
 const form = document.querySelector('[data-contribution-form]');
 
@@ -12,7 +13,7 @@ if (form) {
   const formatSelect = form.querySelector('[data-contribution-format]');
   const topicBoxes = [...form.querySelectorAll('[data-contribution-topic]')];
   const topicsGroup = form.querySelector('[data-contribution-topics-group]');
-  const topicOptions = form.querySelector('.contribution-form__topic-options');
+  const topicOptions = form.querySelector('[data-resource-topic-options]');
   const taxonomyGroup = form.querySelector('[data-contribution-taxonomy]');
   let draftRevision = 0;
   let activeAttempt;
@@ -61,16 +62,6 @@ if (form) {
     }
   };
 
-  const updateFormatOptions = () => {
-    if (!kindSelect || !formatSelect) return;
-    formatSelect.value = '';
-    for (const option of formatSelect.options) {
-      if (!option.value) continue;
-      const available = option.dataset.formatKind === kindSelect.value;
-      option.hidden = !available;
-      option.disabled = !available;
-    }
-  };
 
   const formSnapshot = () => {
     const data = new FormData(form);
@@ -227,17 +218,16 @@ if (form) {
     updateVisibleFieldError(event);
   });
 
-  kindSelect?.addEventListener('change', updateFormatOptions);
-
-  topicBoxes.forEach((box) => box.addEventListener('change', () => {
-    clearGroupError('topics');
-    const selected = topicBoxes.filter((item) => item.checked);
-    if (selected.length <= 3) return;
-    box.checked = false;
+  const classificationBinding = bindResourceClassification(form, {
+    onKindChange: () => clearGroupError('kind-format'),
+    onFormatChange: () => clearGroupError('kind-format'),
+    onTopicChange: () => clearGroupError('topics'),
+    onTopicRejected: (box) => {
     placeTopicErrorNear(box);
     setGroupError('topics', true, 'Puedes elegir hasta tres temas.');
     revealErrorContext(box, groupError('topics'));
-  }));
+    },
+  });
 
   const uncertainMessage = 'No pudimos confirmar el resultado de tu envío. Conserva el formulario y revisa antes de intentarlo de nuevo.';
   const messages = {
@@ -446,6 +436,7 @@ if (form) {
         }
         form.reset();
         resetFormatOptions();
+        classificationBinding.sync();
       }
       showReceipt({ id: body.id, submittedAt: body.submittedAt, title: attempt.payload.title }, { focus: canFocusAttemptResult(attempt) });
     } catch {

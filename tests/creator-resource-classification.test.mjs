@@ -5,8 +5,9 @@ import { createSubmissionHandler } from '../src/api/submission.mjs';
 import { createDynamoCatalogAccess } from '../src/lib/catalog-resource-writer.mjs';
 import { loadCatalog, projectPublicRecord } from '../src/lib/catalog.mjs';
 import { importCatalog, mapTsvRows, parseCatalogTsv } from '../src/lib/catalog-import.mjs';
-import { currentUrlKey } from '../src/lib/catalog-url.mjs';
+import { currentUrlKey, currentUrlReservationId } from '../src/lib/catalog-url.mjs';
 import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
+import { resolveResourceClassification } from '../src/lib/resource-taxonomy.mjs';
 import {
   callApi,
   createCreatorPagesHarness,
@@ -275,6 +276,7 @@ test('owner Add and edit reject partial, incompatible, and invalid-topic taxonom
       assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length, writes);
       assert.deepEqual(await harness.store.get(`resource:${resource.id}`), before);
       assert.deepEqual(await harness.store.get(currentUrlKey(resource.url)), {
+        id: currentUrlReservationId(resource.url),
         recordType: 'urlReservation', url: resource.url, status: 'reserved', resourceId: resource.id, version: 1,
       });
     });
@@ -353,6 +355,25 @@ test('pending content with a level rejects a source taxonomy change before writi
   assert.equal((await harness.store.get(`resource:${resource.id}`)).level, 'inicial');
 });
 
+test('revoked creator resources retain ordinary metadata editing without public admission validation', async () => {
+  const harness = await createCreatorPagesHarness();
+  const profile = await createProfile(harness, 'creator-a', { slug: 'revoked-metadata' });
+  const resource = {
+    id: 'revoked-unclassified', title: 'Revoked historical resource',
+    url: 'https://classification.example/revoked-unclassified', description: '',
+    published: false, approvalRevoked: true, hidden: false,
+    directoryControl: 'creator', editorProfileId: profile.profile.id, version: 1,
+  };
+  await seedResource(harness.store, resource);
+  await reference(harness, 'creator-a', resource);
+  const edited = await editLink(harness, 'creator-a', resource.id, { title: 'Revoked title correction' });
+  assert.equal(edited.response.status, 200, JSON.stringify(edited.body));
+  const saved = await harness.store.get(`resource:${resource.id}`);
+  assert.equal(saved.title, 'Revoked title correction');
+  assert.equal(saved.approvalRevoked, true);
+  assert.equal(Object.hasOwn(saved, 'category'), false);
+});
+
 test('duplicate reuse keeps the winning metadata and authority, including a concurrent loser', async () => {
   const harness = await createCreatorPagesHarness();
   await createProfile(harness, 'creator-a', { slug: 'reuse-a' });
@@ -400,6 +421,7 @@ test('duplicate reuse keeps the winning metadata and authority, including a conc
     .filter((value) => value.url === 'https://classification.example/race' && value.recordType !== 'urlReservation');
   assert.deepEqual(racedRows.map((value) => value.id), [concurrentWinner.body.resourceId]);
   assert.deepEqual(await raced.store.get(currentUrlKey('https://classification.example/race')), {
+    id: currentUrlReservationId('https://classification.example/race'),
     recordType: 'urlReservation',
     url: 'https://classification.example/race',
     status: 'reserved',
@@ -673,6 +695,61 @@ test('programmatic import rejects partial taxonomy before writes, while a legacy
   assert.deepEqual({ kind: saved.kind, format: saved.format, topics: saved.topics }, {
     kind: 'content', format: 'Artículo', topics: ['Seguridad'],
   });
+});
+
+test('canonical legacy community classification is shared by resolver, catalog projection, and import', async () => {
+  const record = {
+    id: 'community-legacy', title: 'AWS Community Córdoba',
+    url: 'https://community.example/cordoba', description: 'Community description',
+    category: 'Comunidad', order: 1, featured: false, published: true,
+  };
+  assert.deepEqual(resolveResourceClassification(record), {
+    state: 'legacy', kind: 'community', format: 'User Group', topics: [],
+  });
+  assert.deepEqual(projectPublicRecord(record), {
+    id: record.id,
+    title: record.title,
+    url: record.url,
+    description: record.description,
+    category: record.category,
+    order: record.order,
+    featured: record.featured,
+    kind: 'community', format: 'User Group', topics: [],
+  });
+
+  const importedRows = mapTsvRows(parseCatalogTsv(
+    'title\turl\ttext\tCategory\tHide\tRank\timgUrl\tOrder\tDestacado\n'
+    + 'Legacy community\thttps://community.example/import\tDescription\tComunidad\t\t\t\t1\t\n',
+  ));
+  assert.deepEqual({
+    kind: importedRows[0].kind, format: importedRows[0].format, topics: importedRows[0].topics,
+  }, { kind: 'community', format: 'User Group', topics: [] });
+
+  const stored = new Map();
+  const imported = await importCatalog(importedRows, {
+    tableName: CATALOG_TABLE,
+    getCallerIdentity: async () => ({ Account: '719535286359' }),
+    getItem: async ({ Key }) => ({ Item: stored.get(Key.id) }),
+    transactWrite: async ({ TransactItems }) => {
+      for (const { Put } of TransactItems) stored.set(Put.Item.id, structuredClone(Put.Item));
+    },
+  });
+  assert.deepEqual(imported, { total: 1, created: 1, skipped: 0 });
+  assert.deepEqual({
+    kind: stored.get(importedRows[0].id).kind,
+    format: stored.get(importedRows[0].id).format,
+    topics: stored.get(importedRows[0].id).topics,
+  }, { kind: 'community', format: 'User Group', topics: [] });
+
+  const arbitraryHistorical = {
+    id: 'arbitrary-historical', title: 'Editorial category',
+    url: 'https://community.example/editorial', description: 'Description',
+    category: 'Editorial', order: 1, featured: false,
+  };
+  assert.deepEqual(resolveResourceClassification(arbitraryHistorical), {
+    state: 'legacy', kind: 'content', format: 'Artículo', topics: [],
+  });
+  assert.doesNotThrow(() => projectPublicRecord(arbitraryHistorical));
 });
 
 test('anonymous submission, creator reuse and grant, edit, moderation, and public readers share one row without leaking contact data', async () => {

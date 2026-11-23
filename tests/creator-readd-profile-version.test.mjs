@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { currentUrlKey } from '../src/lib/catalog-url.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 import { callApi, createCreatorPagesHarness, responseJson, sessionCsrf } from './fixtures/creator-pages.mjs';
 import { createDynamoMoveHarness } from './fixtures/creator-link-move.mjs';
 
@@ -13,7 +14,7 @@ async function api(harness, path, {
     method,
     session,
     csrf: sessionCsrf[session],
-    creatorContract: '2',
+    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
     ...(body === undefined ? {} : { body }),
   });
   return { response, status: response.status, body: response.status === 204 ? null : await responseJson(response) };

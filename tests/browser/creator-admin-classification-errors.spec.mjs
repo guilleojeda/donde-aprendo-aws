@@ -168,17 +168,17 @@ test('local taxonomy validation attributes topics separately and cleans the mess
   const target = row(page, targetId);
   const other = row(page, otherId);
   const form = target.locator('[data-classification-form]');
-  const topics = target.getByLabel(/Temas/iu);
+  const topics = target.locator('input[name="topics"]').first();
+  const topic = (value) => target.locator(`input[name="topics"][value=${JSON.stringify(value)}]`).first();
   const writes = captureAdminWrites(page, targetId);
   try {
     await other.getByLabel('Categoría').fill('Borrador de otra fila');
-    await topics.fill('Serverless, Seguridad, Redes, Cómputo');
-    await form.evaluate((element) => {
-      element.addEventListener('submit', () => element.setAttribute('data-enter-submitted', 'true'),
-        { capture: true, once: true });
-    });
-    await topics.press('Enter');
-    await expect(form).toHaveAttribute('data-enter-submitted', 'true');
+    await topic('Serverless').check();
+    await topic('Seguridad').check();
+    await topic('Redes').check();
+    const fourth = topic('Cómputo');
+    await fourth.click();
+    await expect(fourth).not.toBeChecked();
 
     const error = await expectFieldError(topics, form, /tema|tres|3/iu);
     await expect.poll(() => writes.writes.length).toBe(0);
@@ -186,7 +186,8 @@ test('local taxonomy validation attributes topics separately and cleans the mess
     await expect(other.locator('[aria-invalid="true"]')).toHaveCount(0);
     await expect(other.locator('[role="alert"]')).toHaveCount(0);
 
-    await topics.fill('Serverless');
+    await topic('Serverless').uncheck();
+    await fourth.check();
     await expect(error).toBeHidden();
     await expect(topics).not.toHaveAttribute('aria-invalid', 'true');
     const describedBy = await topics.getAttribute('aria-describedby');
@@ -199,15 +200,13 @@ test('local taxonomy validation attributes topics separately and cleans the mess
 
 test('local kind and format validation marks both controls with one group diagnosis', async ({ fixture, page }) => {
   const id = 'admin-local-kind-format';
-  await openClassificationPage(fixture, page, [resource(id, 0)]);
+  await openClassificationPage(fixture, page, [resource(id, 0, { kind: 'community', format: 'Blog' })]);
   const target = row(page, id);
   const form = target.locator('[data-classification-form]');
-  const kind = target.getByLabel('Tipo');
+  const kind = target.getByLabel('Tipo de recurso');
   const format = target.getByLabel('Formato');
   const writes = captureAdminWrites(page, id);
   try {
-    await kind.selectOption('community');
-    await format.selectOption('Blog');
     await saveButton(page, id).click();
 
     const error = await expectGroupError([kind, format], form, /tipo|formato|combin/iu);
@@ -218,6 +217,40 @@ test('local kind and format validation marks both controls with one group diagno
     await expect(error).toBeHidden();
     await expect(kind).not.toHaveAttribute('aria-invalid', 'true');
     await expect(format).not.toHaveAttribute('aria-invalid', 'true');
+  } finally {
+    writes.stop();
+  }
+});
+
+test('duplicate initial topics remain visible until an explicit checkbox removal', async ({ fixture, page }) => {
+  const id = 'admin-duplicate-initial-topics';
+  await openClassificationPage(fixture, page, [resource(id, 0, { topics: ['Serverless', 'Serverless', 'Seguridad'] })]);
+  const target = row(page, id);
+  const form = target.locator('[data-classification-form]');
+  const serverless = target.locator('input[name="topics"][value="Serverless"]');
+  const writes = captureAdminWrites(page, id);
+  try {
+    await expect(serverless).toHaveCount(2);
+    await expect(serverless.nth(0)).toBeChecked();
+    await expect(serverless.nth(1)).toBeChecked();
+
+    await saveButton(page, id).click();
+    await expectFieldError(serverless.nth(0), form, /tema|tres|3/iu);
+    await expect(serverless.nth(0)).toBeChecked();
+    await expect(serverless.nth(1)).toBeChecked();
+    assert.equal(writes.writes.length, 0, 'the unchanged invalid draft is rejected before a write');
+
+    await serverless.nth(1).uncheck();
+    await expect(serverless.nth(0)).not.toHaveAttribute('aria-invalid', 'true');
+    const saved = page.waitForResponse((response) => response.request().method() === 'PATCH'
+      && adminResourceCommandMatches(response.url(), id));
+    const reloaded = page.waitForNavigation({ waitUntil: 'load' });
+    await saveButton(page, id).click();
+    const savedResponse = await saved;
+    assert.equal(savedResponse.status(), 200);
+    await reloaded;
+    assert.deepEqual((await fixture.rawResource(id)).topics, ['Serverless', 'Seguridad']);
+    assert.equal(writes.writes.length, 1, 'removing one duplicate is a deliberate correction');
   } finally {
     writes.stop();
   }
@@ -274,10 +307,11 @@ test('a late kind-format diagnosis survives unrelated edits but is discarded aft
   const form = target.locator('[data-classification-form]');
   const otherForm = other.locator('[data-classification-form]');
   const category = target.getByLabel('Categoría');
-  const kind = target.getByLabel('Tipo');
+  const kind = target.getByLabel('Tipo de recurso');
   const format = target.getByLabel('Formato');
   const otherCategory = other.getByLabel('Categoría');
-  const otherTopics = other.getByLabel(/Temas/iu);
+  const otherTopics = other.locator('input[name="topics"]').first();
+  const otherTopic = (value) => other.locator(`input[name="topics"][value=${JSON.stringify(value)}]`).first();
   const writes = captureAdminWrites(page, targetId);
   let requestCount = 0;
   const releases = [];
@@ -313,8 +347,10 @@ test('a late kind-format diagnosis survives unrelated edits but is discarded aft
     await kind.selectOption('community');
     await format.selectOption('User Group');
     await otherCategory.fill('Borrador de otra fila');
-    await otherTopics.fill('Serverless, Seguridad, Redes, Cómputo');
-    await saveButton(page, otherId).click();
+    await otherTopic('Serverless').check();
+    await otherTopic('Seguridad').check();
+    await otherTopic('Redes').check();
+    await otherTopic('Cómputo').click();
     const otherError = await expectFieldError(otherTopics, otherForm, /tema|tres|3/iu);
     const firstResponse = page.waitForResponse((response) => response.request().method() === 'PATCH'
       && adminResourceCommandMatches(response.url(), targetId));
@@ -342,6 +378,7 @@ test('a late kind-format diagnosis survives unrelated edits but is discarded aft
     await saveButton(page, targetId).click();
     await startedPromises[1];
     await kind.selectOption('source');
+    await format.selectOption('Blog');
     await kind.focus();
     releases[1]();
     const second = await secondResponse;

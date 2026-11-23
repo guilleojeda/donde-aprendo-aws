@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { creatorPageSessionBinding } from '../src/lib/creator-session-context.mjs';
 import { createCreatorHttpHandler } from '../src/lib/creator-http.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 import { requestContextForTestPrincipal, SITE_ORIGIN } from './fixtures/creator-pages.mjs';
 import { createCreatorOwnerRuntime } from './fixtures/creator-owner-runtime.mjs';
 
@@ -16,7 +17,7 @@ async function createOwnerProfile(runtime, { displayName, slug, programs = [], s
     method: 'PUT',
     headers: {
       'content-type': 'application/json', 'x-csrf-token': 'csrf-a', origin: SITE_ORIGIN,
-      'x-creator-contract': '2',
+      'x-creator-contract': CREATOR_CONTRACT_VERSION,
     },
     body: JSON.stringify({ creatorVersion: null, displayName, slug, programs, socials }),
   }, { session: 'creator-a' });
@@ -82,7 +83,7 @@ test('disabled owner identities are compared against the page binding before own
 
   const changedWrite = await runtime.fetchApi('/api/creador/perfil/', {
     method: 'PUT',
-    headers: { 'content-type': 'application/json', 'x-creator-contract': '2', 'x-creator-page-binding': originalBinding },
+    headers: { 'content-type': 'application/json', 'x-creator-contract': CREATOR_CONTRACT_VERSION, 'x-creator-page-binding': originalBinding },
     body: JSON.stringify({ creatorVersion: state.creatorVersion, displayName: 'No cross-account write', slug: profile.slug }),
   }, { session: 'disabled-other' });
   assert.equal(changedWrite.status, 409);
@@ -97,7 +98,7 @@ test('disabled owner identities are compared against the page binding before own
   assert.equal((await matchingRead.json()).error, 'ACCOUNT_DISABLED');
   const matchingWrite = await runtime.fetchApi('/api/creador/perfil/', {
     method: 'PUT',
-    headers: { 'content-type': 'application/json', 'x-creator-contract': '2', 'x-creator-page-binding': originalBinding },
+    headers: { 'content-type': 'application/json', 'x-creator-contract': CREATOR_CONTRACT_VERSION, 'x-creator-page-binding': originalBinding },
     body: JSON.stringify({ creatorVersion: state.creatorVersion, displayName: 'No disabled write', slug: profile.slug }),
   }, { session: 'disabled-same' });
   assert.equal(matchingWrite.status, 403);
@@ -124,7 +125,7 @@ test('las escrituras owner comparan el binding de cuenta y rol antes de consulta
     method: 'PUT',
     headers: {
       'content-type': 'application/json', 'x-csrf-token': 'csrf-a', origin: SITE_ORIGIN,
-      'x-creator-contract': '2', 'x-creator-page-binding': originalBinding,
+      'x-creator-contract': CREATOR_CONTRACT_VERSION, 'x-creator-page-binding': originalBinding,
     },
     body: JSON.stringify({ creatorVersion: state.creatorVersion, displayName: 'No debe guardarse', slug: profile.slug }),
   }, { session: 'creator-a' });
@@ -139,7 +140,7 @@ test('las escrituras owner comparan el binding de cuenta y rol antes de consulta
     method: 'PUT',
     headers: {
       'content-type': 'application/json', 'x-csrf-token': 'csrf-a', origin: SITE_ORIGIN,
-      'x-creator-contract': '2', 'x-creator-page-binding': 'not-a-binding',
+      'x-creator-contract': CREATOR_CONTRACT_VERSION, 'x-creator-page-binding': 'not-a-binding',
     },
     body: JSON.stringify({ creatorVersion: state.creatorVersion, displayName: 'No debe guardarse', slug: profile.slug }),
   }, { session: 'creator-a' });
@@ -175,7 +176,7 @@ test('autorizar y finalizar fotos validan el binding antes de leer el perfil o i
   const request = (path, binding = originalBinding, body = { creatorVersion: 1, uploadId: 'upload-photo' }) => {
     const headers = new Headers({
       origin: SITE_ORIGIN, 'x-csrf-token': state.principal.csrfToken ?? 'disabled-no-token',
-      'x-creator-contract': '2', 'content-type': 'application/json',
+      'x-creator-contract': CREATOR_CONTRACT_VERSION, 'content-type': 'application/json',
     });
     if (binding !== null) headers.set('x-creator-page-binding', binding);
     return new Request(new URL(path, SITE_ORIGIN), { method: 'POST', headers, body: JSON.stringify(body) });

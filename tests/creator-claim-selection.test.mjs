@@ -11,13 +11,17 @@ import {
 import { currentUrlCollision, currentUrlKey, currentUrlReservationId } from '../src/lib/catalog-url.mjs';
 import { createCreatorPagesService } from '../src/lib/creator-pages.mjs';
 import { createCreatorStore } from '../src/lib/creator-store.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 
 const CLAIMS_PATH = '/api/creador/reclamaciones/';
 const ADMIN_CLAIMS_PATH = '/api/admin/reclamaciones/';
 const ADMIN_LINK_PATH = '/api/admin/reclamaciones/vincular/';
 
 async function api(harness, path, session = 'creator-a', options = {}) {
-  return callApi(harness, path, { session, csrf: sessionCsrf[session], creatorContract: '2', ...options });
+  const creatorContract = Object.hasOwn(options, 'creatorContract')
+    ? options.creatorContract
+    : options.method === undefined || options.method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION;
+  return callApi(harness, path, { session, csrf: sessionCsrf[session], ...options, creatorContract });
 }
 
 async function ownerView(harness, session = 'creator-a') {

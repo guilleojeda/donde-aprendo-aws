@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { validateCatalogUrl } from './catalog-url-safety.mjs';
-import { classifyLegacyResource, validateTaxonomy } from './resource-taxonomy.mjs';
+import { resolveResourceClassification, validateTaxonomy } from './resource-taxonomy.mjs';
 import { DISCOVERY_FIELDS, validateDiscoveryMetadata } from './resource-discovery.mjs';
 import { projectPublicEvent } from './events.mjs';
 import { CREATOR_FIELD_LIMITS, hasCreatorPublicIdentity, isCreatorSlug, isCreatorStateId } from './creator-values.mjs';
@@ -432,7 +432,16 @@ export function projectPublicRecord(item, index = 0) {
     }
   }
 
-  const taxonomy = validateTaxonomy(hasAnyTaxonomy(item) ? item : classifyLegacyResource(item), index);
+  const classification = resolveResourceClassification(item, index);
+  if (classification.state !== 'explicit' && classification.state !== 'legacy') {
+    if (['kind', 'format', 'topics'].some((field) => Object.hasOwn(item, field))) {
+      // Preserve the established field-specific diagnostics for explicit
+      // catalog input while keeping the shared resolver as the decision point.
+      validateTaxonomy(item, index);
+    }
+    throw new Error(`Catalog record ${index + 1} has an invalid or absent classification`);
+  }
+  const taxonomy = validateTaxonomy(classification, index);
   const record = {
     id: item.id,
     title: item.title,
@@ -485,10 +494,6 @@ export function validatePublicRecord(record, index = 0) {
   validateDiscoveryMetadata(record, index);
   validateCatalogUrl(record.url, index);
   return record;
-}
-
-function hasAnyTaxonomy(item) {
-  return ['kind', 'format', 'topics'].some((field) => Object.hasOwn(item, field));
 }
 
 export function compareCatalogRecords(left, right) {

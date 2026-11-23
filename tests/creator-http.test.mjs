@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { requestContextForTestPrincipal } from './fixtures/creator-pages.mjs';
 import { createCreatorHttpHandler, creatorPhotoResponse } from '../src/lib/creator-http.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 
 const origin = 'https://dondeaprendoaws.com';
 function fixture() {
@@ -19,7 +20,10 @@ function fixture() {
     },
   });
   const request = (path, body, headers = {}) => {
-    const requestHeaders = { origin, 'x-csrf-token': 'csrf', 'content-type': 'application/json', 'x-creator-contract': '2', ...headers };
+    const requestHeaders = {
+      origin, 'x-csrf-token': 'csrf', 'content-type': 'application/json',
+      'x-creator-contract': CREATOR_CONTRACT_VERSION, ...headers,
+    };
     if (headers['x-creator-contract'] === null) delete requestHeaders['x-creator-contract'];
     return new Request(`${origin}${path}`, { method: 'POST', headers: requestHeaders, body: JSON.stringify(body) });
   };

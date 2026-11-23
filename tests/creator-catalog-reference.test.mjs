@@ -13,14 +13,21 @@ import {
   currentUrlCollision,
   currentUrlKey,
 } from '../src/lib/catalog-url.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 
 const endpoint = '/api/creador/referencias';
 
-async function api(harness, path, {
-  session = 'creator-a', method = 'GET', body, origin = SITE_ORIGIN,
-  csrf = sessionCsrf[session], creatorContract = '2',
-} = {}) {
-  return callApi(harness, path, { session, method, body, origin, csrf, creatorContract });
+async function api(harness, path, options = {}) {
+  const {
+    session = 'creator-a', method = 'GET', body, origin = SITE_ORIGIN,
+    csrf = sessionCsrf[session], creatorContract,
+  } = options;
+  const requestedContract = Object.hasOwn(options, 'creatorContract')
+    ? creatorContract
+    : method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION;
+  return callApi(harness, path, {
+    session, method, body, origin, csrf, creatorContract: requestedContract,
+  });
 }
 
 async function owner(harness, session = 'creator-a') {
@@ -833,7 +840,7 @@ test('the reference route preserves authentication, origin, CSRF, method, JSON, 
       Origin: SITE_ORIGIN,
       'x-test-session': 'creator-a',
       'x-csrf-token': sessionCsrf['creator-a'],
-      'x-creator-contract': '2',
+      'x-creator-contract': CREATOR_CONTRACT_VERSION,
       'content-type': 'application/json',
     },
     body: '{',

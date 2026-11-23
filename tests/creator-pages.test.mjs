@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CREATOR_FIELD_LIMITS } from '../src/lib/creator-values.mjs';
+import { CREATOR_CONTRACT_VERSION, CREATOR_FIELD_LIMITS } from '../src/lib/creator-values.mjs';
 import {
   callApi,
   createCreatorPagesHarness,
@@ -12,11 +12,14 @@ import {
 } from './fixtures/creator-pages.mjs';
 
 async function api(harness, path, session = 'creator-a', options = {}) {
+  const creatorContract = Object.hasOwn(options, 'creatorContract')
+    ? options.creatorContract
+    : options.method === undefined || options.method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION;
   return callApi(harness, path, {
     session,
     csrf: sessionCsrf[session],
-    creatorContract: '2',
     ...options,
+    creatorContract,
   });
 }
 
@@ -598,7 +601,7 @@ test('creator writes require the exact site Origin and the validated session CSR
   ]) {
     const response = await callApi(harness, '/api/creador/perfil', {
       session: 'creator-a',
-      creatorContract: '2',
+      creatorContract: CREATOR_CONTRACT_VERSION,
       method: 'PUT',
       body: { creatorVersion: null, displayName: 'No publicar', slug: 'no-publicar' },
       origin,
@@ -632,7 +635,7 @@ test('private reads and writes distinguish anonymous, disabled, and unavailable 
     assert.equal(read.status, status);
     const write = await callApi(harness, '/api/creador/perfil', {
       session: token,
-      creatorContract: '2',
+      creatorContract: CREATOR_CONTRACT_VERSION,
       method: 'PUT',
       body: { creatorVersion: null, displayName: 'No autorizado', slug: 'no-autorizado' },
       csrf: 'irrelevant-without-authenticated-session',

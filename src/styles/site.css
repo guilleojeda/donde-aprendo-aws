@@ -888,13 +888,29 @@ h3 {
   grid-column: 1 / -1;
 }
 
-.contribution-form__taxonomy {
+/* Shared resource fields keep the contribution form's layout without making
+ * the shared TSX view depend on a screen-specific class vocabulary. */
+.contribution-form .resource-metadata-fields__field,
+.contribution-form .resource-classification__field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contribution-form .resource-metadata-fields__field--full,
+.contribution-form .resource-classification,
+.contribution-form .resource-classification__topics {
+  grid-column: 1 / -1;
+}
+
+.contribution-form .resource-classification {
   display: grid;
   min-width: 0;
   gap: 8px;
 }
 
-.contribution-form__taxonomy-fields {
+.contribution-form .resource-classification__fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
@@ -906,36 +922,39 @@ h3 {
   font-weight: 700;
 }
 
-.contribution-form__topics {
+.contribution-form .resource-metadata-fields__field label,
+.contribution-form .resource-classification__field label {
+  color: var(--color-heading);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.contribution-form .resource-classification__topics {
   min-width: 0;
   padding: 0;
   margin: 0;
   border: 0;
 }
 
-.contribution-form__topics legend {
+.contribution-form .resource-classification__topics legend {
   margin-bottom: 12px;
   color: var(--color-heading);
   font-size: 14px;
   font-weight: 700;
 }
 
-.contribution-form__topics legend span {
+.contribution-form .resource-classification__topics legend span {
   color: var(--color-text);
   font-weight: 400;
 }
 
-.contribution-form__topic-options {
+.contribution-form .resource-classification__topic-options {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.contribution-form__topic-options > .contribution-form__group-error {
-  flex-basis: 100%;
-}
-
-.contribution-form__topic-options label {
+.contribution-form .resource-classification__topic-options label {
   padding: 9px 11px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
@@ -944,7 +963,7 @@ h3 {
   font-size: 13px;
 }
 
-.contribution-form__topic-options input {
+.contribution-form .resource-classification__topic-options input {
   width: auto;
   margin-right: 4px;
   accent-color: var(--color-primary);
@@ -961,6 +980,33 @@ h3 {
   font-size: 15px;
   line-height: 1.45;
   outline-offset: 3px;
+}
+
+.contribution-form .resource-metadata-fields__field input,
+.contribution-form .resource-metadata-fields__field textarea,
+.contribution-form .resource-classification__field input,
+.contribution-form .resource-classification__field select {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-field);
+  color: var(--color-heading);
+  font-size: 15px;
+  line-height: 1.45;
+  outline-offset: 3px;
+}
+
+.contribution-form .resource-metadata-fields__field input,
+.contribution-form .resource-classification__field input,
+.contribution-form .resource-classification__field select {
+  min-height: 46px;
+  padding: 10px 13px;
+}
+
+.contribution-form .resource-metadata-fields__field textarea {
+  min-height: 130px;
+  padding: 12px 13px;
+  resize: vertical;
 }
 
 .contribution-form__field input,
@@ -991,6 +1037,12 @@ h3 {
 .contribution-form__field input:invalid:not(:placeholder-shown),
 .contribution-form__field textarea:invalid:not(:placeholder-shown),
 .contribution-form__field select:user-invalid {
+  border-color: var(--color-error-text);
+}
+
+.contribution-form .resource-metadata-fields__field input:invalid:not(:placeholder-shown),
+.contribution-form .resource-metadata-fields__field textarea:invalid:not(:placeholder-shown),
+.contribution-form .resource-classification__field select:user-invalid {
   border-color: var(--color-error-text);
 }
 
@@ -1248,7 +1300,7 @@ h3 {
     grid-template-columns: 1fr;
   }
 
-  .contribution-form__taxonomy-fields {
+  .contribution-form .resource-classification__fields {
     grid-template-columns: 1fr;
   }
 
@@ -2161,30 +2213,20 @@ input:not([type='checkbox']):not([type='radio']):not([type='submit']):not([type=
   line-height: 1.6;
 }
 
-.contribution-form__field label,
-.contribution-form__topics legend {
+.contribution-form__field label {
   color: var(--color-heading);
   font-size: 14px;
   font-weight: 500;
 }
 
-.contribution-form__topics legend span {
-  color: var(--color-text-muted);
-}
-
-.contribution-form__topic-options label {
-  border-color: var(--color-border-control);
-  border-radius: 8px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-size: 14px;
-}
-
-.contribution-form__topic-options input {
-  accent-color: var(--color-primary);
-}
-
 .contribution-form__error {
+  color: var(--color-error-text);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.contribution-form .resource-metadata-fields__error,
+.contribution-form .resource-classification__error {
   color: var(--color-error-text);
   font-size: 14px;
   line-height: 1.4;
@@ -2457,7 +2499,7 @@ input:not([type='checkbox']):not([type='radio']):not([type='submit']):not([type=
     gap: 18px;
   }
 
-  .contribution-form__taxonomy-fields {
+  .contribution-form .resource-classification__fields {
     grid-template-columns: 1fr;
   }
 

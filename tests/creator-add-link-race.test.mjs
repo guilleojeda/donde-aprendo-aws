@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DynamoDBServiceException } from '@aws-sdk/client-dynamodb';
 import { currentUrlKey } from '../src/lib/catalog-url.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 import { callApi, responseJson, sessionCsrf } from './fixtures/creator-pages.mjs';
 import { createDynamoMoveHarness } from './fixtures/creator-link-move.mjs';
 
@@ -13,7 +14,7 @@ async function api(harness, session, method, path, body, options = {}) {
   const response = await callApi(harness, path, {
     session,
     csrf: sessionCsrf[session],
-    creatorContract: '2',
+    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
     method,
     ...(body === undefined ? {} : { body }),
     ...options,

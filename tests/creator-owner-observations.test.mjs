@@ -7,12 +7,13 @@ import {
   seedResource,
   sessionCsrf,
 } from './fixtures/creator-pages.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 
 async function api(harness, path, { method = 'GET', body } = {}) {
   return callApi(harness, path, {
     session: 'creator-a',
     csrf: sessionCsrf['creator-a'],
-    creatorContract: '2',
+    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
     method,
     ...(body === undefined ? {} : { body }),
   });

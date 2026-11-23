@@ -189,7 +189,7 @@ export async function startCreatorBrowserApp({
               headers: cookie ? { cookie: cookie.pair ?? cookie } : {},
             }));
           },
-          async request(cookie, route, { method = 'GET', body, originHeader, creatorContract = '2', headers: extraHeaders = {} } = {}) {
+          async request(cookie, route, { method = 'GET', body, originHeader, creatorContract = '3', headers: extraHeaders = {} } = {}) {
             const headers = new Headers(extraHeaders);
             if (cookie) headers.set('cookie', cookie.pair ?? cookie);
             const principal = cookie ? await fixture.principal(cookie) : { state: 'anonymous' };

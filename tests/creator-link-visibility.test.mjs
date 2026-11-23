@@ -15,6 +15,7 @@ import {
   sessionCsrf,
   SITE_ORIGIN,
 } from './fixtures/creator-pages.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const scratchParent = path.join(root, '.work/creator-pages');
@@ -119,11 +120,14 @@ test('la ruta antigua conserva el destino Solicitudes también sin perfil y mant
 });
 
 async function api(harness, path, session = 'creator-a', options = {}) {
+  const creatorContract = Object.hasOwn(options, 'creatorContract')
+    ? options.creatorContract
+    : options.method === undefined || options.method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION;
   return callApi(harness, path, {
     session,
     csrf: sessionCsrf[session],
-    creatorContract: '2',
     ...options,
+    creatorContract,
   });
 }
 

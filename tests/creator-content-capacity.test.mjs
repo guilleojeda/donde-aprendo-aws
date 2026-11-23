@@ -13,6 +13,7 @@ import {
 import { apiRequest, requestContextForTestPrincipal, sessionCsrf, SITE_ORIGIN } from './fixtures/creator-pages.mjs';
 import { createPhotoObjects, loadCreatorPhotosModule, rasterPhotoFixtures } from './fixtures/creator-photos.mjs';
 import { createCreatorHttpHandler } from '../src/lib/creator-http.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 
 const CONTENT_LIMIT = 384 * 1024;
 const ITEM_LIMIT = 400 * 1024;
@@ -372,7 +373,7 @@ test('moderation, photo finalization, and creator revisions remain usable at exa
     method: 'POST',
     csrf: principal.csrfToken,
     body: { creatorVersion: afterModeration.version },
-    extraHeaders: { 'x-creator-page-binding': binding, 'x-creator-contract': '2' },
+    extraHeaders: { 'x-creator-page-binding': binding, 'x-creator-contract': CREATOR_CONTRACT_VERSION },
   }));
   assert.equal(authorize.status, 200, await authorize.clone().text());
   const authorization = await authorize.json();
@@ -386,7 +387,7 @@ test('moderation, photo finalization, and creator revisions remain usable at exa
     method: 'POST',
     csrf: principal.csrfToken,
     body: { creatorVersion: afterModeration.version, uploadId: authorization.uploadId },
-    extraHeaders: { 'x-creator-page-binding': binding, 'x-creator-contract': '2' },
+    extraHeaders: { 'x-creator-page-binding': binding, 'x-creator-contract': CREATOR_CONTRACT_VERSION },
   }));
   assert.equal(finalized.status, 200, await finalized.clone().text());
 

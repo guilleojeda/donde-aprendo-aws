@@ -46,7 +46,7 @@ const {
 
 test('owner and photo requests share the approved private contract discriminator', () => {
   assert.equal(CREATOR_CONTRACT_HEADER, 'X-Creator-Contract');
-  assert.equal(CREATOR_CONTRACT_VERSION, '2');
+  assert.equal(CREATOR_CONTRACT_VERSION, '3');
 });
 
 function snapshot() {

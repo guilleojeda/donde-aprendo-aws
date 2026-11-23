@@ -368,7 +368,7 @@ test('approved, revoked, shared, and event links keep classification read-only w
     if (title === 'Ficha aprobada' || title === 'Ficha revocada') await expect(titleField).not.toHaveAttribute('readonly', '');
     else await expect(titleField).toHaveAttribute('readonly', '');
     await expect(editor.getByLabel('Proponer al directorio', { exact: false })).toBeEnabled();
-    await editor.getByRole('button', { name: /Cerrar edición/iu }).click();
+    await page.locator('[data-owner-dialog][open]').getByRole('button', { name: /Cerrar edición/iu }).click();
   }
   assert.deepEqual(await fixture.rawResource(shared.id), shared);
   assert.deepEqual(await fixture.rawResource(event.id), event);
