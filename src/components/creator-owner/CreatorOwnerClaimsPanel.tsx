@@ -1,5 +1,6 @@
 import type { CreatorClaimDTO } from '../../types/creators';
 import { deriveCreatorOwnerRecoveryAction, type CreatorOwnerState } from '../../lib/creator-owner-state';
+import CreatorOwnerReadRecoveryAction from './CreatorOwnerReadRecoveryAction';
 
 interface Props {
   state: CreatorOwnerState;
@@ -56,7 +57,7 @@ export default function CreatorOwnerClaimsPanel({ state, disabled, onOpen, onRef
       <button class="button button--outline" type="button" data-claim-history-refresh disabled={disabled || state.operation.status !== 'idle'} onClick={onRefresh}>
         {claimsReadPending ? 'Actualizando solicitudes…' : 'Actualizar solicitudes'}
       </button>
-      {claimsReadFailure && <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>}
+      {claimsReadFailure && <CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-refresh-retry" label="Reintentar actualización" onRetryRead={onRetryRead} />}
       {catalogFailed && <button class="button button--outline" type="button" data-claim-index-retry onClick={onRetryCatalog}>Reintentar carga del catálogo</button>}
     </div>
     <ul class="creator-owner__claim-history" data-claim-history>

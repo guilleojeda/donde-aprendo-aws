@@ -31,6 +31,7 @@ import { creatorOwnerNavigationLists } from '../../lib/creator-owner-presentatio
 import { isCreatorOwnerV3Resource } from '../../lib/creator-owner-data';
 import ResourceClassificationFields from '../ResourceClassificationFields';
 import ResourceMetadataFields from '../ResourceMetadataFields';
+import CreatorOwnerReadRecoveryAction from './CreatorOwnerReadRecoveryAction';
 import { pageCreatorOwnerCatalog } from '../../lib/creator-owner-catalog';
 import { usableCreatorOwnerFocusTarget } from '../../lib/creator-owner-focus';
 import {
@@ -666,9 +667,8 @@ function OperationFeedback({ state, rows, canSaveDraft, onRetryRead, onResolve, 
     {photoConflict && <p data-owner-photo-recovery>Tu archivo sigue seleccionado. Puedes cargarlo con la versión actual del perfil.</p>}
     {claimIntent && operation.status === 'unknown' && <p>El historial puede mostrar solicitudes parecidas, pero no permite confirmar si este envío fue el original. Volver al borrador y enviarlo otra vez puede crear un duplicado.</p>}
     {rows && <div class="creator-owner__comparison" data-owner-comparison><ComparisonRows rows={rows} /></div>}
-    {incompatibleRead && <a class="button button--outline" data-owner-current-page href={`${state.publicOrigin}/cuenta/`} target="_blank" rel="noopener noreferrer">Abrir la página actual</a>}
-    {!incompatibleRead && recoveryAction.kind === 'retry' && <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>}
-    {recoveryAction.kind === 'compare' && <button class="button button--outline" type="button" data-owner-check disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Comprobar estado guardado</button>}
+    {(incompatibleRead || recoveryAction.kind === 'retry') && <CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-refresh-retry" label="Reintentar actualización" onRetryRead={onRetryRead} />}
+    {recoveryAction.kind === 'compare' && <CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-check" label="Comprobar estado guardado" onRetryRead={onRetryRead} />}
     {recoveryAction.kind === 'resolve' && operation.status === 'unknown' && <div class="creator-owner__dialog-actions">
       <button class="button button--outline" type="button" data-owner-use-saved onClick={() => onResolve('saved')}>Usar lo guardado</button>
       <button class="button button--outline" type="button" data-owner-return-to-draft onClick={() => onResolve('draft')}>Volver al borrador</button>

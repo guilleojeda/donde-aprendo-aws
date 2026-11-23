@@ -61,6 +61,7 @@ import CreatorOwnerIdentityPanel from './CreatorOwnerIdentityPanel';
 import CreatorOwnerSeriesPanel from './CreatorOwnerSeriesPanel';
 import CreatorOwnerLinksPanel from './CreatorOwnerLinksPanel';
 import CreatorOwnerClaimsPanel from './CreatorOwnerClaimsPanel';
+import CreatorOwnerReadRecoveryAction from './CreatorOwnerReadRecoveryAction';
 
 interface Props {
   data: CreatorOwnerSnapshotDTO;
@@ -1231,6 +1232,7 @@ export default function CreatorOwnerApp(props: Props) {
     if (latest.operation.status === 'reading' || latest.session.state !== 'ready') return;
     const readFollowsWrite = latest.operation.status === 'sending' && intent
       && latest.operation.intent.id === intent.id && (fact === 'acknowledged' || fact === 'conflict');
+    if (latest.operation.status === 'refresh-failed' && latest.operation.readContractObsolete) return;
     if (latest.operation.status === 'sending' && !readFollowsWrite) return;
     if (!readFollowsWrite && latest.operation.status !== 'idle' && latest.operation.status !== 'refresh-failed'
       && latest.operation.status !== 'unknown' && latest.operation.status !== 'conflict') return;
@@ -1293,13 +1295,14 @@ export default function CreatorOwnerApp(props: Props) {
       try {
         const parsed = readCreatorOwnerSnapshot(raw);
         if (parsed.schemaVersion !== 3) {
-          if (fact === 'acknowledged' && intent?.acknowledgement) {
-            operationGenerationRef.current += 1;
-            dispatch({ type: 'operation-read-failed', intent, fact, readContractObsolete: true,
-              message: 'La acción está confirmada, pero esta pestaña recibió una lectura antigua. Conservamos el borrador y no volveremos a enviar la escritura. Abre la página actual en otra pestaña para continuar.' });
-          } else {
-            fail('La lectura usa una versión anterior y no se puede instalar en esta página. Abre una página nueva para continuar.');
-          }
+          operationGenerationRef.current += 1;
+          const obsoleteReadMessage = fact === 'acknowledged' && intent?.acknowledgement
+            ? 'La acción está confirmada, pero esta pestaña recibió una lectura antigua. Conservamos el borrador y no volveremos a enviar la escritura. Abre la página actual en otra pestaña para continuar.'
+            : intent?.action
+              ? 'Esta pestaña recibió una lectura antigua y no puede instalarla en esta página. Conservamos el estado y no repetiremos la acción. Abre la página actual en otra pestaña para continuar.'
+              : 'Esta pestaña recibió una lectura antigua y no puede instalarla en esta página. Conservamos el estado de esta página. Abre la página actual en otra pestaña para continuar.';
+          dispatch({ type: 'operation-read-failed', ...(intent ? { intent } : {}), fact, readContractObsolete: true,
+            message: obsoleteReadMessage });
           return;
         }
         snapshot = parsed;
@@ -2049,8 +2052,8 @@ export default function CreatorOwnerApp(props: Props) {
     <h3>{listRecoveryHeading(listOperation.intent.action)}</h3>
     <p class={listOperation.status === 'reading' ? undefined : 'creator-owner__status--error'}
       role={listOperation.status === 'reading' ? 'status' : 'alert'}>{listOperation.message}</p>
-    {listOperation.status === 'refresh-failed' && <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={checkClick}>Reintentar actualización</button>}
-    {listOperation.status === 'unknown' && !listOperation.readCompleted && <button class="button button--outline" type="button" data-owner-compare disabled={state.session.state !== 'ready'} onClick={checkClick}>Comprobar el estado guardado</button>}
+    {listOperation.status === 'refresh-failed' && <CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-refresh-retry" label="Reintentar actualización" onRetryRead={checkClick} />}
+    {listOperation.status === 'unknown' && !listOperation.readCompleted && <CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-compare" label="Comprobar el estado guardado" onRetryRead={checkClick} />}
     {(listOperation.status === 'unknown' || listOperation.status === 'conflict') && listOperation.readCompleted
       && <button class="button button--outline" type="button" data-owner-use-saved onClick={() => resolveRecovery('saved')}>Usar lo guardado</button>}
   </section> : listRejection && <p class="creator-owner__status creator-owner__status--error" data-owner-list-action-error tabIndex={-1} role="alert">{listRejection.text}</p>;

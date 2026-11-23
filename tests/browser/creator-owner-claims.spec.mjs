@@ -363,6 +363,43 @@ test('una solicitud selecciona contenido y URLs, valida antes de escribir, dedup
   await capture.stop();
 });
 
+test('una actualización ordinaria que recibe GET2 ofrece la página actual sin reintento', async ({ fixture, page }) => {
+  await loggedInOwner(fixture, page);
+  await openOwnerClaims(page, fixture);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  let reads = 0;
+  const staleRead = async (route) => {
+    const request = route.request();
+    const pathname = new URL(request.url()).pathname.replace(/\/$/u, '');
+    if (request.method() !== 'GET' || pathname !== '/api/creador/perfil') {
+      await route.fallback();
+      return;
+    }
+    reads += 1;
+    const response = await route.fetch();
+    assert.equal(response.status(), 200);
+    const body = await response.json();
+    const headers = { ...response.headers(), 'content-type': 'application/json' };
+    delete headers['content-length'];
+    await route.fulfill({ status: 200, headers, body: JSON.stringify({ ...body, schemaVersion: 2 }) });
+  };
+  await page.route('**/api/creador/**', staleRead);
+  try {
+    const writesBefore = capture.writes().length;
+    await page.locator('[data-claim-history-refresh]').click();
+    await expect.poll(() => reads).toBe(1);
+    const currentPage = page.getByRole('link', { name: 'Abrir la página actual', exact: true });
+    await expect(currentPage).toBeVisible();
+    await expect(currentPage).toHaveAttribute('target', '_blank');
+    await expect(page.locator('[data-owner-refresh-retry]')).toHaveCount(0);
+    assert.equal(capture.writes().length, writesBefore, 'an ordinary stale read never creates a write or replay action');
+    await expect(page.locator('[data-claim-index-status]')).toContainText(/lectura antigua|página actual/iu);
+  } finally {
+    await page.unroute('**/api/creador/**', staleRead).catch(() => {});
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
 test('una selección de Solicitudes con URL obsoleta exige leer, actualizar el catálogo y elegir de nuevo', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const stale = catalogEntry({
