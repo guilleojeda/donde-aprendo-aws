@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { seedResource } from '../fixtures/creator-pages.mjs';
+import { themeColor } from '../fixtures/browser-styles.mjs';
 import {
   api,
   captureCreatorApi,
@@ -43,6 +44,18 @@ async function expectTaxonomy(formLocator) {
   await expect(controls.topicsGroup).toBeVisible({ timeout: QUICK });
   await expect(controls.topics).toHaveCount(17);
   return controls;
+}
+
+async function expectSharedClassificationErrorStyle(control, error, target = control) {
+  const errorColor = await error.evaluate((element) => getComputedStyle(element).color);
+  await expect(error).toHaveCSS('color', await themeColor(error.page(), '--color-error-text'));
+  await expect(target).toHaveCSS('border-top-color', errorColor);
+  const metrics = await target.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { height: Number.parseFloat(style.height), minHeight: Number.parseFloat(style.minHeight) };
+  });
+  assert.ok(metrics.height >= 40 || metrics.minHeight >= 40,
+    `shared classification controls retain a usable hit area: ${JSON.stringify(metrics)}`);
 }
 
 async function ownerSnapshot(fixture, cookie) {
@@ -224,6 +237,10 @@ test('owner classification resets incompatible format and keeps the draft while 
   const topicError = fields.topicsGroup.locator('[data-owner-field-error], [data-field-error], [role="alert"]')
     .filter({ hasText: /tema|tres|3/iu }).first();
   await expect(topicError).toBeVisible();
+  await expectSharedClassificationErrorStyle(fields.topics, topicError, fields.topicsGroup);
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expectSharedClassificationErrorStyle(fields.topics, topicError, fields.topicsGroup);
+  await page.emulateMedia({ colorScheme: 'light' });
   await expect(fields.topicsGroup).toHaveAttribute('aria-invalid', 'true');
   await expect(title).toHaveValue('Borrador con clasificación corregible');
   await expect(url).toHaveValue('https://links.example.invalid/owner-classification-errors');
@@ -265,6 +282,7 @@ test('owner classification resets incompatible format and keeps the draft while 
     const pairError = editor.locator('[data-owner-field-error], [data-field-error], [role="alert"]')
       .filter({ hasText: /tipo|formato|combin/iu }).first();
     await expect(pairError).toBeVisible();
+    await expectSharedClassificationErrorStyle(fields.format, pairError);
     await expect(fields.kind).toBeFocused();
     await page.unroute('**/api/creador/**', mutatePair).catch(() => {});
     await fields.kind.selectOption('content');

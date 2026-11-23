@@ -114,7 +114,7 @@ export default function ResourceClassificationFields({
             <option value="" selected={format === ''}>Selecciona un formato</option>
             {formatValues.map((option) => {
               const isCurrentInvalid = preserveInvalidValues && option === format && !availableFormats.includes(option);
-              const unavailable = Boolean(kind) && !availableFormats.includes(option) && !isCurrentInvalid;
+              const unavailable = (!kind || !availableFormats.includes(option)) && !isCurrentInvalid;
               return <option value={option} selected={format === option} data-format-kind={Object.entries(FORMATS_BY_KIND).find(([, formats]) => (formats as readonly string[]).includes(option))?.[0]} hidden={unavailable} disabled={unavailable}>{option}</option>;
             })}
           </select>

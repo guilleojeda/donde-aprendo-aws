@@ -88,7 +88,9 @@ export default function ResourceMetadataFields({
   const urlErrorId = `${urlControlId}-error`;
   const descriptionErrorId = `${descriptionControlId}-error`;
   const error = (field: ResourceMetadataField): string | undefined => errors[field];
-  const errorHook = hookPrefix ? `data-${hookPrefix}-error` : undefined;
+  const errorHookAttributes = (field: ResourceMetadataField) => hookPrefix === 'owner'
+    ? { 'data-owner-error': field, 'data-owner-field-error': field }
+    : hookPrefix ? { [`data-${hookPrefix}-error`]: field } : {};
 
   return <>
     <div className="resource-metadata-fields__field" data-resource-metadata-field="title">
@@ -98,9 +100,10 @@ export default function ResourceMetadataFields({
         value={values.title} disabled={disabled} readOnly={readOnly}
         aria-invalid={error('title') ? 'true' : undefined}
         aria-describedby={describedBy(helpId, titleErrorId, error('title'))}
+        {...(hookPrefix === 'owner' && error('title') ? { 'data-owner-content-error-focus': true } : {})}
         onInvalid={(event) => onInvalid?.('title', event)}
         onInput={(event) => { onInput?.('title'); valueHandler(onChange, 'title')?.(event); }} />
-      <span className="resource-metadata-fields__error" id={titleErrorId} data-resource-metadata-error="title" {...(errorHook ? { [errorHook]: 'title' } : {})} hidden={!error('title')}>{error('title')}</span>
+      <span className="resource-metadata-fields__error" id={titleErrorId} data-resource-metadata-error="title" {...errorHookAttributes('title')} hidden={!error('title')}>{error('title')}</span>
     </div>
 
     <div className="resource-metadata-fields__field resource-metadata-fields__field--full" data-resource-metadata-field="url">
@@ -109,9 +112,10 @@ export default function ResourceMetadataFields({
         maxLength={policy.url.maxLength} required={policy.url.required} value={values.url}
         disabled={disabled} readOnly={readOnly} aria-invalid={error('url') ? 'true' : undefined}
         aria-describedby={describedBy(helpId, urlErrorId, error('url'))}
+        {...(hookPrefix === 'owner' && error('url') ? { 'data-owner-content-error-focus': true } : {})}
         onInvalid={(event) => onInvalid?.('url', event)}
         onInput={(event) => { onInput?.('url'); valueHandler(onChange, 'url')?.(event); }} />
-      <span className="resource-metadata-fields__error" id={urlErrorId} data-resource-metadata-error="url" {...(errorHook ? { [errorHook]: 'url' } : {})} hidden={!error('url')}>{error('url')}</span>
+      <span className="resource-metadata-fields__error" id={urlErrorId} data-resource-metadata-error="url" {...errorHookAttributes('url')} hidden={!error('url')}>{error('url')}</span>
     </div>
 
     <div className="resource-metadata-fields__field resource-metadata-fields__field--full" data-resource-metadata-field="description">
@@ -120,9 +124,10 @@ export default function ResourceMetadataFields({
         maxLength={policy.description.maxLength} required={policy.description.required} value={values.description}
         disabled={disabled} readOnly={readOnly} aria-invalid={error('description') ? 'true' : undefined}
         aria-describedby={describedBy(helpId, descriptionErrorId, error('description'))}
+        {...(hookPrefix === 'owner' && error('description') ? { 'data-owner-content-error-focus': true } : {})}
         onInvalid={(event) => onInvalid?.('description', event)}
         onInput={(event) => { onInput?.('description'); valueHandler(onChange, 'description')?.(event); }} />
-      <span className="resource-metadata-fields__error" id={descriptionErrorId} data-resource-metadata-error="description" {...(errorHook ? { [errorHook]: 'description' } : {})} hidden={!error('description')}>{error('description')}</span>
+      <span className="resource-metadata-fields__error" id={descriptionErrorId} data-resource-metadata-error="description" {...errorHookAttributes('description')} hidden={!error('description')}>{error('description')}</span>
     </div>
   </>;
 }

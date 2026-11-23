@@ -888,26 +888,12 @@ h3 {
   grid-column: 1 / -1;
 }
 
-/* Shared resource fields keep the contribution form's layout without making
+/* Shared resource fields keep the contribution form's placement without making
  * the shared TSX view depend on a screen-specific class vocabulary. */
-.contribution-form .resource-metadata-fields__field,
-.contribution-form .resource-classification__field {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 8px;
-}
-
 .contribution-form .resource-metadata-fields__field--full,
 .contribution-form .resource-classification,
 .contribution-form .resource-classification__topics {
   grid-column: 1 / -1;
-}
-
-.contribution-form .resource-classification {
-  display: grid;
-  min-width: 0;
-  gap: 8px;
 }
 
 .contribution-form .resource-classification__fields {
@@ -916,14 +902,133 @@ h3 {
   gap: 20px;
 }
 
-.contribution-form__field label {
+/* Shared resource controls. Surface styles below may change layout, but the
+ * controls, focus treatment and diagnostics remain identical on public,
+ * owner and administration forms. */
+.resource-metadata-fields__field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.resource-metadata-fields__field > label {
   color: var(--color-heading);
   font-size: 14px;
   font-weight: 700;
 }
 
-.contribution-form .resource-metadata-fields__field label,
-.contribution-form .resource-classification__field label {
+.resource-metadata-fields__field > label span {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.resource-metadata-fields__field > :is(input, textarea),
+.resource-classification__field > select {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 11px 12px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 8px;
+  background: var(--color-field);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.resource-metadata-fields__field > textarea {
+  min-height: 130px;
+  resize: vertical;
+}
+
+.resource-metadata-fields__field > :is(input, textarea):focus-visible,
+.resource-classification__field > select:focus-visible,
+.resource-classification__topic-options input:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.resource-metadata-fields__field > :is(input, textarea)[aria-invalid="true"],
+.resource-classification__field > select[aria-invalid="true"] {
+  border: 2px solid var(--color-error-text);
+}
+
+.resource-metadata-fields__error,
+.resource-classification__error {
+  display: block;
+  margin: 0;
+  color: var(--color-error-text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.resource-classification {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.resource-classification__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.resource-classification__field {
+  display: grid;
+  gap: 7px;
+}
+
+.resource-classification__field label,
+.resource-classification__topics legend {
+  color: var(--color-heading);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.resource-classification__field label span,
+.resource-classification__topics legend span {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.resource-classification__topics {
+  min-width: 0;
+}
+
+.resource-classification__topic-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.resource-classification__topic-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 8px;
+  background: var(--color-field);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.resource-classification__topic-options input {
+  width: auto;
+  min-height: auto;
+  accent-color: var(--color-primary);
+}
+
+.resource-classification__topics[aria-invalid="true"] {
+  border: 2px solid var(--color-error-text);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.contribution-form__field label {
   color: var(--color-heading);
   font-size: 14px;
   font-weight: 700;
@@ -931,42 +1036,16 @@ h3 {
 
 .contribution-form .resource-classification__topics {
   min-width: 0;
-  padding: 0;
   margin: 0;
+}
+
+.contribution-form .resource-classification__topics:not([aria-invalid="true"]) {
+  padding: 0;
   border: 0;
 }
 
 .contribution-form .resource-classification__topics legend {
   margin-bottom: 12px;
-  color: var(--color-heading);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.contribution-form .resource-classification__topics legend span {
-  color: var(--color-text);
-  font-weight: 400;
-}
-
-.contribution-form .resource-classification__topic-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.contribution-form .resource-classification__topic-options label {
-  padding: 9px 11px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  color: var(--color-heading);
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.contribution-form .resource-classification__topic-options input {
-  width: auto;
-  margin-right: 4px;
-  accent-color: var(--color-primary);
 }
 
 .contribution-form__field input,
@@ -980,33 +1059,6 @@ h3 {
   font-size: 15px;
   line-height: 1.45;
   outline-offset: 3px;
-}
-
-.contribution-form .resource-metadata-fields__field input,
-.contribution-form .resource-metadata-fields__field textarea,
-.contribution-form .resource-classification__field input,
-.contribution-form .resource-classification__field select {
-  width: 100%;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-field);
-  color: var(--color-heading);
-  font-size: 15px;
-  line-height: 1.45;
-  outline-offset: 3px;
-}
-
-.contribution-form .resource-metadata-fields__field input,
-.contribution-form .resource-classification__field input,
-.contribution-form .resource-classification__field select {
-  min-height: 46px;
-  padding: 10px 13px;
-}
-
-.contribution-form .resource-metadata-fields__field textarea {
-  min-height: 130px;
-  padding: 12px 13px;
-  resize: vertical;
 }
 
 .contribution-form__field input,
@@ -1037,12 +1089,6 @@ h3 {
 .contribution-form__field input:invalid:not(:placeholder-shown),
 .contribution-form__field textarea:invalid:not(:placeholder-shown),
 .contribution-form__field select:user-invalid {
-  border-color: var(--color-error-text);
-}
-
-.contribution-form .resource-metadata-fields__field input:invalid:not(:placeholder-shown),
-.contribution-form .resource-metadata-fields__field textarea:invalid:not(:placeholder-shown),
-.contribution-form .resource-classification__field select:user-invalid {
   border-color: var(--color-error-text);
 }
 
@@ -1297,6 +1343,10 @@ h3 {
 
 @media (max-width: 500px) {
   .contribution-form__fields {
+    grid-template-columns: 1fr;
+  }
+
+  .resource-classification__fields {
     grid-template-columns: 1fr;
   }
 
@@ -2139,7 +2189,7 @@ a:hover {
 .contribution-form__field textarea,
 select,
 textarea,
-input:not([type='checkbox']):not([type='radio']):not([type='submit']):not([type='search']) {
+input:where(:not([type='checkbox']):not([type='radio']):not([type='submit']):not([type='search'])) {
   border-color: var(--color-border-control);
   border-radius: 8px;
   color: var(--color-text);
