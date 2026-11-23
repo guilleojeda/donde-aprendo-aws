@@ -224,13 +224,13 @@ const message = result.status === 401
                   <form data-claim-resolution>
                     <fieldset class="creator-admin__claim-resources" data-admin-field-group="resourceIds">
                       <legend>Selecciona los IDs exactos que verificaste</legend>
+                      <p class="creator-form__field-error" data-admin-field-error="resourceIds" id={`admin-resource-selection-error-${encodeURIComponent(claimId)}`} hidden></p>
                       {resourceIds.map((resourceId) => (
                         <label>
                           <input type="checkbox" name="resourceIds" value={encodeURIComponent(resourceId)} checked />
                           <span>{resourceId}{observedUrls.has(resourceId) && <><br /><small>{observedUrls.get(resourceId)}</small></>}</span>
                         </label>
                       ))}
-                      <p class="creator-form__field-error" data-admin-field-error="resourceIds" id={`admin-resource-selection-error-${encodeURIComponent(claimId)}`} hidden></p>
                     </fieldset>
                     <label class="creator-check creator-admin__review-confirm"><input type="checkbox" name="reviewed" required /><span>Confirmo que revisé la referencia y los recursos seleccionados.</span></label>
                     <p class="creator-form__field-error" data-admin-field-error="reviewed" id={`admin-reviewed-error-${encodeURIComponent(claimId)}`} hidden></p>

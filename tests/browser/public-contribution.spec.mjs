@@ -136,6 +136,39 @@ async function expectContributionFieldCleared(control, error) {
     'correcting the field keeps its permanent help association');
 }
 
+async function placeNearViewportBottom(page, control) {
+  await control.focus();
+  await positionNearViewportBottom(page, control);
+}
+
+async function positionNearViewportBottom(page, control) {
+  await page.evaluate(() => document.fonts.ready);
+  await expect.poll(() => control.evaluate((element) => {
+    const distance = element.getBoundingClientRect().bottom - (innerHeight - 5);
+    window.scrollBy({ top: distance, behavior: 'instant' });
+    return Math.abs(element.getBoundingClientRect().bottom - (innerHeight - 5));
+  })).toBeLessThanOrEqual(2);
+}
+
+async function expectErrorContextVisible(control, error) {
+  const context = await control.evaluate((element, errorId) => {
+    const label = element.id
+      ? [...document.querySelectorAll('label')].find((candidate) => candidate.htmlFor === element.id)
+      : undefined;
+    const elements = [label, element, document.getElementById(errorId)].filter(Boolean);
+    return {
+      viewport: innerHeight,
+      elements: elements.map((candidate) => {
+        const bounds = candidate.getBoundingClientRect();
+        return { top: bounds.top, bottom: bounds.bottom };
+      }),
+    };
+  }, await error.getAttribute('id'));
+  assert.ok(context.elements.length === 3, 'the label, control, and error are present');
+  assert.ok(context.elements.every(({ top, bottom }) => top >= 0 && bottom <= context.viewport),
+    `the field error context stays inside the viewport: ${JSON.stringify(context)}`);
+}
+
 async function installSubmissionMutation(page, fixture, {
   mutate = (payload) => payload,
   responseBody,
@@ -230,6 +263,39 @@ test('native invalidity is keyboard-locatable, keeps help, and clears on correct
   await expectContributionFieldCleared(controls.url, urlError);
   await expect(controls.url).toBeFocused();
   assert.ok((await ariaIds(controls.url)).includes('contribution-help'));
+});
+
+test('native Enter reveals the focused format error and its label at the mobile viewport edge', async ({ fixture, page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const controls = await openContribution(page, fixture);
+  await fillContribution(controls, { format: '' });
+  await controls.url.focus();
+  await positionNearViewportBottom(page, controls.format);
+
+  await page.keyboard.press('Enter');
+
+  const error = await expectContributionFieldError(controls.format, controls.form, /selecciona|opci[oó]n/iu);
+  await expectErrorContextVisible(controls.format, error);
+  assert.equal(fixture.requests.length, 0, 'native format invalidity blocks the network request');
+});
+
+test('a real whitespace-title rejection reveals the focused field error at the mobile viewport edge', async ({ fixture, page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const controls = await openContribution(page, fixture);
+  const submitted = await fillContribution(controls, {
+    title: '  ',
+    url: 'https://example.invalid/contribution/whitespace-title',
+  });
+  await placeNearViewportBottom(page, controls.title);
+
+  await controls.title.press('Enter');
+
+  const request = await fixture.waitForRequestCount(1);
+  assert.equal(request.status, 400);
+  const error = await expectContributionFieldError(controls.title, controls.form, /t[ií]tulo|nombre/iu);
+  await expectErrorContextVisible(controls.title, error);
+  await expect(controls.title).toHaveValue(submitted.title);
+  assert.equal(fixture.pendingRows().length, 0, 'a whitespace title is rejected before storage');
 });
 
 test('the fourth topic is explained as one correctable group and does not submit', async ({ fixture, page }) => {

@@ -158,8 +158,10 @@ function focusFieldError(form: HTMLFormElement, field: AdminField, attempt?: Adm
   const groupedRegion = fieldGroup(form, field);
   const errorRegion = error?.parentElement;
   const candidate = groupedRegion ?? errorRegion;
-  const scrollTarget = candidate && candidate.getBoundingClientRect().height <= window.innerHeight
-    ? candidate : controlRegion;
+  const candidateHeight = candidate?.getBoundingClientRect().height;
+  const scrollTarget = candidateHeight !== undefined && candidateHeight <= window.innerHeight
+    ? candidate
+    : field === 'resourceIds' && error ? error : controlRegion;
   scrollTarget?.scrollIntoView?.({ block: 'center', behavior: 'instant' });
 }
 
