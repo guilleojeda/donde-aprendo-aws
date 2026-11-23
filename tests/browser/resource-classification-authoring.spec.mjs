@@ -300,6 +300,67 @@ test('owner classification resets incompatible format and keeps the draft while 
   }
 });
 
+test('owner add keeps a server topic diagnosis focused and saves a corrected draft', async ({ fixture, page }) => {
+  await loggedInOwner(fixture, page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openLinks(page, fixture);
+  await page.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+  const editor = form(page, 'alta-enlace');
+  const fields = await expectTaxonomy(editor);
+  const title = editor.getByLabel('Título', { exact: true });
+  const url = editor.getByLabel('URL', { exact: true });
+  await title.fill('Borrador con diagnóstico de temas');
+  await url.fill('https://links.example.invalid/owner-topic-diagnosis');
+  await fields.kind.selectOption('content');
+  await fields.format.selectOption('Curso');
+  await editor.locator('input[name="topics"][value="Seguridad"]').check();
+
+  const capture = await captureCreatorApi(page);
+  const mutateTopics = async (route) => {
+    const request = route.request();
+    if (request.method() !== 'POST' || new URL(request.url()).pathname.replace(/\/$/u, '') !== '/api/creador/enlaces') {
+      await route.continue();
+      return;
+    }
+    const body = request.postDataJSON();
+    const response = await route.fetch({ postData: JSON.stringify({ ...body, topics: ['Tema inválido'] }) });
+    await route.fulfill({ response });
+  };
+  await page.route('**/api/creador/**', mutateTopics, { times: 1 });
+  try {
+    await editor.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'POST', '/api/creador/enlaces')[0]?.status).toBe(422);
+    const rejected = writesTo(capture, 'POST', '/api/creador/enlaces')[0];
+    assert.deepEqual(rejected.responseBody.fieldErrors, [{ field: 'topics', reason: 'invalid_option' }]);
+    const topicError = fields.topicsGroup.locator('[data-owner-field-error], [data-field-error], [role="alert"]')
+      .filter({ hasText: /tema|válid/iu }).first();
+    await expect(topicError).toBeVisible();
+    await expect(fields.topicsGroup).toHaveAttribute('aria-invalid', 'true');
+    const focusTarget = fields.topicsGroup.locator('[data-resource-topic-options] > label:last-child input[data-resource-topic]');
+    await expect(focusTarget).toBeFocused();
+    const errorBounds = await topicError.boundingBox();
+    const focusBounds = await focusTarget.boundingBox();
+    assert.ok(errorBounds && errorBounds.y >= 0 && errorBounds.y + errorBounds.height <= 844, JSON.stringify(errorBounds));
+    assert.ok(focusBounds && focusBounds.y >= 0 && focusBounds.y + focusBounds.height <= 844, JSON.stringify(focusBounds));
+    await expect(title).toHaveValue('Borrador con diagnóstico de temas');
+    await expect(url).toHaveValue('https://links.example.invalid/owner-topic-diagnosis');
+    assert.equal(writesTo(capture, 'POST', '/api/creador/enlaces').length, 1);
+
+    await page.unroute('**/api/creador/**', mutateTopics).catch(() => {});
+    await editor.locator('input[name="topics"][value="Redes"]').check();
+    await expect(topicError).toBeHidden();
+    await editor.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'POST', '/api/creador/enlaces')[1]?.status).toBe(201);
+    const corrected = writesTo(capture, 'POST', '/api/creador/enlaces')[1];
+    assert.deepEqual({ kind: corrected.body.kind, format: corrected.body.format, topics: sortedTopics(corrected.body.topics) }, {
+      kind: 'content', format: 'Curso', topics: sortedTopics(['Seguridad', 'Redes']),
+    });
+  } finally {
+    await page.unroute('**/api/creador/**', mutateTopics).catch(() => {});
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
 test('active and retained edits persist classification without silently reincluding a removed placement', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const longDescription = 'D'.repeat(4_000);
@@ -321,19 +382,46 @@ test('active and retained edits persist classification without silently reinclud
   await fields.format.selectOption('Newsletter');
   await editor.locator('input[name="topics"][value="DevOps"]').check();
   await editor.getByLabel('Título', { exact: true }).fill('Ficha activa reclasificada');
-  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const activeBefore = await fixture.rawResource(created.resourceId);
+  const capture = await captureCreatorApi(page);
+  const mutateActiveTopics = async (route) => {
+    const request = route.request();
+    const parsed = new URL(request.url());
+    if (request.method() !== 'PATCH' || parsed.pathname.replace(/\/$/u, '') !== `/api/creador/enlaces/${created.placementId}/editar`) {
+      await route.continue();
+      return;
+    }
+    const body = request.postDataJSON();
+    const response = await route.fetch({ postData: JSON.stringify({ ...body, topics: ['Tema inválido'] }) });
+    await route.fulfill({ response });
+  };
+  await page.route('**/api/creador/**', mutateActiveTopics, { times: 1 });
   await editor.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
-  await expect.poll(() => writesTo(capture, 'PATCH', `/api/creador/enlaces/${created.placementId}/editar`)[0]?.status).toBe(200);
-  const editBody = writesTo(capture, 'PATCH', `/api/creador/enlaces/${created.placementId}/editar`)[0].body;
+  const activeEdits = () => writesTo(capture, 'PATCH', `/api/creador/enlaces/${created.placementId}/editar`);
+  await expect.poll(() => activeEdits()[0]?.status).toBe(422);
+  const activeRejected = activeEdits()[0];
+  assert.deepEqual(activeRejected.responseBody.fieldErrors, [{ field: 'topics', reason: 'invalid_option' }]);
+  const activeTopicError = fields.topicsGroup.locator('[data-owner-field-error], [data-field-error], [role="alert"]')
+    .filter({ hasText: /tema|válid/iu }).first();
+  await expect(activeTopicError).toBeVisible();
+  await expect(fields.topicsGroup).toHaveAttribute('aria-invalid', 'true');
+  await expect(fields.topicsGroup.locator('[data-resource-topic-options] > label:last-child input[data-resource-topic]')).toBeFocused();
+  await expect(editor.getByLabel('Título', { exact: true })).toHaveValue('Ficha activa reclasificada');
+  assert.deepEqual(await fixture.rawResource(created.resourceId), activeBefore, 'the active topic rejection has no persisted effects');
+  await page.unroute('**/api/creador/**', mutateActiveTopics).catch(() => {});
+  await editor.locator('input[name="topics"][value="Redes"]').check();
+  await expect(activeTopicError).toBeHidden();
+  await editor.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+  await expect.poll(() => activeEdits()[1]?.status).toBe(200);
+  const editBody = activeEdits()[1].body;
   assert.equal(Object.hasOwn(editBody, 'description'), false, 'classification-only metadata edits omit the retained long description');
-  await capture.stop({ skipErrorBodies: true });
   await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0);
   let snapshot = await ownerSnapshot(fixture, cookie);
   let saved = snapshot.resources.find(({ id }) => id === created.resourceId);
   assert.equal(saved.title, 'Ficha activa reclasificada');
   assert.equal(saved.description, longDescription);
   assert.deepEqual({ ...saved.classification, topics: sortedTopics(saved.classification.topics) }, {
-    state: 'explicit', kind: 'source', format: 'Newsletter', topics: sortedTopics(['Seguridad', 'DevOps']),
+    state: 'explicit', kind: 'source', format: 'Newsletter', topics: sortedTopics(['Seguridad', 'DevOps', 'Redes']),
   });
 
   page.once('dialog', (dialog) => dialog.accept());
@@ -348,17 +436,51 @@ test('active and retained edits persist classification without silently reinclud
   await expect(retainedFields.format).toHaveValue('Newsletter');
   await expect(retainedEditor.locator('input[name="topics"][value="DevOps"]')).toBeChecked();
   await retainedEditor.getByLabel('Título', { exact: true }).fill('Ficha retirada editada');
+  await retainedEditor.locator('input[name="topics"][value="DevOps"]').uncheck();
+  const retainedBefore = await fixture.rawResource(created.resourceId);
+  const mutateRetainedTopics = async (route) => {
+    const request = route.request();
+    const parsed = new URL(request.url());
+    if (request.method() !== 'PATCH' || parsed.pathname.replace(/\/$/u, '') !== '/api/creador/recursos'
+      || parsed.searchParams.get('id') !== created.resourceId) {
+      await route.continue();
+      return;
+    }
+    const body = request.postDataJSON();
+    const response = await route.fetch({ postData: JSON.stringify({ ...body, topics: ['Tema inválido'] }) });
+    await route.fulfill({ response });
+  };
+  await page.route('**/api/creador/**', mutateRetainedTopics, { times: 1 });
   await retainedEditor.getByRole('button', { name: 'Guardar ficha', exact: true }).click();
+  const retainedEdits = () => capture.writes().filter(({ method, url }) => {
+    const parsed = new URL(url);
+    return method === 'PATCH' && parsed.pathname.replace(/\/$/u, '') === '/api/creador/recursos'
+      && parsed.searchParams.get('id') === created.resourceId;
+  });
+  await expect.poll(() => retainedEdits()[0]?.status).toBe(422);
+  const retainedRejected = retainedEdits()[0];
+  assert.deepEqual(retainedRejected.responseBody.fieldErrors, [{ field: 'topics', reason: 'invalid_option' }]);
+  const retainedTopicError = retainedEditor.locator('[data-owner-field-error], [data-field-error], [role="alert"]')
+    .filter({ hasText: /tema|válid/iu }).first();
+  await expect(retainedTopicError).toBeVisible();
+  await expect(retainedEditor.locator('[data-resource-topics-group] [data-resource-topic-options] > label:last-child input[data-resource-topic]')).toBeFocused();
+  assert.deepEqual(await fixture.rawResource(created.resourceId), retainedBefore, 'the retained topic rejection has no persisted effects');
+  await page.unroute('**/api/creador/**', mutateRetainedTopics).catch(() => {});
+  await retainedEditor.locator('input[name="topics"][value="DevOps"]').check();
+  await expect(retainedTopicError).toBeHidden();
+  await retainedEditor.getByRole('button', { name: 'Guardar ficha', exact: true }).click();
+  await expect.poll(() => retainedEdits()[1]?.status).toBe(200);
   await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0);
   snapshot = await ownerSnapshot(fixture, cookie);
   saved = snapshot.resources.find(({ id }) => id === created.resourceId);
   assert.equal(saved.title, 'Ficha retirada editada');
   assert.equal(saved.description, longDescription);
   assert.deepEqual({ ...saved.classification, topics: sortedTopics(saved.classification.topics) }, {
-    state: 'explicit', kind: 'source', format: 'Newsletter', topics: sortedTopics(['Seguridad', 'DevOps']),
+    state: 'explicit', kind: 'source', format: 'Newsletter', topics: sortedTopics(['Seguridad', 'DevOps', 'Redes']),
   });
   assert.equal(Object.values(snapshot.placements).some(({ resourceId }) => resourceId === created.resourceId), false);
   await expect(page.locator(`[data-retained-resource="${created.resourceId}"]`).getByRole('button', { name: 'Volver a agregar', exact: true })).toBeVisible();
+  await capture.stop({ skipErrorBodies: true });
 });
 
 test('reusing an existing URL preserves its authority and keeps the attempted classification in a recoverable add draft', async ({ fixture, page }) => {

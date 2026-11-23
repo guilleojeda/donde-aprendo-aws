@@ -508,6 +508,7 @@ export function creatorOwnerWriteRejectedFocus(state: CreatorOwnerState, intent:
         if (key) return `#owner-social-${key}`;
       }
       if (feedback['kind-format']) return '#owner-add-link-kind, #owner-link-kind';
+      if (feedback.topics) return '[data-owner-topics-group] [data-resource-topic-options] > label:last-child input[data-resource-topic]:not(:disabled)';
       if (state.editor.kind !== 'profile' && state.editor.kind !== 'photo') return ownerContentErrorFocus;
     }
     return creatorOwnerEditorDraftFocus(state.editor);
