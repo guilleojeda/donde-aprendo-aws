@@ -122,7 +122,7 @@ test('la ruta antigua conserva el destino Solicitudes también sin perfil y mant
 async function api(harness, path, session = 'creator-a', options = {}) {
   const creatorContract = Object.hasOwn(options, 'creatorContract')
     ? options.creatorContract
-    : options.method === undefined || options.method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION;
+    : options.method === undefined || options.method === 'GET' ? undefined : CREATOR_CONTRACT_VERSION;
   return callApi(harness, path, {
     session,
     csrf: sessionCsrf[session],

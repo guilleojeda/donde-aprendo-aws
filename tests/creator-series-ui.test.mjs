@@ -146,7 +146,7 @@ function editorData({ withProfile = true } = {}) {
 
   if (!withProfile) {
     return {
-      schemaVersion: 2,
+      schemaVersion: 3,
       creatorVersion: null,
       profile: null,
       resources: [],
@@ -173,6 +173,8 @@ function editorData({ withProfile = true } = {}) {
     directoryApproval,
     metadataEditable: true,
     reincludeAllowed: false,
+    classification: { state: 'absent' },
+    classificationEditable: true,
   }));
   const order = {
     featured: links.filter(({ featured }) => featured).sort((left, right) => left.position - right.position)
@@ -191,7 +193,7 @@ function editorData({ withProfile = true } = {}) {
   }]));
 
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     creatorVersion,
     profile: profileDto,
     resources,

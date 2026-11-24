@@ -32,7 +32,7 @@ async function classify(harness, resourceId, version, fields) {
 async function creatorApi(harness, path, { method = 'GET', body } = {}) {
   return harness.service.handle(apiRequest(path, {
     session: 'creator-a', csrf: 'csrf-a',
-    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION, method, body,
+    ...(method === 'GET' ? {} : { creatorContract: CREATOR_CONTRACT_VERSION }), method, body,
   }));
 }
 
@@ -588,7 +588,7 @@ test('resource IDs reject physical URL reservation aliases without writes and pr
     ...options,
     creatorContract: Object.hasOwn(options, 'creatorContract')
       ? options.creatorContract
-      : options.method === undefined || options.method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
+      : options.method === undefined || options.method === 'GET' ? undefined : CREATOR_CONTRACT_VERSION,
   }));
 
   const profile = await api('/api/creador/perfil', 'creator-a', {

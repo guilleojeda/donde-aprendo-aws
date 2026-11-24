@@ -38,7 +38,7 @@ export function adminResourceCommandMatches(target, id, action) {
  *
  * The exercised routes cover owner profile/content/photo/claim operations,
  * public profile/Series reads, and guarded admin resource/profile/claim flows.
- * The current owner DTO uses schemaVersion 2, one creatorVersion, one resource
+ * The current owner DTO uses schemaVersion 3, one creatorVersion, one resource
  * collection, placement references/options, and independent general and
  * chapter ID sequences. Content commands submit raw field intent and receive
  * canonical operation acknowledgements. Profile and resource versions retain

@@ -146,7 +146,7 @@ async function holdOneSuccessfulWrite(page, { method, path }) {
 async function seedSeriesChapters(fixture, cookie, seriesId, count, longTitleIndex) {
   const initial = await api(fixture, cookie, '/api/creador/perfil');
   assert.equal(initial.response.status, 200);
-  assert.equal(initial.body.schemaVersion, 2);
+  assert.equal(initial.body.schemaVersion, 3);
   let creatorVersion = initial.body.creatorVersion;
   const links = [];
   const query = 'BUSQUEDA-UNICA-LARGA-37';
@@ -286,7 +286,7 @@ test('Series: un acuse de capítulo retrasado reconcilia una serie eliminada sin
   await addChapter(fixture, cookie, survivor.id, link.placementId);
   const before = await api(fixture, cookie, '/api/creador/perfil');
   assert.equal(before.response.status, 200, JSON.stringify(before.body));
-  assert.equal(before.body.schemaVersion, 2);
+  assert.equal(before.body.schemaVersion, 3);
 
   const path = `/api/creador/series/${removed.id}/capitulos/${link.placementId}`;
   const capture = await captureCreatorApi(page);

@@ -23,7 +23,7 @@ const CATALOG = 'catalog-test';
 async function api(harness, path, body, { method = 'POST', session = 'creator-a' } = {}) {
   const response = await callApi(harness, path, {
     method, session, csrf: sessionCsrf[session],
-    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
+    ...(method === 'GET' ? {} : { creatorContract: CREATOR_CONTRACT_VERSION }),
     ...(body === undefined ? {} : { body }),
   });
   return { status: response.status, body: response.status === 204 ? null : await response.json(), headers: response.headers };
@@ -36,7 +36,7 @@ function accepted(result, status) {
 
 async function owner(harness, session = 'creator-a') {
   const snapshot = accepted(await api(harness, '/api/creador/perfil', undefined, { method: 'GET', session }), 200);
-  assert.equal(snapshot.schemaVersion, 2);
+  assert.equal(snapshot.schemaVersion, 3);
   assert.equal(Object.hasOwn(snapshot, 'links'), false);
   return snapshot;
 }

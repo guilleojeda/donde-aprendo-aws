@@ -41,7 +41,7 @@ async function creatorApi(harness, pathname, { method = 'GET', body } = {}) {
   return callApi(harness, pathname, {
     session: 'creator-a',
     csrf: sessionCsrf['creator-a'],
-    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
+    ...(method === 'GET' ? {} : { creatorContract: CREATOR_CONTRACT_VERSION }),
     method,
     ...(body === undefined ? {} : { body }),
   });

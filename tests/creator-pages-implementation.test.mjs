@@ -14,7 +14,7 @@ import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 async function api(harness, path, session, options = {}) {
   const creatorContract = Object.hasOwn(options, 'creatorContract')
     ? options.creatorContract
-    : options.method === undefined || options.method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION;
+    : options.method === undefined || options.method === 'GET' ? undefined : CREATOR_CONTRACT_VERSION;
   return callApi(harness, path, { session, csrf: sessionCsrf[session], ...options, creatorContract });
 }
 

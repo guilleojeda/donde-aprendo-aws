@@ -62,7 +62,6 @@ import CreatorOwnerIdentityPanel from './CreatorOwnerIdentityPanel';
 import CreatorOwnerSeriesPanel from './CreatorOwnerSeriesPanel';
 import CreatorOwnerLinksPanel from './CreatorOwnerLinksPanel';
 import CreatorOwnerClaimsPanel from './CreatorOwnerClaimsPanel';
-import CreatorOwnerReadRecoveryAction from './CreatorOwnerReadRecoveryAction';
 
 interface Props {
   data: CreatorOwnerSnapshotDTO;
@@ -1158,9 +1157,7 @@ export default function CreatorOwnerApp(props: Props) {
   function observeBoundSessionFailure(status: number, payload: CreatorSessionResponse | null, operationId: number): string | undefined {
     const recovery = creatorSessionRecoveryReason(status, payload);
     const check = classifyCreatorSessionCheck(status, payload);
-    const reason = status === 409 && payload?.error === 'CREATOR_CONTRACT_OBSOLETE'
-      ? 'obsolete-contract'
-      : recovery ?? (check.state === 'context-changed' ? 'different-principal' : check.state);
+    const reason = recovery ?? (check.state === 'context-changed' ? 'different-principal' : check.state);
     let message: string;
     switch (reason) {
       case 'expired':
@@ -1170,17 +1167,18 @@ export default function CreatorOwnerApp(props: Props) {
         break;
       case 'disabled': message = 'Esta cuenta está desactivada. Conservamos tus cambios.'; break;
       case 'invalid-context': message = 'El contexto de esta página no es válido. Abre una página nueva con la cuenta original.'; break;
-      case 'obsolete-contract': message = 'Esta página usa una versión anterior. Conservamos el borrador para que puedas copiarlo antes de abrir una página nueva.'; break;
       default: return undefined;
     }
-    const terminal = reason === 'disabled' || reason === 'invalid-context' || reason === 'obsolete-contract';
+    const terminal = reason === 'disabled' || reason === 'invalid-context';
     recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound',
       outcome: terminal ? 'terminal' : 'recoverable', reason, message });
     return message;
   }
 
   function rejectBoundWrite(status: number, payload: CreatorSessionResponse | null, operationId: number, intentId: string): boolean {
-    const message = observeBoundSessionFailure(status, payload, operationId);
+    const message = status === 409 && payload?.error === 'CREATOR_CONTRACT_OBSOLETE'
+      ? 'Actualiza esta página para continuar'
+      : observeBoundSessionFailure(status, payload, operationId);
     if (!message) return false;
     operationGenerationRef.current += 1;
     dispatch({ type: 'operation-rejected', intentId, message });
@@ -1233,7 +1231,6 @@ export default function CreatorOwnerApp(props: Props) {
     if (latest.operation.status === 'reading' || latest.session.state !== 'ready') return;
     const readFollowsWrite = latest.operation.status === 'sending' && intent
       && latest.operation.intent.id === intent.id && (fact === 'acknowledged' || fact === 'conflict');
-    if (latest.operation.status === 'refresh-failed' && latest.operation.readContractObsolete) return;
     if (latest.operation.status === 'sending' && !readFollowsWrite) return;
     if (!readFollowsWrite && latest.operation.status !== 'idle' && latest.operation.status !== 'refresh-failed'
       && latest.operation.status !== 'unknown' && latest.operation.status !== 'conflict') return;
@@ -1281,7 +1278,7 @@ export default function CreatorOwnerApp(props: Props) {
     };
     try {
       const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store',
-        headers: { 'x-creator-page-binding': binding, accept: 'application/json', [CREATOR_CONTRACT_HEADER]: CREATOR_CONTRACT_VERSION } });
+        headers: { 'x-creator-page-binding': binding, accept: 'application/json' } });
       if (!current()) return;
       if (!response.ok) {
         const payload = await readCreatorSessionResponse(response);
@@ -1294,19 +1291,7 @@ export default function CreatorOwnerApp(props: Props) {
       if (!current()) return;
       let snapshot: CreatorOwnerSnapshotDTO;
       try {
-        const parsed = readCreatorOwnerSnapshot(raw);
-        if (parsed.schemaVersion !== 3) {
-          operationGenerationRef.current += 1;
-          const obsoleteReadMessage = fact === 'acknowledged' && intent?.acknowledgement
-            ? 'La acción está confirmada, pero esta pestaña recibió una lectura antigua. Conservamos el borrador y no volveremos a enviar la escritura. Abre la página actual en otra pestaña para continuar.'
-            : intent?.action
-              ? 'Esta pestaña recibió una lectura antigua y no puede instalarla en esta página. Conservamos el estado y no repetiremos la acción. Abre la página actual en otra pestaña para continuar.'
-              : 'Esta pestaña recibió una lectura antigua y no puede instalarla en esta página. Conservamos el estado de esta página. Abre la página actual en otra pestaña para continuar.';
-          dispatch({ type: 'operation-read-failed', ...(intent ? { intent } : {}), fact, readContractObsolete: true,
-            message: obsoleteReadMessage });
-          return;
-        }
-        snapshot = parsed;
+        snapshot = readCreatorOwnerSnapshot(raw);
       }
       catch {
         fail('La lectura no contiene un estado completo y válido. La vista sigue desactualizada; vuelve a comprobar.');
@@ -2054,8 +2039,10 @@ export default function CreatorOwnerApp(props: Props) {
     <h3>{listRecoveryHeading(listOperation.intent.action)}</h3>
     <p class={listOperation.status === 'reading' ? undefined : 'creator-owner__status--error'}
       role={listOperation.status === 'reading' ? 'status' : 'alert'}>{listOperation.message}</p>
-    {listOperation.status === 'refresh-failed' && <CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-refresh-retry" label="Reintentar actualización" onRetryRead={checkClick} />}
-    {listOperation.status === 'unknown' && !listOperation.readCompleted && <CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-compare" label="Comprobar el estado guardado" onRetryRead={checkClick} />}
+    {listOperation.status === 'refresh-failed' && <button class="button button--outline" type="button" data-owner-refresh-retry
+      disabled={state.session.state !== 'ready'} onClick={checkClick}>Reintentar actualización</button>}
+    {listOperation.status === 'unknown' && !listOperation.readCompleted && <button class="button button--outline" type="button" data-owner-compare
+      disabled={state.session.state !== 'ready'} onClick={checkClick}>Comprobar el estado guardado</button>}
     {(listOperation.status === 'unknown' || listOperation.status === 'conflict') && listOperation.readCompleted
       && <button class="button button--outline" type="button" data-owner-use-saved onClick={() => resolveRecovery('saved')}>Usar lo guardado</button>}
   </section> : listRejection && <p class="creator-owner__status creator-owner__status--error" data-owner-list-action-error tabIndex={-1} role="alert">{listRejection.text}</p>;

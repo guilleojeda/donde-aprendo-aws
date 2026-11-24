@@ -2,10 +2,8 @@ import type {
   CreatorClaimDTO,
   CreatorClaimResourceDTO,
   CreatorOwnerPlacementViewDTO,
-  CreatorOwnerResourceV2DTO,
-  CreatorOwnerResourceV3DTO,
+  CreatorOwnerResourceDTO,
   CreatorOwnerSnapshotDTO,
-  CreatorOwnerSnapshotWireDTO,
 } from '../types/creators';
 import { isCatalogResourceIdWithinLimit } from './catalog-identity.mjs';
 import { CREATOR_PROGRAMS, CREATOR_SOCIALS, isCreatorStateId } from './creator-values.mjs';
@@ -67,7 +65,7 @@ function isProfile(value: unknown): boolean {
   return true;
 }
 
-function isClassification(value: unknown): value is CreatorOwnerResourceV3DTO['classification'] {
+function isClassification(value: unknown): value is CreatorOwnerResourceDTO['classification'] {
   if (!record(value) || typeof value.state !== 'string') return false;
   if (value.state === 'absent' || value.state === 'invalid' || value.state === 'event') {
     return hasOnlyKeys(value, ['state']);
@@ -78,11 +76,14 @@ function isClassification(value: unknown): value is CreatorOwnerResourceV3DTO['c
     && nonEmptyText(value.format) && isStringArray(value.topics) && unique(value.topics);
 }
 
-function isResource(value: unknown, contractVersion: 2 | 3): boolean {
-  const required = ['id', 'version', 'title', 'url', 'hidden', 'directoryApproval', 'metadataEditable', 'reincludeAllowed'];
-  const optional = contractVersion === 3 ? ['description', 'classification', 'classificationEditable'] : ['description'];
+function isResource(value: unknown): boolean {
+  const required = [
+    'id', 'version', 'title', 'url', 'hidden', 'directoryApproval', 'metadataEditable', 'reincludeAllowed',
+    'classification', 'classificationEditable',
+  ];
+  const optional = ['description'];
   if (!record(value) || !hasOnlyKeys(value, required, optional)) return false;
-  if (contractVersion === 3 && (!isClassification(value.classification) || typeof value.classificationEditable !== 'boolean')) return false;
+  if (!isClassification(value.classification) || typeof value.classificationEditable !== 'boolean') return false;
   return nonEmptyText(value.id) && isCatalogResourceIdWithinLimit(value.id)
     && safeVersion(value.version) && text(value.title) && isSafeCatalogUrl(value.url)
     && (!Object.hasOwn(value, 'description') || text(value.description))
@@ -133,22 +134,22 @@ function isClaim(value: unknown): value is CreatorClaimDTO {
     && (!Object.hasOwn(value, 'evidence') || text(value.evidence));
 }
 
-/** Strictly validate a complete v2 owner read without changing, defaulting or projecting it. */
-export function readCreatorOwnerSnapshot(value: unknown): CreatorOwnerSnapshotWireDTO {
+/** Strictly validate a complete current owner read without changing, defaulting or projecting it. */
+export function readCreatorOwnerSnapshot(value: unknown): CreatorOwnerSnapshotDTO {
   if (!record(value) || !hasOnlyKeys(value,
     ['schemaVersion', 'creatorVersion', 'profile', 'resources', 'placements', 'order', 'series', 'claims'])) {
     throw new TypeError('No pudimos leer los datos del perfil.');
   }
   const { schemaVersion, creatorVersion, profile, resources, placements, order, series, claims } = value;
-  if (schemaVersion !== 2 && schemaVersion !== 3 || !(creatorVersion === null || safeVersion(creatorVersion))
+  if (schemaVersion !== 3 || !(creatorVersion === null || safeVersion(creatorVersion))
     || !(profile === null || isProfile(profile))
-    || !Array.isArray(resources) || !resources.every((resource) => isResource(resource, schemaVersion as 2 | 3))
+    || !Array.isArray(resources) || !resources.every(isResource)
     || !record(placements) || !record(order) || !record(series)
     || !Array.isArray(claims) || !claims.every(isClaim)) {
     throw new TypeError('No pudimos leer los datos del perfil.');
   }
 
-  const resourceRows = resources as Array<CreatorOwnerResourceV2DTO | CreatorOwnerResourceV3DTO>;
+  const resourceRows = resources as CreatorOwnerResourceDTO[];
   const placementRows = placements as Record<string, unknown>;
   const sequence = order as Record<string, unknown>;
   const seriesRows = series as Record<string, unknown>;
@@ -201,7 +202,10 @@ export function readCreatorOwnerSnapshot(value: unknown): CreatorOwnerSnapshotWi
     throw new TypeError('El estado sin perfil contiene datos de edición o carece de su revisión.');
   }
 
-  return value as unknown as CreatorOwnerSnapshotWireDTO;
+  // Every field, nested collection, identity, permission, and sequence
+  // relationship has been validated above. Keep the exact received object so
+  // callers observe no clone, default, or normalization at this boundary.
+  return value as unknown as CreatorOwnerSnapshotDTO;
 }
 
 /** Display join: resource metadata is read once; group and positions come from explicit sequences. */

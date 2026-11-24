@@ -133,7 +133,7 @@ export type CreatorOwnerOperation =
   | { status: 'idle' }
   | { status: 'sending'; intent: CreatorOwnerIntent }
   | { status: 'reading'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string }
-  | { status: 'refresh-failed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string; readContractObsolete?: true }
+  | { status: 'refresh-failed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string }
   | { status: 'unknown'; intent: CreatorOwnerIntent; message: string; readCompleted?: true }
   | { status: 'conflict'; intent: CreatorOwnerIntent; message: string; readCompleted?: true };
 
@@ -145,7 +145,7 @@ export type CreatorOwnerSession =
   | { state: 'ready'; csrfToken: string }
   | { state: 'recovery-required'; reason: 'expired' | 'csrf' | 'different-principal' | 'disabled' | 'check-required'; message: string; csrfToken?: string }
   | { state: 'checking'; reason: 'expired' | 'csrf' | 'different-principal' | 'disabled' | 'check-required'; message: string; checkId: string; csrfToken?: string }
-  | { state: 'blocked'; reason: 'disabled' | 'invalid-context' | 'obsolete-contract'; message: string };
+  | { state: 'blocked'; reason: 'disabled' | 'invalid-context'; message: string };
 
 export interface CreatorOwnerLocation {
   view: CreatorOwnerView;
@@ -204,7 +204,7 @@ export interface CreatorOwnerState {
 export type CreatorOwnerSessionPolicyAction =
   | { type: 'session-check-started'; operationId: number; checkId: string }
   | { type: 'session-evidence'; operationId: number; source: 'bound' | 'session-check'; checkId?: string;
-      outcome: 'recoverable' | 'terminal' | 'read-confirmed' | 'write-confirmed' | 'renewed'; reason?: 'expired' | 'csrf' | 'different-principal' | 'disabled' | 'check-required' | 'invalid-context' | 'obsolete-contract';
+      outcome: 'recoverable' | 'terminal' | 'read-confirmed' | 'write-confirmed' | 'renewed'; reason?: 'expired' | 'csrf' | 'different-principal' | 'disabled' | 'check-required' | 'invalid-context';
       message: string; csrfToken?: string };
 
 export type CreatorOwnerAction = CreatorOwnerSessionPolicyAction
@@ -231,7 +231,7 @@ export type CreatorOwnerAction = CreatorOwnerSessionPolicyAction
       rejectedClaimSelection?: readonly CreatorOwnerClaimSelection[] }
   | { type: 'operation-started'; intent: CreatorOwnerIntent; preserveExit?: boolean }
   | { type: 'operation-reading'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string }
-  | { type: 'operation-read-failed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string; suppressGlobalMessage?: boolean; focusAfterRender?: string; readContractObsolete?: true }
+  | { type: 'operation-read-failed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string; suppressGlobalMessage?: boolean; focusAfterRender?: string }
   | { type: 'operation-read-installed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; snapshot: CreatorOwnerSnapshotDTO; message: string; consumeEditor?: boolean; focusAfterRender?: string }
   | { type: 'operation-unknown'; intent: CreatorOwnerIntent; message: string }
   | { type: 'operation-rejected'; intentId: string; message: string; fieldErrors?: CreatorOwnerFieldMessages }
@@ -310,13 +310,13 @@ export function reduceCreatorOwnerSessionPolicy(
       } } : {}), accepted: true };
   }
   if (action.outcome === 'terminal') {
-    if (action.reason !== 'disabled' && action.reason !== 'invalid-context' && action.reason !== 'obsolete-contract') return { ...state, accepted: false };
+    if (action.reason !== 'disabled' && action.reason !== 'invalid-context') return { ...state, accepted: false };
     return { ...state, sessionEvidence: evidence, session: { state: 'blocked', reason: action.reason, message: action.message },
       feedback: { text: action.message, kind: 'error', sessionDerived: true },
       ...(action.source === 'session-check' ? { attemptFeedback: { text: action.message, kind: 'error' as const, sessionDerived: true as const } } : {}), accepted: true };
   }
   if (action.outcome === 'recoverable') {
-    if (!action.reason || action.reason === 'invalid-context' || action.reason === 'obsolete-contract' || action.reason === 'disabled' && action.source === 'bound') return { ...state, accepted: false };
+    if (!action.reason || action.reason === 'invalid-context' || action.reason === 'disabled' && action.source === 'bound') return { ...state, accepted: false };
     return { ...state, sessionEvidence: evidence, session: { state: 'recovery-required', reason: action.reason, message: action.message,
       ...(current.state === 'ready' ? { csrfToken: current.csrfToken } : current.csrfToken ? { csrfToken: current.csrfToken } : {}) },
       feedback: { text: action.message, kind: 'error', sessionDerived: true },
@@ -491,7 +491,6 @@ export function creatorOwnerEditorDraftFocus(editor: CreatorOwnerEditorDraft): s
 export function deriveCreatorOwnerRecoveryFocus(state: CreatorOwnerState): string | undefined {
   const action = deriveCreatorOwnerRecoveryAction(state);
   const operation = action.operation;
-  if (operation.status === 'refresh-failed' && operation.readContractObsolete) return undefined;
   const pendingAction = 'intent' in operation ? operation.intent?.action : undefined;
   if (action.kind === 'retry' || action.kind === 'session-check' && operation.status === 'refresh-failed') return ownerRecoveryRetryFocus;
   if (action.kind === 'compare' || action.kind === 'session-check' && operation.status === 'unknown' && !operation.readCompleted) {
@@ -826,8 +825,9 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
     case 'operation-reading': return { ...state, operation: { status: 'reading', ...(action.intent ? { intent: action.intent } : {}), fact: action.fact, message: action.message },
       location: action.fact === 'unknown' || action.fact === 'conflict' ? cancelAuthorizedSaveTransition(state.location) : state.location };
     case 'operation-read-failed': {
-      const operation: CreatorOwnerOperation = { status: 'refresh-failed', ...(action.intent ? { intent: action.intent } : {}), fact: action.fact, message: action.message,
-        ...(action.readContractObsolete ? { readContractObsolete: true as const } : {}) };
+      const operation: CreatorOwnerOperation = {
+        status: 'refresh-failed', ...(action.intent ? { intent: action.intent } : {}), fact: action.fact, message: action.message,
+      };
       const location = { ...cancelAuthorizedSaveTransition(state.location), focusAfterRender: action.focusAfterRender };
       const recoveryFocus = action.focusAfterRender ?? deriveCreatorOwnerRecoveryFocus({ ...state, operation, location });
       const editorMatches = Boolean(action.intent?.editorKey && state.editor?.key === action.intent.editorKey);

@@ -105,10 +105,10 @@ export type CreatorResourceClassification =
   | ({ state: 'explicit' | 'legacy' } & CreatorResourceClassificationValues)
   | { state: 'absent' | 'invalid' | 'event' };
 
-/** The private v2 owner read. Aggregate revisions live at the snapshot root. */
+/** The private owner read. Aggregate revisions live at the snapshot root. */
 export interface CreatorOwnerProfileDTO extends Omit<CreatorProfileDTO, 'version'> {}
 
-export interface CreatorOwnerResourceBaseDTO {
+export interface CreatorOwnerResourceDTO {
   id: string;
   version: number;
   title: string;
@@ -119,17 +119,9 @@ export interface CreatorOwnerResourceBaseDTO {
   metadataEditable: boolean;
   /** The owner's retained reference, with edit authority and no placement on the page. */
   reincludeAllowed: boolean;
-}
-
-export interface CreatorOwnerResourceV2DTO extends CreatorOwnerResourceBaseDTO {}
-
-export interface CreatorOwnerResourceV3DTO extends CreatorOwnerResourceBaseDTO {
   classification: CreatorResourceClassification;
   classificationEditable: boolean;
 }
-
-/** Current owner island/server state. Legacy v2 is parsed separately and never installed here. */
-export type CreatorOwnerResourceDTO = CreatorOwnerResourceV3DTO;
 
 export interface CreatorOwnerPlacementDTO {
   resourceId: string;
@@ -148,31 +140,16 @@ export interface CreatorOwnerSeriesRecordDTO {
   chapters: string[];
 }
 
-export interface CreatorOwnerSnapshotV2DTO {
-  schemaVersion: 2;
-  creatorVersion: number | null;
-  profile: CreatorOwnerProfileDTO | null;
-  resources: CreatorOwnerResourceV2DTO[];
-  placements: Record<string, CreatorOwnerPlacementDTO>;
-  order: CreatorOwnerOrderDTO;
-  series: Record<string, CreatorOwnerSeriesRecordDTO>;
-  claims: CreatorClaimDTO[];
-}
-
-export interface CreatorOwnerSnapshotV3DTO {
+export interface CreatorOwnerSnapshotDTO {
   schemaVersion: 3;
   creatorVersion: number | null;
   profile: CreatorOwnerProfileDTO | null;
-  resources: CreatorOwnerResourceV3DTO[];
+  resources: CreatorOwnerResourceDTO[];
   placements: Record<string, CreatorOwnerPlacementDTO>;
   order: CreatorOwnerOrderDTO;
   series: Record<string, CreatorOwnerSeriesRecordDTO>;
   claims: CreatorClaimDTO[];
 }
-
-/** Current owner island/server state. */
-export type CreatorOwnerSnapshotDTO = CreatorOwnerSnapshotV3DTO;
-export type CreatorOwnerSnapshotWireDTO = CreatorOwnerSnapshotV2DTO | CreatorOwnerSnapshotV3DTO;
 
 /** Display-only join of the canonical resource, placement and sequence facts. */
 export interface CreatorOwnerPlacementViewDTO {

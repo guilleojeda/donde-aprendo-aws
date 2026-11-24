@@ -5,7 +5,7 @@ import { callApi, createCreatorPagesHarness, responseJson, seedResource, session
 
 async function api(harness, path, session = 'creator-a', { method = 'GET', body } = {}) {
   return callApi(harness, path, {
-    session, csrf: sessionCsrf[session], creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
+    session, csrf: sessionCsrf[session], ...(method === 'GET' ? {} : { creatorContract: CREATOR_CONTRACT_VERSION }),
     method, ...(body === undefined ? {} : { body }),
   });
 }

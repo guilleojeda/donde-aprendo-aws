@@ -30,16 +30,16 @@ async function api(harness, path, {
     session,
     method,
     csrf: sessionCsrf[session],
-    ...(creatorContract === null ? {} : { creatorContract }),
+    ...(method === 'GET' || creatorContract === null ? {} : { creatorContract }),
     extraHeaders,
     ...(body === undefined ? {} : { body }),
   });
   return { response, body: await responseJson(response) };
 }
 
-async function owner(harness, session = 'creator-a', { contract = CREATOR_CONTRACT_VERSION } = {}) {
+async function owner(harness, session = 'creator-a') {
   const { response, body } = await api(harness, '/api/creador/perfil', {
-    session, method: 'GET', creatorContract: contract,
+    session, method: 'GET',
   });
   assert.equal(response.status, 200, JSON.stringify(body));
   return body;
@@ -196,7 +196,7 @@ test('creator Add accepts an optional empty classification and a complete taxono
       if (item.expected.state === 'explicit') assert.equal(row.category, 'Seguridad');
       else assert.equal(Object.hasOwn(row, 'category'), false);
 
-      const read = await owner(harness, 'creator-a', { contract: '3' });
+      const read = await owner(harness, 'creator-a');
       assert.equal(read.schemaVersion, 3);
       const resource = resourceFrom(read, added.body.resourceId);
       assert.deepEqual(resource.classification, item.expected);
@@ -235,7 +235,7 @@ test('pending active classification remains creator-editable, and retained repla
   assert.equal(saved.title, 'Retained correction');
   assert.equal(saved.category, 'Seguridad');
   assert.deepEqual({ kind: saved.kind, format: saved.format, topics: saved.topics }, SOURCE);
-  const read = await owner(harness, 'creator-a', { contract: '3' });
+  const read = await owner(harness, 'creator-a');
   const resource = resourceFrom(read, added.body.resourceId);
   assert.deepEqual(resource.classification, { state: 'explicit', ...SOURCE });
   assert.equal(resource.classificationEditable, true);
@@ -376,7 +376,7 @@ test('array kind values are rejected without effects and read as invalid classif
   };
   await seedResource(harness.store, malformed);
   await reference(harness, 'creator-a', malformed);
-  const read = await owner(harness, 'creator-a', { contract: '3' });
+  const read = await owner(harness, 'creator-a');
   assert.deepEqual(resourceFrom(read, malformed.id).classification, { state: 'invalid' });
   assert.throws(() => projectPublicRecord(malformed), /invalid kind/);
 });
@@ -469,7 +469,7 @@ test('title-only editing of a pending historical row does not materialize taxono
   assert.equal(Object.hasOwn(saved, 'kind'), false);
   assert.equal(Object.hasOwn(saved, 'format'), false);
   assert.equal(Object.hasOwn(saved, 'topics'), false);
-  const read = await owner(harness, 'creator-a', { contract: '3' });
+  const read = await owner(harness, 'creator-a');
   assert.deepEqual(resourceFrom(read, resource.id).classification, {
     state: 'legacy', kind: 'source', format: 'Blog', topics: [],
   });
@@ -532,7 +532,7 @@ test('duplicate reuse keeps the winning metadata and authority, including a conc
   const stored = await harness.store.get(`resource:${winner.body.resourceId}`);
   assert.equal(stored.title, 'Winner title');
   assert.deepEqual({ kind: stored.kind, format: stored.format, topics: stored.topics }, CONTENT);
-  const loserRead = await owner(harness, 'creator-b', { contract: '3' });
+  const loserRead = await owner(harness, 'creator-b');
   const loserResource = resourceFrom(loserRead, winner.body.resourceId);
   assert.equal(loserResource.metadataEditable, false);
   assert.deepEqual(loserResource.classification, { state: 'explicit', ...CONTENT });
@@ -568,8 +568,8 @@ test('duplicate reuse keeps the winning metadata and authority, including a conc
     resourceId: concurrentWinner.body.resourceId,
     version: 1,
   });
-  const racedLoserRead = await owner(raced, 'creator-a', { contract: '3' });
-  const racedWinnerRead = await owner(raced, 'creator-b', { contract: '3' });
+  const racedLoserRead = await owner(raced, 'creator-a');
+  const racedWinnerRead = await owner(raced, 'creator-b');
   assert.equal(resourceFrom(racedLoserRead, racedRow.id).metadataEditable, false);
   assert.equal(resourceFrom(racedWinnerRead, racedRow.id).metadataEditable, true);
   assert.deepEqual(Object.values(racedLoserRead.placements).map(({ resourceId }) => resourceId), [racedRow.id]);
@@ -652,7 +652,7 @@ test('owner read derives effective classification permission from current state'
   await seedResource(harness.store, event);
   await reference(harness, 'creator-a', event);
 
-  const read = await owner(harness, 'creator-a', { contract: '3' });
+  const read = await owner(harness, 'creator-a');
   assert.equal(read.schemaVersion, 3);
   assert.deepEqual(resourceFrom(read, pending.id).classification, { state: 'explicit', ...CONTENT });
   assert.equal(resourceFrom(read, pending.id).classificationEditable, true);
@@ -932,7 +932,7 @@ test('anonymous submission, creator reuse and grant, edit, moderation, and publi
     session: 'admin', body: { accountId: 'private-account-a', resourceIds: [resourceId] },
   });
   assert.equal(linked.response.status, 200, JSON.stringify(linked.body));
-  const granted = await owner(harness, 'creator-a', { contract: '3' });
+  const granted = await owner(harness, 'creator-a');
   assert.equal(resourceFrom(granted, resourceId).metadataEditable, true);
 
   const edited = await editLink(harness, 'creator-a', resourceId, {

@@ -1051,7 +1051,7 @@ test('una ficha retirada conserva su borrador hasta descartarlo y editarla despu
   const cookie = await loggedInOwner(fixture, page);
   const initial = await api(fixture, cookie, '/api/creador/perfil');
   assert.equal(initial.response.status, 200, JSON.stringify(initial.body));
-  assert.equal(initial.body.schemaVersion, 2);
+  assert.equal(initial.body.schemaVersion, 3);
   const profileId = initial.body.profile.id;
   const originalUrl = 'https://missing-target.example.invalid/phase5-own-link';
   const created = await api(fixture, cookie, '/api/creador/enlaces/', {
@@ -1236,7 +1236,7 @@ test('un acuse 200 con contexto incompatible queda incierto aunque la lectura re
   const cookie = await loggedInOwner(fixture, page);
   const before = await api(fixture, cookie, '/api/creador/perfil');
   assert.equal(before.response.status, 200, JSON.stringify(before.body));
-  assert.equal(before.body.schemaVersion, 2);
+  assert.equal(before.body.schemaVersion, 3);
   const profileId = before.body.profile.id;
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
   const form = await openEditor(page, fixture);
@@ -1318,7 +1318,7 @@ test('un acuse válido conserva la confirmación aunque la lectura completa incl
   const cookie = await loggedInOwner(fixture, page);
   const before = await api(fixture, cookie, '/api/creador/perfil');
   assert.equal(before.response.status, 200, JSON.stringify(before.body));
-  assert.equal(before.body.schemaVersion, 2);
+  assert.equal(before.body.schemaVersion, 3);
   const profileId = before.body.profile.id;
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
   const form = await openEditor(page, fixture);

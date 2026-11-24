@@ -8,7 +8,7 @@ async function api(harness, path, body, { session = 'creator-a', method = 'PATCH
   return callApi(harness, path, {
     session,
     csrf: sessionCsrf[session],
-    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
+    ...(method === 'GET' ? {} : { creatorContract: CREATOR_CONTRACT_VERSION }),
     method,
     ...(body === undefined ? {} : { body }),
     ...options,
@@ -19,7 +19,7 @@ async function owner(harness, session = 'creator-a') {
   const response = await api(harness, '/api/creador/perfil', undefined, { session, method: 'GET' });
   assert.equal(response.status, 200, await response.clone().text());
   const snapshot = await responseJson(response);
-  assert.equal(snapshot.schemaVersion, 2);
+  assert.equal(snapshot.schemaVersion, 3);
   assert.equal(Object.hasOwn(snapshot.profile ?? {}, 'version'), false);
   assert.equal(Object.hasOwn(snapshot, 'links'), false);
   return snapshot;

@@ -86,7 +86,7 @@ function pageResult(value) {
     period: value.period,
     page: value.page,
     editor: {
-      schemaVersion: 2,
+      schemaVersion: 3,
       creatorVersion: 1,
       profile: {
         id: 'creator-a', displayName: 'Creador', slug: 'creador', programs: [], socials: {}, published: true, hidden: false,
@@ -228,7 +228,7 @@ test('explicit empty limited GA4 results stay unknown through the authenticated 
   const ownerRead = await callApi(harness, '/api/creador/perfil/', { session: 'creator-a' });
   assert.equal(ownerRead.status, 200);
   const snapshot = await ownerRead.json();
-  assert.equal(snapshot.schemaVersion, 2);
+  assert.equal(snapshot.schemaVersion, 3);
   const published = await callApi(harness, '/api/creador/perfil/publicar', {
     session: 'creator-a',
     method: 'POST',

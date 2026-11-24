@@ -7,7 +7,7 @@ const profileSlug = 'regresion-series';
 
 async function api(harness, path, { session = 'creator-a', method = 'GET', body } = {}) {
   return callApi(harness, path, {
-    session, csrf: sessionCsrf[session], creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION, method,
+    session, csrf: sessionCsrf[session], ...(method === 'GET' ? {} : { creatorContract: CREATOR_CONTRACT_VERSION }), method,
     ...(body === undefined ? {} : { body }),
   });
 }
@@ -16,7 +16,7 @@ async function owner(harness) {
   const response = await api(harness, '/api/creador/perfil');
   assert.equal(response.status, 200);
   const snapshot = await responseJson(response);
-  assert.equal(snapshot.schemaVersion, 2);
+  assert.equal(snapshot.schemaVersion, 3);
   return snapshot;
 }
 

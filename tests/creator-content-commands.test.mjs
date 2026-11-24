@@ -90,7 +90,7 @@ function assertAck(body, {
 
 async function requireSnapshot(harness, profileId = PROFILE_ID) {
   const snapshot = await readCreatorSnapshot(harness);
-  assert.equal(snapshot.schemaVersion, 2);
+  assert.equal(snapshot.schemaVersion, 3);
   assert.equal(snapshot.profile?.id ?? null, snapshot.profile === null ? null : profileId);
   assert.equal(Object.hasOwn(snapshot.profile ?? {}, 'version'), false,
     'the profile object does not duplicate the aggregate revision');

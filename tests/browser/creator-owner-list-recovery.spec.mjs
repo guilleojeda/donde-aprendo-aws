@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { test, expect, addLink, captureCreatorApi, loggedInOwner, readOwnerSnapshot } from '../fixtures/creator-browser-test.mjs';
+import { test, expect, api, captureCreatorApi, loggedInOwner } from '../fixtures/creator-browser-test.mjs';
 
 const OWNER_PATH = '/api/creador/perfil';
 const STALE_LINK_RECOVERY = '[data-owner-list-recovery="links"][data-owner-stale="true"]';
@@ -8,17 +8,46 @@ function writesTo(capture, method, path) {
   return capture.writes().filter((write) => write.method === method && write.path === path);
 }
 
-test('un GET2 después de quitar conserva la confirmación y ofrece la página actual sin repetir la escritura', async ({ fixture, page }) => {
-  const cookie = await loggedInOwner(fixture, page);
-  const target = await addLink(fixture, cookie, {
+async function ownerWithProfile(fixture, page) {
+  const cookie = await loggedInOwner(fixture, page, { profile: false });
+  const created = await api(fixture, cookie, '/api/creador/perfil', {
+    method: 'PUT',
+    body: { creatorVersion: null, displayName: 'Ana Browser', slug: 'ana-browser', socials: {} },
+  });
+  assert.equal(created.response.status, 200, JSON.stringify(created.body));
+  return cookie;
+}
+
+async function addLinkWithoutRead(fixture, cookie, values = {}) {
+  const owner = await fixture.rawOwner(cookie);
+  const result = await api(fixture, cookie, '/api/creador/enlaces', {
+    method: 'POST',
+    body: { creatorVersion: owner.profile.version, title: 'Enlace de recuperación', url: 'https://phase5-list-recovery.example/default', ...values },
+  });
+  assert.equal(result.response.status, 201, JSON.stringify(result.body));
+  return result.body;
+}
+
+async function currentSnapshot(fixture, cookie) {
+  const result = await api(fixture, cookie, '/api/creador/perfil/', {
+    headers: { 'x-creator-contract': '3' },
+  });
+  assert.equal(result.response.status, 200, JSON.stringify(result.body));
+  assert.equal(result.body.schemaVersion, 3);
+  return result.body;
+}
+
+test('una lectura incompleta después de quitar permite reintentar la lectura actual sin repetir la escritura', async ({ fixture, page }) => {
+  const cookie = await ownerWithProfile(fixture, page);
+  const target = await addLinkWithoutRead(fixture, cookie, {
     title: 'Ficha para lectura retrasada',
     url: 'https://phase5-list-recovery.example/target',
   });
-  await addLink(fixture, cookie, {
+  await addLinkWithoutRead(fixture, cookie, {
     title: 'Ficha que queda visible',
     url: 'https://phase5-list-recovery.example/kept',
   });
-  const earlierSnapshot = await readOwnerSnapshot(fixture, cookie);
+  const earlierSnapshot = await currentSnapshot(fixture, cookie);
   await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=Ficha`);
   await expect(page.getByRole('heading', { name: 'Enlaces', exact: true })).toBeVisible();
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
@@ -54,13 +83,13 @@ test('un GET2 después de quitar conserva la confirmación y ofrece la página a
     }
     if (controlledReads === 1) {
       controlledReads += 1;
-      readResponses.push({ kind: 'earlier-v2', body: earlierSnapshot });
+      readResponses.push({ kind: 'current', body: actualBody });
       const headers = { ...actual.headers(), 'content-type': 'application/json' };
       delete headers['content-length'];
-      await route.fulfill({ status: 200, headers, body: JSON.stringify(earlierSnapshot) });
+      await route.fulfill({ status: 200, headers, body: JSON.stringify(actualBody) });
       return;
     }
-    readResponses.push({ kind: 'current-v2', body: actualBody });
+    readResponses.push({ kind: 'current', body: actualBody });
     await route.fulfill({ response: actual, json: actualBody });
   };
   await page.route('**/api/creador/**', transport);
@@ -84,22 +113,17 @@ test('un GET2 después de quitar conserva la confirmación y ofrece la página a
     assert.deepEqual(readResponses[0]?.body, { ...earlierSnapshot, resources: null });
     await page.locator('[data-owner-refresh-retry]').click();
     await expect.poll(() => readResponses.length).toBe(2);
-    const currentPage = page.getByRole('link', { name: 'Abrir la página actual', exact: true });
-    await expect(currentPage).toBeVisible();
-    await expect(currentPage).toHaveAttribute('target', '_blank');
-    assert.equal(readResponses[1].kind, 'earlier-v2');
-    assert.equal(readResponses[1].body.creatorVersion, earlierSnapshot.creatorVersion);
-    assert.ok(readResponses[1].body.creatorVersion < removal[0].responseBody.creatorVersion,
-      'the controlled response is a real, earlier v2 owner read below the acknowledged version floor');
-    assert.equal(writesTo(capture, 'DELETE', deletePath).length, 1, 'the old tab never replays the confirmed removal');
+    assert.equal(readResponses[1].kind, 'current');
+    assert.equal(readResponses[1].body.schemaVersion, 3, 'the retry installs the current owner snapshot');
+    assert.equal(Object.hasOwn(readResponses[1].body.placements, target.placementId), false,
+      'the current retry observes the confirmed removal');
+    assert.equal(writesTo(capture, 'DELETE', deletePath).length, 1, 'retrying the current read never replays the confirmed removal');
 
-    await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=Ficha`);
-    await expect.poll(() => readResponses.length).toBe(2);
     await expect(page.locator(STALE_LINK_RECOVERY)).toHaveCount(0);
     await expect(page.locator(`[data-link-row="${target.placementId}"]`)).toHaveCount(0);
     await expect(page.locator('[data-link-count-summary]')).toContainText('1 coincidencia de 1 enlace');
     await expect(page).toHaveURL((url) => url.searchParams.get('buscar') === 'Ficha');
-    const recovered = await readOwnerSnapshot(fixture, cookie);
+    const recovered = await currentSnapshot(fixture, cookie);
     assert.equal(Object.hasOwn(recovered.placements, target.placementId), false);
     assert.equal(recovered.resources.find(({ id }) => id === target.resourceId)?.reincludeAllowed, true,
       'the retained resource remains available only with current owner permission');
@@ -116,8 +140,8 @@ test('un GET2 después de quitar conserva la confirmación y ofrece la página a
     assert.equal(reinclude[0].body.creatorVersion, recovered.creatorVersion);
     assert.equal(reinclude[0].body.resourceVersion, target.resourceVersion);
     assert.equal(writesTo(capture, 'DELETE', deletePath).length, 1,
-      'neither rejected read replays the confirmed removal');
-    const final = await readOwnerSnapshot(fixture, cookie);
+      'the rejected read never replays the confirmed removal');
+    const final = await currentSnapshot(fixture, cookie);
     assert.equal(final.placements[reinclude[0].responseBody.placementId].resourceId, target.resourceId);
     assert.ok(final.creatorVersion > recovered.creatorVersion);
   } finally {

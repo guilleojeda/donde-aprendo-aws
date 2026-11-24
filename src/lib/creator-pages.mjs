@@ -1026,7 +1026,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return links;
   }
 
-  function ownerResource(resource, { metadataEditable, reincludeAllowed, contractVersion = '2' }) {
+  function ownerResource(resource, { metadataEditable, reincludeAllowed }) {
     const facts = resourceProjectionFacts(resource);
     const result = {
       id: resource.id,
@@ -1039,20 +1039,18 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       metadataEditable,
       reincludeAllowed,
     };
-    if (contractVersion === '3') {
-      const classification = resolveResourceClassification(resource);
-      result.classification = classification;
-      result.classificationEditable = metadataEditable
-        && resource.recordType !== 'event'
-        && approvalState(resource) === 'pending';
-    }
+    const classification = resolveResourceClassification(resource);
+    result.classification = classification;
+    result.classificationEditable = metadataEditable
+      && resource.recordType !== 'event'
+      && approvalState(resource) === 'pending';
     return result;
   }
 
-  async function creatorEditor(principal, { contractVersion = '2' } = {}) {
+  async function creatorEditor(principal) {
     const { profile } = await ownerProfile(principal);
     if (!profile) return {
-      schemaVersion: contractVersion === '3' ? 3 : 2, creatorVersion: null, profile: null, resources: [], placements: {},
+      schemaVersion: 3, creatorVersion: null, profile: null, resources: [], placements: {},
       order: { featured: [], ordinary: [] }, series: {}, claims: [],
     };
 
@@ -1079,7 +1077,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       resources.push(ownerResource(resource, {
         metadataEditable: authorized,
         reincludeAllowed: !activeResources.has(id) && authorized && retainedReference,
-        contractVersion,
       }));
     }
     resources.sort((left, right) => left.id.localeCompare(right.id));
@@ -1104,7 +1101,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       });
     }
     return {
-      schemaVersion: contractVersion === '3' ? 3 : 2,
+      schemaVersion: 3,
       creatorVersion: profile.version,
       profile: ownerProfileDto(profile),
       resources,
@@ -1307,9 +1304,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return creatorAck('publish-profile', profile.id, candidate.version, 'published');
   }
 
-  async function readCreatorEditor(context, options = {}) {
-    const contractVersion = options?.contractVersion === '3' || options?.contract === '3' ? '3' : '2';
-    return creatorEditor(requireAuthenticatedContext(context), { contractVersion });
+  async function readCreatorEditor(context) {
+    return creatorEditor(requireAuthenticatedContext(context));
   }
 
   function activePlacementId(profile, resourceId) {
@@ -2394,8 +2390,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (path === '/api/creador/perfil') {
       if (request.method === 'GET') {
         requireCreatorPageSessionBinding(request, principal);
-        const contractVersion = request.headers.get(CREATOR_CONTRACT_HEADER) === '3' ? '3' : '2';
-        return jsonResponse(await readCreatorEditor(context, { contractVersion }));
+        return jsonResponse(await readCreatorEditor(context));
       }
       if (request.method === 'PUT') {
         const body = await parseRequestBody(request, undefined, { profileFieldDiagnostics: true });
