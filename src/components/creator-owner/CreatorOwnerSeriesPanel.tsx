@@ -9,6 +9,7 @@ import {
 import { joinCreatorOwnerPlacements } from '../../lib/creator-owner-data';
 import { canonicalCreatorSeriesPath, isPublicCreatorSeries, visibleCreatorSeriesChapterCount } from '../../lib/creator-public.mjs';
 import { creatorOwnerChapterRecoveryIsVisibleInDetail, deriveCreatorOwnerRecoveryAction, type CreatorOwnerState } from '../../lib/creator-owner-state';
+import CreatorOwnerReadRecoveryAction from './CreatorOwnerReadRecoveryAction';
 
 interface Props {
   state: CreatorOwnerState;
@@ -101,7 +102,7 @@ export default function CreatorOwnerSeriesPanel({ state, disabled, actionFeedbac
       {chapterReadPending && <p class="creator-owner__status" data-owner-operation-message role="status" aria-live="polite">{chapterReadPending.message}</p>}
       {chapterReadFailure && <section class="creator-owner__status creator-owner__status--error" data-owner-stale role="alert" aria-live="polite">
         <p>{chapterReadFailure.message}</p>
-        <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>
+        <CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-refresh-retry" label="Reintentar actualización" onRetryRead={onRetryRead} />
       </section>}
 
       <form class="creator-owner__series-filters creator-owner__series-filters--chapters" method="get" action="/cuenta/" data-series-chapter-filters>

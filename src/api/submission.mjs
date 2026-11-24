@@ -1,17 +1,22 @@
 import { randomUUID } from 'node:crypto';
 import { DEFAULT_AWS_REGION, validateCatalogUrl } from '../lib/catalog.mjs';
 import { putCatalogResourceOnce, createDynamoCatalogAccess } from '../lib/catalog-resource-writer.mjs';
+import { RESOURCE_METADATA_POLICIES } from '../lib/resource-form-policy.mjs';
 import { SUBMISSION_CATEGORIES } from '../lib/submission-categories.mjs';
-import { classifyLegacyResource, legacyCategoryFor, validateTaxonomy } from '../lib/resource-taxonomy.mjs';
+import {
+  legacyCategoryFor,
+  resolveResourceClassification,
+  validateTaxonomy,
+} from '../lib/resource-taxonomy.mjs';
 
 export const MAX_SUBMISSION_BODY_BYTES = 16 * 1024;
 
 export const SUBMISSION_FIELD_LIMITS = Object.freeze({
   email: 254,
   full_name: 160,
-  title: 240,
-  url: 2_048,
-  text: 8_000,
+  title: RESOURCE_METADATA_POLICIES.public.title.maxLength,
+  url: RESOURCE_METADATA_POLICIES.public.url.maxLength,
+  text: RESOURCE_METADATA_POLICIES.public.description.maxLength,
   Category: 64,
   kind: 24,
   format: 64,
@@ -165,6 +170,8 @@ function parseSubmissionRequest(event) {
       throw requestError(400, 'invalid_request');
     }
     try {
+      // Keep the validator's field-level diagnostics for malformed explicit
+      // input, then use the shared resolver for the stored classification.
       taxonomy = validateTaxonomy(payload);
     } catch (error) {
       throw requestError(400, 'invalid_request', error.fieldErrors);
@@ -176,8 +183,26 @@ function parseSubmissionRequest(event) {
       throw requestError(400, 'invalid_request');
     }
     category = payload.Category;
-    taxonomy = classifyLegacyResource({ title: payload.title, url: payload.url, category });
   }
+
+  const classification = resolveResourceClassification({
+    title: payload.title,
+    url: payload.url,
+    category,
+    ...(Object.hasOwn(payload, 'kind') ? {
+      kind: payload.kind,
+      format: payload.format,
+      topics: payload.topics,
+    } : {}),
+  });
+  if (classification.state !== (Object.hasOwn(payload, 'kind') ? 'explicit' : 'legacy')) {
+    throw requestError(400, 'invalid_request');
+  }
+  taxonomy = {
+    kind: classification.kind,
+    format: classification.format,
+    topics: classification.topics,
+  };
 
   if (Object.hasOwn(payload, 'website')) {
     if (typeof payload.website !== 'string' || CONTROL_CHARACTERS.test(payload.website)) {

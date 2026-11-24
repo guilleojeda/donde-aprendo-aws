@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 import { callApi, createCreatorPagesHarness, responseJson, seedResource, sessionCsrf } from './fixtures/creator-pages.mjs';
 
 async function api(harness, path, session = 'creator-a', { method = 'GET', body } = {}) {
-  return callApi(harness, path, { session, csrf: sessionCsrf[session], creatorContract: '2', method, ...(body === undefined ? {} : { body }) });
+  return callApi(harness, path, {
+    session, csrf: sessionCsrf[session], creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
+    method, ...(body === undefined ? {} : { body }),
+  });
 }
 
 function changes(body) {

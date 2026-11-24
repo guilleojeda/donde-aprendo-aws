@@ -324,6 +324,7 @@ function createMockClient({ projectionAware = false, queryPageSize } = {}) {
     client: { send },
     seed(table, value) { write(table, value); },
     read,
+    readTable(table) { return copy([...tables.get(table).values()]); },
     raceBeforeNextTransaction(callback) { beforeNextTransaction = callback; },
     mutateAfterNextTransaction(callback) { afterNextTransaction = callback; },
     failNextTransaction(error = new Error('injected transaction failure')) { failureNextTransaction = error; },

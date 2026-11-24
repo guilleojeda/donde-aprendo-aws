@@ -8,7 +8,7 @@ import {
   validateCatalogUrl,
   validatePublicRecord,
 } from './catalog.mjs';
-import { classifyLegacyResource } from './resource-taxonomy.mjs';
+import { resolveResourceClassification } from './resource-taxonomy.mjs';
 
 export const TARGET_ACCOUNT_ID = '719535286359';
 
@@ -96,7 +96,10 @@ export function mapTsvRow(row, index = 0) {
     featured: parseFeatured(row.Destacado, index),
     published: true,
   };
-  Object.assign(record, classifyLegacyResource(record));
+  const classification = resolveResourceClassification(record, index);
+  if (classification.state !== 'legacy') throw new Error(`Catalog TSV row ${index + 1} has an invalid classification`);
+  Object.assign(record, classification);
+  delete record.state;
   validatePublicRecord(record, index);
   return record;
 }
@@ -126,6 +129,10 @@ export async function importCatalog(records, options = {}) {
     if (record?.published !== true) {
       throw new Error(`Catalog import record ${index + 1} must set published=true`);
     }
+    const classification = resolveResourceClassification(record, index);
+    if (classification.state !== 'explicit' && classification.state !== 'legacy') {
+      throw new Error(`Catalog import record ${index + 1} has an invalid taxonomy`);
+    }
     const publicRecord = {
       id: record.id,
       title: record.title,
@@ -134,10 +141,9 @@ export async function importCatalog(records, options = {}) {
       category: record.category,
       order: record.order,
       featured: record.featured,
-      ...(record.kind && record.format && record.topics
-        ? { kind: record.kind, format: record.format, topics: record.topics }
-        : classifyLegacyResource(record)),
+      ...classification,
     };
+    delete publicRecord.state;
     validatePublicRecord(publicRecord, index);
     importItems.push({ ...publicRecord, published: true });
   }

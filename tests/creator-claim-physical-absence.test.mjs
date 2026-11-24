@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import { currentUrlReservation } from '../src/lib/catalog-url.mjs';
 import { createCreatorPagesService } from '../src/lib/creator-pages.mjs';
 import { createCreatorStore } from '../src/lib/creator-store.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 
 const ORIGIN = 'https://dondeaprendoaws.com';
 const TABLES = {
@@ -83,7 +84,7 @@ async function submitClaim(service, resourceId, submittedUrl = `https://catalog.
       origin: ORIGIN,
       'content-type': 'application/json',
       'x-csrf-token': 'phase7-csrf',
-      'x-creator-contract': '2',
+      'x-creator-contract': CREATOR_CONTRACT_VERSION,
     },
     body: JSON.stringify({
       resources: [{ ...(resourceId === undefined ? {} : { resourceId }), url: submittedUrl }],

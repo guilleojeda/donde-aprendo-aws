@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { callApi, createCreatorPagesHarness, readAdminRecord, responseJson, sessionCsrf } from './fixtures/creator-pages.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 
 const profileSlug = 'regresion-series';
 
 async function api(harness, path, { session = 'creator-a', method = 'GET', body } = {}) {
   return callApi(harness, path, {
-    session, csrf: sessionCsrf[session], creatorContract: '2', method,
+    session, csrf: sessionCsrf[session], creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION, method,
     ...(body === undefined ? {} : { body }),
   });
 }

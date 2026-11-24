@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { currentUrlKey, currentUrlReservation } from '../../src/lib/catalog-url.mjs';
 import { CREATOR_FIELD_LIMITS } from '../../src/lib/creator-values.mjs';
+import { themeColor } from '../fixtures/browser-styles.mjs';
 import {
   test,
   expect,
@@ -64,7 +65,20 @@ async function expectLinkFieldError(form, field, message) {
   const errorId = await error.getAttribute('id');
   const describedBy = (await field.getAttribute('aria-describedby') ?? '').split(/\s+/u);
   assert.ok(errorId && describedBy.includes(errorId), 'the link field describes its visible error');
-  await expect(field).toHaveCSS('border-top-color', await error.evaluate((element) => getComputedStyle(element).color));
+  const errorColor = await error.evaluate((element) => getComputedStyle(element).color);
+  await expect(error).toHaveCSS('color', await themeColor(field.page(), '--color-error-text'));
+  await expect(field).toHaveCSS('border-top-color', errorColor);
+  await field.page().emulateMedia({ colorScheme: 'dark' });
+  const darkErrorColor = await themeColor(field.page(), '--color-error-text');
+  await expect(error).toHaveCSS('color', darkErrorColor);
+  await expect(field).toHaveCSS('border-top-color', darkErrorColor);
+  await field.page().emulateMedia({ colorScheme: 'light' });
+  const metrics = await field.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { height: Number.parseFloat(style.height), minHeight: Number.parseFloat(style.minHeight) };
+  });
+  assert.ok(metrics.height >= 40 || metrics.minHeight >= 40,
+    `shared metadata controls retain a usable hit area: ${JSON.stringify(metrics)}`);
   await expect(field).toBeFocused();
 }
 
@@ -166,7 +180,7 @@ test('un alta confirmada con acuse perdido sigue incierta hasta una decisión ma
   await page.getByRole('button', { name: 'Comprobar estado guardado', exact: true }).click();
   await capture.settle({ skipErrorBodies: true });
   const ownerRead = capture.records.find(({ method, path, status, responseBody }) => method === 'GET'
-    && path === '/api/creador/perfil' && status === 200 && responseBody?.schemaVersion === 2
+    && path === '/api/creador/perfil' && status === 200 && responseBody?.schemaVersion === 3
     && Object.values(responseBody.placements).some(({ resourceId }) => resourceId === actualAdd.body.resourceId));
   assert.ok(ownerRead, 'the real complete GET sees the matching placement but cannot attribute it to the lost request');
   await expect(page.locator('[data-owner-recovery][data-recovery-kind="unknown"]')).toBeVisible();

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { callApi, sessionCsrf } from './fixtures/creator-pages.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 import { createDynamoMoveHarness, seedMoveProfile, seedMoveResource } from './fixtures/creator-link-move.mjs';
 
 const MAX_RESOURCE_ID_BYTES = 256;
@@ -52,7 +53,7 @@ async function api(harness, pathname, body, { method = 'POST', session = 'creato
     method,
     session,
     csrf: sessionCsrf[session],
-    creatorContract: '2',
+    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
     ...(body === undefined ? {} : { body }),
   });
   return { response, status: response.status, data: response.status === 204 ? null : await response.json() };
@@ -270,6 +271,10 @@ test('256-byte and current legacy IDs retain exact claim moderation and owner ed
     seedMoveResource(harness.mock, {
       id: target.id, title: `Ficha ${target.id.slice(0, 24)}`, url: target.url, published: true,
     });
+    // These rows are intentionally approved and later edited through the
+    // owner path, so they must satisfy the current public catalog contract.
+    const seeded = harness.mock.read('catalog-test', { id: target.id });
+    harness.mock.seed('catalog-test', { ...seeded, category: 'Otros', order: 1, featured: false });
   }
   installPhysicalKeyLimits(harness.mock);
 

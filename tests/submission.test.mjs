@@ -231,6 +231,11 @@ test('rejects invalid new taxonomy before writing', async (t) => {
       fieldErrors: [{ field: 'kind-format', reason: 'invalid_combination' }],
     },
     {
+      label: 'kind and format are required when classification is started',
+      taxonomy: { kind: '', format: '', topics: [] },
+      fieldErrors: [{ field: 'kind-format', reason: 'required' }],
+    },
+    {
       label: 'duplicate topics',
       taxonomy: { kind: 'content', format: 'Video', topics: ['Seguridad', 'Seguridad'] },
       fieldErrors: [{ field: 'topics', reason: 'invalid_option' }],

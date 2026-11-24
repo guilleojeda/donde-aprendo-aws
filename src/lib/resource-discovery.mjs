@@ -32,6 +32,16 @@ export const LEVEL_LABELS = Object.freeze({
 export const DISCOVERY_FIELDS = Object.freeze(['addedAt', 'country', 'level', 'sourceId', 'communityId', 'eventId']);
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/u;
 
+/**
+ * City is public only for communities. Reclassification may leave it stored;
+ * use the same omission when validating edits and projecting public records.
+ */
+export function projectDiscoveryRecord(record) {
+  const projected = { ...record };
+  if (projected.kind !== 'community') delete projected.city;
+  return projected;
+}
+
 export function validateDiscoveryMetadata(record, index = 0) {
   const label = `Catalog record ${index + 1}`;
   if (record.addedAt !== undefined && (

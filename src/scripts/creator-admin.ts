@@ -2,7 +2,8 @@ import { updateFieldDescription } from '../lib/field-description.mjs';
 import { createCreatorFormState, type FormValueSnapshot } from './creator-form-state';
 import { createCreatorSessionRecovery } from './creator-session-recovery';
 import { createCreatorWriteGuard, readCreatorVersionChanges, type CreatorVersionChange } from './creator-write-state';
-import { validateTaxonomy } from '../lib/resource-taxonomy.mjs';
+import { validateResourceClassification } from '../lib/resource-form-policy.mjs';
+import { bindResourceClassification } from '../lib/resource-classification-dom.mjs';
 
 interface CreatorAdminState {
   resources: Record<string, unknown>[];
@@ -190,6 +191,7 @@ function handleFieldChange(form: HTMLFormElement, control: AdminControl) {
   const field = nativeField(control);
   if (!field) return;
   if (field === 'kind' || field === 'format') clearFieldError(form, 'kind-format');
+  if (field === 'topics' && control instanceof HTMLInputElement && control.dataset.resourceTopicRejected === 'true') return;
   if (field === 'topics' || field === 'resourceIds'
     || (control.validity.valid && (field !== 'category' || control.value.trim()))) clearFieldError(form, field);
 }
@@ -847,6 +849,14 @@ if (root && state && csrfToken) {
   const refreshViewButton = root.querySelector<HTMLButtonElement>('[data-refresh-view]');
   refreshViewButton?.addEventListener('click', () => window.location.reload());
   root.querySelectorAll<HTMLFormElement>('[data-classification-form]').forEach((form) => {
+    bindResourceClassification(form, {
+      onKindChange: () => clearFieldError(form, 'kind-format'),
+      onFormatChange: () => clearFieldError(form, 'kind-format'),
+      onTopicChange: () => clearFieldError(form, 'topics'),
+      onTopicRejected: () => {
+        if (showFieldError(form, 'topics', 'invalid_option')) focusFieldError(form, 'topics');
+      },
+    });
     onWrite(form, 'submit', async (event) => {
       event.preventDefault();
       clearAllFieldErrors(form);
@@ -858,23 +868,21 @@ if (root && state && csrfToken) {
       if (resourceId === undefined || !resource) return;
       const version = observedVersion(resource);
       const values = new FormData(form);
-      const topicValues = String(values.get('topics') ?? '').split(',').map((topic) => topic.trim()).filter(Boolean);
+      const topicValues = values.getAll('topics').map(String);
       const kind = String(values.get('kind') ?? '');
       const format = String(values.get('format') ?? '');
       try {
-        validateTaxonomy({ kind, format, topics: topicValues });
-      } catch (error) {
-        const details = isRecord(error) && Array.isArray(error.fieldErrors) ? error.fieldErrors : [];
-        const detail = details.length === 1 && isRecord(details[0])
-          && typeof details[0].field === 'string' && typeof details[0].reason === 'string'
-          ? details[0] : undefined;
-        const field = detail?.field as AdminField | undefined;
-        const reason = typeof detail?.reason === 'string' ? detail.reason : undefined;
-        if (field && reason && ['category', 'topics', 'kind-format'].includes(field)
-          && showFieldError(form, field, reason)) {
-          clearContextualStatus(itemStatus(item));
-          focusFieldError(form, field);
-        } else announce(itemStatus(item), 'Revisa el tipo, formato y los temas seleccionados.', 'error');
+        const validation = validateResourceClassification({ kind, format, topics: topicValues });
+        if (!validation.valid) {
+          const field = validation.field as AdminField;
+          if (showFieldError(form, field, validation.reason)) {
+            clearContextualStatus(itemStatus(item));
+            focusFieldError(form, field);
+          } else announce(itemStatus(item), 'Revisa el tipo, formato y los temas seleccionados.', 'error');
+          return;
+        }
+      } catch {
+        announce(itemStatus(item), 'Revisa el tipo, formato y los temas seleccionados.', 'error');
         return;
       }
       const body = {

@@ -991,8 +991,8 @@
   font-weight: 400;
 }
 
-.creator-owner__field input:not([type="checkbox"]):not([type="file"]),
-.creator-owner__field textarea {
+.creator-owner__field > input:not([type="checkbox"]):not([type="file"]),
+.creator-owner__field > textarea {
   width: 100%;
   min-width: 0;
   padding: 11px 12px;
@@ -1007,8 +1007,8 @@
   resize: vertical;
 }
 
-.creator-owner__field input:focus-visible,
-.creator-owner__field textarea:focus-visible,
+.creator-owner__field > input:focus-visible,
+.creator-owner__field > textarea:focus-visible,
 .creator-owner__account-menu summary:focus-visible,
 .creator-owner__account-popover a:focus-visible,
 .creator-owner__account-popover button:focus-visible,

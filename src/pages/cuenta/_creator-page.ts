@@ -160,8 +160,10 @@ export async function loadCreatorEditor(context: CreatorRequestContext): Promise
   if (!principal.csrfToken) return { principal: { state: 'unavailable', isAdmin: false }, status: 503 };
   try {
     const runtime = await getCreatorRuntime();
-    const data: unknown = await runtime.service.readCreatorEditor(context);
-    return { principal, status: 200, data: readCreatorOwnerSnapshot(data) };
+    const data: unknown = await runtime.service.readCreatorEditor(context, { contractVersion: '3' });
+    const parsed = readCreatorOwnerSnapshot(data);
+    if (parsed.schemaVersion !== 3) throw new TypeError('La lectura SSR no usa la versión actual del perfil.');
+    return { principal, status: 200, data: parsed };
   } catch (error) {
     return { principal, status: failureStatus(error) };
   }

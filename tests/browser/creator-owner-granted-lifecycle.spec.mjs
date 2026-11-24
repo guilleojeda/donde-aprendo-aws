@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { currentUrlCollision, currentUrlKey, currentUrlReservation } from '../../src/lib/catalog-url.mjs';
+import { projectPublicRecord } from '../../src/lib/catalog.mjs';
 import { completeLogin, cookiePair, makeAccount, makeIdentity } from '../fixtures/account-auth.mjs';
 import {
   test, expect, api, addLink, addChapter, captureCreatorApi, loggedInOwner,
@@ -43,13 +44,19 @@ async function seedImportedCohosts(fixture, lifecycle) {
     category: 'Contenido',
     kind: 'content',
     format: 'Artículo',
-    topics: ['AWS'],
+    topics: [],
+    order: 1,
+    featured: false,
     published: true,
     hidden: false,
     approvalRevoked: false,
     directoryControl: 'editorial',
     version: 4,
   }));
+  for (const resource of imported) {
+    assert.doesNotThrow(() => projectPublicRecord(resource),
+      `approved setup row ${resource.id} satisfies the public catalog contract`);
+  }
   const reservationPuts = lifecycle.kind === 'collision'
     ? [{ key: currentUrlKey(INITIAL_URL), value: currentUrlCollision(INITIAL_URL, imported.map(({ id }) => id)) }]
     : [
@@ -268,13 +275,19 @@ test('URL_COLLISION keeps Add-by-URL rejected after a later exact grant', async 
     category: 'Contenido',
     kind: 'content',
     format: 'Artículo',
-    topics: ['AWS'],
+    topics: [],
+    order: 1,
+    featured: false,
     published: true,
     hidden: false,
     approvalRevoked: false,
     directoryControl: 'editorial',
     version: 4,
   }));
+  for (const resource of imported) {
+    assert.doesNotThrow(() => projectPublicRecord(resource),
+      `approved setup row ${resource.id} satisfies the public catalog contract`);
+  }
   const collisionKey = currentUrlKey(INITIAL_URL);
   const initialReservation = await fixture.creatorStore.get(collisionKey);
   assert.ok(initialReservation, 'the owner placement first has a unique reservation');
@@ -391,13 +404,19 @@ test('literal dot resource IDs remain editable and re-addable through the retain
     category: 'Contenido',
     kind: 'content',
     format: 'Artículo',
-    topics: ['AWS'],
+    topics: [],
+    order: 1,
+    featured: false,
     published: true,
     hidden: false,
     approvalRevoked: false,
     directoryControl: 'editorial',
     version: 4,
   }));
+  for (const resource of resources) {
+    assert.doesNotThrow(() => projectPublicRecord(resource),
+      `approved setup row ${resource.id} satisfies the public catalog contract`);
+  }
   assert.equal(await fixture.creatorStore.transact({
     checks: resources.map(({ id }) => ({ key: `resource:${id}`, version: null })),
     puts: resources.map((resource) => ({ key: `resource:${resource.id}`, value: resource })),

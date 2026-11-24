@@ -2,11 +2,15 @@ import type {
   CreatorCatalogSelectionDTO,
   CreatorClaimDTO,
   CreatorOwnerSnapshotDTO,
+  CreatorOwnerSnapshotV2DTO,
+  CreatorOwnerSnapshotWireDTO,
   CreatorProgram,
+  CreatorResourceClassificationState,
   CreatorSocial,
 } from '../types/creators';
 import type { CreatorOwnerSeriesMembership, CreatorOwnerSeriesQuery } from './creator-owner-series';
 import { CREATOR_SOCIALS } from './creator-values.mjs';
+import { isCreatorOwnerV3Resource } from './creator-owner-data';
 import { DEFAULT_CREATOR_OWNER_LINKS_QUERY, type CreatorOwnerLinksQuery } from './creator-owner-links';
 import { normalizeOwnerLinksQuery, normalizeOwnerSeriesQuery } from './creator-owner-navigation';
 
@@ -24,21 +28,58 @@ export type CreatorOwnerIdentityField = CreatorOwnerProfileField | `socials.${Cr
 export type CreatorOwnerSocialsDraft = Record<CreatorSocial, string>;
 export type CreatorOwnerSeriesDraft = { name: string; slug: string; description: string };
 export type CreatorOwnerSeriesField = keyof CreatorOwnerSeriesDraft;
+export type CreatorOwnerClassificationDraft = { kind: string; format: string; topics: string[] };
+export type CreatorOwnerClassificationField = keyof CreatorOwnerClassificationDraft | 'kind-format';
 export type CreatorOwnerLinkDraft = {
   title: string;
   url: string;
   description: string;
   featured: boolean;
   selectedForDirectory: boolean;
-};
+} & CreatorOwnerClassificationDraft;
 export type CreatorOwnerPlacementField = keyof CreatorOwnerLinkDraft;
-export type CreatorOwnerResourceField = 'title' | 'url' | 'description';
-export type CreatorOwnerAddLinkField = 'title' | 'url' | 'description' | 'selectedForDirectory';
+export type CreatorOwnerResourceField = 'title' | 'url' | 'description' | keyof CreatorOwnerClassificationDraft;
+export type CreatorOwnerAddLinkField = 'title' | 'url' | 'description' | 'selectedForDirectory' | keyof CreatorOwnerClassificationDraft;
 export type CreatorOwnerEditorField = CreatorOwnerIdentityField | CreatorOwnerSeriesField | CreatorOwnerResourceField
-  | 'position' | 'selection' | 'destinations' | 'knownUrls' | 'evidence';
+  | 'position' | 'selection' | 'destinations' | 'knownUrls' | 'evidence' | CreatorOwnerClassificationField;
 export type CreatorOwnerFieldMessages = Partial<Record<CreatorOwnerEditorField, string>>;
 export type CreatorOwnerClaimSelection = { resourceId: string; url: string; title: string };
 export type CreatorOwnerReferenceCandidate = Pick<CreatorCatalogSelectionDTO, 'id' | 'url' | 'title'>;
+
+function creatorOwnerClassificationFieldsTouched(fields: readonly string[]): boolean {
+  return fields.some((field) => field === 'kind' || field === 'format' || field === 'topics');
+}
+
+export interface CreatorOwnerClassificationPolicyInput {
+  draft: CreatorOwnerClassificationDraft;
+  touchedFields: readonly string[];
+  persistedState?: CreatorResourceClassificationState;
+  classificationEditable?: boolean;
+}
+
+export function creatorOwnerClassificationPolicy({ draft, touchedFields, persistedState, classificationEditable = true }: CreatorOwnerClassificationPolicyInput) {
+  const touched = creatorOwnerClassificationFieldsTouched(touchedFields);
+  const hasValues = Boolean(draft.kind || draft.format || draft.topics.length);
+  const requiresCompletion = persistedState === 'explicit' || persistedState === 'legacy' || persistedState === 'invalid';
+  const emit = touched && (hasValues || requiresCompletion);
+  return {
+    required: hasValues || touched && requiresCompletion,
+    emit,
+    eligible: !emit || classificationEditable,
+  };
+}
+
+export function creatorOwnerClassificationDraft(resource: CreatorOwnerSnapshotDTO['resources'][number]): CreatorOwnerClassificationDraft {
+  if (isCreatorOwnerV3Resource(resource)
+    && (resource.classification.state === 'explicit' || resource.classification.state === 'legacy')) {
+    return {
+      kind: resource.classification.kind,
+      format: resource.classification.format,
+      topics: [...resource.classification.topics],
+    };
+  }
+  return { kind: '', format: '', topics: [] };
+}
 
 /** Editor data is only the user's current input. The canonical base stays in `observed`. */
 export type CreatorOwnerEditorDraft =
@@ -49,7 +90,7 @@ export type CreatorOwnerEditorDraft =
   | { kind: 'series'; key: string; seriesId: string | null; draft: CreatorOwnerSeriesDraft; touchedFields: CreatorOwnerSeriesField[]; slugManuallyEdited: boolean }
   | { kind: 'move-chapter'; key: string; seriesId: string; placementId: string; targetPosition: string }
   | { kind: 'link-placement'; key: string; placementId: string; editable: boolean; draft: CreatorOwnerLinkDraft; touchedFields: CreatorOwnerPlacementField[] }
-  | { kind: 'link-resource'; key: string; resourceId: string; draft: Pick<CreatorOwnerLinkDraft, 'title' | 'url' | 'description'>; touchedFields: CreatorOwnerResourceField[] }
+  | { kind: 'link-resource'; key: string; resourceId: string; draft: Pick<CreatorOwnerLinkDraft, 'title' | 'url' | 'description' | 'kind' | 'format' | 'topics'>; touchedFields: CreatorOwnerResourceField[] }
   | { kind: 'add-link'; key: 'add-link'; draft: CreatorOwnerLinkDraft; touchedFields: CreatorOwnerAddLinkField[] }
   | { kind: 'move-link'; key: string; placementId: string; targetPosition: string }
   | { kind: 'reference'; key: 'reference'; selected?: CreatorOwnerReferenceCandidate; selectedForDirectory: boolean }
@@ -96,7 +137,7 @@ export type CreatorOwnerOperation =
   | { status: 'idle' }
   | { status: 'sending'; intent: CreatorOwnerIntent }
   | { status: 'reading'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string }
-  | { status: 'refresh-failed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string }
+  | { status: 'refresh-failed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string; readContractObsolete?: true }
   | { status: 'unknown'; intent: CreatorOwnerIntent; message: string; readCompleted?: true }
   | { status: 'conflict'; intent: CreatorOwnerIntent; message: string; readCompleted?: true };
 
@@ -194,7 +235,7 @@ export type CreatorOwnerAction = CreatorOwnerSessionPolicyAction
       rejectedClaimSelection?: readonly CreatorOwnerClaimSelection[] }
   | { type: 'operation-started'; intent: CreatorOwnerIntent; preserveExit?: boolean }
   | { type: 'operation-reading'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string }
-  | { type: 'operation-read-failed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string; suppressGlobalMessage?: boolean; focusAfterRender?: string }
+  | { type: 'operation-read-failed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; message: string; suppressGlobalMessage?: boolean; focusAfterRender?: string; readContractObsolete?: true }
   | { type: 'operation-read-installed'; intent?: CreatorOwnerIntent; fact: CreatorOwnerReadFact; snapshot: CreatorOwnerSnapshotDTO; message: string; consumeEditor?: boolean; focusAfterRender?: string }
   | { type: 'operation-unknown'; intent: CreatorOwnerIntent; message: string }
   | { type: 'operation-rejected'; intentId: string; message: string; fieldErrors?: CreatorOwnerFieldMessages }
@@ -292,17 +333,30 @@ function copyClaim(claim: CreatorClaimDTO): CreatorClaimDTO {
   return { ...claim, resourceIds: [...claim.resourceIds], ...(claim.resources ? { resources: claim.resources.map((item) => ({ ...item })) } : {}) };
 }
 
-export function copyCreatorOwnerSnapshot(snapshot: CreatorOwnerSnapshotDTO): CreatorOwnerSnapshotDTO {
-  return {
-    schemaVersion: 2,
+export function copyCreatorOwnerSnapshot(snapshot: CreatorOwnerSnapshotDTO): CreatorOwnerSnapshotDTO;
+export function copyCreatorOwnerSnapshot(snapshot: CreatorOwnerSnapshotV2DTO): CreatorOwnerSnapshotV2DTO;
+export function copyCreatorOwnerSnapshot(snapshot: CreatorOwnerSnapshotWireDTO): CreatorOwnerSnapshotWireDTO {
+  const common = {
     creatorVersion: snapshot.creatorVersion,
     profile: snapshot.profile ? { ...snapshot.profile, programs: [...snapshot.profile.programs], socials: { ...snapshot.profile.socials }, ...(snapshot.profile.photo ? { photo: { ...snapshot.profile.photo } } : {}) } : null,
-    resources: snapshot.resources.map((resource) => ({ ...resource })),
     placements: Object.fromEntries(Object.entries(snapshot.placements).map(([id, placement]) => [id, { ...placement }])),
     order: { featured: [...snapshot.order.featured], ordinary: [...snapshot.order.ordinary] },
     series: Object.fromEntries(Object.entries(snapshot.series).map(([id, series]) => [id, { ...series, chapters: [...series.chapters] }])),
     claims: snapshot.claims.map(copyClaim),
   };
+  if (snapshot.schemaVersion === 3) {
+    return {
+      schemaVersion: 3,
+      ...common,
+      resources: snapshot.resources.map((resource) => ({
+        ...resource,
+        classification: resource.classification.state === 'explicit' || resource.classification.state === 'legacy'
+          ? { ...resource.classification, topics: [...resource.classification.topics] }
+          : { ...resource.classification },
+      })),
+    };
+  }
+  return { schemaVersion: 2, ...common, resources: snapshot.resources.map((resource) => ({ ...resource })) };
 }
 
 export function createCreatorOwnerState(input: {
@@ -365,9 +419,9 @@ function cloneEditor(editor: CreatorOwnerEditorDraft): CreatorOwnerEditorDraft {
     case 'photo': return { ...editor };
     case 'series': return { ...editor, draft: { ...editor.draft }, touchedFields: [...editor.touchedFields] };
     case 'move-chapter': return { ...editor };
-    case 'link-placement': return { ...editor, draft: { ...editor.draft }, touchedFields: [...editor.touchedFields] };
-    case 'link-resource': return { ...editor, draft: { ...editor.draft }, touchedFields: [...editor.touchedFields] };
-    case 'add-link': return { ...editor, draft: { ...editor.draft }, touchedFields: [...editor.touchedFields] };
+    case 'link-placement': return { ...editor, draft: { ...editor.draft, topics: [...editor.draft.topics] }, touchedFields: [...editor.touchedFields] };
+    case 'link-resource': return { ...editor, draft: { ...editor.draft, topics: [...editor.draft.topics] }, touchedFields: [...editor.touchedFields] };
+    case 'add-link': return { ...editor, draft: { ...editor.draft, topics: [...editor.draft.topics] }, touchedFields: [...editor.touchedFields] };
     case 'move-link': return { ...editor };
     case 'reference': return { ...editor, ...(editor.selected ? { selected: { ...editor.selected } } : {}) };
     case 'claim': return { ...editor, selected: editor.selected.map((item) => ({ ...item })) };
@@ -449,6 +503,7 @@ export function creatorOwnerEditorDraftFocus(editor: CreatorOwnerEditorDraft): s
 export function deriveCreatorOwnerRecoveryFocus(state: CreatorOwnerState): string | undefined {
   const action = deriveCreatorOwnerRecoveryAction(state);
   const operation = action.operation;
+  if (operation.status === 'refresh-failed' && operation.readContractObsolete) return undefined;
   const pendingAction = 'intent' in operation ? operation.intent?.action : undefined;
   if (action.kind === 'retry' || action.kind === 'session-check' && operation.status === 'refresh-failed') return ownerRecoveryRetryFocus;
   if (action.kind === 'compare' || action.kind === 'session-check' && operation.status === 'unknown' && !operation.readCompleted) {
@@ -476,6 +531,8 @@ export function creatorOwnerWriteRejectedFocus(state: CreatorOwnerState, intent:
         const key = CREATOR_SOCIALS.find((social: CreatorSocial) => feedback[`socials.${social}`]);
         if (key) return `#owner-social-${key}`;
       }
+      if (feedback['kind-format']) return '#owner-add-link-kind, #owner-link-kind';
+      if (feedback.topics) return '[data-owner-topics-group] [data-resource-topic-options] > label:last-child input[data-resource-topic]:not(:disabled)';
       if (state.editor.kind !== 'profile' && state.editor.kind !== 'photo') return ownerContentErrorFocus;
     }
     return creatorOwnerEditorDraftFocus(state.editor);
@@ -530,15 +587,21 @@ export function creatorOwnerDraftIsDirty(editor: CreatorOwnerEditorDraft | undef
       const featured = snapshot.order.featured.includes(editor.placementId);
       return editor.draft.title !== resource.title || editor.draft.url !== resource.url
         || editor.draft.description !== (resource.description ?? '') || editor.draft.featured !== featured
-        || editor.draft.selectedForDirectory !== placement.selectedForDirectory;
+        || editor.draft.selectedForDirectory !== placement.selectedForDirectory
+        || isCreatorOwnerV3Resource(resource) && (editor.draft.kind !== (resource.classification.state === 'explicit' || resource.classification.state === 'legacy' ? resource.classification.kind : '')
+          || editor.draft.format !== (resource.classification.state === 'explicit' || resource.classification.state === 'legacy' ? resource.classification.format : '')
+          || JSON.stringify(editor.draft.topics) !== JSON.stringify(resource.classification.state === 'explicit' || resource.classification.state === 'legacy' ? resource.classification.topics : []));
     }
     case 'link-resource': {
       const resource = snapshot.resources.find(({ id }) => id === editor.resourceId);
       return !resource || editor.draft.title !== resource.title || editor.draft.url !== resource.url
-        || editor.draft.description !== (resource.description ?? '');
+        || editor.draft.description !== (resource.description ?? '')
+        || isCreatorOwnerV3Resource(resource) && (editor.draft.kind !== (resource.classification.state === 'explicit' || resource.classification.state === 'legacy' ? resource.classification.kind : '')
+          || editor.draft.format !== (resource.classification.state === 'explicit' || resource.classification.state === 'legacy' ? resource.classification.format : '')
+          || JSON.stringify(editor.draft.topics) !== JSON.stringify(resource.classification.state === 'explicit' || resource.classification.state === 'legacy' ? resource.classification.topics : []));
     }
     case 'add-link': return Boolean(editor.draft.title || editor.draft.url || editor.draft.description
-      || editor.draft.featured || !editor.draft.selectedForDirectory);
+      || editor.draft.featured || !editor.draft.selectedForDirectory || editor.draft.kind || editor.draft.format || editor.draft.topics.length);
     case 'move-link': {
       const current = creatorOwnerLinkMoveContext(snapshot, editor.placementId);
       return !current || editor.targetPosition !== String(current.position);
@@ -597,9 +660,20 @@ export function creatorOwnerCanSubmitEditor(state: CreatorOwnerState): boolean {
     const placement = snapshot.placements[editor.placementId];
     if (!placement) return false;
     const resource = snapshot.resources.find(({ id }) => id === placement.resourceId);
-    return Boolean(resource && (!editor.editable || resource.metadataEditable));
+    const classificationPolicy = resource && creatorOwnerClassificationPolicy({
+      draft: editor.draft, touchedFields: editor.touchedFields, persistedState: resource.classification.state,
+      classificationEditable: resource.classificationEditable,
+    });
+    return Boolean(resource && (!editor.editable || resource.metadataEditable) && classificationPolicy?.eligible);
   }
-  if (editor.kind === 'link-resource') return snapshot.resources.some(({ id, reincludeAllowed }) => id === editor.resourceId && reincludeAllowed);
+  if (editor.kind === 'link-resource') {
+    const resource = snapshot.resources.find(({ id }) => id === editor.resourceId);
+    const classificationPolicy = resource && creatorOwnerClassificationPolicy({
+      draft: editor.draft, touchedFields: editor.touchedFields, persistedState: resource.classification.state,
+      classificationEditable: resource.classificationEditable,
+    });
+    return Boolean(resource && resource.reincludeAllowed && classificationPolicy?.eligible);
+  }
   if (editor.kind === 'add-link') return true;
   if (editor.kind === 'move-link') return [...snapshot.order.featured, ...snapshot.order.ordinary].includes(editor.placementId);
   if (editor.kind === 'reference') return creatorOwnerReferenceSubmissionStatus(state, editor.selected) === 'ready';
@@ -659,6 +733,10 @@ function clearEditorFeedback(state: CreatorOwnerState, fields?: readonly string[
   return { ...state, editorFeedback: { ...feedback, fieldErrors: remaining } };
 }
 
+function editorFeedbackFields(fields: readonly string[]): string[] {
+  return fields.some((field) => field === 'kind' || field === 'format') ? [...fields, 'kind-format'] : [...fields];
+}
+
 export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwnerAction): CreatorOwnerState {
   if (action.type === 'session-check-started' || action.type === 'session-evidence') {
     const result = reduceCreatorOwnerSessionPolicy(state, action);
@@ -702,10 +780,10 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
     case 'update-link-draft': return updateEditor(state, (editor) => editor.kind === 'link-placement'
       ? { ...editor, draft: { ...editor.draft, ...action.value }, touchedFields: [...new Set([...editor.touchedFields, ...Object.keys(action.value) as CreatorOwnerPlacementField[]])] }
       : editor.kind === 'link-resource' ? { ...editor, draft: { ...editor.draft, ...action.value },
-        touchedFields: [...new Set([...editor.touchedFields, ...Object.keys(action.value).filter((field): field is CreatorOwnerResourceField => ['title', 'url', 'description'].includes(field))])] } : editor, Object.keys(action.value));
+        touchedFields: [...new Set([...editor.touchedFields, ...Object.keys(action.value).filter((field): field is CreatorOwnerResourceField => ['title', 'url', 'description', 'kind', 'format', 'topics'].includes(field))])] } : editor, editorFeedbackFields(Object.keys(action.value)));
     case 'update-add-link-draft': return updateEditor(state, (editor) => editor.kind === 'add-link'
       ? { ...editor, draft: { ...editor.draft, ...action.value },
-        touchedFields: [...new Set([...editor.touchedFields, ...Object.keys(action.value) as CreatorOwnerAddLinkField[]])] } : editor, Object.keys(action.value));
+        touchedFields: [...new Set([...editor.touchedFields, ...Object.keys(action.value) as CreatorOwnerAddLinkField[]])] } : editor, editorFeedbackFields(Object.keys(action.value)));
     case 'update-move-link-draft': return updateEditor(state, (editor) => editor.kind === 'move-link' ? { ...editor, targetPosition: action.targetPosition } : editor, ['position']);
     case 'update-reference-draft': return updateEditor(state, (editor) => editor.kind === 'reference'
       ? { ...editor, ...(Object.hasOwn(action, 'selected') ? { selected: action.selected } : {}),
@@ -757,7 +835,8 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
     case 'operation-reading': return { ...state, operation: { status: 'reading', ...(action.intent ? { intent: action.intent } : {}), fact: action.fact, message: action.message },
       location: action.fact === 'unknown' || action.fact === 'conflict' ? cancelAuthorizedSaveTransition(state.location) : state.location };
     case 'operation-read-failed': {
-      const operation: CreatorOwnerOperation = { status: 'refresh-failed', ...(action.intent ? { intent: action.intent } : {}), fact: action.fact, message: action.message };
+      const operation: CreatorOwnerOperation = { status: 'refresh-failed', ...(action.intent ? { intent: action.intent } : {}), fact: action.fact, message: action.message,
+        ...(action.readContractObsolete ? { readContractObsolete: true as const } : {}) };
       const location = { ...cancelAuthorizedSaveTransition(state.location), focusAfterRender: action.focusAfterRender };
       const recoveryFocus = action.focusAfterRender ?? deriveCreatorOwnerRecoveryFocus({ ...state, operation, location });
       const editorMatches = Boolean(action.intent?.editorKey && state.editor?.key === action.intent.editorKey);

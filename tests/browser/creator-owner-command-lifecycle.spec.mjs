@@ -3,6 +3,7 @@ import {
   test, expect, api, readOwnerSnapshot, createSeries, addLink, addChapter, captureCreatorApi, seriesRow, loggedInOwner,
 } from '../fixtures/creator-browser-test.mjs';
 import { rasterPhotoFixtures } from '../fixtures/creator-photos.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../../src/lib/creator-values.mjs';
 
 function deferred() {
   let resolve;
@@ -1055,7 +1056,7 @@ test('una ficha retirada conserva su borrador hasta descartarlo y editarla despu
   const originalUrl = 'https://missing-target.example.invalid/phase5-own-link';
   const created = await api(fixture, cookie, '/api/creador/enlaces/', {
     method: 'POST',
-    headers: { 'X-Creator-Contract': '2' },
+    headers: { 'X-Creator-Contract': CREATOR_CONTRACT_VERSION },
     body: {
       creatorVersion: initial.body.creatorVersion,
       title: 'Ficha propia original',
@@ -1107,7 +1108,7 @@ test('una ficha retirada conserva su borrador hasta descartarlo y editarla despu
 
     const removed = await api(fixture, cookie, `/api/creador/enlaces/${encodeURIComponent(placementId)}`, {
       method: 'DELETE',
-      headers: { 'X-Creator-Contract': '2' },
+      headers: { 'X-Creator-Contract': CREATOR_CONTRACT_VERSION },
       body: { creatorVersion: afterCreate.body.creatorVersion },
     });
     assert.equal(removed.response.status, 200, JSON.stringify(removed.body));
@@ -1144,7 +1145,7 @@ test('una ficha retirada conserva su borrador hasta descartarlo y editarla despu
     await expect.poll(() => ownerReads(capture).length).toBeGreaterThan(readsBeforeSave);
     const compared = ownerReads(capture).at(-1);
     await expect.poll(() => compared.status).toBe(200);
-    assert.equal(compared.responseBody.schemaVersion, 2);
+    assert.equal(compared.responseBody.schemaVersion, 3);
     assert.equal(compared.responseBody.profile.id, profileId);
     assert.equal(Object.hasOwn(compared.responseBody.placements, placementId), false);
     assert.equal(compared.responseBody.creatorVersion, afterRemoval.body.creatorVersion);
@@ -1207,7 +1208,7 @@ test('una ficha retirada conserva su borrador hasta descartarlo y editarla despu
     await expect.poll(() => ownerReads(capture).length).toBeGreaterThan(readsBeforeManualEdit);
     const fresh = ownerReads(capture).at(-1);
     await expect.poll(() => fresh.status).toBe(200);
-    assert.equal(fresh.responseBody.schemaVersion, 2);
+    assert.equal(fresh.responseBody.schemaVersion, 3);
     assert.equal(fresh.responseBody.profile.id, profileId);
     assert.equal(fresh.responseBody.creatorVersion, afterRemoval.body.creatorVersion,
       'editing retained metadata does not advance the content aggregate revision');
@@ -1280,7 +1281,7 @@ test('un acuse 200 con contexto incompatible queda incierto aunque la lectura re
     await expect.poll(() => ownerReads(capture).length).toBeGreaterThan(readsBeforeCheck);
     const comparisonRead = ownerReads(capture).at(-1);
     await expect.poll(() => comparisonRead.status).toBe(200);
-    assert.equal(comparisonRead.responseBody.schemaVersion, 2);
+    assert.equal(comparisonRead.responseBody.schemaVersion, 3);
     assert.equal(comparisonRead.responseBody.profile.displayName, draftName,
       'the explicit recovery control performs a complete actual owner GET');
     const saved = await api(fixture, cookie, '/api/creador/perfil');
@@ -1342,11 +1343,11 @@ test('un acuse válido conserva la confirmación aunque la lectura completa incl
     const sent = writes.requests[0].postDataJSON();
     assert.equal(sent.creatorVersion, before.body.creatorVersion);
     assert.equal(sent.displayName, confirmedName);
-    assert.equal((await writes.requests[0].allHeaders())['x-creator-contract'], '2');
+    assert.equal((await writes.requests[0].allHeaders())['x-creator-contract'], CREATOR_CONTRACT_VERSION);
 
     const intervening = await api(fixture, cookie, '/api/creador/perfil', {
       method: 'PUT',
-      headers: { 'X-Creator-Contract': '2' },
+      headers: { 'X-Creator-Contract': CREATOR_CONTRACT_VERSION },
       body: { creatorVersion: commandAck.responseBody.creatorVersion, city: 'Córdoba' },
     });
     assert.equal(intervening.response.status, 200, JSON.stringify(intervening.body));
@@ -1359,7 +1360,7 @@ test('un acuse válido conserva la confirmación aunque la lectura completa incl
     read.release();
     await read.finished;
     assert.equal(read.actual.status, 200);
-    assert.equal(read.actual.body.schemaVersion, 2);
+    assert.equal(read.actual.body.schemaVersion, 3);
     assert.ok(read.actual.body.creatorVersion > commandAck.responseBody.creatorVersion);
     assert.equal(read.actual.body.profile.displayName, confirmedName,
       'the full read preserves the profile fact confirmed by the original acknowledgement');

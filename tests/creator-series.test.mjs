@@ -7,12 +7,13 @@ import {
   responseJson,
   sessionCsrf,
 } from './fixtures/creator-pages.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 
 const PROFILE_SLUGS = { 'creator-a': 'ana-series', 'creator-b': 'bea-series' };
 
 async function api(harness, path, session = 'creator-a', { method = 'GET', body, csrf = sessionCsrf[session] } = {}) {
   return callApi(harness, path, {
-    session, csrf, creatorContract: '2', method,
+    session, csrf, creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION, method,
     ...(body === undefined ? {} : { body }),
   });
 }

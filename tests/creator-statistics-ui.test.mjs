@@ -10,6 +10,7 @@ import { createCachedCreatorStatistics } from '../src/lib/creator-statistics.mjs
 import { createGA4StatisticsReader } from '../src/lib/creator-statistics-ga4.mjs';
 import { getStatisticsLinkLabel, isIdentifiableStatisticsLinkId } from '../src/lib/creator-statistics-labels.ts';
 import { parseCreatorStatisticsReady } from '../src/lib/creator-statistics-response.ts';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 import { callApi, createCreatorPagesHarness, sessionCsrf } from './fixtures/creator-pages.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -219,7 +220,7 @@ test('explicit empty limited GA4 results stay unknown through the authenticated 
   const saved = await callApi(harness, '/api/creador/perfil', {
     session: 'creator-a',
     method: 'PUT',
-    creatorContract: '2',
+    creatorContract: CREATOR_CONTRACT_VERSION,
     csrf: sessionCsrf['creator-a'],
     body: { creatorVersion: null, displayName: 'Creador de analítica', slug: 'creador-de-analitica' },
   });
@@ -231,7 +232,7 @@ test('explicit empty limited GA4 results stay unknown through the authenticated 
   const published = await callApi(harness, '/api/creador/perfil/publicar', {
     session: 'creator-a',
     method: 'POST',
-    creatorContract: '2',
+    creatorContract: CREATOR_CONTRACT_VERSION,
     csrf: sessionCsrf['creator-a'],
     body: { creatorVersion: snapshot.creatorVersion },
   });

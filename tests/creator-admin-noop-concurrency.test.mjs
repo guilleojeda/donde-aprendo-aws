@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { isDeepStrictEqual } from 'node:util';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 import { apiRequest, responseJson, sessionCsrf, SITE_ORIGIN } from './fixtures/creator-pages.mjs';
 import { createDynamoMoveHarness, seedMoveProfile } from './fixtures/creator-link-move.mjs';
 
@@ -363,7 +364,7 @@ test('a competing owner write invalidates an observed profile no-op without addi
     tableName: PROFILE_TABLE,
     key,
     competitor: () => harness.service.handle(apiRequest('/api/creador/perfil', {
-      session: 'creator-a', csrf: sessionCsrf['creator-a'], method: 'PUT', creatorContract: '2',
+      session: 'creator-a', csrf: sessionCsrf['creator-a'], method: 'PUT', creatorContract: CREATOR_CONTRACT_VERSION,
       body: { displayName: 'Concurrent owner edit', slug: 'noop-profile-race', creatorVersion: 5 },
     })),
   });

@@ -221,10 +221,8 @@ test('CR resource classification keeps its exact private ID through a guarded pr
   await page.goto(`${fixture.origin}${adminPath}?state=all&page=1`);
   await expect(root(page)).toBeVisible();
   const targetRow = row(page, id);
-  const topics = targetRow.getByLabel('Temas (hasta 3, separados por coma)');
-  const listId = `creator-topics-${encodeURIComponent(id)}`;
-  assert.equal(await topics.getAttribute('list'), listId, 'the datalist reference uses the same safe resource token');
-  assert.equal(await targetRow.locator('datalist').getAttribute('id'), listId);
+  const topics = targetRow.getByRole('group', { name: /temas/iu });
+  await expect(topics.locator('input[name="topics"]')).toHaveCount(17);
 
   await targetRow.getByLabel('Categoría').fill('Certificaciones');
   await runQueryCommand(page, {

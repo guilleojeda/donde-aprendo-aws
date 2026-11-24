@@ -3,6 +3,7 @@ import {
   test, expect, captureCreatorApi, loggedInOwner,
 } from '../fixtures/creator-browser-test.mjs';
 import { seedResource } from '../fixtures/creator-pages.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../../src/lib/creator-values.mjs';
 
 function deferred() {
   let resolve;
@@ -114,7 +115,7 @@ async function holdPreClaimOwnerRead(page) {
     }
   };
   await page.route('**/api/creador/**', handler);
-  const fetchPromise = page.evaluate(async () => {
+  const fetchPromise = page.evaluate(async (contractVersion) => {
     const root = document.querySelector('[data-owner-root]');
     const response = await fetch('/api/creador/perfil/', {
       credentials: 'same-origin',
@@ -122,10 +123,11 @@ async function holdPreClaimOwnerRead(page) {
       headers: {
         accept: 'application/json',
         'x-creator-page-binding': root?.getAttribute('data-session-binding') ?? '',
+        'x-creator-contract': contractVersion,
       },
     });
     return { status: response.status, body: await response.json() };
-  });
+  }, CREATOR_CONTRACT_VERSION);
   await entered.promise;
   return {
     fetchPromise,

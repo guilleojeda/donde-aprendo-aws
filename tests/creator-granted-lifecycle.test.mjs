@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { currentUrlCollision, currentUrlKey, currentUrlReservation } from '../src/lib/catalog-url.mjs';
 import { classifyReservation } from '../src/lib/catalog-resource-writer.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 import { callApi, sessionCsrf } from './fixtures/creator-pages.mjs';
 import { createDynamoMoveHarness } from './fixtures/creator-link-move.mjs';
 
@@ -21,7 +22,9 @@ const CATALOG = 'catalog-test';
 
 async function api(harness, path, body, { method = 'POST', session = 'creator-a' } = {}) {
   const response = await callApi(harness, path, {
-    method, session, csrf: sessionCsrf[session], creatorContract: '2', ...(body === undefined ? {} : { body }),
+    method, session, csrf: sessionCsrf[session],
+    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
+    ...(body === undefined ? {} : { body }),
   });
   return { status: response.status, body: response.status === 204 ? null : await response.json(), headers: response.headers };
 }
@@ -57,7 +60,9 @@ function catalogRecord(id, { event = false } = {}) {
       recordType: 'event', registrationUrl: U,
       startsAt: '2099-04-01T12:00:00.000Z', endsAt: '2099-04-01T13:00:00.000Z',
       timeZone: 'UTC', organizer: 'Comunidad AWS', mode: 'online',
-    } : { url: U, kind: 'content', format: 'Artículo', topics: [], order: 1, featured: false }),
+    } : {
+      url: U, category: 'Otros', kind: 'content', format: 'Artículo', topics: [], order: 1, featured: false,
+    }),
   };
 }
 
@@ -99,7 +104,7 @@ async function fixture(state, { event = false, grant = true } = {}) {
   accepted(await api(harness, '/api/creador/perfil/publicar', { creatorVersion: ownerA.creatorVersion }), 200);
   // Event identity has its own existing syntax; generic historical IDs retain
   // their exact colons. All are well inside the approved byte limit.
-  const resourceId = event ? 'meetup-event:123:456' : R;
+  const resourceId = event ? 'meetup-event-123-456' : R;
   for (const id of [resourceId, S, T]) harness.mock.seed(CATALOG, catalogRecord(id, { event: event && id === resourceId }));
   const oldRow = state.row(resourceId);
   if (oldRow) harness.mock.seed(CATALOG, oldRow);

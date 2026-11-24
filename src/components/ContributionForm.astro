@@ -1,5 +1,7 @@
 ---
-import { FORMATS_BY_KIND, KIND_LABELS, TOPICS } from '../lib/resource-taxonomy.mjs';
+import ResourceMetadataFields from './ResourceMetadataFields';
+import ResourceClassificationFields from './ResourceClassificationFields';
+import { RESOURCE_METADATA_POLICIES } from '../lib/resource-form-policy.mjs';
 
 const submissionApiUrl = import.meta.env.PUBLIC_SUBMISSION_API_URL?.trim() ?? '';
 
@@ -63,95 +65,26 @@ if (import.meta.env.PROD && !submissionApiUrl) {
           <span class="contribution-form__error" id="contribution-full-name-error" data-contribution-error hidden></span>
         </div>
 
-        <div class="contribution-form__field contribution-form__field--full">
-          <label for="contribution-title-field">Título o nombre</label>
-          <input
-            id="contribution-title-field"
-            name="title"
-            type="text"
-            autocomplete="off"
-            placeholder="Por ejemplo: AWS IAM explicado en 5 minutos"
-            maxlength="240"
-            aria-describedby="contribution-help contribution-title-field-error"
-            required
-          />
-          <span class="contribution-form__error" id="contribution-title-field-error" data-contribution-error hidden></span>
-        </div>
+        <ResourceMetadataFields
+          idPrefix="contribution"
+          titleId="contribution-title-field"
+          descriptionId="contribution-text"
+          values={{ title: '', url: '', description: '' }}
+          policy={RESOURCE_METADATA_POLICIES.public}
+          helpId="contribution-help"
+          hookPrefix="contribution"
+          titleLabel="Título o nombre"
+          titlePlaceholder="Por ejemplo: AWS IAM explicado en 5 minutos"
+          descriptionPlaceholder="Por ejemplo: Te explico en 5 minutos cómo funciona AWS IAM y cómo darle permisos a los usuarios que necesiten acceder a tu cuenta de AWS"
+        />
 
-        <div class="contribution-form__field contribution-form__field--full">
-          <label for="contribution-url">URL</label>
-          <input
-            id="contribution-url"
-            name="url"
-            type="url"
-            inputmode="url"
-            autocomplete="url"
-            placeholder="https://tucontenido.tudominio.com"
-            maxlength="2048"
-            aria-describedby="contribution-help contribution-url-error"
-            required
-          />
-          <span class="contribution-form__error" id="contribution-url-error" data-contribution-error hidden></span>
-        </div>
-
-        <div class="contribution-form__field contribution-form__field--full">
-          <label for="contribution-text">Descripción</label>
-          <textarea
-            id="contribution-text"
-            name="text"
-            rows="5"
-            placeholder="Por ejemplo: Te explico en 5 minutos cómo funciona AWS IAM y cómo darle permisos a los usuarios que necesiten acceder a tu cuenta de AWS"
-            maxlength="8000"
-            aria-describedby="contribution-help contribution-text-error"
-            required
-          ></textarea>
-          <span class="contribution-form__error" id="contribution-text-error" data-contribution-error hidden></span>
-        </div>
-
-        <div
-          class="contribution-form__taxonomy contribution-form__field--full"
-          data-contribution-taxonomy
-          role="group"
-          aria-label="Clasificación del recurso"
-          aria-describedby="contribution-help contribution-kind-format-error"
-        >
-          <div class="contribution-form__taxonomy-fields">
-            <div class="contribution-form__field">
-              <label for="contribution-kind">¿Qué compartes?</label>
-              <select id="contribution-kind" name="kind" data-contribution-kind aria-describedby="contribution-help contribution-kind-error contribution-kind-format-error" required>
-                <option value="">Selecciona una opción</option>
-                {Object.entries(KIND_LABELS).map(([kind, label]) => <option value={kind}>{label}</option>)}
-              </select>
-              <span class="contribution-form__error" id="contribution-kind-error" data-contribution-error hidden></span>
-            </div>
-
-            <div class="contribution-form__field">
-              <label for="contribution-format">Formato</label>
-              <select id="contribution-format" name="format" data-contribution-format aria-describedby="contribution-help contribution-format-error contribution-kind-format-error" required>
-                <option value="">Selecciona un formato</option>
-                {Object.entries(FORMATS_BY_KIND).flatMap(([kind, formats]) => formats.map((format) => (
-                  <option value={format} data-format-kind={kind} hidden disabled>{format}</option>
-                )))}
-              </select>
-              <span class="contribution-form__error" id="contribution-format-error" data-contribution-error hidden></span>
-            </div>
-          </div>
-          <span class="contribution-form__error contribution-form__group-error" id="contribution-kind-format-error" data-contribution-error data-contribution-group-error hidden></span>
-        </div>
-
-        <fieldset
-          class="contribution-form__topics contribution-form__field--full"
-          data-contribution-topics-group
-          aria-describedby="contribution-help contribution-topics-error"
-        >
-          <legend>Temas <span>(opcional, hasta tres)</span></legend>
-          <div class="contribution-form__topic-options">
-            {TOPICS.map((topic) => (
-              <label><input type="checkbox" name="topics" value={topic} data-contribution-topic aria-describedby="contribution-help contribution-topics-error" /> {topic}</label>
-            ))}
-          </div>
-          <span class="contribution-form__error contribution-form__group-error" id="contribution-topics-error" data-contribution-error data-contribution-group-error hidden></span>
-        </fieldset>
+        <ResourceClassificationFields
+          idPrefix="contribution"
+          required
+          helpId="contribution-help"
+          kindLabel="¿Qué compartes?"
+          hookPrefix="contribution"
+        />
       </div>
 
       <div class="contribution-form__honeypot" aria-hidden="true">

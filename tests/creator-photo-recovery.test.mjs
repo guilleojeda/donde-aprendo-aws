@@ -5,6 +5,7 @@ import { Readable } from 'node:stream';
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { createCreatorHttpHandler } from '../src/lib/creator-http.mjs';
 import { createCreatorPhotoS3 } from '../src/lib/creator-photo-objects.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 import {
   createCreatorPhotoHarness,
   profileStoreKey,
@@ -120,7 +121,10 @@ function photoHttpHandler(harness) {
 function finalizeRequest(upload, creatorVersion = 1) {
   return new Request(`${ORIGIN}/api/creador/foto/finalizar`, {
     method: 'POST',
-    headers: { origin: ORIGIN, 'x-csrf-token': 'csrf', 'x-creator-contract': '2', 'content-type': 'application/json' },
+    headers: {
+      origin: ORIGIN, 'x-csrf-token': 'csrf', 'x-creator-contract': CREATOR_CONTRACT_VERSION,
+      'content-type': 'application/json',
+    },
     body: JSON.stringify({ uploadId: upload.uploadId, creatorVersion }),
   });
 }
@@ -1142,7 +1146,7 @@ test('photo authorization fails closed for malformed aggregate state without sig
     headers: {
       origin: ORIGIN,
       'x-csrf-token': 'csrf',
-      'x-creator-contract': '2',
+      'x-creator-contract': CREATOR_CONTRACT_VERSION,
       'content-type': 'application/json',
     },
     body: JSON.stringify({ creatorVersion: 1 }),

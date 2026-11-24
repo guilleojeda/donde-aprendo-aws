@@ -8,7 +8,7 @@ function writesTo(capture, method, path) {
   return capture.writes().filter((write) => write.method === method && write.path === path);
 }
 
-test('un GET malformado y otro anterior no sustituyen la confirmación antes de continuar manualmente', async ({ fixture, page }) => {
+test('un GET2 después de quitar conserva la confirmación y ofrece la página actual sin repetir la escritura', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const target = await addLink(fixture, cookie, {
     title: 'Ficha para lectura retrasada',
@@ -79,23 +79,22 @@ test('un GET malformado y otro anterior no sustituyen la confirmación antes de 
     assert.equal(removal[0].body.creatorVersion, earlierSnapshot.creatorVersion);
     assert.ok(removal[0].responseBody.creatorVersion > earlierSnapshot.creatorVersion);
     await expect(page.locator(STALE_LINK_RECOVERY)).toBeVisible();
-    await expect(page.locator('[data-owner-refresh-retry]')).toBeVisible();
     await expect(targetRow).toBeVisible('the old list stays visibly stale until the full read installs');
     assert.equal(readResponses[0]?.kind, 'malformed', 'the acknowledged command triggers its required full read');
     assert.deepEqual(readResponses[0]?.body, { ...earlierSnapshot, resources: null });
-
     await page.locator('[data-owner-refresh-retry]').click();
     await expect.poll(() => readResponses.length).toBe(2);
-    await expect(page.locator(STALE_LINK_RECOVERY)).toBeVisible();
+    const currentPage = page.getByRole('link', { name: 'Abrir la página actual', exact: true });
+    await expect(currentPage).toBeVisible();
+    await expect(currentPage).toHaveAttribute('target', '_blank');
     assert.equal(readResponses[1].kind, 'earlier-v2');
     assert.equal(readResponses[1].body.creatorVersion, earlierSnapshot.creatorVersion);
     assert.ok(readResponses[1].body.creatorVersion < removal[0].responseBody.creatorVersion,
       'the controlled response is a real, earlier v2 owner read below the acknowledged version floor');
-    await expect(targetRow).toBeVisible('an older complete response cannot replace the current stale display');
+    assert.equal(writesTo(capture, 'DELETE', deletePath).length, 1, 'the old tab never replays the confirmed removal');
 
-    await page.locator('[data-owner-refresh-retry]').click();
-    await expect.poll(() => readResponses.length).toBe(3);
-    assert.equal(readResponses[2].kind, 'current-v2');
+    await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=Ficha`);
+    await expect.poll(() => readResponses.length).toBe(2);
     await expect(page.locator(STALE_LINK_RECOVERY)).toHaveCount(0);
     await expect(page.locator(`[data-link-row="${target.placementId}"]`)).toHaveCount(0);
     await expect(page.locator('[data-link-count-summary]')).toContainText('1 coincidencia de 1 enlace');

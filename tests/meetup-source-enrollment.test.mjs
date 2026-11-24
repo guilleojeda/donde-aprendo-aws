@@ -7,6 +7,7 @@ import { loadCatalog } from '../src/lib/catalog.mjs';
 import { currentUrlReservation, currentUrlReservationId } from '../src/lib/catalog-url.mjs';
 import { importMeetupCommunities } from '../scripts/import-meetup-communities.mjs';
 import { mapMeetupCommunities } from '../src/lib/meetup-communities.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 import { callApi, responseJson, sessionCsrf } from './fixtures/creator-pages.mjs';
 import { createDynamoMoveHarness, dynamoConditionMatches } from './fixtures/creator-link-move.mjs';
 
@@ -104,7 +105,8 @@ class CatalogDocumentClientMock {
 
 async function api(harness, path, body, { method = 'POST', session = 'creator-a' } = {}) {
   const response = await callApi(harness, path, {
-    method, session, csrf: sessionCsrf[session], creatorContract: '2',
+    method, session, csrf: sessionCsrf[session],
+    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
     ...(body === undefined ? {} : { body }),
   });
   return { status: response.status, body: response.status === 204 ? null : await responseJson(response) };

@@ -11,6 +11,7 @@ import {
   seedMoveProfile,
   seedMoveResource,
 } from './fixtures/creator-link-move.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 
 const TABLES = {
   accounts: 'accounts-test',
@@ -41,7 +42,7 @@ function adminGrant(harness, body) {
   return callApi(harness, ADMIN_LINK_PATH, {
     session: 'admin',
     csrf: sessionCsrf.admin,
-    creatorContract: '2',
+    creatorContract: CREATOR_CONTRACT_VERSION,
     method: 'POST',
     body,
   });

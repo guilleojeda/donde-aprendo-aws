@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { validateCatalogUrl } from './catalog-url-safety.mjs';
-import { classifyLegacyResource, validateTaxonomy } from './resource-taxonomy.mjs';
-import { DISCOVERY_FIELDS, validateDiscoveryMetadata } from './resource-discovery.mjs';
+import { resolveResourceClassification, validateTaxonomy } from './resource-taxonomy.mjs';
+import { DISCOVERY_FIELDS, projectDiscoveryRecord, validateDiscoveryMetadata } from './resource-discovery.mjs';
 import { projectPublicEvent } from './events.mjs';
 import { CREATOR_FIELD_LIMITS, hasCreatorPublicIdentity, isCreatorSlug, isCreatorStateId } from './creator-values.mjs';
 import { canonicalCreatorSeriesPath, isPublicCreator } from './creator-public.mjs';
@@ -432,8 +432,17 @@ export function projectPublicRecord(item, index = 0) {
     }
   }
 
-  const taxonomy = validateTaxonomy(hasAnyTaxonomy(item) ? item : classifyLegacyResource(item), index);
-  const record = {
+  const classification = resolveResourceClassification(item, index);
+  if (classification.state !== 'explicit' && classification.state !== 'legacy') {
+    if (['kind', 'format', 'topics'].some((field) => Object.hasOwn(item, field))) {
+      // Preserve the established field-specific diagnostics for explicit
+      // catalog input while keeping the shared resolver as the decision point.
+      validateTaxonomy(item, index);
+    }
+    throw new Error(`Catalog record ${index + 1} has an invalid or absent classification`);
+  }
+  const taxonomy = validateTaxonomy(classification, index);
+  const record = projectDiscoveryRecord({
     id: item.id,
     title: item.title,
     url: item.url,
@@ -443,8 +452,8 @@ export function projectPublicRecord(item, index = 0) {
     featured: item.featured,
     ...taxonomy,
     ...Object.fromEntries(DISCOVERY_FIELDS.filter((field) => Object.hasOwn(item, field)).map((field) => [field, item[field]])),
-    ...(taxonomy.kind === 'community' && Object.hasOwn(item, 'city') ? { city: item.city } : {}),
-  };
+    ...(Object.hasOwn(item, 'city') ? { city: item.city } : {}),
+  });
   validatePublicRecord(record, index);
   return record;
 }
@@ -485,10 +494,6 @@ export function validatePublicRecord(record, index = 0) {
   validateDiscoveryMetadata(record, index);
   validateCatalogUrl(record.url, index);
   return record;
-}
-
-function hasAnyTaxonomy(item) {
-  return ['kind', 'format', 'topics'].some((field) => Object.hasOwn(item, field));
 }
 
 export function compareCatalogRecords(left, right) {

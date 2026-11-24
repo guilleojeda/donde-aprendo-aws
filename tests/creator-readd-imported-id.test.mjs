@@ -3,12 +3,15 @@ import { test } from 'node:test';
 import { GetCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { importCatalog, TARGET_ACCOUNT_ID } from '../src/lib/catalog-import.mjs';
 import { currentUrlKey } from '../src/lib/catalog-url.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 import { callApi, sessionCsrf } from './fixtures/creator-pages.mjs';
 import { createDynamoMoveHarness, seedMoveProfile, seedMoveResource } from './fixtures/creator-link-move.mjs';
 
 async function api(harness, pathname, body, { method = 'POST', session = 'creator-a' } = {}) {
   const response = await callApi(harness, pathname, {
-    method, session, csrf: sessionCsrf[session], creatorContract: '2', ...(body === undefined ? {} : { body }),
+    method, session, csrf: sessionCsrf[session],
+    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
+    ...(body === undefined ? {} : { body }),
   });
   return { status: response.status, data: response.status === 204 ? null : await response.json() };
 }

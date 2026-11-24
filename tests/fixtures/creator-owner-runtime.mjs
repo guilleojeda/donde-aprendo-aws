@@ -103,7 +103,7 @@ export async function createCreatorOwnerRuntime({ statistics } = {}) {
     if (options.method && options.method !== 'GET') {
       if (!headers.has('origin')) headers.set('origin', SITE_ORIGIN);
       if (target.pathname.startsWith('/api/creador/') && !headers.has('x-creator-contract')) {
-        headers.set('x-creator-contract', '2');
+      headers.set('x-creator-contract', '3');
       }
     }
     return http(new Request(target, { ...options, headers }));

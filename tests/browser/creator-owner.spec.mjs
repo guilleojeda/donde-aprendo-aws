@@ -3,6 +3,7 @@ import {
   test, expect, addCookie, readOwnerSnapshot, createSeries, addLink, addChapter,
   captureCreatorApi, seriesRow, openSeriesView, loggedInOwner,
 } from '../fixtures/creator-browser-test.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../../src/lib/creator-values.mjs';
 
 test('la primera página SSR autentica por cookie, crea el perfil y rechaza otro origen', async ({ fixture, browser, page }) => {
   const cookie = await loggedInOwner(fixture, page, { profile: false });
@@ -49,7 +50,7 @@ test('la primera página SSR autentica por cookie, crea el perfil y rechaza otro
   const rejected = await page.context().request.put(`${fixture.origin}/api/creador/perfil/`, {
     data: { creatorVersion: persisted.creatorVersion, displayName: 'No guardar desde otro origen' },
     headers: { origin: 'https://attacker.example', 'x-csrf-token': persisted.profile && (await fixture.principal(cookie)).csrfToken,
-      'x-creator-contract': '2' },
+      'x-creator-contract': CREATOR_CONTRACT_VERSION },
   });
   assert.equal(rejected.status(), 403, 'the real Astro route rejects a hostile Origin');
   assert.deepEqual(await readOwnerSnapshot(fixture, cookie), before,

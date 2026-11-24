@@ -18,6 +18,7 @@ import { createDocumentStore, seedResource } from './fixtures/creator-pages.mjs'
 import { createPhotoObjects, rasterPhotoFixtures } from './fixtures/creator-photos.mjs';
 import { creatorPageSessionBinding } from '../src/lib/creator-session-context.mjs';
 import { isConfirmedTransactionRejection } from '../src/lib/creator-store.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 
 const STATE_KEY = '__creatorRuntimeOriginAcceptance';
 const CONFIG_KEYS = [
@@ -52,7 +53,9 @@ function seedSession(accountStore, identity, { isAdmin, tokenByte, csrfByte }) {
 
 function request(origin, path, { method = 'GET', session, csrf, binding, body, requestOrigin = origin } = {}) {
   const headers = new Headers();
-  if (method !== 'GET' && path.startsWith('/api/creador/')) headers.set('x-creator-contract', '2');
+  if (method !== 'GET' && path.startsWith('/api/creador/')) {
+    headers.set('x-creator-contract', CREATOR_CONTRACT_VERSION);
+  }
   if (session) headers.set('cookie', session.cookie);
   if (requestOrigin !== null) headers.set('origin', requestOrigin);
   if (csrf !== undefined) headers.set('x-csrf-token', csrf);

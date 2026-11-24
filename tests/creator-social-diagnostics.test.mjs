@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CREATOR_FIELD_LIMITS } from '../src/lib/creator-values.mjs';
+import { CREATOR_CONTRACT_VERSION, CREATOR_FIELD_LIMITS } from '../src/lib/creator-values.mjs';
 import {
   callApi,
   createCreatorPagesHarness,
@@ -9,11 +9,14 @@ import {
 } from './fixtures/creator-pages.mjs';
 
 async function api(harness, path, session = 'creator-a', options = {}) {
+  const creatorContract = Object.hasOwn(options, 'creatorContract')
+    ? options.creatorContract
+    : options.method === undefined || options.method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION;
   return callApi(harness, path, {
     session,
     csrf: sessionCsrf[session],
-    creatorContract: '2',
     ...options,
+    creatorContract,
   });
 }
 

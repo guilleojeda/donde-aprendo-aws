@@ -5,6 +5,7 @@ import { createCreatorStore } from '../src/lib/creator-store.mjs';
 import { createCreatorPagesService } from '../src/lib/creator-pages.mjs';
 import { currentUrlKey, currentUrlReservationId } from '../src/lib/catalog-url.mjs';
 import { loadCatalog, projectPublishedCatalog } from '../src/lib/catalog.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 import {
   apiRequest,
   createCreatorPagesHarness,
@@ -30,7 +31,8 @@ async function classify(harness, resourceId, version, fields) {
 
 async function creatorApi(harness, path, { method = 'GET', body } = {}) {
   return harness.service.handle(apiRequest(path, {
-    session: 'creator-a', csrf: 'csrf-a', creatorContract: '2', method, body,
+    session: 'creator-a', csrf: 'csrf-a',
+    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION, method, body,
   }));
 }
 
@@ -583,8 +585,10 @@ test('resource IDs reject physical URL reservation aliases without writes and pr
   const api = (path, session, options = {}) => service.handle(apiRequest(path, {
     session,
     csrf: { 'creator-a': 'csrf-a', admin: 'csrf-admin' }[session],
-    creatorContract: '2',
     ...options,
+    creatorContract: Object.hasOwn(options, 'creatorContract')
+      ? options.creatorContract
+      : options.method === undefined || options.method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
   }));
 
   const profile = await api('/api/creador/perfil', 'creator-a', {

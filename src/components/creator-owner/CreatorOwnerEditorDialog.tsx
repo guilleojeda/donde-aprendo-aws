@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from 'preact/hooks';
 import type { CreatorCatalogSelectionDTO, CreatorOwnerSnapshotDTO, CreatorProgram, CreatorSocial } from '../../types/creators';
+import type { ResourceClassificationChange } from '../../lib/resource-form-policy.mjs';
 import {
   CREATOR_FIELD_LIMITS,
   CREATOR_PHOTO_FORMATS,
@@ -13,6 +14,7 @@ import {
 } from '../../lib/creator-values.mjs';
 import {
   creatorOwnerCanSubmitEditor,
+  creatorOwnerClassificationPolicy,
   creatorOwnerClaimSelectionIsCurrent,
   creatorOwnerClaimSelectionNeedsRefresh,
   creatorOwnerLinkMoveContext,
@@ -27,6 +29,10 @@ import {
   type CreatorOwnerState,
 } from '../../lib/creator-owner-state';
 import { creatorOwnerNavigationLists } from '../../lib/creator-owner-presentation';
+import { isCreatorOwnerV3Resource } from '../../lib/creator-owner-data';
+import ResourceClassificationFields from '../ResourceClassificationFields';
+import ResourceMetadataFields from '../ResourceMetadataFields';
+import CreatorOwnerReadRecoveryAction from './CreatorOwnerReadRecoveryAction';
 import { pageCreatorOwnerCatalog } from '../../lib/creator-owner-catalog';
 import { usableCreatorOwnerFocusTarget } from '../../lib/creator-owner-focus';
 import {
@@ -48,6 +54,7 @@ interface Props {
   onUpdateMove(value: string): void;
   onUpdateLink(value: Partial<CreatorOwnerLinkDraft>): void;
   onUpdateAddLink(value: Partial<CreatorOwnerLinkDraft>): void;
+  onClassificationChange(change: ResourceClassificationChange): void;
   onUpdateMoveLink(value: string): void;
   onUpdateReference(value: { selected?: CreatorOwnerReferenceCandidate; selectedForDirectory?: boolean }): void;
   onUpdateClaim(value: { selected?: Array<{ resourceId: string; url: string; title: string }>; knownUrls?: string; evidence?: string }): void;
@@ -111,6 +118,17 @@ function comparisonSavedLabel(label: string): string {
   }
 }
 
+function classificationComparisonRows(resource: CreatorOwnerSnapshotDTO['resources'][number], draft: { kind: string; format: string; topics: string[] }): Array<[string, string, string]> {
+  if (!isCreatorOwnerV3Resource(resource)) return [];
+  const saved = resource.classification.state === 'explicit' || resource.classification.state === 'legacy'
+    ? resource.classification : undefined;
+  return [
+    ['Tipo de recurso', saved?.kind ?? 'Sin clasificar', draft.kind || 'Sin clasificar'],
+    ['Formato', saved?.format ?? '—', draft.format || '—'],
+    ['Temas', saved?.topics.join(', ') ?? '—', draft.topics.join(', ') || '—'],
+  ];
+}
+
 function comparisonRows(editor: CreatorOwnerEditorDraft, snapshot: CreatorOwnerSnapshotDTO): Array<[string, string, string]> {
   if (editor.kind === 'profile' && editor.section === 'datos') {
     const saved = snapshot.profile;
@@ -154,6 +172,7 @@ function comparisonRows(editor: CreatorOwnerEditorDraft, snapshot: CreatorOwnerS
       ['Título', resource.title, editor.editable ? editor.draft.title : 'Ficha compartida'],
       ['URL', resource.url, editor.editable ? editor.draft.url : 'Ficha compartida'],
       ['Descripción', resource.description ?? '', editor.editable ? editor.draft.description : 'Ficha compartida'],
+      ...(editor.editable ? classificationComparisonRows(resource, editor.draft) : []),
       ['Destacado', snapshot.order.featured.includes(editor.placementId) ? 'Sí' : 'No', editor.draft.featured ? 'Sí' : 'No'],
       ['Propuesta al directorio', placement.selectedForDirectory ? 'Sí' : 'No', editor.draft.selectedForDirectory ? 'Sí' : 'No'],
     ];
@@ -164,6 +183,7 @@ function comparisonRows(editor: CreatorOwnerEditorDraft, snapshot: CreatorOwnerS
       ['Título', saved?.title ?? 'Ficha ya no disponible', editor.draft.title],
       ['URL', saved?.url ?? '—', editor.draft.url],
       ['Descripción', saved?.description ?? '', editor.draft.description],
+      ...(saved ? classificationComparisonRows(saved, editor.draft) : []),
     ];
   }
   if (editor.kind === 'move-link') {
@@ -205,6 +225,7 @@ function operationMatchesEditor(state: CreatorOwnerState, editor: CreatorOwnerEd
 
 export default function CreatorOwnerEditorDialog({
   state, onUpdateProfile, onUpdateSocial, onUpdateSeries, onUpdateMove, onUpdateLink, onUpdateAddLink,
+  onClassificationChange,
   onUpdateMoveLink, onUpdateReference, onUpdateClaim, onCatalogSearch, onCatalogPage, onCatalogRetry,
   onSetPhoto, onSubmit, onRequestClose, onRetryRead, onResolveRecovery, onSaveRecoveryDraft, onExit, onCheckSession,
 }: Props) {
@@ -249,6 +270,21 @@ export default function CreatorOwnerEditorDialog({
   const editorFieldErrors = { ...nativeIdentity.errors, ...nativeContent.errors, ...(editorFeedback?.fieldErrors ?? {}) };
   const contentFieldErrors = editorFieldErrors as Partial<Record<CreatorOwnerField, string>>;
   const contentError = (field: CreatorOwnerField): string | undefined => contentFieldErrors[field];
+  const resourceForEditor = editor?.kind === 'link-placement'
+    ? (() => { const placement = state.observed.placements[editor.placementId]; return placement ? state.observed.resources.find(({ id }) => id === placement.resourceId) : undefined; })()
+    : editor?.kind === 'link-resource' ? state.observed.resources.find(({ id }) => id === editor.resourceId) : undefined;
+  const showClassification = editor?.kind === 'add-link'
+    || Boolean(resourceForEditor && isCreatorOwnerV3Resource(resourceForEditor) && resourceForEditor.classification.state !== 'event');
+  const classificationEditable = editor?.kind === 'add-link'
+    || Boolean(resourceForEditor && isCreatorOwnerV3Resource(resourceForEditor) && resourceForEditor.classificationEditable);
+  const classificationPolicy = editor && (editor.kind === 'link-placement' || editor.kind === 'link-resource' || editor.kind === 'add-link')
+    ? creatorOwnerClassificationPolicy({ draft: editor.draft, touchedFields: editor.touchedFields,
+      ...(resourceForEditor && isCreatorOwnerV3Resource(resourceForEditor) ? { persistedState: resourceForEditor.classification.state } : {}),
+      classificationEditable }) : undefined;
+  const classificationErrors = {
+    kind: contentError('kind') ?? nativeContent.errors.kind, format: contentError('format') ?? nativeContent.errors.format,
+    kindFormat: contentError('kind-format') ?? nativeContent.errors['kind-format'], topics: contentError('topics') ?? nativeContent.errors.topics,
+  };
   const editorHasFieldErrors = Object.values(editorFieldErrors).some(Boolean);
   const photoError = editorFieldErrors.photo;
   const photoHelpId = identityFieldHelpId('owner', 'photo');
@@ -443,19 +479,21 @@ export default function CreatorOwnerEditorDialog({
         <fieldset class="creator-owner__field creator-owner__link-fields" data-link-metadata-fields>
           <legend>Ficha del contenido</legend>
           {editor.editable && <details class="creator-owner__link-help"><summary>Sobre esta ficha</summary><p>El título, la URL y la descripción también se muestran a quienes referencian esta ficha.</p></details>}
-          <div class={`creator-owner__field${editor.editable && contentError('title') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-link-title">Título</label><input id="owner-link-title" name="title" value={editor.draft.title} maxLength={CREATOR_FIELD_LIMITS.title} required readOnly={locked || !editor.editable}
-            {...contentFieldProps('title', editor.editable ? contentError('title') : undefined)}
-            onInvalid={(event) => nativeContent.onInvalid('title', event.currentTarget as HTMLInputElement, event)}
-            onInput={(event) => { nativeContent.onInput('title'); onUpdateLink({ title: (event.currentTarget as HTMLInputElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'title')} text={editor.editable ? contentError('title') : undefined} /></div>
-          <div class={`creator-owner__field${editor.editable && contentError('url') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-link-url">URL</label><input id="owner-link-url" name="url" type="url" inputMode="url" value={editor.draft.url} maxLength={CREATOR_FIELD_LIMITS.url} required readOnly={locked || !editor.editable}
-            {...contentFieldProps('url', editor.editable ? contentError('url') : undefined)}
-            onInvalid={(event) => nativeContent.onInvalid('url', event.currentTarget as HTMLInputElement, event)}
-            onInput={(event) => { nativeContent.onInput('url'); onUpdateLink({ url: (event.currentTarget as HTMLInputElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'url')} text={editor.editable ? contentError('url') : undefined} /></div>
-          <div class={`creator-owner__field${editor.editable && contentError('description') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-link-description" name="description" rows={4} value={editor.draft.description} maxLength={CREATOR_FIELD_LIMITS.description} readOnly={locked || !editor.editable}
-            {...contentFieldProps('description', editor.editable ? contentError('description') : undefined)}
-            onInvalid={(event) => nativeContent.onInvalid('description', event.currentTarget as HTMLTextAreaElement, event)}
-            onInput={(event) => { nativeContent.onInput('description'); onUpdateLink({ description: (event.currentTarget as HTMLTextAreaElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'description')} text={editor.editable ? contentError('description') : undefined} /></div>
+          <ResourceMetadataFields idPrefix="owner-link" values={editor.draft} policy="owner"
+            errors={{ title: editor.editable ? contentError('title') : undefined, url: editor.editable ? contentError('url') : undefined, description: editor.editable ? contentError('description') : undefined }}
+            readOnly={locked || !editor.editable} hookPrefix="owner" titleId="owner-link-title" urlId="owner-link-url" descriptionId="owner-link-description"
+            onInput={(field) => nativeContent.onInput(field)}
+            onInvalid={(field, event) => nativeContent.onInvalid(field, event.currentTarget as HTMLInputElement, event)}
+            onChange={(field, value) => onUpdateLink({ [field]: value })} />
         </fieldset>
+        {showClassification && <ResourceClassificationFields idPrefix="owner-link" value={editor.draft} errors={classificationErrors}
+          disabled={locked || !classificationEditable} required={classificationPolicy?.required ?? false}
+          hookPrefix="owner"
+          onKindChange={(value) => { nativeContent.onInput('kind'); nativeContent.onInput('format'); onClassificationChange({ type: 'kind', value }); }}
+          onFormatChange={(value) => { nativeContent.onInput('format'); onClassificationChange({ type: 'format', value }); }}
+          onKindInvalid={(event) => nativeContent.onInvalid('kind', event.target as HTMLInputElement, event)}
+          onFormatInvalid={(event) => nativeContent.onInvalid('format', event.target as HTMLInputElement, event)}
+          onTopicChange={(value, checked) => { nativeContent.onInput('topics'); onClassificationChange({ type: 'topic', value, checked }); }} />}
         <fieldset class="creator-owner__field creator-owner__link-fields" data-link-options disabled={locked}>
           <legend>Opciones de tu página</legend>
           <label class="creator-owner__link-checkbox"><input type="checkbox" name="featured" checked={editor.draft.featured} onChange={(event) => onUpdateLink({ featured: event.currentTarget.checked })} /><span>Destacar en tu página</span></label>
@@ -472,19 +510,21 @@ export default function CreatorOwnerEditorDialog({
         <p>Editas una ficha propia que ya no está colocada en tu página. Guardar aquí no la reincorpora.</p>
         <fieldset class="creator-owner__field creator-owner__link-fields" data-link-metadata-fields>
           <legend>Ficha del contenido</legend>
-          <div class={`creator-owner__field${contentError('title') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-link-title">Título</label><input id="owner-link-title" name="title" value={editor.draft.title} maxLength={CREATOR_FIELD_LIMITS.title} required readOnly={locked}
-            {...contentFieldProps('title', contentError('title'))}
-            onInvalid={(event) => nativeContent.onInvalid('title', event.currentTarget as HTMLInputElement, event)}
-            onInput={(event) => { nativeContent.onInput('title'); onUpdateLink({ title: (event.currentTarget as HTMLInputElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'title')} text={contentError('title')} /></div>
-          <div class={`creator-owner__field${contentError('url') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-link-url">URL</label><input id="owner-link-url" name="url" type="url" inputMode="url" value={editor.draft.url} maxLength={CREATOR_FIELD_LIMITS.url} required readOnly={locked}
-            {...contentFieldProps('url', contentError('url'))}
-            onInvalid={(event) => nativeContent.onInvalid('url', event.currentTarget as HTMLInputElement, event)}
-            onInput={(event) => { nativeContent.onInput('url'); onUpdateLink({ url: (event.currentTarget as HTMLInputElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'url')} text={contentError('url')} /></div>
-          <div class={`creator-owner__field${contentError('description') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-link-description" name="description" rows={4} value={editor.draft.description} maxLength={CREATOR_FIELD_LIMITS.description} readOnly={locked}
-            {...contentFieldProps('description', contentError('description'))}
-            onInvalid={(event) => nativeContent.onInvalid('description', event.currentTarget as HTMLTextAreaElement, event)}
-            onInput={(event) => { nativeContent.onInput('description'); onUpdateLink({ description: (event.currentTarget as HTMLTextAreaElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'description')} text={contentError('description')} /></div>
+          <ResourceMetadataFields idPrefix="owner-link" values={editor.draft} policy="owner"
+            errors={{ title: contentError('title'), url: contentError('url'), description: contentError('description') }}
+            readOnly={locked} hookPrefix="owner" titleId="owner-link-title" urlId="owner-link-url" descriptionId="owner-link-description"
+            onInput={(field) => nativeContent.onInput(field)}
+            onInvalid={(field, event) => nativeContent.onInvalid(field, event.currentTarget as HTMLInputElement, event)}
+            onChange={(field, value) => onUpdateLink({ [field]: value })} />
         </fieldset>
+        {showClassification && <ResourceClassificationFields idPrefix="owner-link" value={editor.draft} errors={classificationErrors}
+          disabled={locked || !classificationEditable} required={classificationPolicy?.required ?? false}
+          hookPrefix="owner"
+          onKindChange={(value) => { nativeContent.onInput('kind'); nativeContent.onInput('format'); onClassificationChange({ type: 'kind', value }); }}
+          onFormatChange={(value) => { nativeContent.onInput('format'); onClassificationChange({ type: 'format', value }); }}
+          onKindInvalid={(event) => nativeContent.onInvalid('kind', event.target as HTMLInputElement, event)}
+          onFormatInvalid={(event) => nativeContent.onInvalid('format', event.target as HTMLInputElement, event)}
+          onTopicChange={(value, checked) => { nativeContent.onInput('topics'); onClassificationChange({ type: 'topic', value, checked }); }} />}
         {feedback && <p class={`creator-owner__status${feedbackIsError ? ' creator-owner__status--error' : ''}`} data-owner-form-status="enlace" role={feedbackIsError ? 'alert' : 'status'} aria-live="polite">{feedback}</p>}
         {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Guardar ficha</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
@@ -493,18 +533,20 @@ export default function CreatorOwnerEditorDialog({
       {editorIsDialog && editor?.kind === 'add-link' && <form class="creator-owner__form" data-owner-form="alta-enlace" data-link-add-form onSubmit={editorSubmit}>
         {sessionRecovery}
         <p>Agrega una URL a tu página. La propuesta al directorio queda seleccionada inicialmente; puedes cambiarla antes de guardar.</p>
-        <div class={`creator-owner__field${contentError('title') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-add-link-title">Título</label><input id="owner-add-link-title" name="title" value={editor.draft.title} maxLength={CREATOR_FIELD_LIMITS.title} required readOnly={locked}
-          {...contentFieldProps('title', contentError('title'))}
-          onInvalid={(event) => nativeContent.onInvalid('title', event.currentTarget as HTMLInputElement, event)}
-          onInput={(event) => { nativeContent.onInput('title'); onUpdateAddLink({ title: (event.currentTarget as HTMLInputElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'title')} text={contentError('title')} /></div>
-        <div class={`creator-owner__field${contentError('url') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-add-link-url">URL</label><input id="owner-add-link-url" name="url" type="url" inputMode="url" value={editor.draft.url} maxLength={CREATOR_FIELD_LIMITS.url} required readOnly={locked}
-          {...contentFieldProps('url', contentError('url'))}
-          onInvalid={(event) => nativeContent.onInvalid('url', event.currentTarget as HTMLInputElement, event)}
-          onInput={(event) => { nativeContent.onInput('url'); onUpdateAddLink({ url: (event.currentTarget as HTMLInputElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'url')} text={contentError('url')} /></div>
-        <div class={`creator-owner__field${contentError('description') ? ' creator-owner__field--invalid' : ''}`}><label htmlFor="owner-add-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-add-link-description" name="description" rows={4} value={editor.draft.description} maxLength={CREATOR_FIELD_LIMITS.description} readOnly={locked}
-          {...contentFieldProps('description', contentError('description'))}
-          onInvalid={(event) => nativeContent.onInvalid('description', event.currentTarget as HTMLTextAreaElement, event)}
-          onInput={(event) => { nativeContent.onInput('description'); onUpdateAddLink({ description: (event.currentTarget as HTMLTextAreaElement).value }); }} /><IdentityFieldError id={identityFieldErrorId('owner', 'description')} text={contentError('description')} /></div>
+        <ResourceMetadataFields idPrefix="owner-add-link" values={editor.draft} policy="owner"
+          errors={{ title: contentError('title'), url: contentError('url'), description: contentError('description') }}
+          readOnly={locked} hookPrefix="owner" titleId="owner-add-link-title" urlId="owner-add-link-url" descriptionId="owner-add-link-description"
+          onInput={(field) => nativeContent.onInput(field)}
+          onInvalid={(field, event) => nativeContent.onInvalid(field, event.currentTarget as HTMLInputElement, event)}
+          onChange={(field, value) => onUpdateAddLink({ [field]: value })} />
+        {showClassification && <ResourceClassificationFields idPrefix="owner-add-link" value={editor.draft} errors={classificationErrors}
+          disabled={locked} required={classificationPolicy?.required ?? false}
+          hookPrefix="owner"
+          onKindChange={(value) => { nativeContent.onInput('kind'); nativeContent.onInput('format'); onClassificationChange({ type: 'kind', value }); }}
+          onFormatChange={(value) => { nativeContent.onInput('format'); onClassificationChange({ type: 'format', value }); }}
+          onKindInvalid={(event) => nativeContent.onInvalid('kind', event.target as HTMLInputElement, event)}
+          onFormatInvalid={(event) => nativeContent.onInvalid('format', event.target as HTMLInputElement, event)}
+          onTopicChange={(value, checked) => { nativeContent.onInput('topics'); onClassificationChange({ type: 'topic', value, checked }); }} />}
         <label class="creator-owner__link-checkbox"><input type="checkbox" name="selectedForDirectory" checked={editor.draft.selectedForDirectory} disabled={locked} onChange={(event) => onUpdateAddLink({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>
         <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Quitarla no quita el enlace de tu página; la actualización del directorio puede demorar.</p></details>
         {feedback && <p class={`creator-owner__status${feedbackIsError ? ' creator-owner__status--error' : ''}`} data-link-add-status role={feedbackIsError ? 'alert' : 'status'} aria-live="polite">{feedback}</p>}
@@ -609,6 +651,7 @@ function OperationFeedback({ state, rows, canSaveDraft, onRetryRead, onResolve, 
   const recoveryAction = deriveCreatorOwnerRecoveryAction(state);
   if (operation.status === 'idle' || operation.status === 'sending' || recoveryAction.kind === 'none') return null;
   const fact = operation.status === 'reading' || operation.status === 'refresh-failed' ? operation.fact : undefined;
+  const incompatibleRead = operation.status === 'refresh-failed' && operation.readContractObsolete === true;
   const claimIntent = (operation.status === 'unknown' || operation.status === 'conflict') && operation.intent.action === 'create-claim';
   const photoConflict = operation.status === 'conflict'
     && (operation.intent.action === 'photo-authorize' || operation.intent.action === 'photo-finalize');
@@ -629,8 +672,8 @@ function OperationFeedback({ state, rows, canSaveDraft, onRetryRead, onResolve, 
     {photoConflict && <p data-owner-photo-recovery>Tu archivo sigue seleccionado. Puedes cargarlo con la versión actual del perfil.</p>}
     {claimIntent && operation.status === 'unknown' && <p>El historial puede mostrar solicitudes parecidas, pero no permite confirmar si este envío fue el original. Volver al borrador y enviarlo otra vez puede crear un duplicado.</p>}
     {rows && <div class="creator-owner__comparison" data-owner-comparison><ComparisonRows rows={rows} /></div>}
-    {recoveryAction.kind === 'retry' && <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>}
-    {recoveryAction.kind === 'compare' && <button class="button button--outline" type="button" data-owner-check disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Comprobar estado guardado</button>}
+    {(incompatibleRead || recoveryAction.kind === 'retry') && <CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-refresh-retry" label="Reintentar actualización" onRetryRead={onRetryRead} />}
+    {recoveryAction.kind === 'compare' && <CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-check" label="Comprobar estado guardado" onRetryRead={onRetryRead} />}
     {recoveryAction.kind === 'resolve' && operation.status === 'unknown' && <div class="creator-owner__dialog-actions">
       <button class="button button--outline" type="button" data-owner-use-saved onClick={() => onResolve('saved')}>Usar lo guardado</button>
       <button class="button button--outline" type="button" data-owner-return-to-draft onClick={() => onResolve('draft')}>Volver al borrador</button>

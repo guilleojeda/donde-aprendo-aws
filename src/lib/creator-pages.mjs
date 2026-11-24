@@ -1,7 +1,13 @@
 import { createHash } from 'node:crypto';
 import { isCatalogResourceIdWithinLimit, isPublicCatalogResourceId } from './catalog-identity.mjs';
 import { projectPublicRecord, validateCatalogUrl } from './catalog.mjs';
-import { classifyLegacyResource, validateTaxonomy } from './resource-taxonomy.mjs';
+import {
+  explicitTaxonomyFrom,
+  legacyCategoryFor,
+  resolveResourceClassification,
+  validateTaxonomy,
+} from './resource-taxonomy.mjs';
+import { projectDiscoveryRecord, validateDiscoveryMetadata } from './resource-discovery.mjs';
 import {
   currentUrlCollision,
   currentUrlKey,
@@ -36,7 +42,8 @@ const PROTECTED_PROFILE_FIELDS = new Set([
 ]);
 const PROTECTED_PLACEMENT_FIELDS = new Set(['published', 'directoryApproval', 'directoryControl', 'editorProfileId', 'accountId', 'isAdmin']);
 const ADMIN_RESOURCE_FIELDS = new Set(['category', 'kind', 'format', 'topics']);
-const CREATOR_RESOURCE_FIELDS = new Set(['title', 'url', 'description']);
+const CREATOR_RESOURCE_FIELDS = new Set(['title', 'url', 'description', 'kind', 'format', 'topics']);
+const CREATOR_CLASSIFICATION_FIELDS = new Set(['kind', 'format', 'topics']);
 const MAX_REQUEST_BODY_BYTES = 32 * 1024;
 const MAX_DYNAMODB_ITEM_BYTES = 400 * 1024;
 const TEXT_FIELD_LIMITS = new Map(Object.entries(CREATOR_FIELD_LIMITS)
@@ -152,7 +159,8 @@ function adminClassificationDetails(error, body) {
   let applicable = false;
   if (entry.field === 'category' && entry.reason === 'required') applicable = Object.hasOwn(body, 'category');
   else if (entry.field === 'topics' && entry.reason === 'invalid_option') applicable = Object.hasOwn(body, 'topics');
-  else if (entry.field === 'kind-format' && entry.reason === 'invalid_combination') {
+  else if (entry.field === 'kind-format'
+    && (entry.reason === 'invalid_combination' || entry.reason === 'required')) {
     applicable = Object.hasOwn(body, 'kind') || Object.hasOwn(body, 'format');
   }
   return applicable ? { fieldErrors: [{ field: entry.field, reason: entry.reason }] } : undefined;
@@ -438,6 +446,14 @@ function cleanAdminResource(resource) {
     ...(resource.topics !== undefined ? { topics: resource.topics } : {}),
     ...(resource.sourceId !== undefined ? { sourceId: resource.sourceId } : {}),
   };
+}
+
+function hasClassificationFields(value) {
+  return [...CREATOR_CLASSIFICATION_FIELDS].some((field) => Object.hasOwn(value, field));
+}
+
+function sameValue(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 export function createCreatorPagesService({ store, authenticate, origin, now = Date.now, createId, statistics } = {}) {
@@ -735,18 +751,79 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       changes[field] = validateResourceUrl(body.url);
     }
     if (Object.hasOwn(body, 'description')) changes.description = textField(body.description, 'description');
+    if (hasClassificationFields(body)) {
+      if (resource.recordType === 'event' || approvalState(resource) !== 'pending') {
+        fail(403, 'CLASSIFICATION_EDIT_FORBIDDEN', 'classification is controlled by administration for this resource');
+      }
+      try {
+        const taxonomy = explicitTaxonomyFrom(body);
+        Object.assign(changes, taxonomy);
+        // Keep the historical category as a compatibility field. A creator
+        // classification never overwrites an existing editorial category.
+        if (resource.category === undefined) changes.category = legacyCategoryFor(taxonomy);
+      } catch (error) {
+        fail(422, 'INVALID_CLASSIFICATION', 'resource classification is incomplete or invalid',
+          adminClassificationDetails(error, body));
+      }
+    }
     return changes;
+  }
+
+  function validateCreatorResourceCandidate(resource, changes) {
+    const candidate = { ...resource, ...changes };
+    const classification = resolveResourceClassification(candidate);
+    const approval = approvalState(resource);
+    // Revocation only removes public admission; it does not change the
+    // creator's existing title, URL, and description editing authority.
+    // Classification remains administrative while revoked, so no candidate
+    // validation is needed for an ordinary metadata edit here.
+    if (approval === 'revoked') return;
+    if (resource.recordType === 'event') {
+      if (approval === 'approved') {
+        try { projectPublicRecord(candidate); } catch {
+          fail(422, 'INVALID_EVENT', 'event data is incomplete or invalid');
+        }
+      }
+      return;
+    }
+
+    if (classification.state === 'invalid') {
+      fail(422, 'INVALID_CLASSIFICATION', 'resource classification is incomplete or invalid');
+    }
+    if (classification.state === 'absent' && approval === 'approved') {
+      fail(422, 'INVALID_CLASSIFICATION', 'resource classification is incomplete or invalid');
+    }
+
+    const classifiedCandidate = classification.state === 'explicit' || classification.state === 'legacy'
+      ? { ...candidate, ...classification }
+      : candidate;
+    if (classification.state === 'explicit' || classification.state === 'legacy') {
+      try {
+        validateDiscoveryMetadata(projectDiscoveryRecord(classifiedCandidate));
+      } catch {
+        fail(422, 'INVALID_CLASSIFICATION', 'resource metadata is incompatible with its classification');
+      }
+    }
+    if (approval === 'approved') {
+      try {
+        projectPublicRecord(classifiedCandidate);
+      } catch {
+        fail(422, 'INVALID_CLASSIFICATION', 'resource is not valid for public directory admission');
+      }
+    }
   }
 
   async function buildCreatorResourceMutation(resource, requestedChanges) {
     const key = `resource:${resource.id}`;
     const before = storedVersion(resource.version, 'resource', { legacyZero: true });
     const changes = Object.fromEntries(Object.entries(requestedChanges)
-      .filter(([field, value]) => resource[field] !== value));
+      .filter(([field, value]) => !sameValue(resource[field], value)));
     const resourceCheck = { key, version: before };
     if (Object.keys(changes).length === 0) {
       return { resource, before, changed: false, checks: [resourceCheck], puts: [], deletes: [] };
     }
+
+    validateCreatorResourceCandidate(resource, changes);
 
     const updated = { ...resource, ...changes, version: nextVersion(before, 'resource'), updatedAt: timestamp() };
     const urlField = resource.recordType === 'event' ? 'registrationUrl' : 'url';
@@ -935,9 +1012,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return links;
   }
 
-  function ownerResource(resource, { metadataEditable, reincludeAllowed }) {
+  function ownerResource(resource, { metadataEditable, reincludeAllowed, contractVersion = '2' }) {
     const facts = resourceProjectionFacts(resource);
-    return {
+    const result = {
       id: resource.id,
       version: facts.version,
       title: resource.title,
@@ -948,12 +1025,20 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       metadataEditable,
       reincludeAllowed,
     };
+    if (contractVersion === '3') {
+      const classification = resolveResourceClassification(resource);
+      result.classification = classification;
+      result.classificationEditable = metadataEditable
+        && resource.recordType !== 'event'
+        && approvalState(resource) === 'pending';
+    }
+    return result;
   }
 
-  async function creatorEditor(principal) {
+  async function creatorEditor(principal, { contractVersion = '2' } = {}) {
     const { profile } = await ownerProfile(principal);
     if (!profile) return {
-      schemaVersion: 2, creatorVersion: null, profile: null, resources: [], placements: {},
+      schemaVersion: contractVersion === '3' ? 3 : 2, creatorVersion: null, profile: null, resources: [], placements: {},
       order: { featured: [], ordinary: [] }, series: {}, claims: [],
     };
 
@@ -980,6 +1065,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       resources.push(ownerResource(resource, {
         metadataEditable: authorized,
         reincludeAllowed: !activeResources.has(id) && authorized && retainedReference,
+        contractVersion,
       }));
     }
     resources.sort((left, right) => left.id.localeCompare(right.id));
@@ -1004,7 +1090,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       });
     }
     return {
-      schemaVersion: 2,
+      schemaVersion: contractVersion === '3' ? 3 : 2,
       creatorVersion: profile.version,
       profile: ownerProfileDto(profile),
       resources,
@@ -1207,8 +1293,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return creatorAck('publish-profile', profile.id, candidate.version, 'published');
   }
 
-  async function readCreatorEditor(context) {
-    return creatorEditor(requireAuthenticatedContext(context));
+  async function readCreatorEditor(context, options = {}) {
+    const contractVersion = options?.contractVersion === '3' || options?.contract === '3' ? '3' : '2';
+    return creatorEditor(requireAuthenticatedContext(context), { contractVersion });
   }
 
   function activePlacementId(profile, resourceId) {
@@ -1433,13 +1520,22 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
   async function addLink(principal, body) {
     if (Object.hasOwn(body, 'resourceId') || Object.hasOwn(body, 'resourceVersion')) return readdEditableResource(principal, body);
-    assertOwnerFields(body, new Set(['creatorVersion', 'title', 'url', 'description', 'selectedForDirectory']));
+    assertOwnerFields(body, new Set(['creatorVersion', 'title', 'url', 'description', 'selectedForDirectory', ...CREATOR_CLASSIFICATION_FIELDS]));
     const profile = await getRequiredOwnerProfile(principal);
     requireCreatorVersion(body, profile);
     const title = textField(body.title, 'title');
     if (!title.trim()) fail(422, 'INVALID_TITLE', 'title is required');
     const url = validateResourceUrl(body.url);
     const description = body.description === undefined ? '' : textField(body.description, 'description');
+    let taxonomy;
+    if (hasClassificationFields(body)) {
+      try {
+        taxonomy = explicitTaxonomyFrom(body);
+      } catch (error) {
+        fail(422, 'INVALID_CLASSIFICATION', 'resource classification is incomplete or invalid',
+          adminClassificationDetails(error, body));
+      }
+    }
     if (body.selectedForDirectory !== undefined && typeof body.selectedForDirectory !== 'boolean') {
       fail(422, 'INVALID_SELECTION', 'selectedForDirectory must be boolean');
     }
@@ -1453,6 +1549,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       id: resourceId, title, url, description, order: 0, featured: false,
       published: false, hidden: false, approvalRevoked: false,
       directoryControl: 'creator', editorProfileId: profile.id, autoSync: false, version: 1,
+      ...(taxonomy ? { ...taxonomy, category: legacyCategoryFor(taxonomy) } : {}),
     };
     const { id, candidate } = appendPlacement(profile, resourceId, selectedForDirectory);
     const key = `resource:${resourceId}`;
@@ -1483,7 +1580,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   }
 
   async function editLink(principal, id, body) {
-    const fields = new Set(['creatorVersion', 'resourceVersion', 'title', 'url', 'description', 'featured', 'selectedForDirectory']);
+    const fields = new Set(['creatorVersion', 'resourceVersion', 'title', 'url', 'description', 'featured', 'selectedForDirectory', ...CREATOR_CLASSIFICATION_FIELDS]);
     assertOwnerFields(body, fields);
     const profile = await getRequiredOwnerProfile(principal);
     const placement = profile.placements[id];
@@ -1495,7 +1592,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
     const resourceVersion = storedVersion(resource.version ?? 0, 'resource', { legacyZero: true });
     const metadataFields = ['title', 'url', 'description'];
-    const includesMetadata = metadataFields.some((field) => Object.hasOwn(body, field));
+    const includesMetadata = metadataFields.some((field) => Object.hasOwn(body, field)) || hasClassificationFields(body);
     if (includesMetadata) {
       if (body.resourceVersion === undefined) fail(400, 'RESOURCE_VERSION_REQUIRED', 'resourceVersion is required for metadata changes');
       if (validVersion(body.resourceVersion) !== resourceVersion) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before saving');
@@ -1702,23 +1799,47 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (!resource || !isCatalogResource(resource)) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
     const expectedVersion = validVersion(body.version, { optional: true });
     if (expectedVersion !== undefined && expectedVersion !== resource.version) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before saving');
-    const updated = { ...resource };
+    if (resource.recordType === 'event' && Object.keys(body).some((field) => ADMIN_RESOURCE_FIELDS.has(field))) {
+      fail(422, 'INVALID_EVENT', 'event resources do not accept ordinary taxonomy changes');
+    }
+    // Preserve the existing boundary error for malformed list input. A
+    // well-shaped list is then classified by the shared tuple resolver so
+    // partial and invalid taxonomy still use the new diagnostics.
+    if (Object.hasOwn(body, 'topics')
+      && (!Array.isArray(body.topics) || body.topics.some((topic) => typeof topic !== 'string'))) {
+      fail(422, 'INVALID_TOPICS', 'topics must be a list of text');
+    }
     for (const field of ['category', 'kind', 'format']) {
+      if (Object.hasOwn(body, field) && typeof body[field] !== 'string') {
+        fail(422, 'INVALID_FIELD', `${field} must be text`);
+      }
+    }
+    const updated = { ...resource };
+    for (const field of ['category']) {
       if (Object.hasOwn(body, field)) updated[field] = textField(body[field], field);
     }
-    if (Object.hasOwn(body, 'topics')) {
-      if (!Array.isArray(body.topics) || body.topics.some((topic) => typeof topic !== 'string')) fail(422, 'INVALID_TOPICS', 'topics must be a list of text');
-      updated.topics = [...body.topics];
+    let taxonomy;
+    if (hasClassificationFields(body)) {
+      try {
+        taxonomy = explicitTaxonomyFrom(body);
+        Object.assign(updated, taxonomy);
+        if (updated.category === undefined) updated.category = legacyCategoryFor(taxonomy);
+      } catch (error) {
+        fail(422, 'INVALID_CLASSIFICATION', 'resource classification is incomplete or invalid',
+          adminClassificationDetails(error, body));
+      }
     }
     if (!Object.keys(body).some((field) => ADMIN_RESOURCE_FIELDS.has(field))) fail(422, 'EMPTY_UPDATE', 'classification fields are required');
     try {
-      if (resource.recordType === 'event' || isPublicCatalogResourceId(resource.id)) {
+      if (isPublicCatalogResourceId(resource.id)) {
         projectPublicRecord(updated);
       } else {
-        // Private classification changes metadata but does not admit the row to public output.
-        const taxonomy = ['kind', 'format', 'topics'].some((field) => Object.hasOwn(updated, field))
-          ? updated : classifyLegacyResource(updated);
-        validateTaxonomy(taxonomy);
+        // Private classification changes metadata but do not admit the row to
+        // public output. The same resolver still rejects partial tuples.
+        const resolved = resolveResourceClassification(updated);
+        if (resolved.state === 'invalid' || resolved.state === 'absent') {
+          if (hasClassificationFields(body)) throw new Error('invalid classification');
+        } else if (resolved.state !== 'event') validateTaxonomy(resolved);
       }
     } catch (error) {
       fail(422, 'INVALID_CLASSIFICATION', 'resource classification is incomplete or invalid',
@@ -2259,7 +2380,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (path === '/api/creador/perfil') {
       if (request.method === 'GET') {
         requireCreatorPageSessionBinding(request, principal);
-        return jsonResponse(await readCreatorEditor(context));
+        const contractVersion = request.headers.get(CREATOR_CONTRACT_HEADER) === '3' ? '3' : '2';
+        return jsonResponse(await readCreatorEditor(context, { contractVersion }));
       }
       if (request.method === 'PUT') {
         const body = await parseRequestBody(request, undefined, { profileFieldDiagnostics: true });

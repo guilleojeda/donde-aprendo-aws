@@ -12,6 +12,7 @@ import {
   createCreatorStateConversionPlan,
 } from '../../scripts/lib/creator-state-cutover.mjs';
 import { seedResource } from '../fixtures/creator-pages.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../../src/lib/creator-values.mjs';
 
 const PROFILE_ID = 'profile-phase5-order';
 const PRIMARY_SERIES = 'series-primary-order';
@@ -60,7 +61,7 @@ async function convertAndSeedCreator(fixture, accountId, { profileId, profileSlu
 
 function ownerRead(capture, predicate = () => true) {
   return capture.records.find(({ method, path, status, responseBody }) => method === 'GET'
-    && path === '/api/creador/perfil' && status === 200 && responseBody?.schemaVersion === 2 && predicate(responseBody));
+    && path === '/api/creador/perfil' && status === 200 && responseBody?.schemaVersion === 3 && predicate(responseBody));
 }
 
 async function seedOrderState(fixture, cookie) {
@@ -156,7 +157,7 @@ test('F8: la comparación usa la secuencia de capítulos migrada aunque el orden
 
   const externalProfileSave = await api(fixture, cookie, '/api/creador/perfil/', {
     method: 'PUT',
-    headers: { 'X-Creator-Contract': '2' },
+    headers: { 'X-Creator-Contract': CREATOR_CONTRACT_VERSION },
     body: { creatorVersion: initialRead.body.creatorVersion, city: 'Córdoba' },
   });
   assert.equal(externalProfileSave.response.status, 200, JSON.stringify(externalProfileSave.body));

@@ -13,6 +13,7 @@ import {
 } from './fixtures/creator-pages.mjs';
 import { loadCatalog } from '../src/lib/catalog.mjs';
 import { currentUrlKey } from '../src/lib/catalog-url.mjs';
+import { CREATOR_CONTRACT_VERSION } from '../src/lib/creator-values.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const scratch = path.join(root, '.work/creator-owner-experience/delivery/phase6/backend');
@@ -40,7 +41,7 @@ async function creatorApi(harness, pathname, { method = 'GET', body } = {}) {
   return callApi(harness, pathname, {
     session: 'creator-a',
     csrf: sessionCsrf['creator-a'],
-    creatorContract: '2',
+    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
     method,
     ...(body === undefined ? {} : { body }),
   });

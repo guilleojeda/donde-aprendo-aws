@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import type { CreatorOwnerSnapshotDTO, CreatorSocial } from '../../types/creators';
-import { readCreatorOwnerSnapshot } from '../../lib/creator-owner-data';
+import { isCreatorOwnerV3Resource, readCreatorOwnerSnapshot } from '../../lib/creator-owner-data';
 import {
   createCreatorOwnerRequest,
   readCreatorOwnerAcknowledgement,
@@ -26,11 +26,14 @@ import type { CreatorOwnerSeriesMembership } from '../../lib/creator-owner-serie
 import { resolveOwnerDestination, type OwnerDestination } from '../../lib/creator-owner-navigation';
 import { creatorOwnerLinksHref, type CreatorOwnerLinksQuery } from '../../lib/creator-owner-links';
 import { parseCreatorOwnerCatalog, parseCreatorOwnerClaimUrls } from '../../lib/creator-owner-catalog';
+import { transitionResourceClassification, type ResourceClassificationChange } from '../../lib/resource-form-policy.mjs';
 import {
   createCreatorOwnerState,
+  creatorOwnerClassificationDraft,
   creatorOwnerChapterRecoveryIsVisibleInDetail,
   creatorOwnerClaimSelectionIsCurrent,
   creatorOwnerClaimSelectionNeedsRefresh,
+  creatorOwnerClassificationPolicy,
   creatorOwnerLinkMoveContext,
   creatorOwnerMoveDestinationIsValid,
   creatorOwnerMovePositionMessage,
@@ -44,6 +47,7 @@ import {
   type CreatorOwnerSessionPolicyAction,
   type CreatorOwnerSessionPolicyState,
   type CreatorOwnerEditorDraft,
+  type CreatorOwnerClassificationDraft,
   type CreatorOwnerSocialsDraft,
   type CreatorOwnerIntent,
   type CreatorOwnerOperation,
@@ -58,6 +62,7 @@ import CreatorOwnerIdentityPanel from './CreatorOwnerIdentityPanel';
 import CreatorOwnerSeriesPanel from './CreatorOwnerSeriesPanel';
 import CreatorOwnerLinksPanel from './CreatorOwnerLinksPanel';
 import CreatorOwnerClaimsPanel from './CreatorOwnerClaimsPanel';
+import CreatorOwnerReadRecoveryAction from './CreatorOwnerReadRecoveryAction';
 
 interface Props {
   data: CreatorOwnerSnapshotDTO;
@@ -151,6 +156,20 @@ function ownerLinks(snapshot: CreatorOwnerSnapshotDTO) {
 
 function ownerResource(snapshot: CreatorOwnerSnapshotDTO, resourceId: string) {
   return snapshot.resources.find((resource) => resource.id === resourceId);
+}
+
+function ownerClassificationEditable(editor: CreatorOwnerEditorDraft, snapshot: CreatorOwnerSnapshotDTO): boolean {
+  if (editor.kind === 'add-link') return true;
+  const resource = editor.kind === 'link-placement'
+    ? snapshot.placements[editor.placementId] && ownerResource(snapshot, snapshot.placements[editor.placementId].resourceId)
+    : editor.kind === 'link-resource' ? ownerResource(snapshot, editor.resourceId) : undefined;
+  return Boolean(resource?.classificationEditable);
+}
+
+function ownerClassificationRejectionMessage(editor: CreatorOwnerEditorDraft, snapshot: CreatorOwnerSnapshotDTO): string {
+  return ownerClassificationEditable(editor, snapshot)
+    ? 'La ficha no se puede guardar con esta clasificación y sus datos públicos. Conservamos el borrador para que puedas corregirla.'
+    : 'La ficha no se puede guardar con la clasificación y los datos públicos actuales. Conservamos el borrador; Administración debe corregir la clasificación o sus datos públicos.';
 }
 
 type ListRecoveryOperation = Extract<CreatorOwnerOperation,
@@ -248,6 +267,18 @@ function ownerContentFieldErrors(error: unknown, payload: CreatorSessionResponse
   const { action, fields } = intent;
   let lengthMessages: CreatorOwnerFieldMessages;
   if (action === 'add-link' || action === 'edit-link' || action === 'edit-resource') {
+    if (error === 'INVALID_CLASSIFICATION') {
+      if (!ownerClassificationEditable(editor, snapshot)) return undefined;
+      const messages = {
+        'kind-format': 'Elige un tipo y un formato compatibles.',
+        topics: 'Elige hasta tres temas válidos.',
+      } satisfies CreatorOwnerFieldMessages;
+      for (const reason of ['required', 'invalid_combination', 'invalid_option']) {
+        const mapped = readOwnerFieldErrors(payload, reason, messages);
+        if (mapped) return mapped;
+      }
+      return undefined;
+    }
     if (error === 'INVALID_TITLE' && Object.hasOwn(fields, 'title')) return { title: 'Ingresa un título.' };
     if ((error === 'INVALID_URL' || error === 'URL_TAKEN') && Object.hasOwn(fields, 'url')) {
       return { url: rejectedOwnerWriteMessage(error, 422) };
@@ -1021,7 +1052,8 @@ export default function CreatorOwnerApp(props: Props) {
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dispatch({ type: 'open-editor', editor: { kind: 'link-placement', key: `link:${link.placementId}`, placementId,
       editable: link.metadataEditable,
-      touchedFields: [], draft: { title: link.title, url: link.url, description: link.description ?? '', featured: link.featured, selectedForDirectory: link.selectedForDirectory } } });
+      touchedFields: [], draft: { title: link.title, url: link.url, description: link.description ?? '', featured: link.featured, selectedForDirectory: link.selectedForDirectory,
+        ...creatorOwnerClassificationDraft(latest.observed.resources.find(({ id }) => id === link.resourceId)!) } } });
   }
 
   function openRetainedEditor(resourceId: string) {
@@ -1030,14 +1062,14 @@ export default function CreatorOwnerApp(props: Props) {
     if (!resource?.reincludeAllowed || latest.session.state !== 'ready') return;
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dispatch({ type: 'open-editor', editor: { kind: 'link-resource', key: `resource:${resource.id}`, resourceId, touchedFields: [],
-      draft: { title: resource.title, url: resource.url, description: resource.description ?? '' } } });
+      draft: { title: resource.title, url: resource.url, description: resource.description ?? '', ...creatorOwnerClassificationDraft(resource) } } });
   }
 
   function openAddLink() {
     if (!stateRef.current.observed.profile || stateRef.current.session.state !== 'ready') return;
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dispatch({ type: 'open-editor', editor: { kind: 'add-link', key: 'add-link',
-      touchedFields: [], draft: { title: '', url: '', description: '', featured: false, selectedForDirectory: true } } });
+      touchedFields: [], draft: { title: '', url: '', description: '', featured: false, selectedForDirectory: true, kind: '', format: '', topics: [] } } });
   }
 
   function openLinkMoveEditor(placementId: string) {
@@ -1201,6 +1233,7 @@ export default function CreatorOwnerApp(props: Props) {
     if (latest.operation.status === 'reading' || latest.session.state !== 'ready') return;
     const readFollowsWrite = latest.operation.status === 'sending' && intent
       && latest.operation.intent.id === intent.id && (fact === 'acknowledged' || fact === 'conflict');
+    if (latest.operation.status === 'refresh-failed' && latest.operation.readContractObsolete) return;
     if (latest.operation.status === 'sending' && !readFollowsWrite) return;
     if (!readFollowsWrite && latest.operation.status !== 'idle' && latest.operation.status !== 'refresh-failed'
       && latest.operation.status !== 'unknown' && latest.operation.status !== 'conflict') return;
@@ -1248,7 +1281,7 @@ export default function CreatorOwnerApp(props: Props) {
     };
     try {
       const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store',
-        headers: { 'x-creator-page-binding': binding, accept: 'application/json' } });
+        headers: { 'x-creator-page-binding': binding, accept: 'application/json', [CREATOR_CONTRACT_HEADER]: CREATOR_CONTRACT_VERSION } });
       if (!current()) return;
       if (!response.ok) {
         const payload = await readCreatorSessionResponse(response);
@@ -1260,7 +1293,21 @@ export default function CreatorOwnerApp(props: Props) {
       const raw: unknown = await response.json();
       if (!current()) return;
       let snapshot: CreatorOwnerSnapshotDTO;
-      try { snapshot = readCreatorOwnerSnapshot(raw); }
+      try {
+        const parsed = readCreatorOwnerSnapshot(raw);
+        if (parsed.schemaVersion !== 3) {
+          operationGenerationRef.current += 1;
+          const obsoleteReadMessage = fact === 'acknowledged' && intent?.acknowledgement
+            ? 'La acción está confirmada, pero esta pestaña recibió una lectura antigua. Conservamos el borrador y no volveremos a enviar la escritura. Abre la página actual en otra pestaña para continuar.'
+            : intent?.action
+              ? 'Esta pestaña recibió una lectura antigua y no puede instalarla en esta página. Conservamos el estado y no repetiremos la acción. Abre la página actual en otra pestaña para continuar.'
+              : 'Esta pestaña recibió una lectura antigua y no puede instalarla en esta página. Conservamos el estado de esta página. Abre la página actual en otra pestaña para continuar.';
+          dispatch({ type: 'operation-read-failed', ...(intent ? { intent } : {}), fact, readContractObsolete: true,
+            message: obsoleteReadMessage });
+          return;
+        }
+        snapshot = parsed;
+      }
       catch {
         fail('La lectura no contiene un estado completo y válido. La vista sigue desactualizada; vuelve a comprobar.');
         return;
@@ -1438,6 +1485,10 @@ export default function CreatorOwnerApp(props: Props) {
           return;
         }
         let message = rejectedOwnerWriteMessage(error, response.status);
+        const { editor, observed } = stateRef.current;
+        if (error === 'INVALID_CLASSIFICATION' && editor && intent.editorKey === editor.key) {
+          message = ownerClassificationRejectionMessage(editor, observed);
+        }
         if (intent.action === 'publish-profile') {
           message = error === 'PROFILE_INCOMPLETE' ? 'Completa el nombre y la dirección de tu página antes de publicar.'
             : 'No pudimos publicar tu página. Revisa tus datos o vuelve a intentarlo.';
@@ -1445,7 +1496,6 @@ export default function CreatorOwnerApp(props: Props) {
           message = error === 'CREATOR_CONTENT_TOO_LARGE' ? 'No hay espacio para este cambio. Quita contenido antes de volver a intentarlo.'
             : 'La acción no se guardó. Revisa el contenido de esta sección antes de volver a intentarlo.';
         }
-        const { editor, observed } = stateRef.current;
         const fieldErrors = editor && (ownerIdentityFieldErrors(error, payload, storedIntent, editor)
           ?? ownerContentFieldErrors(error, payload, intent, editor, observed));
         operationGenerationRef.current += 1;
@@ -1494,6 +1544,12 @@ export default function CreatorOwnerApp(props: Props) {
     if (editor.kind === 'create-profile') return makeIntent('save-profile', { displayName: editor.draft.displayName, slug: editor.draft.slug }, { editor });
     const profile = snapshot.profile;
     if (!profile) return undefined;
+    const classificationFields = (draft: { kind: string; format: string; topics: string[] }, fields: readonly string[], resource?: CreatorOwnerSnapshotDTO['resources'][number]) => {
+      const policy = creatorOwnerClassificationPolicy({ draft, touchedFields: fields,
+        ...(resource && isCreatorOwnerV3Resource(resource) ? { persistedState: resource.classification.state } : {}) });
+      if (!policy.emit) return {};
+      return { kind: draft.kind, format: draft.format, topics: [...draft.topics] };
+    };
     if (editor.kind === 'profile') {
       if (editor.section === 'redes') {
         const socials = Object.fromEntries(editor.touchedFields.map((key) => [key, editor.draft[key]]));
@@ -1525,14 +1581,24 @@ export default function CreatorOwnerApp(props: Props) {
           .map((key) => [key, editor.draft[key]]));
         return makeIntent('set-link-options', fields, { target: { placementId: editor.placementId }, editor });
       }
-      const fields = Object.fromEntries(editor.touchedFields.map((key) => [key, editor.draft[key]]));
+      const fields = {
+        ...Object.fromEntries(editor.touchedFields
+          .filter((key) => !['kind', 'format', 'topics'].includes(key))
+          .map((key) => [key, editor.draft[key]])),
+        ...classificationFields(editor.draft, editor.touchedFields, resource),
+      };
       return makeIntent('edit-link', fields,
         { target: { resourceId: placement.resourceId, placementId: editor.placementId }, resourceVersion: resource.version, editor });
     }
     if (editor.kind === 'link-resource') {
       const resource = ownerResource(snapshot, editor.resourceId);
       if (!resource) return undefined;
-      const fields = Object.fromEntries(editor.touchedFields.map((key) => [key, editor.draft[key]]));
+      const fields = {
+        ...Object.fromEntries(editor.touchedFields
+          .filter((key) => !['kind', 'format', 'topics'].includes(key))
+          .map((key) => [key, editor.draft[key]])),
+        ...classificationFields(editor.draft, editor.touchedFields, resource),
+      };
       return makeIntent('edit-resource', fields,
         { target: { resourceId: editor.resourceId }, resourceVersion: resource.version, editor });
     }
@@ -1540,7 +1606,8 @@ export default function CreatorOwnerApp(props: Props) {
       const optionalFields = Object.fromEntries(editor.touchedFields.filter((key) => key === 'description')
         .map((key) => [key, editor.draft[key]]));
       return makeIntent('add-link', { title: editor.draft.title, url: editor.draft.url,
-        selectedForDirectory: editor.draft.selectedForDirectory, ...optionalFields }, { editor });
+        selectedForDirectory: editor.draft.selectedForDirectory, ...optionalFields,
+        ...classificationFields(editor.draft, editor.touchedFields) }, { editor });
     }
     if (editor.kind === 'move-link') {
       if (!creatorOwnerMoveDestinationIsValid(editor, snapshot)) return rejectEditorField(editor, 'position', creatorOwnerMovePositionMessage(editor, snapshot));
@@ -1826,6 +1893,24 @@ export default function CreatorOwnerApp(props: Props) {
     dispatch({ type: 'update-series-draft', value, ...(manuallyEditedSlug ? { manuallyEditedSlug: true } : {}) });
   }
 
+  function updateOwnerClassification(change: ResourceClassificationChange) {
+    const editor = stateRef.current.editor;
+    if (!editor || editor.kind !== 'link-placement' && editor.kind !== 'link-resource' && editor.kind !== 'add-link') return;
+    const transition = transitionResourceClassification(editor.draft, change);
+    if (!transition.accepted) {
+      dispatch({ type: 'editor-field-rejected', editorKey: editor.key, field: 'topics', message: 'Elige hasta tres temas.' });
+      return;
+    }
+    const value: Partial<CreatorOwnerClassificationDraft> = {};
+    if (transition.value.kind !== editor.draft.kind) value.kind = transition.value.kind;
+    if (transition.value.format !== editor.draft.format) value.format = transition.value.format;
+    if (transition.value.topics.length !== editor.draft.topics.length
+      || transition.value.topics.some((topic, index) => topic !== editor.draft.topics[index])) value.topics = transition.value.topics;
+    if (Object.keys(value).length === 0) return;
+    if (editor.kind === 'add-link') dispatch({ type: 'update-add-link-draft', value });
+    else dispatch({ type: 'update-link-draft', value });
+  }
+
   function submitEditorForm(preserveExit = false): boolean {
     const editor = stateRef.current.editor;
     if (!editor) return false;
@@ -1969,8 +2054,8 @@ export default function CreatorOwnerApp(props: Props) {
     <h3>{listRecoveryHeading(listOperation.intent.action)}</h3>
     <p class={listOperation.status === 'reading' ? undefined : 'creator-owner__status--error'}
       role={listOperation.status === 'reading' ? 'status' : 'alert'}>{listOperation.message}</p>
-    {listOperation.status === 'refresh-failed' && <button class="button button--outline" type="button" data-owner-refresh-retry disabled={state.session.state !== 'ready'} onClick={checkClick}>Reintentar actualización</button>}
-    {listOperation.status === 'unknown' && !listOperation.readCompleted && <button class="button button--outline" type="button" data-owner-compare disabled={state.session.state !== 'ready'} onClick={checkClick}>Comprobar el estado guardado</button>}
+    {listOperation.status === 'refresh-failed' && <CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-refresh-retry" label="Reintentar actualización" onRetryRead={checkClick} />}
+    {listOperation.status === 'unknown' && !listOperation.readCompleted && <CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-compare" label="Comprobar el estado guardado" onRetryRead={checkClick} />}
     {(listOperation.status === 'unknown' || listOperation.status === 'conflict') && listOperation.readCompleted
       && <button class="button button--outline" type="button" data-owner-use-saved onClick={() => resolveRecovery('saved')}>Usar lo guardado</button>}
   </section> : listRejection && <p class="creator-owner__status creator-owner__status--error" data-owner-list-action-error tabIndex={-1} role="alert">{listRejection.text}</p>;
@@ -2044,6 +2129,7 @@ export default function CreatorOwnerApp(props: Props) {
       onUpdateMove={(value) => dispatch({ type: 'update-move-draft', targetPosition: value })}
       onUpdateLink={(value) => dispatch({ type: 'update-link-draft', value })}
       onUpdateAddLink={(value) => dispatch({ type: 'update-add-link-draft', value })}
+      onClassificationChange={updateOwnerClassification}
       onUpdateMoveLink={(value) => dispatch({ type: 'update-move-link-draft', targetPosition: value })}
       onUpdateReference={(value) => dispatch({ type: 'update-reference-draft', ...value })}
       onUpdateClaim={(value) => dispatch({ type: 'update-claim-draft', value })}
