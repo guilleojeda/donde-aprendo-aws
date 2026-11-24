@@ -14,6 +14,7 @@ import {
 } from '../../lib/creator-values.mjs';
 import {
   creatorOwnerCanSubmitEditor,
+  creatorOwnerClassificationDraft,
   creatorOwnerClassificationPolicy,
   creatorOwnerClaimSelectionIsCurrent,
   creatorOwnerClaimSelectionNeedsRefresh,
@@ -29,7 +30,6 @@ import {
   type CreatorOwnerState,
 } from '../../lib/creator-owner-state';
 import { creatorOwnerNavigationLists } from '../../lib/creator-owner-presentation';
-import { isCreatorOwnerV3Resource } from '../../lib/creator-owner-data';
 import ResourceClassificationFields from '../ResourceClassificationFields';
 import ResourceMetadataFields from '../ResourceMetadataFields';
 import CreatorOwnerReadRecoveryAction from './CreatorOwnerReadRecoveryAction';
@@ -119,13 +119,11 @@ function comparisonSavedLabel(label: string): string {
 }
 
 function classificationComparisonRows(resource: CreatorOwnerSnapshotDTO['resources'][number], draft: { kind: string; format: string; topics: string[] }): Array<[string, string, string]> {
-  if (!isCreatorOwnerV3Resource(resource)) return [];
-  const saved = resource.classification.state === 'explicit' || resource.classification.state === 'legacy'
-    ? resource.classification : undefined;
+  const saved = creatorOwnerClassificationDraft(resource);
   return [
-    ['Tipo de recurso', saved?.kind ?? 'Sin clasificar', draft.kind || 'Sin clasificar'],
-    ['Formato', saved?.format ?? '—', draft.format || '—'],
-    ['Temas', saved?.topics.join(', ') ?? '—', draft.topics.join(', ') || '—'],
+    ['Tipo de recurso', saved.kind || 'Sin clasificar', draft.kind || 'Sin clasificar'],
+    ['Formato', saved.format || '—', draft.format || '—'],
+    ['Temas', saved.topics.join(', ') || '—', draft.topics.join(', ') || '—'],
   ];
 }
 
@@ -274,12 +272,12 @@ export default function CreatorOwnerEditorDialog({
     ? (() => { const placement = state.observed.placements[editor.placementId]; return placement ? state.observed.resources.find(({ id }) => id === placement.resourceId) : undefined; })()
     : editor?.kind === 'link-resource' ? state.observed.resources.find(({ id }) => id === editor.resourceId) : undefined;
   const showClassification = editor?.kind === 'add-link'
-    || Boolean(resourceForEditor && isCreatorOwnerV3Resource(resourceForEditor) && resourceForEditor.classification.state !== 'event');
+    || Boolean(resourceForEditor && resourceForEditor.classification.state !== 'event');
   const classificationEditable = editor?.kind === 'add-link'
-    || Boolean(resourceForEditor && isCreatorOwnerV3Resource(resourceForEditor) && resourceForEditor.classificationEditable);
+    || Boolean(resourceForEditor?.classificationEditable);
   const classificationPolicy = editor && (editor.kind === 'link-placement' || editor.kind === 'link-resource' || editor.kind === 'add-link')
     ? creatorOwnerClassificationPolicy({ draft: editor.draft, touchedFields: editor.touchedFields,
-      ...(resourceForEditor && isCreatorOwnerV3Resource(resourceForEditor) ? { persistedState: resourceForEditor.classification.state } : {}),
+      ...(resourceForEditor ? { persistedState: resourceForEditor.classification.state } : {}),
       classificationEditable }) : undefined;
   const classificationErrors = {
     kind: contentError('kind') ?? nativeContent.errors.kind, format: contentError('format') ?? nativeContent.errors.format,

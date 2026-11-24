@@ -118,6 +118,28 @@ test('an invalid type/format combination identifies the editable taxonomy group'
   assert.deepEqual(payload.fieldErrors, [{ field: 'kind-format', reason: 'invalid_combination' }]);
 });
 
+test('a stored unknown string kind identifies the editable taxonomy group', async () => {
+  const harness = await createCreatorPagesHarness();
+  const id = 'admin-field-unknown-kind';
+  await seedResource(harness.store, resource(id, { kind: 'legacy-source', format: 'Blog' }));
+  const before = await harness.store.get(`resource:${id}`);
+  const callOffset = harness.store.calls.length;
+  const response = await adminClassification(harness, id, {
+    category: before.category,
+    kind: before.kind,
+    format: before.format,
+    topics: before.topics,
+    version: before.version,
+  });
+  const payload = await assertRejectedWithoutWrites(harness, id, response, {
+    status: 422,
+    error: 'INVALID_CLASSIFICATION',
+    before,
+    callOffset,
+  });
+  assert.deepEqual(payload.fieldErrors, [{ field: 'kind-format', reason: 'invalid_combination' }]);
+});
+
 test('missing or empty kind and format identify the editable taxonomy group', async () => {
   const harness = await createCreatorPagesHarness();
   const id = 'admin-field-kind-format-required';

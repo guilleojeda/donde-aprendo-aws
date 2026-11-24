@@ -29,7 +29,7 @@ function policyState() {
 function ownerStateWithDraft() {
   let state = ownerState.createCreatorOwnerState({
     data: {
-      schemaVersion: 2, creatorVersion: 8, profile,
+      schemaVersion: 3, creatorVersion: 8, profile,
       resources: [], placements: {}, order: { featured: [], ordinary: [] }, series: {}, claims: [],
     },
     accountEmail: 'ana@example.test', csrfToken: 'csrf-original', sessionBinding: binding,
@@ -73,6 +73,34 @@ test('matching session restoration changes only readiness and CSRF while retaini
   assert.deepEqual(state.editor.draft, draftBefore, 'the exact local fields remain available for a separate manual action');
   assert.strictEqual(state.operation, operationBefore, 'session checking does not start or resolve a content operation');
   assert.equal(ownerState.creatorOwnerDraftIsDirty(state.editor, state.observed), true);
+});
+
+test('current owner snapshots copy classification topics and compare v3 drafts without aliasing', () => {
+  const resource = {
+    id: 'resource-session-classification', version: 3, title: 'Ficha', url: 'https://example.test/ficha',
+    hidden: false, directoryApproval: 'pending', metadataEditable: true, reincludeAllowed: true,
+    classification: { state: 'explicit', kind: 'content', format: 'Artículo', topics: ['Serverless'] },
+    classificationEditable: true,
+  };
+  const snapshot = {
+    schemaVersion: 3, creatorVersion: 8, profile, resources: [resource], placements: {},
+    order: { featured: [], ordinary: [] }, series: {}, claims: [],
+  };
+  const copied = ownerState.copyCreatorOwnerSnapshot(snapshot);
+  assert.equal(copied.schemaVersion, 3);
+  assert.notStrictEqual(copied.resources[0], resource);
+  assert.notStrictEqual(copied.resources[0].classification, resource.classification);
+  assert.notStrictEqual(copied.resources[0].classification.topics, resource.classification.topics);
+  copied.resources[0].classification.topics.push('Seguridad');
+  assert.deepEqual(resource.classification.topics, ['Serverless']);
+
+  const editor = {
+    kind: 'link-resource', key: 'link-resource:resource-session-classification', resourceId: resource.id,
+    draft: { title: resource.title, url: resource.url, description: '', kind: 'content', format: 'Artículo', topics: ['Serverless'] },
+    touchedFields: [],
+  };
+  assert.equal(ownerState.creatorOwnerDraftIsDirty(editor, snapshot), false);
+  assert.equal(ownerState.creatorOwnerDraftIsDirty({ ...editor, draft: { ...editor.draft, topics: ['Seguridad'] } }, snapshot), true);
 });
 
 test('a successful owner read requires explicit session checking and does not infer a renewed token', () => {

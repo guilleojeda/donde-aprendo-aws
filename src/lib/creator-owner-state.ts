@@ -2,15 +2,12 @@ import type {
   CreatorCatalogSelectionDTO,
   CreatorClaimDTO,
   CreatorOwnerSnapshotDTO,
-  CreatorOwnerSnapshotV2DTO,
-  CreatorOwnerSnapshotWireDTO,
   CreatorProgram,
   CreatorResourceClassificationState,
   CreatorSocial,
 } from '../types/creators';
 import type { CreatorOwnerSeriesMembership, CreatorOwnerSeriesQuery } from './creator-owner-series';
 import { CREATOR_SOCIALS } from './creator-values.mjs';
-import { isCreatorOwnerV3Resource } from './creator-owner-data';
 import { DEFAULT_CREATOR_OWNER_LINKS_QUERY, type CreatorOwnerLinksQuery } from './creator-owner-links';
 import { normalizeOwnerLinksQuery, normalizeOwnerSeriesQuery } from './creator-owner-navigation';
 
@@ -70,8 +67,7 @@ export function creatorOwnerClassificationPolicy({ draft, touchedFields, persist
 }
 
 export function creatorOwnerClassificationDraft(resource: CreatorOwnerSnapshotDTO['resources'][number]): CreatorOwnerClassificationDraft {
-  if (isCreatorOwnerV3Resource(resource)
-    && (resource.classification.state === 'explicit' || resource.classification.state === 'legacy')) {
+  if (resource.classification.state === 'explicit' || resource.classification.state === 'legacy') {
     return {
       kind: resource.classification.kind,
       format: resource.classification.format,
@@ -333,30 +329,22 @@ function copyClaim(claim: CreatorClaimDTO): CreatorClaimDTO {
   return { ...claim, resourceIds: [...claim.resourceIds], ...(claim.resources ? { resources: claim.resources.map((item) => ({ ...item })) } : {}) };
 }
 
-export function copyCreatorOwnerSnapshot(snapshot: CreatorOwnerSnapshotDTO): CreatorOwnerSnapshotDTO;
-export function copyCreatorOwnerSnapshot(snapshot: CreatorOwnerSnapshotV2DTO): CreatorOwnerSnapshotV2DTO;
-export function copyCreatorOwnerSnapshot(snapshot: CreatorOwnerSnapshotWireDTO): CreatorOwnerSnapshotWireDTO {
-  const common = {
+export function copyCreatorOwnerSnapshot(snapshot: CreatorOwnerSnapshotDTO): CreatorOwnerSnapshotDTO {
+  return {
+    schemaVersion: 3,
     creatorVersion: snapshot.creatorVersion,
     profile: snapshot.profile ? { ...snapshot.profile, programs: [...snapshot.profile.programs], socials: { ...snapshot.profile.socials }, ...(snapshot.profile.photo ? { photo: { ...snapshot.profile.photo } } : {}) } : null,
     placements: Object.fromEntries(Object.entries(snapshot.placements).map(([id, placement]) => [id, { ...placement }])),
     order: { featured: [...snapshot.order.featured], ordinary: [...snapshot.order.ordinary] },
     series: Object.fromEntries(Object.entries(snapshot.series).map(([id, series]) => [id, { ...series, chapters: [...series.chapters] }])),
     claims: snapshot.claims.map(copyClaim),
+    resources: snapshot.resources.map((resource) => ({
+      ...resource,
+      classification: resource.classification.state === 'explicit' || resource.classification.state === 'legacy'
+        ? { ...resource.classification, topics: [...resource.classification.topics] }
+        : { ...resource.classification },
+    })),
   };
-  if (snapshot.schemaVersion === 3) {
-    return {
-      schemaVersion: 3,
-      ...common,
-      resources: snapshot.resources.map((resource) => ({
-        ...resource,
-        classification: resource.classification.state === 'explicit' || resource.classification.state === 'legacy'
-          ? { ...resource.classification, topics: [...resource.classification.topics] }
-          : { ...resource.classification },
-      })),
-    };
-  }
-  return { schemaVersion: 2, ...common, resources: snapshot.resources.map((resource) => ({ ...resource })) };
 }
 
 export function createCreatorOwnerState(input: {
@@ -585,20 +573,23 @@ export function creatorOwnerDraftIsDirty(editor: CreatorOwnerEditorDraft | undef
       const resource = placement && snapshot.resources.find(({ id }) => id === placement.resourceId);
       if (!placement || !resource) return true;
       const featured = snapshot.order.featured.includes(editor.placementId);
+      const savedClassification = creatorOwnerClassificationDraft(resource);
       return editor.draft.title !== resource.title || editor.draft.url !== resource.url
         || editor.draft.description !== (resource.description ?? '') || editor.draft.featured !== featured
         || editor.draft.selectedForDirectory !== placement.selectedForDirectory
-        || isCreatorOwnerV3Resource(resource) && (editor.draft.kind !== (resource.classification.state === 'explicit' || resource.classification.state === 'legacy' ? resource.classification.kind : '')
-          || editor.draft.format !== (resource.classification.state === 'explicit' || resource.classification.state === 'legacy' ? resource.classification.format : '')
-          || JSON.stringify(editor.draft.topics) !== JSON.stringify(resource.classification.state === 'explicit' || resource.classification.state === 'legacy' ? resource.classification.topics : []));
+        || editor.draft.kind !== savedClassification.kind
+        || editor.draft.format !== savedClassification.format
+        || JSON.stringify(editor.draft.topics) !== JSON.stringify(savedClassification.topics);
     }
     case 'link-resource': {
       const resource = snapshot.resources.find(({ id }) => id === editor.resourceId);
-      return !resource || editor.draft.title !== resource.title || editor.draft.url !== resource.url
+      if (!resource) return true;
+      const savedClassification = creatorOwnerClassificationDraft(resource);
+      return editor.draft.title !== resource.title || editor.draft.url !== resource.url
         || editor.draft.description !== (resource.description ?? '')
-        || isCreatorOwnerV3Resource(resource) && (editor.draft.kind !== (resource.classification.state === 'explicit' || resource.classification.state === 'legacy' ? resource.classification.kind : '')
-          || editor.draft.format !== (resource.classification.state === 'explicit' || resource.classification.state === 'legacy' ? resource.classification.format : '')
-          || JSON.stringify(editor.draft.topics) !== JSON.stringify(resource.classification.state === 'explicit' || resource.classification.state === 'legacy' ? resource.classification.topics : []));
+        || editor.draft.kind !== savedClassification.kind
+        || editor.draft.format !== savedClassification.format
+        || JSON.stringify(editor.draft.topics) !== JSON.stringify(savedClassification.topics);
     }
     case 'add-link': return Boolean(editor.draft.title || editor.draft.url || editor.draft.description
       || editor.draft.featured || !editor.draft.selectedForDirectory || editor.draft.kind || editor.draft.format || editor.draft.topics.length);
