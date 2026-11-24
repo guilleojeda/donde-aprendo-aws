@@ -250,7 +250,7 @@ function createDirectory({
       return null;
     };
     card.querySelectorAll = (selector) => {
-      const semanticField = selector.match(/^\[data-resource-search-field="([^"]+)"\]$/u)?.[1];
+      const semanticField = selector.match(/^\[data-search="([^"]+)"\]$/u)?.[1];
       if (semanticField) return semantic[semanticField] ?? [];
       return selector === '.resource-card__meta span' ? metadata
         : selector === '.resource-card__related a' ? related : [];
