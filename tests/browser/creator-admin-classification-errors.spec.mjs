@@ -222,6 +222,45 @@ test('local kind and format validation marks both controls with one group diagno
   }
 });
 
+test('a stored unknown kind stays selected, gets the shared group diagnosis, and can be corrected', async ({ fixture, page }) => {
+  const id = 'admin-stored-unknown-kind';
+  await openClassificationPage(fixture, page, [resource(id, 0, { kind: 'legacy-source', format: 'Blog' })]);
+  const target = row(page, id);
+  const form = target.locator('[data-classification-form]');
+  const kind = target.getByLabel('Tipo de recurso');
+  const format = target.getByLabel('Formato');
+  const writes = captureAdminWrites(page, id);
+  const before = await fixture.rawResource(id);
+  try {
+    await expect(kind).toHaveValue('legacy-source');
+    await expect(format).toHaveValue('Blog');
+    await saveButton(page, id).click();
+
+    await expectGroupError([kind, format], form, /tipo|formato|combin/iu);
+    await expect(kind).toHaveValue('legacy-source');
+    await expect(format).toHaveValue('Blog');
+    await expect.poll(() => writes.writes.length).toBe(0);
+    assert.deepEqual(await fixture.rawResource(id), before,
+      'local rejection preserves the stored invalid classification and does not write');
+
+    await kind.selectOption('source');
+    const saved = page.waitForResponse((response) => response.request().method() === 'PATCH'
+      && adminResourceCommandMatches(response.url(), id));
+    const reloaded = page.waitForNavigation({ waitUntil: 'load' });
+    await saveButton(page, id).click();
+    const savedResponse = await saved;
+    assert.equal(savedResponse.status(), 200);
+    await reloaded;
+    assert.equal(writes.writes.length, 1, 'the deliberate correction is the only write');
+    assert.equal((await fixture.rawResource(id)).kind, 'source');
+    assert.equal((await fixture.rawResource(id)).format, 'Blog');
+    await expect(row(page, id).getByLabel('Tipo de recurso')).toHaveValue('source');
+    await expect(row(page, id).locator('[aria-invalid="true"]')).toHaveCount(0);
+  } finally {
+    writes.stop();
+  }
+});
+
 test('duplicate initial topics remain visible until an explicit checkbox removal', async ({ fixture, page }) => {
   const id = 'admin-duplicate-initial-topics';
   await openClassificationPage(fixture, page, [resource(id, 0, { topics: ['Serverless', 'Serverless', 'Seguridad'] })]);

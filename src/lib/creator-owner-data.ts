@@ -2,7 +2,6 @@ import type {
   CreatorClaimDTO,
   CreatorClaimResourceDTO,
   CreatorOwnerPlacementViewDTO,
-  CreatorOwnerResourceDTO,
   CreatorOwnerResourceV2DTO,
   CreatorOwnerResourceV3DTO,
   CreatorOwnerSnapshotDTO,
@@ -16,10 +15,6 @@ import { safeCreatorSocialUrl } from './creator-public.mjs';
 const PROGRAMS: ReadonlySet<string> = new Set(CREATOR_PROGRAMS);
 const SOCIALS: ReadonlySet<string> = new Set(CREATOR_SOCIALS);
 const DIRECTORY_APPROVALS = new Set(['pending', 'approved', 'revoked']);
-
-export function isCreatorOwnerV3Resource(resource: CreatorOwnerResourceV2DTO | CreatorOwnerResourceDTO): resource is CreatorOwnerResourceV3DTO {
-  return 'classification' in resource && 'classificationEditable' in resource;
-}
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

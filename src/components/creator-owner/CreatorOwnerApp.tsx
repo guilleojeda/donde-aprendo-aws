@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import type { CreatorOwnerSnapshotDTO, CreatorSocial } from '../../types/creators';
-import { isCreatorOwnerV3Resource, readCreatorOwnerSnapshot } from '../../lib/creator-owner-data';
+import { readCreatorOwnerSnapshot } from '../../lib/creator-owner-data';
 import {
   createCreatorOwnerRequest,
   readCreatorOwnerAcknowledgement,
@@ -1546,7 +1546,7 @@ export default function CreatorOwnerApp(props: Props) {
     if (!profile) return undefined;
     const classificationFields = (draft: { kind: string; format: string; topics: string[] }, fields: readonly string[], resource?: CreatorOwnerSnapshotDTO['resources'][number]) => {
       const policy = creatorOwnerClassificationPolicy({ draft, touchedFields: fields,
-        ...(resource && isCreatorOwnerV3Resource(resource) ? { persistedState: resource.classification.state } : {}) });
+        ...(resource ? { persistedState: resource.classification.state } : {}) });
       if (!policy.emit) return {};
       return { kind: draft.kind, format: draft.format, topics: [...draft.topics] };
     };

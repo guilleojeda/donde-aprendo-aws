@@ -84,7 +84,14 @@ export function validateTaxonomy(value, index = 0) {
     throw error;
   }
   if (typeof kind !== 'string' || !Object.hasOwn(KIND_LABELS, kind)) {
-    throw new Error(`Catalog record ${index + 1} has an invalid kind`);
+    const error = new Error(`Catalog record ${index + 1} has an invalid kind`);
+    // A persisted string can remain visible in Administration and be corrected
+    // through the shared kind/format control. Keep malformed non-text input
+    // general so callers do not attribute it to a usable form field.
+    if (typeof kind === 'string' && typeof format === 'string') {
+      error.fieldErrors = [{ field: 'kind-format', reason: 'invalid_combination' }];
+    }
+    throw error;
   }
   if (!FORMATS_BY_KIND[kind].includes(format)) {
     const error = new Error(`Catalog record ${index + 1} has an invalid format`);
