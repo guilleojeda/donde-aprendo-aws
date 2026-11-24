@@ -143,6 +143,8 @@ test('a valid unlisted exact-ID resource is attachable through HTTP and remains 
     resourceId,
     title: 'Recurso legado no listado',
     url,
+    kind: 'unclassified',
+    topics: [],
     description: 'Descripción que puede leer el propietario.',
     featured: false,
     position: 1,

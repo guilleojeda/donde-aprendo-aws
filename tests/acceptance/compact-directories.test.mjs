@@ -118,11 +118,7 @@ function optionValues(select) {
   return find(select, (node) => node.tag === 'option').map((option) => option.attrs.get('value') ?? '');
 }
 function cardFormat(card) {
-  const kind = card.parent?.attrs.get('data-kind');
-  const allFormats = new Set(Object.values(FORMATS_BY_KIND).flat());
-  const mainAnchor = find(card, (node) => node.tag === 'a' && find(node, (child) => child.tag === 'h3').length)[0];
-  return find(mainAnchor ?? card, (node) => node.tag === 'span').map(text)
-    .find((value) => allFormats.has(value) && (!kind || FORMATS_BY_KIND[kind]?.includes(value)));
+  return card.attrs.get('data-format') ?? '';
 }
 function cardMetadata(cards) {
   return {

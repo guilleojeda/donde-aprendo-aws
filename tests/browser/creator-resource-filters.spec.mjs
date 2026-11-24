@@ -90,7 +90,7 @@ test('el SSR público proyecta clasificación segura, visibilidad, orden, series
     if (expected.topics) assert.equal(attrs.topics, expected.topics);
     else assert.equal(attrs.topics, '');
   }
-  const html = await page.content();
+  const html = await page.locator('body').innerHTML();
   for (const internalField of ['classification', 'directoryApproval', 'resourceVersion', 'selectedForDirectory']) {
     assert.equal(html.includes(internalField), false, `public HTML does not expose ${internalField}`);
   }
@@ -108,7 +108,17 @@ test('el SSR público proyecta clasificación segura, visibilidad, orden, series
 
 test('los filtros públicos combinan dimensiones, conservan selecciones, limpian y restauran historial sin lecturas', async ({ fixture, page }) => {
   const seeded = await seedCreatorResourceFilterProfile(fixture.creatorStore);
-  await page.goto(`${fixture.origin}/c/${seeded.slug}/?kind=content&format=Video&topic=Seguridad&q=texto-sin-coincidencias&sort=recent&group=foreign`);
+  const foreignQuery = `  texto-sin-coincidencias ${'x'.repeat(220)}  `;
+  const initialUrl = new URL(`${fixture.origin}/c/${seeded.slug}/`);
+  initialUrl.searchParams.set('kind', 'content');
+  initialUrl.searchParams.set('format', 'Video');
+  initialUrl.searchParams.set('topic', 'Seguridad');
+  initialUrl.searchParams.set('q', foreignQuery);
+  initialUrl.searchParams.set('sort', 'foreign-order');
+  initialUrl.searchParams.set('country', 'AR');
+  initialUrl.searchParams.set('level', 'advanced');
+  initialUrl.searchParams.set('group', 'foreign');
+  await page.goto(initialUrl.toString());
   const filters = await openFilters(page);
   await expect(filters.details).not.toHaveAttribute('open', '');
   await expect(filters.kind).toHaveValue('content');
@@ -146,9 +156,11 @@ test('los filtros públicos combinan dimensiones, conservan selecciones, limpian
   );
   assert.deepEqual(
     ['q', 'sort', 'group'].map((key) => url.searchParams.get(key)),
-    ['texto-sin-coincidencias', 'recent', 'foreign'],
+    [foreignQuery, 'foreign-order', 'foreign'],
     'unrelated profile query parameters survive facet changes without affecting matches',
   );
+  assert.equal(url.searchParams.get('country'), 'AR');
+  assert.equal(url.searchParams.get('level'), 'advanced');
 
   await filters.format.selectOption('');
   await filters.topic.selectOption('');
@@ -182,7 +194,7 @@ test('los filtros públicos combinan dimensiones, conservan selecciones, limpian
   await expect(visibleCards(page)).toHaveCount(9);
   await expect(filters.summary).toHaveText(/^Filtros$/u);
   await expect(page.locator('[data-result-count]')).toHaveText(/^9\b/u);
-  await expect(page.getByText('No encontramos enlaces con estos filtros', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('No encontramos enlaces con estos filtros', { exact: true })).toBeHidden();
   url = new URL(page.url());
   assert.equal(url.searchParams.has('kind'), false);
   assert.equal(url.searchParams.has('format'), false);

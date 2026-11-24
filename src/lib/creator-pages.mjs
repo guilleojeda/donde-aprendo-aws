@@ -967,6 +967,19 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return { url };
   }
 
+  function publicLinkClassification(resource) {
+    const classification = resolveResourceClassification(resource);
+    if (classification.state === 'explicit' || classification.state === 'legacy') {
+      return {
+        kind: classification.kind,
+        format: classification.format,
+        topics: [...classification.topics],
+      };
+    }
+    if (classification.state === 'event') return { kind: 'event', topics: [] };
+    return { kind: 'unclassified', topics: [] };
+  }
+
   function projectCreatorLink(profile, placementIdValue, resource) {
     const facts = resourceProjectionFacts(resource);
     if (resource.hidden === true) return null;
@@ -990,6 +1003,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       resourceId: resource.id,
       title: resource.title,
       url: facts.url,
+      ...publicLinkClassification(resource),
       ...(typeof resource.description === 'string' ? { description: resource.description } : {}),
       featured,
       position: sequence.indexOf(placementIdValue) + 1,

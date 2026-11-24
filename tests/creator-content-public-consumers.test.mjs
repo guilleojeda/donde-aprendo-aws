@@ -513,7 +513,7 @@ test('public profile and Series expose safe classification facts for every store
   const catalog = await harness.readCatalog();
   const admitted = catalog.map(({ id }) => id).sort();
   assert.deepEqual(admitted, [
-    ids.community, ids.cohost, ids.event, ids.explicitContent, ids.explicitSource, ids.legacy, ids.recording,
+    RESOURCE_SHARED, ids.community, ids.cohost, ids.event, ids.explicitContent, ids.explicitSource, ids.legacy, ids.recording,
   ].sort(), 'public catalog admission remains independent from profile presentation');
   for (const name of ['deselected', 'pending', 'revoked', 'hidden', 'absent', 'partial', 'invalid', 'invalidDateEvent']) {
     assert.equal(admitted.includes(ids[name]), false, `${name} remains outside catalog admission`);

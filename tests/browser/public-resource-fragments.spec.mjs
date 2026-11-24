@@ -186,14 +186,19 @@ test('catalog filters and search survive decorative metadata and relationship-la
       const badge = document.createElement('span');
       badge.textContent = 'Selección editorial';
       card.querySelector('.resource-card__meta').prepend(badge);
+      let changedLabels = 0;
       for (const link of card.querySelectorAll('.resource-card__related a')) {
-        for (const node of link.childNodes) {
-          if (node.nodeType === Node.TEXT_NODE) {
-            node.textContent = node.textContent.replace(/^Autor o fuente: /u, 'Por ')
-              .replace(/^Comunidad: /u, 'Con ');
-          }
+        const walker = document.createTreeWalker(link, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+          if (node.parentElement?.closest('[data-resource-search-field]')) continue;
+          const replacement = node.textContent.replace(/^Autor o fuente: /u, 'Por ')
+            .replace(/^Comunidad: /u, 'Con ');
+          if (replacement !== node.textContent) changedLabels += 1;
+          node.textContent = replacement;
         }
       }
+      if (changedLabels !== 2) throw new Error(`Expected two visible relationship labels to change; changed ${changedLabels}`);
       const title = card.querySelector('h3');
       const replacement = document.createElement('h4');
       for (const attribute of title.attributes) replacement.setAttribute(attribute.name, attribute.value);
@@ -203,6 +208,12 @@ test('catalog filters and search survive decorative metadata and relationship-la
     });
     release();
     await expect(page.locator('[data-resource-list]')).toHaveAttribute('data-directory-ready', '');
+    const visibleRelationLabels = await target.locator('.resource-card__related a').evaluateAll((links) => links
+      .map((link) => link.textContent.replace(/\s+/gu, ' ').trim())
+      .filter((label) => /^(?:Por|Con)\s/u.test(label)));
+    assert.deepEqual(visibleRelationLabels, [
+      'Por Fuente del salto relacionado', 'Con Comunidad de Córdoba',
+    ], 'Relationship labels keep a visible space before their marked values after cosmetic changes.');
     await page.locator('[data-filter-summary]').click();
     await page.getByLabel('Formato', { exact: true }).selectOption('Curso');
     await expect(target).toBeVisible();
