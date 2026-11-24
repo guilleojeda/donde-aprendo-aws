@@ -83,7 +83,9 @@ export function validateTaxonomy(value, index = 0) {
     error.fieldErrors = [{ field: 'kind-format', reason: 'required' }];
     throw error;
   }
-  if (!Object.hasOwn(KIND_LABELS, kind)) throw new Error(`Catalog record ${index + 1} has an invalid kind`);
+  if (typeof kind !== 'string' || !Object.hasOwn(KIND_LABELS, kind)) {
+    throw new Error(`Catalog record ${index + 1} has an invalid kind`);
+  }
   if (!FORMATS_BY_KIND[kind].includes(format)) {
     const error = new Error(`Catalog record ${index + 1} has an invalid format`);
     if (typeof format === 'string') error.fieldErrors = [{ field: 'kind-format', reason: 'invalid_combination' }];

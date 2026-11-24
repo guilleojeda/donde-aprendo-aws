@@ -316,6 +316,71 @@ test('owner classification diagnostics identify required kind and format', async
   assert.deepEqual(edited.body.fieldErrors, [{ field: 'kind-format', reason: 'required' }]);
 });
 
+test('array kind values are rejected without effects and read as invalid classification', async () => {
+  const harness = await createCreatorPagesHarness();
+  const profile = await createProfile(harness, 'creator-a', { slug: 'array-kind-value' });
+  const beforeProfile = await harness.store.get(`profile:${profile.profile.id}`);
+  const added = await addLink(harness, 'creator-a', {
+    title: 'Malformed kind', url: 'https://classification.example/array-kind-add',
+    kind: ['content'], format: 'Artículo', topics: [],
+  });
+  assert.equal(added.response.status, 422, JSON.stringify(added.body));
+  assert.equal(added.body.error, 'INVALID_CLASSIFICATION');
+  assert.deepEqual(await harness.store.list('resource:'), []);
+  assert.deepEqual(await harness.store.list('url:'), []);
+  assert.deepEqual(await harness.store.get(`profile:${profile.profile.id}`), beforeProfile);
+
+  const resource = {
+    id: 'array-kind-edit', title: 'Valid pending resource',
+    url: 'https://classification.example/array-kind-edit', description: '',
+    category: 'Seguridad', ...CONTENT, order: 1, featured: false, published: false,
+    hidden: false, approvalRevoked: false, directoryControl: 'creator',
+    editorProfileId: profile.profile.id, version: 1,
+  };
+  await seedResource(harness.store, resource);
+  await grant(harness, resource.id);
+  const beforeEdit = await harness.store.get(`resource:${resource.id}`);
+  const writesBeforeEdit = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+  const active = await editLink(harness, 'creator-a', resource.id, {
+    kind: ['content'], format: 'Artículo', topics: [],
+  });
+  assert.equal(active.response.status, 422, JSON.stringify(active.body));
+  assert.equal(active.body.error, 'INVALID_CLASSIFICATION');
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length, writesBeforeEdit);
+  assert.deepEqual(await harness.store.get(`resource:${resource.id}`), beforeEdit);
+
+  await removePlacement(harness, 'creator-a', resource.id);
+  const beforeRetained = await harness.store.get(`resource:${resource.id}`);
+  const writesBeforeRetained = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+  const retained = await editLink(harness, 'creator-a', resource.id, {
+    kind: ['content'], format: 'Artículo', topics: [],
+  }, { retired: true });
+  assert.equal(retained.response.status, 422, JSON.stringify(retained.body));
+  assert.equal(retained.body.error, 'INVALID_CLASSIFICATION');
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length, writesBeforeRetained);
+  assert.deepEqual(await harness.store.get(`resource:${resource.id}`), beforeRetained);
+
+  const beforeAdmin = await harness.store.get(`resource:${resource.id}`);
+  const writesBeforeAdmin = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+  const admin = await adminPatch(harness, resource.id, {
+    version: beforeAdmin.version, kind: ['content'], format: 'Artículo', topics: [],
+  });
+  assert.equal(admin.response.status, 422, JSON.stringify(admin.body));
+  assert.equal(admin.body.error, 'INVALID_FIELD');
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length, writesBeforeAdmin);
+  assert.deepEqual(await harness.store.get(`resource:${resource.id}`), beforeAdmin);
+
+  const malformed = {
+    ...resource, id: 'array-kind-read', url: 'https://classification.example/array-kind-read',
+    kind: ['content'], version: 1,
+  };
+  await seedResource(harness.store, malformed);
+  await reference(harness, 'creator-a', malformed);
+  const read = await owner(harness, 'creator-a', { contract: '3' });
+  assert.deepEqual(resourceFrom(read, malformed.id).classification, { state: 'invalid' });
+  assert.throws(() => projectPublicRecord(malformed), /invalid kind/);
+});
+
 test('owner Add and edit reject partial, incompatible, and invalid-topic taxonomy without persisted effects', async (t) => {
   const cases = [
     { name: 'partial taxonomy', fields: { kind: 'content' } },
