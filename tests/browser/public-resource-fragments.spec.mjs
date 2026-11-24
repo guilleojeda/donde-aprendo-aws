@@ -167,6 +167,62 @@ test('home recommendations render canonical Unicode fragment hrefs for content, 
   ]);
 });
 
+test('catalog filters and search survive decorative metadata and relationship-label changes', async ({ fixture, page }) => {
+  let release;
+  let intercepted = false;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const holdController = async (route) => {
+    intercepted = true;
+    await gate;
+    await route.continue();
+  };
+  await page.route('**/src/scripts/directory.js*', holdController);
+  try {
+    await page.goto(`${fixture.origin}/aprender/`, { waitUntil: 'commit' });
+    const target = resourceCard(page, 'related-jump-content');
+    await expect(target).toBeAttached();
+    await expect.poll(() => intercepted).toBe(true);
+    await target.evaluate((card) => {
+      const badge = document.createElement('span');
+      badge.textContent = 'Selección editorial';
+      card.querySelector('.resource-card__meta').prepend(badge);
+      for (const link of card.querySelectorAll('.resource-card__related a')) {
+        for (const node of link.childNodes) {
+          if (node.nodeType === Node.TEXT_NODE) {
+            node.textContent = node.textContent.replace(/^Autor o fuente: /u, 'Por ')
+              .replace(/^Comunidad: /u, 'Con ');
+          }
+        }
+      }
+      const title = card.querySelector('h3');
+      const replacement = document.createElement('h4');
+      for (const attribute of title.attributes) replacement.setAttribute(attribute.name, attribute.value);
+      replacement.append(...title.childNodes);
+      title.replaceWith(replacement);
+      card.querySelector('.resource-card__description')?.classList.remove('resource-card__description');
+    });
+    release();
+    await expect(page.locator('[data-resource-list]')).toHaveAttribute('data-directory-ready', '');
+    await page.locator('[data-filter-summary]').click();
+    await page.getByLabel('Formato', { exact: true }).selectOption('Curso');
+    await expect(target).toBeVisible();
+    await page.locator('input[data-resource-search]').fill('Fuente del salto relacionado');
+    await expect(target).toBeVisible();
+    await expect(page.locator('li.resource-card:visible')).toHaveCount(1);
+    await page.locator('input[data-resource-search]').fill('Comunidad de Córdoba');
+    await expect(target).toBeVisible();
+    await expect(page.locator('li.resource-card:visible')).toHaveCount(1);
+    await page.locator('input[data-resource-search]').fill('Tutorial relacionado de CloudTrail');
+    await expect(target).toBeVisible();
+    await page.locator('input[data-resource-search]').fill('Material de prueba: Tutorial relacionado de CloudTrail.');
+    await expect(target).toBeVisible();
+    await expect(page.locator('li.resource-card:visible')).toHaveCount(1);
+  } finally {
+    release();
+    await page.unroute('**/src/scripts/directory.js*', holdController);
+  }
+});
+
 test('clicking a generated homepage recommendation opens its real directory fragment and focuses the card', async ({ fixture, page }) => {
   await page.goto(`${fixture.origin}/`);
   await page.getByRole('link', { name: /Material Unicode/u }).click();

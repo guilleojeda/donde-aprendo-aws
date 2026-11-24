@@ -38,6 +38,64 @@ function contentResource(id, overrides = {}) {
   };
 }
 
+function eventResource(id, overrides = {}) {
+  return {
+    id,
+    recordType: 'event',
+    title: `Evento ${id}`,
+    registrationUrl: `https://events.example/${id}`,
+    description: 'Descripción del evento',
+    category: 'Eventos',
+    startsAt: '2020-04-01T12:00:00.000Z',
+    endsAt: '2020-04-01T13:00:00.000Z',
+    timeZone: 'UTC',
+    organizer: 'Comunidad AWS',
+    mode: 'online',
+    published: true,
+    hidden: false,
+    approvalRevoked: false,
+    directoryControl: 'creator',
+    editorProfileId: CREATOR_PROFILE_ID,
+    version: 4,
+    ...overrides,
+  };
+}
+
+function unclassifiedResource(id, overrides = {}) {
+  const resource = contentResource(id, {
+    published: false,
+    editorProfileId: CREATOR_PROFILE_ID,
+    ...overrides,
+  });
+  delete resource.category;
+  delete resource.kind;
+  delete resource.format;
+  delete resource.topics;
+  return resource;
+}
+
+function partialClassificationResource(id, overrides = {}) {
+  const resource = contentResource(id, {
+    published: false,
+    editorProfileId: CREATOR_PROFILE_ID,
+    ...overrides,
+  });
+  delete resource.format;
+  delete resource.topics;
+  return resource;
+}
+
+function invalidClassificationResource(id, overrides = {}) {
+  return contentResource(id, {
+    kind: ['content'],
+    format: 'Artículo',
+    topics: [],
+    published: false,
+    editorProfileId: CREATOR_PROFILE_ID,
+    ...overrides,
+  });
+}
+
 function creatorState(overrides = {}) {
   return {
     pk: `PROFILE#${CREATOR_PROFILE_ID}`,
@@ -310,6 +368,156 @@ test('public Series read follows its independent chapter sequence and exact IDs'
   assert.ok(seriesPage.links.every((link) => link.series.some(({ seriesId }) => seriesId === SERIES_ID)),
     'visible chapters remain tagged with their exact Series identity');
   assert.doesNotMatch(JSON.stringify(seriesPage), /resource-private|claim-private|analytics-private-sentinel|session-private-sentinel/u);
+});
+
+test('public profile and Series expose safe classification facts for every stored row shape', async () => {
+  const ids = {
+    explicitContent: 'resource-filter-explicit-content',
+    explicitSource: 'resource-filter-explicit-source',
+    community: 'resource-filter-community',
+    legacy: 'resource-filter-legacy',
+    absent: 'resource-filter-absent',
+    partial: 'resource-filter-partial',
+    invalid: 'resource-filter-invalid',
+    event: 'event-filter-ended-a',
+    cohost: 'event-filter-ended-b',
+    invalidDateEvent: 'event-filter-invalid-date',
+    recording: 'resource-filter-recording',
+    deselected: 'resource-filter-deselected',
+    pending: 'resource-filter-pending',
+    revoked: 'resource-filter-revoked',
+    hidden: 'resource-filter-hidden',
+  };
+  const placementIds = Object.fromEntries(Object.keys(ids).map((name) => [name, `placement-filter-${name}`]));
+  const visibleOrder = [
+    'explicitContent', 'explicitSource', 'community', 'legacy', 'absent', 'partial', 'invalid',
+    'event', 'cohost', 'invalidDateEvent', 'recording', 'deselected', 'pending', 'revoked', 'hidden',
+  ];
+  const state = creatorState({
+    placements: Object.fromEntries(visibleOrder.map((name) => [placementIds[name], {
+      resourceId: ids[name], selectedForDirectory: name !== 'deselected',
+    }])),
+    order: {
+      featured: [placementIds.explicitContent],
+      ordinary: visibleOrder.slice(1).map((name) => placementIds[name]),
+    },
+    series: {
+      [SERIES_ID]: {
+        name: 'Clasificación y series', slug: SERIES_SLUG, description: 'Serie de clasificación',
+        chapters: [placementIds.event, placementIds.cohost, placementIds.invalidDateEvent, placementIds.recording, placementIds.invalid, placementIds.legacy],
+      },
+    },
+  });
+  const harness = createPublicReaderHarness({ state });
+  const eventUrl = 'https://events.example/event-filter-ended-a';
+  const resources = [
+    contentResource(ids.explicitContent, {
+      title: 'Explicit content', kind: 'content', format: 'Video', topics: ['Seguridad', 'Redes'], editorProfileId: CREATOR_PROFILE_ID,
+    }),
+    contentResource(ids.explicitSource, {
+      title: 'Explicit source', kind: 'source', format: 'Blog', topics: ['DevOps'], editorProfileId: CREATOR_PROFILE_ID,
+    }),
+    contentResource(ids.community, {
+      title: 'Explicit community', category: 'Comunidad', kind: 'community', format: 'User Group', topics: ['Comunidad'],
+      country: 'AR', city: 'Córdoba', editorProfileId: CREATOR_PROFILE_ID,
+    }),
+    (() => {
+      const resource = contentResource(ids.legacy, { title: 'Legacy source', category: 'Blog', editorProfileId: CREATOR_PROFILE_ID });
+      delete resource.kind;
+      delete resource.format;
+      delete resource.topics;
+      return resource;
+    })(),
+    unclassifiedResource(ids.absent, { title: 'Unclassified absent' }),
+    partialClassificationResource(ids.partial, { title: 'Unclassified partial' }),
+    invalidClassificationResource(ids.invalid, { title: 'Unclassified invalid' }),
+    eventResource(ids.event, {
+      registrationUrl: eventUrl,
+      kind: 'content', format: 'Video', topics: ['Seguridad'],
+    }),
+    eventResource(ids.cohost, { registrationUrl: eventUrl, title: 'Event cohost' }),
+    eventResource(ids.invalidDateEvent, {
+      title: 'Event with invalid dates', registrationUrl: 'https://events.example/event-filter-invalid-date',
+      startsAt: 'not-a-date', endsAt: 'also-not-a-date', published: false,
+    }),
+    contentResource(ids.recording, {
+      title: 'Event recording', kind: 'content', format: 'Video', topics: ['Comunidad'], eventId: ids.event,
+      editorProfileId: CREATOR_PROFILE_ID,
+    }),
+    contentResource(ids.deselected, { title: 'Deselected source', kind: 'source', format: 'Blog', topics: [], editorProfileId: CREATOR_PROFILE_ID }),
+    contentResource(ids.pending, { title: 'Pending content', published: false, editorProfileId: CREATOR_PROFILE_ID }),
+    invalidClassificationResource(ids.revoked, { title: 'Revoked invalid', approvalRevoked: true, editorProfileId: CREATOR_PROFILE_ID }),
+    contentResource(ids.hidden, { title: 'Hidden community', kind: 'community', format: 'User Group', topics: [], hidden: true, editorProfileId: CREATOR_PROFILE_ID }),
+  ];
+  for (const resource of resources) putItem(harness.rows, TABLES.catalog, resource);
+
+  const expected = {
+    explicitContent: { kind: 'content', format: 'Video', topics: ['Seguridad', 'Redes'] },
+    explicitSource: { kind: 'source', format: 'Blog', topics: ['DevOps'] },
+    community: { kind: 'community', format: 'User Group', topics: ['Comunidad'] },
+    legacy: { kind: 'source', format: 'Blog', topics: [] },
+    absent: { kind: 'unclassified', format: '', topics: [] },
+    partial: { kind: 'unclassified', format: '', topics: [] },
+    invalid: { kind: 'unclassified', format: '', topics: [] },
+    event: { kind: 'event', format: '', topics: [] },
+    cohost: { kind: 'event', format: '', topics: [] },
+    invalidDateEvent: { kind: 'event', format: '', topics: [] },
+    recording: { kind: 'content', format: 'Video', topics: ['Comunidad'] },
+    deselected: { kind: 'source', format: 'Blog', topics: [] },
+    pending: { kind: 'content', format: 'Artículo', topics: ['Cómputo'] },
+    revoked: { kind: 'unclassified', format: '', topics: [] },
+  };
+  const publicProfile = await harness.service.readPublicProfile(PROFILE_SLUG);
+  assert.equal(publicProfile.status, 200);
+  assert.deepEqual(publicProfile.links.map(({ placementId }) => placementId),
+    visibleOrder.filter((name) => name !== 'hidden').map((name) => placementIds[name]),
+    'featured, ordinary order, IDs, and hidden visibility remain stable');
+  const linksByName = Object.fromEntries(publicProfile.links.map((link) => [
+    visibleOrder.find((name) => placementIds[name] === link.placementId), link,
+  ]));
+  for (const name of Object.keys(expected)) {
+    const link = linksByName[name];
+    assert.ok(link, `public profile includes ${name}`);
+    assert.deepEqual({ kind: link.kind, format: link.format ?? '', topics: link.topics }, expected[name],
+      `${name} exposes only its safe filter facts`);
+    assert.equal(Object.hasOwn(link, 'category'), false, `${name} does not expose legacy category`);
+    assert.equal(Object.hasOwn(link, 'state'), false, `${name} does not expose classification provenance`);
+    assert.equal(Object.hasOwn(link, 'classification'), false, `${name} does not expose raw classification`);
+  }
+  assert.equal(linksByName.event.url, eventUrl, 'events keep their registration URL');
+  assert.equal(linksByName.cohost.url, eventUrl, 'cohost event placements remain separate with the registration URL');
+  assert.equal(linksByName.invalidDateEvent.kind, 'event', 'profile readers do not apply catalog date validation to events');
+  assert.equal(linksByName.invalidDateEvent.url, 'https://events.example/event-filter-invalid-date');
+  assert.notEqual(linksByName.event.placementId, linksByName.cohost.placementId);
+  assert.equal(linksByName.deselected.selectedForDirectory, false, 'deselected links remain public on the creator profile');
+  assert.equal(linksByName.pending.directoryApproval, 'pending');
+  assert.equal(linksByName.revoked.directoryApproval, 'revoked');
+  assert.equal(linksByName.recording.kind, 'content', 'recordings use their content classification');
+  assert.doesNotMatch(JSON.stringify(publicProfile), /resource-private|claim-private|analytics-private-sentinel|session-private-sentinel/u);
+
+  const publicSeries = await harness.service.readPublicSeries(PROFILE_SLUG, SERIES_SLUG);
+  assert.equal(publicSeries.status, 200);
+  assert.deepEqual(publicSeries.links.map(({ placementId }) => placementId), [
+    placementIds.event, placementIds.cohost, placementIds.invalidDateEvent, placementIds.recording, placementIds.invalid, placementIds.legacy,
+  ], 'Series preserves its independent chapter order and exact placement IDs');
+  for (const link of publicSeries.links) {
+    const name = visibleOrder.find((candidate) => placementIds[candidate] === link.placementId);
+    assert.deepEqual({ kind: link.kind, format: link.format ?? '', topics: link.topics }, expected[name]);
+  }
+
+  const legacyBefore = structuredClone(harness.rows.get(`${TABLES.catalog}:id:${ids.legacy}`));
+  await harness.service.readPublicProfile(PROFILE_SLUG);
+  assert.deepEqual(harness.rows.get(`${TABLES.catalog}:id:${ids.legacy}`), legacyBefore,
+    'legacy inference does not write back to the physical row');
+
+  const catalog = await harness.readCatalog();
+  const admitted = catalog.map(({ id }) => id).sort();
+  assert.deepEqual(admitted, [
+    ids.community, ids.cohost, ids.event, ids.explicitContent, ids.explicitSource, ids.legacy, ids.recording,
+  ].sort(), 'public catalog admission remains independent from profile presentation');
+  for (const name of ['deselected', 'pending', 'revoked', 'hidden', 'absent', 'partial', 'invalid', 'invalidDateEvent']) {
+    assert.equal(admitted.includes(ids[name]), false, `${name} remains outside catalog admission`);
+  }
 });
 
 test('retained profile and Series aliases preserve canonical redirects and query strings', async () => {

@@ -947,6 +947,20 @@ test('anonymous submission, creator reuse and grant, edit, moderation, and publi
 
   const approval = await adminAction(harness, resourceId, 'aprobar', row.version);
   assert.equal(approval.response.status, 200, JSON.stringify(approval.body));
+  const beforeSeries = await owner(harness, 'creator-a');
+  const placementId = placementFor(beforeSeries, resourceId);
+  const series = await api(harness, '/api/creador/series', {
+    session: 'creator-a', body: {
+      creatorVersion: beforeSeries.creatorVersion,
+      name: 'Public classification', slug: 'public-classification',
+    },
+  });
+  assert.equal(series.response.status, 201, JSON.stringify(series.body));
+  const afterSeries = await owner(harness, 'creator-a');
+  const chapter = await api(harness, `/api/creador/series/${series.body.seriesId}/capitulos/${placementId}`, {
+    session: 'creator-a', method: 'PUT', body: { creatorVersion: afterSeries.creatorVersion },
+  });
+  assert.equal(chapter.response.status, 200, JSON.stringify(chapter.body));
   const publicProfile = await harness.service.readPublicProfile(profile.profile.slug);
   assert.equal(publicProfile.status, 200);
   const publicLink = publicProfile.links.find(({ resourceId: id }) => id === resourceId);
@@ -954,7 +968,18 @@ test('anonymous submission, creator reuse and grant, edit, moderation, and publi
   assert.equal(publicLink.title, 'Creator title');
   assert.equal(publicLink.url, row.url);
   assert.equal(publicLink.description, 'd'.repeat(4000));
+  assert.equal(publicLink.kind, 'content');
+  assert.equal(publicLink.format, 'Video');
+  assert.deepEqual(publicLink.topics, ['Fundamentos']);
+  assert.deepEqual(publicLink.series.map(({ seriesId }) => seriesId), [series.body.seriesId]);
   assert.equal(Object.hasOwn(publicLink, 'submitterEmail'), false);
+  const publicSeries = await harness.service.readPublicSeries(profile.profile.slug, 'public-classification');
+  assert.equal(publicSeries.status, 200);
+  assert.deepEqual(publicSeries.links.map(({ placementId: id }) => id), [placementId]);
+  assert.equal(publicSeries.links[0].kind, 'content');
+  assert.equal(publicSeries.links[0].format, 'Video');
+  assert.deepEqual(publicSeries.links[0].topics, ['Fundamentos']);
+  assert.equal(publicSeries.links[0].description, 'd'.repeat(4000));
 
   const catalog = await loadCatalog({
     fixturePath: '', tableName: CATALOG_TABLE, creatorTableName: PROFILES_TABLE,

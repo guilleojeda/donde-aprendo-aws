@@ -118,12 +118,12 @@ export async function startCreatorBrowserApp({
       origin,
       // APIRequestContext does not use Chromium's local hostname resolver.
       transportOrigin,
-      async createFixture() {
+      async createFixture({ creatorStore: injectedCreatorStore } = {}) {
         if (closed) throw new Error('The creator browser app is already closed.');
         if (activeRuntime) throw new Error('A prior creator browser fixture was not cleared.');
         const accountStore = createAccountStore();
         const accounts = await createAccountHarness({ store: accountStore, origin });
-        const creatorStore = createDocumentStore();
+        const creatorStore = injectedCreatorStore ?? createDocumentStore();
         const browserStatistics = createBrowserCreatorStatistics();
         const pages = await createCreatorPagesHarness({
           origin,
