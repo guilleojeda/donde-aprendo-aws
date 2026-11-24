@@ -45,6 +45,15 @@ export type CreatorOwnerFieldMessages = Partial<Record<CreatorOwnerEditorField, 
 export type CreatorOwnerClaimSelection = { resourceId: string; url: string; title: string };
 export type CreatorOwnerReferenceCandidate = Pick<CreatorCatalogSelectionDTO, 'id' | 'url' | 'title'>;
 
+export function creatorOwnerClassificationFieldsTouched(fields: readonly string[]): boolean {
+  return fields.some((field) => field === 'kind' || field === 'format' || field === 'topics');
+}
+
+export function creatorOwnerEditorTouchesClassification(editor: CreatorOwnerEditorDraft): boolean {
+  if (editor.kind !== 'link-placement' && editor.kind !== 'link-resource' && editor.kind !== 'add-link') return false;
+  return creatorOwnerClassificationFieldsTouched(editor.touchedFields);
+}
+
 export function creatorOwnerClassificationDraft(resource: CreatorOwnerSnapshotDTO['resources'][number]): CreatorOwnerClassificationDraft {
   if (isCreatorOwnerV3Resource(resource)
     && (resource.classification.state === 'explicit' || resource.classification.state === 'legacy')) {
@@ -636,9 +645,14 @@ export function creatorOwnerCanSubmitEditor(state: CreatorOwnerState): boolean {
     const placement = snapshot.placements[editor.placementId];
     if (!placement) return false;
     const resource = snapshot.resources.find(({ id }) => id === placement.resourceId);
-    return Boolean(resource && (!editor.editable || resource.metadataEditable));
+    return Boolean(resource && (!editor.editable || resource.metadataEditable)
+      && (!creatorOwnerEditorTouchesClassification(editor) || resource.classificationEditable));
   }
-  if (editor.kind === 'link-resource') return snapshot.resources.some(({ id, reincludeAllowed }) => id === editor.resourceId && reincludeAllowed);
+  if (editor.kind === 'link-resource') {
+    const resource = snapshot.resources.find(({ id }) => id === editor.resourceId);
+    return Boolean(resource && resource.reincludeAllowed
+      && (!creatorOwnerEditorTouchesClassification(editor) || resource.classificationEditable));
+  }
   if (editor.kind === 'add-link') return true;
   if (editor.kind === 'move-link') return [...snapshot.order.featured, ...snapshot.order.ordinary].includes(editor.placementId);
   if (editor.kind === 'reference') return creatorOwnerReferenceSubmissionStatus(state, editor.selected) === 'ready';

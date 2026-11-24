@@ -33,6 +33,7 @@ import {
   creatorOwnerChapterRecoveryIsVisibleInDetail,
   creatorOwnerClaimSelectionIsCurrent,
   creatorOwnerClaimSelectionNeedsRefresh,
+  creatorOwnerClassificationFieldsTouched,
   creatorOwnerLinkMoveContext,
   creatorOwnerMoveDestinationIsValid,
   creatorOwnerMovePositionMessage,
@@ -1543,9 +1544,8 @@ export default function CreatorOwnerApp(props: Props) {
     if (editor.kind === 'create-profile') return makeIntent('save-profile', { displayName: editor.draft.displayName, slug: editor.draft.slug }, { editor });
     const profile = snapshot.profile;
     if (!profile) return undefined;
-    const classificationChanged = (fields: readonly string[]) => fields.some((field) => ['kind', 'format', 'topics'].includes(field));
     const classificationFields = (draft: { kind: string; format: string; topics: string[] }, fields: readonly string[], omitEmpty = false) => {
-      if (!classificationChanged(fields) || omitEmpty && !draft.kind && !draft.format && draft.topics.length === 0) return {};
+      if (!creatorOwnerClassificationFieldsTouched(fields) || omitEmpty && !draft.kind && !draft.format && draft.topics.length === 0) return {};
       return { kind: draft.kind, format: draft.format, topics: [...draft.topics] };
     };
     if (editor.kind === 'profile') {

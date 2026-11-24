@@ -3,14 +3,17 @@ import assert from 'node:assert/strict';
 import { seedResource } from '../fixtures/creator-pages.mjs';
 import { themeColor } from '../fixtures/browser-styles.mjs';
 import {
+  addCookie,
   api,
   captureCreatorApi,
+  createProfile,
   expect,
   loggedInOwner,
   test,
 } from '../fixtures/creator-browser-test.mjs';
 import {
   adminPath,
+  loginAsSeparateOwner,
   prepareAdmin,
   resource as adminResource,
   root as adminRoot,
@@ -793,4 +796,182 @@ test('admin preserves incompatible and unknown topics at mount and saves a delib
   assert.deepEqual({ kind: body.kind, format: body.format, topics: body.topics }, { kind: 'content', format: 'Artículo', topics: ['Serverless'] });
   const stored = await fixture.rawResource(id);
   assert.deepEqual({ kind: stored.kind, format: stored.format, topics: stored.topics }, { kind: 'content', format: 'Artículo', topics: ['Serverless'] });
+});
+
+for (const mode of ['active', 'retained']) {
+  test(`approval race disables only the touched classification before ${mode} recovery`, async ({ fixture, page }) => {
+    const resourceId = `phase1-owner-approval-race-${mode}`;
+    const initial = adminResource(resourceId, 0, {
+      title: `Ficha ${mode} en espera`,
+      url: `https://links.example.invalid/owner-approval-race-${mode}`,
+      category: 'Contenido',
+      kind: 'content',
+      format: 'Video',
+      topics: ['Seguridad'],
+    });
+    const adminCookie = await prepareAdmin(fixture, page, [initial]);
+    const ownerCookie = await loginAsSeparateOwner(fixture, `phase1-owner-approval-race-${mode}`, `phase1-owner-approval-race-${mode}@example.invalid`);
+    await addCookie(page.context(), fixture, ownerCookie);
+    const profile = await createProfile(fixture, ownerCookie, {
+      displayName: `Dueña ${mode}`,
+      slug: `duena-${mode}`,
+    });
+    const seeded = await fixture.rawResource(resourceId);
+    assert.equal(await fixture.creatorStore.transact({
+      checks: [{ key: `resource:${resourceId}`, version: seeded.version }, { key: `editor:${profile.id}:${resourceId}`, version: null }],
+      puts: [
+        { key: `resource:${resourceId}`, value: { ...seeded, directoryControl: 'creator', editorProfileId: profile.id, version: seeded.version + 1 } },
+        { key: `editor:${profile.id}:${resourceId}`, value: { recordType: 'editorReference', profileId: profile.id, resourceId, version: 1 } },
+      ],
+    }), true, 'the owner receives metadata authority before the race');
+    let snapshot = await ownerSnapshot(fixture, ownerCookie);
+    const reference = await ownerApi(fixture, ownerCookie, '/api/creador/referencias/', {
+      method: 'POST',
+      body: { creatorVersion: snapshot.creatorVersion, resourceId, url: initial.url, selectedForDirectory: true },
+    });
+    assert.equal(reference.response.status, 201, JSON.stringify(reference.body));
+    if (mode === 'retained') {
+      snapshot = await ownerSnapshot(fixture, ownerCookie);
+      const removed = await ownerApi(fixture, ownerCookie, `/api/creador/enlaces/${reference.body.placementId}`, {
+        method: 'DELETE', body: { creatorVersion: snapshot.creatorVersion },
+      });
+      assert.equal(removed.response.status, 200, JSON.stringify(removed.body));
+    }
+
+    await openLinks(page, fixture);
+    const editorTrigger = mode === 'active'
+      ? page.locator(`[data-link-row="${reference.body.placementId}"]`).getByRole('button', { name: 'Editar ficha', exact: true })
+      : page.locator(`[data-retained-resource="${resourceId}"]`).getByRole('button', { name: 'Editar ficha', exact: true });
+    await editorTrigger.click();
+    const editor = form(page);
+    const fields = await expectTaxonomy(editor);
+    await fields.kind.selectOption('source');
+    await fields.format.selectOption('Newsletter');
+    await editor.locator('input[name="topics"][value="DevOps"]').check();
+    await editor.getByLabel('Título', { exact: true }).fill(`Borrador ${mode} con clasificación`);
+    const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+    const resourceBeforeApproval = await fixture.rawResource(resourceId);
+    const approved = await fixture.request(adminCookie, `/api/admin/recursos/aprobar/?id=${encodeURIComponent(resourceId)}`, {
+      method: 'POST', body: { version: resourceBeforeApproval.version },
+    });
+    assert.equal(approved.status, 200, JSON.stringify(await approved.json()));
+    const editPath = mode === 'active'
+      ? `/api/creador/enlaces/${reference.body.placementId}/editar`
+      : '/api/creador/recursos';
+    const saveLabel = mode === 'active' ? 'Guardar cambios' : 'Guardar ficha';
+    try {
+      await editor.getByRole('button', { name: saveLabel, exact: true }).click();
+      await expect.poll(() => writesTo(capture, 'PATCH', editPath)[0]?.status).toBe(409);
+      await expect(editor.getByRole('button', { name: 'Usar lo guardado', exact: true })).toBeVisible();
+      await expect(editor.getByRole('button', { name: 'Guardar mi borrador', exact: true })).toHaveCount(0);
+      await expect(fields.kind).toBeDisabled();
+      await expect(fields.format).toBeDisabled();
+      await expect(fields.topics).toHaveCount(17);
+      for (let index = 0; index < await fields.topics.count(); index += 1) await expect(fields.topics.nth(index)).toBeDisabled();
+      await expect(editor.getByLabel('Título', { exact: true })).toHaveValue(`Borrador ${mode} con clasificación`);
+      assert.equal(writesTo(capture, 'PATCH', editPath).length, 1, 'the protected classification is not resubmitted while the stale draft is shown');
+      const raced = await fixture.rawResource(resourceId);
+      assert.equal(raced.published, true);
+      assert.deepEqual({ category: raced.category, kind: raced.kind, format: raced.format, topics: raced.topics }, {
+        category: initial.category, kind: initial.kind, format: initial.format, topics: initial.topics,
+      });
+
+      await editor.getByRole('button', { name: 'Usar lo guardado', exact: true }).click();
+      await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0);
+      const reopenedTrigger = mode === 'active'
+        ? page.locator(`[data-link-row="${reference.body.placementId}"]`).getByRole('button', { name: 'Editar ficha', exact: true })
+        : page.locator(`[data-retained-resource="${resourceId}"]`).getByRole('button', { name: 'Editar ficha', exact: true });
+      await reopenedTrigger.click();
+      const reopened = form(page);
+      const reopenedFields = await expectTaxonomy(reopened);
+      await expect(reopenedFields.kind).toBeDisabled();
+      await expect(reopenedFields.format).toBeDisabled();
+      for (let index = 0; index < await reopenedFields.topics.count(); index += 1) await expect(reopenedFields.topics.nth(index)).toBeDisabled();
+      const title = reopened.getByLabel('Título', { exact: true });
+      await expect(title).toBeEnabled();
+      await title.fill(`Título permitido después de ${mode}`);
+      await reopened.getByRole('button', { name: saveLabel, exact: true }).click();
+      await expect.poll(() => writesTo(capture, 'PATCH', editPath)[1]?.status).toBe(200);
+      const metadataOnly = writesTo(capture, 'PATCH', editPath)[1];
+      assert.equal(Object.hasOwn(metadataOnly.body, 'kind'), false);
+      assert.equal(Object.hasOwn(metadataOnly.body, 'format'), false);
+      assert.equal(Object.hasOwn(metadataOnly.body, 'topics'), false);
+      const final = await fixture.rawResource(resourceId);
+      assert.equal(final.title, `Título permitido después de ${mode}`);
+      assert.deepEqual({ category: final.category, kind: final.kind, format: final.format, topics: final.topics }, {
+        category: initial.category, kind: initial.kind, format: initial.format, topics: initial.topics,
+      });
+      const refreshed = await ownerSnapshot(fixture, ownerCookie);
+      const refreshedResource = refreshed.resources.find(({ id }) => id === resourceId);
+      assert.equal(refreshedResource.metadataEditable, true);
+      assert.equal(refreshedResource.classificationEditable, false);
+    } finally {
+      await capture.stop({ skipErrorBodies: true });
+    }
+  });
+}
+
+test('approval race keeps a metadata-only draft saveable through the existing conflict resolution', async ({ fixture, page }) => {
+  const resourceId = 'phase1-owner-approval-race-metadata-only';
+  const initial = adminResource(resourceId, 0, {
+    title: 'Ficha de metadatos en espera',
+    url: 'https://links.example.invalid/owner-approval-race-metadata-only',
+    category: 'Contenido', kind: 'content', format: 'Video', topics: ['Seguridad'],
+  });
+  const adminCookie = await prepareAdmin(fixture, page, [initial]);
+  const ownerCookie = await loginAsSeparateOwner(fixture, 'phase1-owner-approval-race-metadata-only', 'phase1-owner-approval-race-metadata-only@example.invalid');
+  await addCookie(page.context(), fixture, ownerCookie);
+  const profile = await createProfile(fixture, ownerCookie, { displayName: 'Dueña metadata', slug: 'duena-metadata' });
+  const seeded = await fixture.rawResource(resourceId);
+  assert.equal(await fixture.creatorStore.transact({
+    checks: [{ key: `resource:${resourceId}`, version: seeded.version }, { key: `editor:${profile.id}:${resourceId}`, version: null }],
+    puts: [
+      { key: `resource:${resourceId}`, value: { ...seeded, directoryControl: 'creator', editorProfileId: profile.id, version: seeded.version + 1 } },
+      { key: `editor:${profile.id}:${resourceId}`, value: { recordType: 'editorReference', profileId: profile.id, resourceId, version: 1 } },
+    ],
+  }), true);
+  let snapshot = await ownerSnapshot(fixture, ownerCookie);
+  const reference = await ownerApi(fixture, ownerCookie, '/api/creador/referencias/', {
+    method: 'POST', body: { creatorVersion: snapshot.creatorVersion, resourceId, url: initial.url, selectedForDirectory: true },
+  });
+  assert.equal(reference.response.status, 201, JSON.stringify(reference.body));
+  await openLinks(page, fixture);
+  await page.locator(`[data-link-row="${reference.body.placementId}"]`).getByRole('button', { name: 'Editar ficha', exact: true }).click();
+  const editor = form(page);
+  const fields = await expectTaxonomy(editor);
+  const title = editor.getByLabel('Título', { exact: true });
+  await title.fill('Título de metadatos permitido');
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const current = await fixture.rawResource(resourceId);
+  const approved = await fixture.request(adminCookie, `/api/admin/recursos/aprobar/?id=${encodeURIComponent(resourceId)}`, {
+    method: 'POST', body: { version: current.version },
+  });
+  assert.equal(approved.status, 200, JSON.stringify(await approved.json()));
+  const editPath = `/api/creador/enlaces/${reference.body.placementId}/editar`;
+  try {
+    await editor.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'PATCH', editPath)[0]?.status).toBe(409);
+    await expect(editor.getByRole('button', { name: 'Guardar mi borrador', exact: true })).toBeVisible();
+    await expect(editor.getByRole('button', { name: 'Usar lo guardado', exact: true })).toBeVisible();
+    await expect(fields.kind).toBeDisabled();
+    await expect(fields.format).toBeDisabled();
+    await expect(title).toHaveValue('Título de metadatos permitido');
+    await editor.getByRole('button', { name: 'Guardar mi borrador', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'PATCH', editPath)[1]?.status).toBe(200);
+    const retry = writesTo(capture, 'PATCH', editPath)[1];
+    assert.equal(Object.hasOwn(retry.body, 'kind'), false);
+    assert.equal(Object.hasOwn(retry.body, 'format'), false);
+    assert.equal(Object.hasOwn(retry.body, 'topics'), false);
+    const saved = await fixture.rawResource(resourceId);
+    assert.equal(saved.title, 'Título de metadatos permitido');
+    assert.deepEqual({ category: saved.category, kind: saved.kind, format: saved.format, topics: saved.topics }, {
+      category: initial.category, kind: initial.kind, format: initial.format, topics: initial.topics,
+    });
+    snapshot = await ownerSnapshot(fixture, ownerCookie);
+    const refreshed = snapshot.resources.find(({ id }) => id === resourceId);
+    assert.equal(refreshed.metadataEditable, true);
+    assert.equal(refreshed.classificationEditable, false);
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
+  }
 });
