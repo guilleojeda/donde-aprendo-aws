@@ -13,7 +13,7 @@ const PROFILE_SLUGS = { 'creator-a': 'ana-series', 'creator-b': 'bea-series' };
 
 async function api(harness, path, session = 'creator-a', { method = 'GET', body, csrf = sessionCsrf[session] } = {}) {
   return callApi(harness, path, {
-    session, csrf, creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION, method,
+    session, csrf, ...(method === 'GET' ? {} : { creatorContract: CREATOR_CONTRACT_VERSION }), method,
     ...(body === undefined ? {} : { body }),
   });
 }
@@ -26,7 +26,7 @@ async function editor(harness, session = 'creator-a') {
   const response = await api(harness, '/api/creador/perfil', session);
   assert.equal(response.status, 200, `load editor for ${session}`);
   const snapshot = await responseJson(response);
-  assert.equal(snapshot.schemaVersion, 2);
+  assert.equal(snapshot.schemaVersion, 3);
   assert.equal(Object.hasOwn(snapshot, 'links'), false);
   return snapshot;
 }

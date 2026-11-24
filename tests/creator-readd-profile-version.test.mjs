@@ -14,7 +14,7 @@ async function api(harness, path, {
     method,
     session,
     csrf: sessionCsrf[session],
-    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
+    ...(method === 'GET' ? {} : { creatorContract: CREATOR_CONTRACT_VERSION }),
     ...(body === undefined ? {} : { body }),
   });
   return { response, status: response.status, body: response.status === 204 ? null : await responseJson(response) };
@@ -23,7 +23,7 @@ async function api(harness, path, {
 async function owner(harness) {
   const result = await api(harness, '/api/creador/perfil/');
   assert.equal(result.status, 200, JSON.stringify(result.body));
-  assert.equal(result.body.schemaVersion, 2);
+  assert.equal(result.body.schemaVersion, 3);
   assert.equal(Object.hasOwn(result.body, 'links'), false);
   return result.body;
 }

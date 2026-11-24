@@ -13,7 +13,7 @@ async function api(harness, path, { method = 'GET', body } = {}) {
   return callApi(harness, path, {
     session: 'creator-a',
     csrf: sessionCsrf['creator-a'],
-    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
+    ...(method === 'GET' ? {} : { creatorContract: CREATOR_CONTRACT_VERSION }),
     method,
     ...(body === undefined ? {} : { body }),
   });
@@ -23,7 +23,7 @@ async function ownerGet(harness) {
   const response = await api(harness, '/api/creador/perfil');
   assert.equal(response.status, 200);
   const snapshot = await responseJson(response);
-  assert.equal(snapshot.schemaVersion, 2);
+  assert.equal(snapshot.schemaVersion, 3);
   assert.ok(Number.isSafeInteger(snapshot.creatorVersion));
   assert.equal(Object.hasOwn(snapshot, 'links'), false);
   assert.equal(Object.hasOwn(snapshot, 'editableResources'), false);

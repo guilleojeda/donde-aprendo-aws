@@ -51,7 +51,7 @@ test('owner and photo requests share the approved private contract discriminator
 
 function snapshot() {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     creatorVersion: 17,
     profile: {
       id: 'creator-one', displayName: 'Ada', slug: 'ada', programs: ['Heroes'], socials: {},
@@ -59,9 +59,11 @@ function snapshot() {
     },
     resources: [
       { id: 'resource:z', version: 4, title: 'Z', url: 'https://example.test/z', hidden: false,
-        directoryApproval: 'approved', metadataEditable: true, reincludeAllowed: false },
+        directoryApproval: 'approved', metadataEditable: true, reincludeAllowed: false,
+        classification: { state: 'explicit', kind: 'content', format: 'Video', topics: ['Seguridad'] }, classificationEditable: false },
       { id: 'resource:a', version: 0, title: 'A', url: 'https://example.test/a', description: '', hidden: true,
-        directoryApproval: 'pending', metadataEditable: false, reincludeAllowed: false },
+        directoryApproval: 'pending', metadataEditable: false, reincludeAllowed: false,
+        classification: { state: 'absent' }, classificationEditable: true },
     ],
     placements: {
       z: { resourceId: 'resource:z', selectedForDirectory: true },

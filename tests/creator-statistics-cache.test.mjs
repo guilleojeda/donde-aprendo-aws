@@ -640,7 +640,7 @@ test('an authenticated request after property midnight does not join a fresh res
   const snapshotResponse = await callApi(harness, '/api/creador/perfil/', { session: 'creator-a' });
   assert.equal(snapshotResponse.status, 200);
   const snapshot = await snapshotResponse.json();
-  assert.equal(snapshot.schemaVersion, 2);
+  assert.equal(snapshot.schemaVersion, 3);
   const published = await callApi(harness, '/api/creador/perfil/publicar', {
     session: 'creator-a',
     method: 'POST',

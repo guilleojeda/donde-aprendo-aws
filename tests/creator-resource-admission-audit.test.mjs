@@ -17,7 +17,7 @@ async function request(harness, path, options = {}) {
   } = options;
   const requestedContract = Object.hasOwn(options, 'creatorContract')
     ? creatorContract
-    : method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION;
+    : method === 'GET' ? undefined : CREATOR_CONTRACT_VERSION;
   const response = await callApi(harness, path, {
     method,
     session,
@@ -34,7 +34,7 @@ async function request(harness, path, options = {}) {
 async function owner(harness) {
   const result = await request(harness, '/api/creador/perfil');
   assert.equal(result.response.status, 200, JSON.stringify(result.body));
-  assert.equal(result.body.schemaVersion, 2);
+  assert.equal(result.body.schemaVersion, 3);
   return result.body;
 }
 

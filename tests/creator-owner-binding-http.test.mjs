@@ -24,7 +24,7 @@ async function createOwnerProfile(runtime, { displayName, slug, programs = [], s
   assert.equal(created.status, 200);
   const state = await readOwnerState(runtime, 'creator-a');
   assert.equal(state.response.status, 200);
-  assert.equal(state.payload.schemaVersion, 2);
+  assert.equal(state.payload.schemaVersion, 3);
   return state.payload;
 }
 

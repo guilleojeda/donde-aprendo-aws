@@ -26,7 +26,6 @@ function ownerView(harness) {
   return callApi(harness, '/api/creador/perfil', {
     session: 'creator-a',
     csrf: sessionCsrf['creator-a'],
-    creatorContract: '2',
   });
 }
 
@@ -34,7 +33,6 @@ function adminView(harness) {
   return callApi(harness, ADMIN_CLAIMS_PATH, {
     session: 'admin',
     csrf: sessionCsrf.admin,
-    creatorContract: '2',
   });
 }
 

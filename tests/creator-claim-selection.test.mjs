@@ -18,17 +18,17 @@ const ADMIN_CLAIMS_PATH = '/api/admin/reclamaciones/';
 const ADMIN_LINK_PATH = '/api/admin/reclamaciones/vincular/';
 
 async function api(harness, path, session = 'creator-a', options = {}) {
-  const creatorContract = Object.hasOwn(options, 'creatorContract')
-    ? options.creatorContract
-    : options.method === undefined || options.method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION;
-  return callApi(harness, path, { session, csrf: sessionCsrf[session], ...options, creatorContract });
+  const requestOptions = Object.hasOwn(options, 'creatorContract') || options.method !== undefined && options.method !== 'GET'
+    ? { creatorContract: Object.hasOwn(options, 'creatorContract') ? options.creatorContract : CREATOR_CONTRACT_VERSION }
+    : {};
+  return callApi(harness, path, { session, csrf: sessionCsrf[session], ...options, ...requestOptions });
 }
 
 async function ownerView(harness, session = 'creator-a') {
   const response = await api(harness, '/api/creador/perfil', session);
   assert.equal(response.status, 200);
   const snapshot = await responseJson(response);
-  assert.equal(snapshot.schemaVersion, 2);
+  assert.equal(snapshot.schemaVersion, 3);
   return snapshot;
 }
 

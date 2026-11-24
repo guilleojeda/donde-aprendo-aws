@@ -25,7 +25,7 @@ const { readCreatorOwnerSnapshot } = decoder;
 
 function snapshot() {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     creatorVersion: 17,
     profile: {
       id: 'creator-one', displayName: 'Creadora', slug: 'creadora',
@@ -33,9 +33,12 @@ function snapshot() {
       published: true, hidden: false,
     },
     resources: [
-      { id: 'resource:z', version: 4, title: 'Z', url: 'https://example.com/z', hidden: false, directoryApproval: 'approved', metadataEditable: true, reincludeAllowed: false },
-      { id: 'resource:a', version: 0, title: 'A', url: 'https://example.com/a', description: '', hidden: true, directoryApproval: 'pending', metadataEditable: false, reincludeAllowed: false },
-      { id: 'retained:only', version: 2, title: 'Retenida', url: 'https://example.com/retained', hidden: false, directoryApproval: 'pending', metadataEditable: true, reincludeAllowed: true },
+      { id: 'resource:z', version: 4, title: 'Z', url: 'https://example.com/z', hidden: false, directoryApproval: 'approved', metadataEditable: true, reincludeAllowed: false,
+        classification: { state: 'explicit', kind: 'content', format: 'Video', topics: ['Seguridad'] }, classificationEditable: false },
+      { id: 'resource:a', version: 0, title: 'A', url: 'https://example.com/a', description: '', hidden: true, directoryApproval: 'pending', metadataEditable: false, reincludeAllowed: false,
+        classification: { state: 'absent' }, classificationEditable: true },
+      { id: 'retained:only', version: 2, title: 'Retenida', url: 'https://example.com/retained', hidden: false, directoryApproval: 'pending', metadataEditable: true, reincludeAllowed: true,
+        classification: { state: 'legacy', kind: 'source', format: 'Blog', topics: [] }, classificationEditable: true },
     ],
     placements: {
       z: { resourceId: 'resource:z', selectedForDirectory: true },
@@ -67,10 +70,30 @@ test('the owner decoder preserves one resource collection and independent comple
 
 test('the owner decoder accepts the explicit not-yet-created state without manufacturing a profile or collections', () => {
   const raw = {
-    schemaVersion: 2, creatorVersion: null, profile: null, resources: [],
+    schemaVersion: 3, creatorVersion: null, profile: null, resources: [],
     placements: {}, order: { featured: [], ordinary: [] }, series: {}, claims: [],
   };
   assert.deepEqual(readCreatorOwnerSnapshot(raw), raw);
+});
+
+test('the owner decoder accepts only the current v3 wire shape, not v2 or unknown shapes', () => {
+  const legacy = snapshot();
+  legacy.schemaVersion = 2;
+  for (const resource of legacy.resources) {
+    delete resource.classification;
+    delete resource.classificationEditable;
+  }
+  assert.throws(() => readCreatorOwnerSnapshot(legacy), TypeError, 'v2 owner snapshots are no longer readable');
+
+  const unknownVersion = snapshot();
+  unknownVersion.schemaVersion = 4;
+  assert.throws(() => readCreatorOwnerSnapshot(unknownVersion), TypeError,
+    'an unknown owner snapshot version is rejected');
+
+  const unknownClassification = snapshot();
+  unknownClassification.resources[0].classification = { state: 'future' };
+  assert.throws(() => readCreatorOwnerSnapshot(unknownClassification), TypeError,
+    'an unknown classification shape is rejected');
 });
 
 test('the owner decoder preserves a literal 256-byte UTF-8 resource identity', () => {

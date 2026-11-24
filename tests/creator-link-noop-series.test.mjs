@@ -7,7 +7,7 @@ async function api(harness, path, body, { method = 'POST' } = {}) {
   return callApi(harness, path, {
     session: 'creator-a',
     csrf: sessionCsrf['creator-a'],
-    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
+    ...(method === 'GET' ? {} : { creatorContract: CREATOR_CONTRACT_VERSION }),
     method,
     ...(body === undefined ? {} : { body }),
   });
@@ -17,7 +17,7 @@ async function owner(harness) {
   const response = await api(harness, '/api/creador/perfil', undefined, { method: 'GET' });
   assert.equal(response.status, 200);
   const snapshot = await responseJson(response);
-  assert.equal(snapshot.schemaVersion, 2);
+  assert.equal(snapshot.schemaVersion, 3);
   return snapshot;
 }
 

@@ -106,7 +106,7 @@ class CatalogDocumentClientMock {
 async function api(harness, path, body, { method = 'POST', session = 'creator-a' } = {}) {
   const response = await callApi(harness, path, {
     method, session, csrf: sessionCsrf[session],
-    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
+    ...(method === 'GET' ? {} : { creatorContract: CREATOR_CONTRACT_VERSION }),
     ...(body === undefined ? {} : { body }),
   });
   return { status: response.status, body: response.status === 204 ? null : await responseJson(response) };
@@ -119,7 +119,7 @@ function accepted(result, status, label) {
 
 async function owner(harness) {
   const result = accepted(await api(harness, '/api/creador/perfil', undefined, { method: 'GET' }), 200, 'owner read');
-  assert.equal(result.schemaVersion, 2);
+  assert.equal(result.schemaVersion, 3);
   return result;
 }
 

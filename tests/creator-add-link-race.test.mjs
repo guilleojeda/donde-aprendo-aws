@@ -14,7 +14,7 @@ async function api(harness, session, method, path, body, options = {}) {
   const response = await callApi(harness, path, {
     session,
     csrf: sessionCsrf[session],
-    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
+    ...(method === 'GET' ? {} : { creatorContract: CREATOR_CONTRACT_VERSION }),
     method,
     ...(body === undefined ? {} : { body }),
     ...options,
@@ -25,7 +25,7 @@ async function api(harness, session, method, path, body, options = {}) {
 async function owner(harness, session) {
   const result = await api(harness, session, 'GET', OWNER);
   assert.equal(result.status, 200, JSON.stringify(result.body));
-  assert.equal(result.body.schemaVersion, 2);
+  assert.equal(result.body.schemaVersion, 3);
   return result.body;
 }
 

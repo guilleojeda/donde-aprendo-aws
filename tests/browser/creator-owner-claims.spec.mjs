@@ -363,39 +363,90 @@ test('una solicitud selecciona contenido y URLs, valida antes de escribir, dedup
   await capture.stop();
 });
 
-test('una actualización ordinaria que recibe GET2 ofrece la página actual sin reintento', async ({ fixture, page }) => {
-  await loggedInOwner(fixture, page);
+test('el historial de Solicitudes conserva su lectura y permite reintentar un GET actual incompleto sin repetir un POST', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page, { profile: false });
+  const profile = await api(fixture, cookie, '/api/creador/perfil', {
+    method: 'PUT',
+    body: { creatorVersion: null, displayName: 'Ana Claims Recovery', slug: 'ana-claims-recovery', socials: {} },
+  });
+  assert.equal(profile.response.status, 200, JSON.stringify(profile.body));
+  const item = catalogEntry({
+    id: 'claims-history-recovery-resource',
+    title: 'Contenido del historial recuperable',
+    url: 'https://claims.example.invalid/history-recovery',
+    tipo: 'source',
+  });
+  await seedCatalogRecord(fixture, item);
+  const created = await api(fixture, cookie, '/api/creador/reclamaciones', {
+    method: 'POST',
+    body: { resources: [{ url: item.url }], evidence: 'Solicitud inicial para probar la lectura.' },
+  });
+  assert.equal(created.response.status, 202, JSON.stringify(created.body));
+
   await openOwnerClaims(page, fixture);
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  let refreshStarted = false;
   let reads = 0;
-  const staleRead = async (route) => {
+  const readResponses = [];
+  const malformedRefresh = async (route) => {
     const request = route.request();
     const pathname = new URL(request.url()).pathname.replace(/\/$/u, '');
-    if (request.method() !== 'GET' || pathname !== '/api/creador/perfil') {
+    if (!refreshStarted || request.method() !== 'GET' || pathname !== '/api/creador/perfil') {
       await route.fallback();
       return;
     }
     reads += 1;
     const response = await route.fetch();
-    assert.equal(response.status(), 200);
-    const body = await response.json();
+    const rawBody = await response.body();
+    const body = JSON.parse(rawBody.toString('utf8'));
+    readResponses.push({ status: response.status(), body });
     const headers = { ...response.headers(), 'content-type': 'application/json' };
     delete headers['content-length'];
-    await route.fulfill({ status: 200, headers, body: JSON.stringify({ ...body, schemaVersion: 2 }) });
+    if (reads === 1) {
+      await route.fulfill({ status: 200, headers, body: JSON.stringify({ ...body, claims: null }) });
+      return;
+    }
+    await route.fulfill({ status: response.status(), headers, body: rawBody });
   };
-  await page.route('**/api/creador/**', staleRead);
+  await page.route('**/api/creador/**', malformedRefresh);
   try {
-    const writesBefore = capture.writes().length;
+    refreshStarted = true;
     await page.locator('[data-claim-history-refresh]').click();
     await expect.poll(() => reads).toBe(1);
-    const currentPage = page.getByRole('link', { name: 'Abrir la página actual', exact: true });
-    await expect(currentPage).toBeVisible();
-    await expect(currentPage).toHaveAttribute('target', '_blank');
-    await expect(page.locator('[data-owner-refresh-retry]')).toHaveCount(0);
-    assert.equal(capture.writes().length, writesBefore, 'an ordinary stale read never creates a write or replay action');
-    await expect(page.locator('[data-claim-index-status]')).toContainText(/lectura antigua|página actual/iu);
+    await expect.poll(() => ownerReads(capture).length).toBe(1);
+    await expect.poll(() => readResponses[0]?.status).toBe(200);
+    assert.equal(readResponses[0].status, 200);
+    assert.equal(readResponses[0].body.schemaVersion, 3, 'the malformed response began as the real current snapshot');
+    await expect(page.locator('[data-claim-index-status]')).toContainText(/lectura|estado|actualiz/iu);
+    await expect(page.locator('[data-owner-refresh-retry]')).toBeVisible();
+    await expect(page.locator('[data-owner-current-page]')).toHaveCount(0);
+    assert.equal(claimWrites(capture).length, 0, 'a failed history read never creates or replays a claim POST');
+
+    const second = catalogEntry({
+      id: 'claims-history-recovery-resource-2',
+      title: 'Contenido creado durante la lectura fallida',
+      url: 'https://claims.example.invalid/history-recovery-2',
+      tipo: 'source',
+    });
+    const secondEvidence = 'Solicitud aparecida entre la lectura fallida y su reintento.';
+    await seedCatalogRecord(fixture, second);
+    const secondClaim = await api(fixture, cookie, '/api/creador/reclamaciones', {
+      method: 'POST',
+      body: { resources: [{ url: second.url }], evidence: secondEvidence },
+    });
+    assert.equal(secondClaim.response.status, 202, JSON.stringify(secondClaim.body));
+    await expect(page.locator('[data-claim-history]')).not.toContainText(secondEvidence);
+
+    await page.locator('[data-owner-refresh-retry]').click();
+    await expect.poll(() => reads).toBe(2);
+    await expect.poll(() => readResponses[1]?.status).toBe(200);
+    await expect.poll(() => readResponses[1]?.body?.schemaVersion).toBe(3);
+    await expect(page.locator('[data-claim-index-status]')).toHaveCount(0);
+    await expect(page.locator('[data-claim-history]')).toContainText(secondEvidence);
+    assert.equal(readResponses[1].status, 200);
+    assert.equal(claimWrites(capture).length, 0, 'the ordinary retry is read-only and does not replay a claim POST');
   } finally {
-    await page.unroute('**/api/creador/**', staleRead).catch(() => {});
+    await page.unroute('**/api/creador/**', malformedRefresh).catch(() => {});
     await capture.stop({ skipErrorBodies: true });
   }
 });

@@ -179,97 +179,81 @@ test('Series: publicar y cambiar el slug actualiza las dos URLs públicas, conse
   await capture.stop();
 });
 
-test('crear el borrador seguido de GET2 conserva el formulario y ofrece la página actual', async ({ fixture, page }) => {
+test('crear un perfil conserva la confirmación y permite reintentar una lectura actual incompleta sin repetir el PUT', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page, { profile: false });
   await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+  const form = page.locator('form[data-owner-form="crear"]');
+  const name = form.getByLabel('Nombre visible', { exact: true });
+  const slug = form.getByLabel('Dirección de tu página', { exact: true });
+  await name.fill('Perfil creado con lectura recuperable');
+  await slug.fill('perfil-lectura-recuperable');
+
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
-  let created = false;
   let reads = 0;
-  const staleRead = async (route) => {
+  const readResponses = [];
+  const malformedFirstRead = async (route) => {
     const request = route.request();
     const pathname = new URL(request.url()).pathname.replace(/\/$/u, '');
-    if (request.method() === 'PUT' && pathname === '/api/creador/perfil') {
-      created = true;
-      await route.fallback();
-      return;
-    }
-    if (!created || request.method() !== 'GET' || pathname !== '/api/creador/perfil') {
+    if (request.method() !== 'GET' || pathname !== '/api/creador/perfil') {
       await route.fallback();
       return;
     }
     reads += 1;
     const response = await route.fetch();
-    assert.equal(response.status(), 200);
-    const body = await response.json();
+    const rawBody = await response.body();
+    const body = JSON.parse(rawBody.toString('utf8'));
+    readResponses.push({ status: response.status(), body });
     const headers = { ...response.headers(), 'content-type': 'application/json' };
     delete headers['content-length'];
-    await route.fulfill({ status: 200, headers, body: JSON.stringify({ ...body, schemaVersion: 2 }) });
+    if (reads === 1) {
+      await route.fulfill({ status: 200, headers, body: JSON.stringify({ ...body, resources: null }) });
+      return;
+    }
+    await route.fulfill({ status: response.status(), headers, body: rawBody });
   };
-  await page.route('**/api/creador/**', staleRead);
+  await page.route('**/api/creador/**', malformedFirstRead);
   try {
-    const form = page.locator('form[data-owner-form="crear"]');
-    await form.getByLabel('Nombre visible', { exact: true }).fill('Borrador de lectura antigua');
-    await form.getByLabel('Dirección de tu página', { exact: true }).fill('borrador-lectura-antigua');
     await form.getByRole('button', { name: 'Crear borrador', exact: true }).click();
     await expect.poll(() => capture.writes().find(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil')?.status).toBe(200);
     await expect.poll(() => reads).toBe(1);
-    const currentPage = page.getByRole('link', { name: 'Abrir la página actual', exact: true });
-    await expect(currentPage).toBeVisible();
-    await expect(currentPage).toHaveAttribute('target', '_blank');
-    await expect(page.locator('[data-owner-refresh-retry]')).toHaveCount(0);
-    await expect(form.getByLabel('Nombre visible', { exact: true })).toHaveValue('Borrador de lectura antigua');
-    await expect(form.getByLabel('Dirección de tu página', { exact: true })).toHaveValue('borrador-lectura-antigua');
+    await expect.poll(() => readResponses[0]?.status).toBe(200);
+    const created = capture.writes().find(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil');
+    assert.equal(created.responseBody.operation, 'save-profile');
+    assert.equal(created.body.creatorVersion, null);
+    assert.equal(readResponses[0].status, 200);
+    assert.equal(readResponses[0].body.schemaVersion, 3, 'the malformed response started as the real current snapshot');
+    assert.equal((await fixture.rawOwner(cookie)).profile.slug, 'perfil-lectura-recuperable',
+      'the real profile creation remains persisted while its follow-up read is incomplete');
     assert.equal(capture.writes().filter(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil').length, 1,
-      'the profile creation is not replayed after the incompatible read');
-    assert.equal((await fixture.rawOwner(cookie)).profile.slug, 'borrador-lectura-antigua',
-      'the real profile creation remains committed even though its follow-up read is old');
-  } finally {
-    await page.unroute('**/api/creador/**', staleRead).catch(() => {});
-    await capture.stop({ skipErrorBodies: true });
-  }
-});
+      'the incomplete read does not replay profile creation');
+    await expect(form).toBeVisible();
+    await expect(name).toHaveValue('Perfil creado con lectura recuperable');
+    await expect(slug).toHaveValue('perfil-lectura-recuperable');
+    await expect(form.locator('[data-owner-recovery][data-recovery-kind="refresh-failed"]')).toBeVisible();
+    await expect(form.getByRole('button', { name: 'Reintentar actualización', exact: true })).toBeVisible();
+    await expect(page.locator('[data-owner-current-page]')).toHaveCount(0);
+    await expect(page.locator('[data-session-recovery-shell], [data-session-recovery-new], [data-session-recovery-sign-in]')).toHaveCount(0);
 
-test('publicar seguido de GET2 conserva la confirmación y ofrece la página actual', async ({ fixture, page }) => {
-  const cookie = await loggedInOwner(fixture, page);
-  await page.goto(`${fixture.origin}/cuenta/?vista=series`);
-  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
-  let published = false;
-  let reads = 0;
-  const staleRead = async (route) => {
-    const request = route.request();
-    const pathname = new URL(request.url()).pathname.replace(/\/$/u, '');
-    if (request.method() === 'POST' && pathname === '/api/creador/perfil/publicar') {
-      published = true;
-      await route.fallback();
-      return;
-    }
-    if (!published || request.method() !== 'GET' || pathname !== '/api/creador/perfil') {
-      await route.fallback();
-      return;
-    }
-    reads += 1;
-    const response = await route.fetch();
-    assert.equal(response.status(), 200);
-    const body = await response.json();
-    const headers = { ...response.headers(), 'content-type': 'application/json' };
-    delete headers['content-length'];
-    await route.fulfill({ status: 200, headers, body: JSON.stringify({ ...body, schemaVersion: 2 }) });
-  };
-  await page.route('**/api/creador/**', staleRead);
-  try {
-    await page.getByRole('button', { name: 'Publicar página', exact: true }).click();
-    await expect.poll(() => capture.writes().find(({ method, path }) => method === 'POST' && path === '/api/creador/perfil/publicar')?.status).toBe(200);
-    await expect.poll(() => reads).toBe(1);
-    const currentPage = page.getByRole('link', { name: 'Abrir la página actual', exact: true });
-    await expect(currentPage).toBeVisible();
-    await expect(currentPage).toHaveAttribute('target', '_blank');
-    await expect(page.locator('[data-owner-refresh-retry]')).toHaveCount(0);
-    assert.equal(capture.writes().filter(({ method, path }) => method === 'POST' && path === '/api/creador/perfil/publicar').length, 1,
-      'the confirmed publication is not replayed after the incompatible read');
-    assert.equal((await fixture.rawOwner(cookie)).profile.published, true,
-      'the real publication remains committed even though its follow-up read is old');
+    await form.getByRole('button', { name: 'Reintentar actualización', exact: true }).click();
+    await expect.poll(() => reads).toBe(2);
+    await expect.poll(() => readResponses[1]?.body?.schemaVersion).toBe(3);
+    await expect(page.locator('[data-owner-recovery]')).toHaveCount(0);
+    await expect(form).toHaveCount(0, 'the ordinary retry installs the confirmed current profile and closes creation');
+    assert.equal(readResponses[1].status, 200);
+    assert.equal(readResponses[1].body.profile.slug, 'perfil-lectura-recuperable');
+    assert.equal(capture.writes().filter(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil').length, 1,
+      'the successful current read does not replay the already confirmed PUT');
+
+    await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
+    const data = dataForm(page);
+    await data.getByLabel('Ciudad').fill('Mendoza');
+    await data.getByRole('button', { name: 'Guardar datos', exact: true }).click();
+    await expect.poll(() => capture.writes().filter(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil').length).toBe(2);
+    await expect.poll(() => capture.writes().filter(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil')[1]?.status).toBe(200);
+    const saved = await fixture.rawOwner(cookie);
+    assert.equal(saved.profile.city, 'Mendoza', 'a later normal action remains available after read recovery');
   } finally {
-    await page.unroute('**/api/creador/**', staleRead).catch(() => {});
+    await page.unroute('**/api/creador/**', malformedFirstRead).catch(() => {});
     await capture.stop({ skipErrorBodies: true });
   }
 });

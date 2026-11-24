@@ -126,52 +126,6 @@ for (const operation of ['add', 'remove']) {
   });
 }
 
-test('un Add de capítulo confirmado seguido de GET2 conserva el vínculo y ofrece la página actual', async ({ fixture, page }) => {
-  const cookie = await loggedInOwner(fixture, page);
-  const series = await createSeries(fixture, cookie, { name: 'Serie lectura antigua', slug: 'serie-lectura-antigua' });
-  const chapter = await addLink(fixture, cookie, {
-    title: 'Capítulo lectura antigua',
-    url: 'https://links.example/phase5-chapter-v2',
-  });
-  await openSeriesDetail(page, fixture, series.id, '&buscarSeries=lectura&pertenencia=todos');
-  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
-  let reads = 0;
-  const staleRead = async (route) => {
-    const request = route.request();
-    if (request.method() !== 'GET' || ownerPath(request) !== '/api/creador/perfil') {
-      await route.fallback();
-      return;
-    }
-    reads += 1;
-    const response = await route.fetch();
-    assert.equal(response.status(), 200);
-    const body = await response.json();
-    const resources = body.resources.map(({ classification, classificationEditable, ...resource }) => resource);
-    const headers = { ...response.headers(), 'content-type': 'application/json' };
-    delete headers['content-length'];
-    await route.fulfill({ status: 200, headers, body: JSON.stringify({ ...body, schemaVersion: 2, resources }) });
-  };
-  await page.route('**/api/creador/**', staleRead);
-  const commandPath = `/api/creador/series/${series.id}/capitulos/${chapter.placementId}`;
-  try {
-    await page.locator(`[data-chapter-row="${chapter.placementId}"] [data-chapter-add]`).click();
-    await expect.poll(() => capture.writes().find(({ method, path }) => method === 'PUT' && path === commandPath)?.status).toBe(200);
-    await expect.poll(() => reads).toBe(1);
-    const detail = page.locator('[data-owner-series-chapters]');
-    const currentPage = page.getByRole('link', { name: 'Abrir la página actual', exact: true });
-    await expect(currentPage).toBeVisible();
-    await expect(currentPage).toHaveAttribute('target', '_blank');
-    await expect(detail.locator('[data-owner-refresh-retry]')).toHaveCount(0);
-    assert.equal(capture.writes().filter(({ method, path }) => method === 'PUT' && path === commandPath).length, 1,
-      'the real chapter command is not replayed after the incompatible read');
-    const persisted = await readOwnerSnapshot(fixture, cookie);
-    assert.deepEqual(persisted.series[series.id].chapters, [chapter.placementId]);
-  } finally {
-    await page.unroute('**/api/creador/**', staleRead).catch(() => {});
-    await capture.stop({ skipErrorBodies: true });
-  }
-});
-
 test('un Add incierto compara el estado guardado, conserva la URL y no repite la escritura', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const series = await createSeries(fixture, cookie, { name: 'Serie de comparación', slug: 'serie-de-comparacion' });

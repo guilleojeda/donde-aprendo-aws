@@ -26,6 +26,8 @@ function ownerSnapshot({ linkCount = 26, seriesCount = 0 } = {}) {
     directoryApproval: index === 0 ? 'approved' : 'pending',
     metadataEditable: true,
     reincludeAllowed: false,
+    classification: { state: 'explicit', kind: 'content', format: 'Artículo', topics: [] },
+    classificationEditable: true,
   }));
   const placements = Object.fromEntries(placementIds.map((placementId, index) => [placementId, {
     resourceId: resources[index].id,
@@ -40,7 +42,7 @@ function ownerSnapshot({ linkCount = 26, seriesCount = 0 } = {}) {
     }];
   }));
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     creatorVersion: 1,
     profile: { id: 'profile-list-recovery', displayName: 'Creator', slug: 'creator', programs: [], socials: {}, published: true, hidden: false },
     resources,

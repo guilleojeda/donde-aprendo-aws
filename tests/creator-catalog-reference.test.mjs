@@ -24,7 +24,7 @@ async function api(harness, path, options = {}) {
   } = options;
   const requestedContract = Object.hasOwn(options, 'creatorContract')
     ? creatorContract
-    : method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION;
+    : method === 'GET' ? undefined : CREATOR_CONTRACT_VERSION;
   return callApi(harness, path, {
     session, method, body, origin, csrf, creatorContract: requestedContract,
   });
@@ -34,7 +34,7 @@ async function owner(harness, session = 'creator-a') {
   const response = await api(harness, '/api/creador/perfil', { session });
   assert.equal(response.status, 200, await response.clone().text());
   const snapshot = await responseJson(response);
-  assert.equal(snapshot.schemaVersion, 2);
+  assert.equal(snapshot.schemaVersion, 3);
   assert.equal(Object.hasOwn(snapshot, 'links'), false);
   return snapshot;
 }

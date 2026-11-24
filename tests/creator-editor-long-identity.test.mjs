@@ -53,7 +53,7 @@ async function api(harness, pathname, body, { method = 'POST', session = 'creato
     method,
     session,
     csrf: sessionCsrf[session],
-    creatorContract: method === 'GET' ? '2' : CREATOR_CONTRACT_VERSION,
+    ...(method === 'GET' ? {} : { creatorContract: CREATOR_CONTRACT_VERSION }),
     ...(body === undefined ? {} : { body }),
   });
   return { response, status: response.status, data: response.status === 204 ? null : await response.json() };
@@ -62,7 +62,7 @@ async function api(harness, pathname, body, { method = 'POST', session = 'creato
 async function owner(harness, session = 'creator-a') {
   const result = await api(harness, '/api/creador/perfil', undefined, { method: 'GET', session });
   assert.equal(result.status, 200);
-  assert.equal(result.data.schemaVersion, 2);
+  assert.equal(result.data.schemaVersion, 3);
   return result.data;
 }
 

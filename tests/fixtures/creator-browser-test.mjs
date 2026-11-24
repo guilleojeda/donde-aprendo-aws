@@ -61,7 +61,7 @@ async function api(fixture, cookie, route, options = {}) {
 async function readOwnerSnapshot(fixture, cookie) {
   const { response, body } = await api(fixture, cookie, '/api/creador/perfil');
   assert.equal(response.status, 200, JSON.stringify(body));
-  assert.equal(body.schemaVersion, 2);
+  assert.equal(body.schemaVersion, 3);
   return body;
 }
 

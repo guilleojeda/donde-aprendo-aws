@@ -68,7 +68,7 @@ async function ownerSnapshot(harness, session = 'creator-a') {
   const response = await api(harness, '/api/creador/perfil/', session);
   assert.equal(response.status, 200, `reading ${session} creator state failed`);
   const snapshot = await responseJson(response);
-  assert.equal(snapshot.schemaVersion, 2);
+  assert.equal(snapshot.schemaVersion, 3);
   return snapshot;
 }
 
