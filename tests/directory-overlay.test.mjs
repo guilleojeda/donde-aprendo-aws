@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { positionDirectoryOverlay } from '../src/scripts/directory-overlay.js';
 
-function disclosureAt({ width, height, trigger, panel, align = 'start' }) {
+function disclosureAt({ width, height, trigger, panel, align = 'start', header }) {
   const summary = { getBoundingClientRect: () => trigger };
   const overlay = {
     dataset: align === 'end' ? { overlayAlign: 'end' } : {},
@@ -16,7 +16,12 @@ function disclosureAt({ width, height, trigger, panel, align = 'start' }) {
   };
   return {
     open: true,
-    ownerDocument: { documentElement: { clientWidth: width, clientHeight: height } },
+    ownerDocument: {
+      documentElement: { clientWidth: width, clientHeight: height },
+      querySelector: (selector) => selector === '.site-header' && header
+        ? { getBoundingClientRect: () => header }
+        : null,
+    },
     querySelector(selector) {
       return selector === 'summary' ? summary : selector === '[data-directory-overlay-panel]' ? overlay : null;
     },
@@ -54,4 +59,20 @@ test('directory overlay aligns to the summary edge and stays below when there is
   assert.equal(disclosure.overlay.style.left, '40px');
   assert.equal(disclosure.overlay.style.top, '248px');
   assert.equal(disclosure.overlay.style.maxHeight, '820px');
+});
+
+test('directory overlay clears a fixed header before choosing an above fallback', () => {
+  const disclosure = disclosureAt({
+    width: 390,
+    height: 844,
+    trigger: { left: 274, right: 374, top: 424, bottom: 468 },
+    panel: { width: 350, height: 372 },
+    header: { top: 0, bottom: 77 },
+  });
+
+  positionDirectoryOverlay(disclosure);
+
+  assert.equal(disclosure.overlay.style.left, '28px');
+  assert.equal(disclosure.overlay.style.top, '85px');
+  assert.equal(disclosure.overlay.style.maxHeight, '747px');
 });

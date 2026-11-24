@@ -141,6 +141,34 @@ test('unsupported group values are ignored, and general directories preserve gro
   assert.equal(new URLSearchParams(saved).get('format'), 'Video');
 });
 
+test('mixed-profile kind is an independent URL facet owned only by screens that offer it', () => {
+  const profileAllowed = { ...allowed, kind: new Set(['content', 'source', 'event', 'unclassified']) };
+  const original = '?utm_source=profile&group=campaign&kind=event&format=Video&topic=Seguridad';
+  const parsed = parseDirectorySearch(original, profileAllowed);
+  assert.equal(parsed.kind, 'event');
+  assert.equal(parsed.format, 'Video', 'incompatible selections remain available for deliberate correction');
+  assert.equal(parsed.topic, 'Seguridad');
+  const saved = new URLSearchParams(serializeDirectorySearch(original, parsed));
+  assert.equal(saved.get('kind'), 'event');
+  assert.equal(saved.get('format'), 'Video');
+  assert.equal(saved.get('topic'), 'Seguridad');
+  assert.equal(saved.get('utm_source'), 'profile');
+  assert.equal(saved.get('group'), 'campaign');
+
+  parsed.kind = '';
+  const cleared = new URLSearchParams(serializeDirectorySearch(original, parsed));
+  assert.equal(cleared.has('kind'), false);
+  assert.equal(cleared.get('format'), 'Video');
+  const invalid = parseDirectorySearch('?kind=not-represented&format=Video', profileAllowed);
+  assert.equal(invalid.kind, '');
+  assert.equal(new URLSearchParams(serializeDirectorySearch('?kind=not-represented', invalid)).has('kind'), false);
+
+  const fixedScreen = parseDirectorySearch(original, allowed);
+  const fixedSaved = new URLSearchParams(serializeDirectorySearch(original, fixedScreen));
+  assert.equal(fixedSaved.get('kind'), 'event', 'fixed-kind catalog and blog consumers preserve unrelated kind state');
+  assert.equal(fixedSaved.get('group'), 'campaign');
+});
+
 test('hash reveal clears selected group filters and keeps the chosen sort', () => {
   const certificationAllowed = { ...allowed, group: new Set(['cloud-practitioner', 'multiple-exams']) };
   const filtered = parseDirectorySearch('?q=Cloud&group=multiple-exams&format=Video&sort=directory', certificationAllowed, 'purpose');

@@ -53,10 +53,15 @@ export interface CreatorPublicSeriesTagDTO {
   position: number;
 }
 
+export type CreatorPublicLinkKind = 'content' | 'source' | 'community' | 'event' | 'unclassified';
+
 export interface CreatorPublicLinkDTO {
   placementId: string;
   title: string;
   url: string;
+  kind: CreatorPublicLinkKind;
+  format?: string;
+  topics: string[];
   description?: string;
   featured: boolean;
   series: CreatorPublicSeriesTagDTO[];

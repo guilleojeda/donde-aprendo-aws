@@ -8,6 +8,7 @@ import { COUNTRY_LABELS, LEVEL_LABELS } from '../src/lib/resource-discovery.mjs'
 import { resourceFragment, resolveResourceFragment } from '../src/lib/resource-fragments.mjs';
 import { aggregateSearchData, searchIndex, TYPE_LABELS } from '../src/lib/unified-search.mjs';
 import { positionDirectoryOverlay } from '../src/scripts/directory-overlay.js';
+import { bindFacetSelections, bindFilterDisclosures } from '../src/scripts/directory-filters.js';
 
 const directoryScript = readFileSync(new URL('../src/scripts/directory.js', import.meta.url), 'utf8')
   .replace(/^import .*;\s*$/gmu, '');
@@ -17,6 +18,7 @@ const searchScript = readFileSync(new URL('../src/scripts/unified-search.js', im
 class MockElement {
   constructor(document, { tagName = 'DIV', id = '', dataset = {}, value = '', hidden = false } = {}) {
     this.document = document;
+    this.ownerDocument = document;
     this.tagName = tagName;
     this.id = id;
     this.dataset = dataset;
@@ -200,7 +202,7 @@ function createDirectory({
     control.options = facetOptions[field].map((value) => ({ value }));
   }
   const details = new MockElement(document, { tagName: 'DETAILS', dataset: { filterDisclosure: '' } });
-  const summary = Object.assign(new MockElement(document, { tagName: 'SUMMARY' }), { textContent: 'Filtros adicionales' });
+  const summary = Object.assign(new MockElement(document, { tagName: 'SUMMARY', dataset: { filterSummary: '', filterSummaryLabel: 'Filtros' } }), { textContent: 'Filtros adicionales' });
   const facetFields = new MockElement(document, { tagName: 'DIV' });
   details.append(summary, facetFields);
   for (const field of facets) facetFields.append(facetControls[field]);
@@ -216,6 +218,7 @@ function createDirectory({
       dataset: {
         resourceIndex: String(index), category: resource.category ?? '', topics: (resource.topics ?? []).join('|'),
         country: resource.country ?? '', level: resource.level ?? '', featured: resource.featured ? 'true' : undefined,
+        kind: resource.kind ?? kind, format: resource.format ?? '', addedAt: resource.addedAt ?? '',
       },
     });
     const metadata = [resource.format, ...(resource.topics ?? []).slice(0, 2), resource.countryLabel, resource.levelLabel]
@@ -229,14 +232,29 @@ function createDirectory({
     const related = (resource.related ?? []).map((textContent) => Object.assign(
       new MockElement(document, { tagName: 'A' }), { textContent },
     ));
+    const semantic = {
+      title: [title],
+      description: description ? [description] : [],
+      source: related.filter(({ textContent = '' }) => textContent.startsWith('Autor o fuente: '))
+        .map((node) => Object.assign(new MockElement(document, { tagName: 'SPAN' }), { textContent: node.textContent.slice('Autor o fuente: '.length) })),
+      community: related.filter(({ textContent = '' }) => textContent.startsWith('Comunidad: '))
+        .map((node) => Object.assign(new MockElement(document, { tagName: 'SPAN' }), { textContent: node.textContent.slice('Comunidad: '.length) })),
+      event: related.filter(({ textContent = '' }) => textContent.startsWith('Grabación de: '))
+        .map((node) => Object.assign(new MockElement(document, { tagName: 'SPAN' }), { textContent: node.textContent.slice('Grabación de: '.length) })),
+      series: resource.seriesLabels?.map((textContent) => Object.assign(new MockElement(document, { tagName: 'SPAN' }), { textContent })) ?? [],
+    };
     card.querySelector = (selector) => {
       if (selector === 'h3') return title;
       if (selector === '.resource-card__description') return description;
       if (selector === 'time') return time;
       return null;
     };
-    card.querySelectorAll = (selector) => selector === '.resource-card__meta span' ? metadata
-      : selector === '.resource-card__related a' ? related : [];
+    card.querySelectorAll = (selector) => {
+      const semanticField = selector.match(/^\[data-resource-search-field="([^"]+)"\]$/u)?.[1];
+      if (semanticField) return semantic[semanticField] ?? [];
+      return selector === '.resource-card__meta span' ? metadata
+        : selector === '.resource-card__related a' ? related : [];
+    };
     return card;
   });
   list.append(...cards);
@@ -278,6 +296,9 @@ function createDirectory({
   };
   const windowListeners = new Map();
   const window = {
+    location,
+    history: null,
+    requestAnimationFrame: (callback) => callback(),
     addEventListener(type, handler) {
       const handlers = windowListeners.get(type) ?? [];
       handlers.push(handler);
@@ -310,6 +331,8 @@ function createDirectory({
       window.emit('popstate', { state: null });
     },
   };
+  window.history = history;
+  document.defaultView = window;
   let lastFilteredRecords = [];
 
   runInNewContext(directoryScript, {
@@ -323,6 +346,7 @@ function createDirectory({
     parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch,
     resourceFragment, resolveResourceFragment,
     requestAnimationFrame: (callback) => callback(), URL, Set, positionDirectoryOverlay,
+    bindFacetSelections, bindFilterDisclosures,
   });
 
   return {
@@ -461,16 +485,16 @@ test('directory with fewer than one page keeps results visible without moving fo
   assert.equal(directory.showMoreWrap.hidden, true);
 });
 
-test('directory reads its format facet from the first visible metadata span and dates from time elements', () => {
+test('directory reads semantic format and date attributes instead of presentation order', () => {
   const directory = createDirectory({ resources: [
     { title: 'Older course', category: 'Curso', format: 'Curso', topics: [], addedAt: '2026-09-25' },
     { title: 'Newer video', category: 'Video', format: 'Video', topics: [], addedAt: '2026-10-01' },
   ] });
 
-  assert.equal(directory.list.children[0], directory.cards[1], 'The default recent order reads the date from time[datetime].');
+  assert.equal(directory.list.children[0], directory.cards[1], 'The default recent order reads data-added-at.');
   directory.format.value = 'Curso';
   directory.format.emit('change');
-  assert.deepEqual(directory.cards.map(({ hidden }) => !hidden), [true, false], 'The format facet reads the first metadata span.');
+  assert.deepEqual(directory.cards.map(({ hidden }) => !hidden), [true, false], 'The format facet reads data-format.');
 });
 
 test('directory search reconstructs searchable text from static card content and metadata', () => {
@@ -531,6 +555,20 @@ test('directory search keeps the former empty-field slots for the published miss
   directory.search.emit('input');
   assert.deepEqual(directory.cards.map(({ hidden }) => !hidden), [false],
     'A query cannot bridge the empty country slot between topic and level fields.');
+});
+
+test('directory search keeps the semantic series prefix for every related series', () => {
+  const directory = createDirectory({ resources: [{
+    title: 'Recurso con dos series', category: 'Curso', format: 'Curso', topics: [],
+    seriesLabels: ['Primera · Ana', 'Segunda · Ana'],
+  }] });
+  const record = directory.records[0];
+
+  assert.match(record.search, /Serie Primera · Ana.*Serie Segunda · Ana/u);
+  directory.search.value = 'Serie Segunda · Ana';
+  directory.search.emit('input');
+  assert.deepEqual(directory.cards.map(({ hidden }) => !hidden), [true],
+    'search finds the second series relationship through its semantic marker');
 });
 
 test('certification directory filters start closed and count its applicable active facets', () => {

@@ -118,11 +118,7 @@ function optionValues(select) {
   return find(select, (node) => node.tag === 'option').map((option) => option.attrs.get('value') ?? '');
 }
 function cardFormat(card) {
-  const kind = card.parent?.attrs.get('data-kind');
-  const allFormats = new Set(Object.values(FORMATS_BY_KIND).flat());
-  const mainAnchor = find(card, (node) => node.tag === 'a' && find(node, (child) => child.tag === 'h3').length)[0];
-  return find(mainAnchor ?? card, (node) => node.tag === 'span').map(text)
-    .find((value) => allFormats.has(value) && (!kind || FORMATS_BY_KIND[kind]?.includes(value)));
+  return card.attrs.get('data-format') ?? '';
 }
 function cardMetadata(cards) {
   return {
@@ -335,6 +331,24 @@ test('every directory route has search and sort before populated results or an e
     }
     assert.equal(countryDirectoryPages.length, 0, 'An empty community catalog creates no country pages.');
   }
+});
+
+test('resource cards publish semantic filter facts and marked search titles', () => {
+  let checked = 0;
+  for (const page of [...pages, ...countryDirectoryPages]) {
+    for (const card of cardsOn(page)) {
+      checked += 1;
+      assert.equal(card.attrs.get('data-kind'), page.kind, `${page.route}: each card owns its filter kind`);
+      const format = card.attrs.get('data-format');
+      assert.ok(FORMATS_BY_KIND[page.kind].includes(format), `${page.route}: each card owns a valid format`);
+      assert.ok(find(card, (node) => node.tag === 'span' && text(node) === format).length,
+        `${page.route}: semantic format also remains readable in the card`);
+      const titleFields = byAttribute(card, 'data-resource-search-field', 'title');
+      assert.equal(titleFields.length, 1, `${page.route}: search title has one semantic marker`);
+      assert.ok(text(titleFields[0]), `${page.route}: marked search title is not empty`);
+    }
+  }
+  if (fixtureMode === 'enriched') assert.ok(checked > 0, 'the enriched build exercises real resource cards');
 });
 
 test('format and topic navigation stays native and ahead of search', () => {

@@ -2,6 +2,8 @@
 import type { CreatorProfileDTO, CreatorPublicLinkDTO, CreatorPublicSeriesSummaryDTO, CreatorSocial } from '../types/creators';
 import { CREATOR_SOCIALS } from '../lib/creator-values.mjs';
 import { safeCreatorSocialUrl } from '../lib/creator-public.mjs';
+import DirectoryFilters from './DirectoryFilters.astro';
+import { representedFormats, representedKinds, representedTopics } from '../lib/directory-facets.mjs';
 
 interface Props {
   profile: CreatorProfileDTO;
@@ -52,6 +54,10 @@ const photoPath = profile.photo?.url?.startsWith('/media/fotos/')
   : profile.photo?.version !== undefined
     ? `/media/fotos/${encodeURIComponent(profile.id)}/${encodeURIComponent(String(profile.photo.version))}.webp`
     : undefined;
+const filterKinds = representedKinds(links);
+const filterFormats = representedFormats(links);
+const filterTopics = representedTopics(links);
+const hasFilters = filterKinds.length > 0 || filterFormats.length > 0 || filterTopics.length > 0;
 ---
 
 <section
@@ -122,12 +128,29 @@ const photoPath = profile.photo?.url?.startsWith('/media/fotos/')
         <p class="creator-profile__eyebrow">Contenido recomendado</p>
         <h2 id="creator-links-title">Enlaces de {profile.displayName}</h2>
       </div>
-      <span>{links.length} {links.length === 1 ? 'recurso' : 'recursos'}</span>
+      <span data-result-count data-count-singular="recurso" data-count-plural="recursos" aria-live="polite">{links.length} {links.length === 1 ? 'recurso' : 'recursos'}</span>
     </div>
+    {hasFilters && <div class="creator-profile__filters" data-creator-filter-controls>
+      <DirectoryFilters
+        idPrefix="creator-resource"
+        kinds={filterKinds}
+        formats={filterFormats}
+        topics={filterTopics}
+      />
+      <p class="creator-profile__filter-noscript" data-creator-filter-noscript>
+        Los filtros requieren JavaScript; mientras tanto se muestran todos los enlaces.
+      </p>
+    </div>}
     {links.length > 0 ? (
       <ul class="creator-profile__link-list">
         {links.map((link) => (
-          <li class:list={["creator-profile__link-card", link.featured && 'creator-profile__link-card--featured']}>
+          <li
+            class:list={["creator-profile__link-card", link.featured && 'creator-profile__link-card--featured']}
+            data-creator-resource-filter-card
+            data-kind={link.kind}
+            data-format={link.format}
+            data-topics={link.topics.length ? link.topics.join('|') : undefined}
+          >
             {link.featured && <p class="creator-profile__featured">Destacado</p>}
             <h3>{safeHttpUrl(link.url)
               ? <a href={safeHttpUrl(link.url)?.href} target="_blank" rel="noopener noreferrer" data-creator-link-id={link.placementId}>{link.title}</a>
@@ -145,6 +168,9 @@ const photoPath = profile.photo?.url?.startsWith('/media/fotos/')
           </li>
         ))}
       </ul>
+      <p class="creator-profile__filter-empty directory-no-results" data-creator-filter-empty role="status" hidden>
+        No encontramos enlaces con estos filtros
+      </p>
     ) : (
       <p class="creator-profile__empty">Pronto habrá recursos compartidos por {profile.displayName}.</p>
     )}
@@ -154,3 +180,4 @@ const photoPath = profile.photo?.url?.startsWith('/media/fotos/')
 <script>
   import '../scripts/creator-profile-analytics';
 </script>
+<script src="../scripts/creator-profile-filters.js"></script>

@@ -1,0 +1,72 @@
+---
+interface FilterOption {
+  value: string;
+  label: string;
+}
+
+interface Props {
+  idPrefix?: string;
+  kinds?: FilterOption[];
+  formats?: string[];
+  topics?: string[];
+  countries?: FilterOption[];
+  levels?: FilterOption[];
+}
+
+const {
+  idPrefix = 'resource',
+  kinds = [],
+  formats = [],
+  topics = [],
+  countries = [],
+  levels = [],
+} = Astro.props;
+const hasFacets = kinds.length > 0
+  || formats.length > 0
+  || topics.length > 0
+  || countries.length > 0
+  || levels.length > 0;
+const fieldId = (field: string) => `${idPrefix}-${field}`;
+---
+
+{hasFacets && <details class="directory-filter-disclosure" data-filter-disclosure>
+  <summary data-filter-summary data-filter-summary-label="Filtros">Filtros</summary>
+  <div class="directory-facets" data-directory-overlay-panel>
+    {kinds.length > 0 && <div class="directory-facet">
+      <label for={fieldId('kind')}>Tipo de recurso</label>
+      <select id={fieldId('kind')} data-kind-filter>
+        <option value="">Todos los tipos</option>
+        {kinds.map((option) => <option value={option.value}>{option.label}</option>)}
+      </select>
+    </div>}
+    {formats.length > 0 && <div class="directory-facet">
+      <label for={fieldId('format')}>Formato</label>
+      <select id={fieldId('format')} data-format-filter>
+        <option value="">Todos los formatos</option>
+        {formats.map((format) => <option value={format}>{format}</option>)}
+      </select>
+    </div>}
+    {topics.length > 0 && <div class="directory-facet">
+      <label for={fieldId('topic')}>Tema</label>
+      <select id={fieldId('topic')} data-topic-filter>
+        <option value="">Todos los temas</option>
+        {topics.map((topic) => <option value={topic}>{topic}</option>)}
+      </select>
+    </div>}
+    {countries.length > 0 && <div class="directory-facet">
+      <label for={fieldId('country')}>País de origen</label>
+      <select id={fieldId('country')} data-country-filter>
+        <option value="">Todos los países</option>
+        {countries.map((option) => <option value={option.value}>{option.label}</option>)}
+      </select>
+    </div>}
+    {levels.length > 0 && <div class="directory-facet" data-level-field>
+      <label for={fieldId('level')}>Nivel</label>
+      <select id={fieldId('level')} data-level-filter>
+        <option value="">Todos los niveles</option>
+        {levels.map((option) => <option value={option.value}>{option.label}</option>)}
+      </select>
+    </div>}
+  </div>
+</details>}
+

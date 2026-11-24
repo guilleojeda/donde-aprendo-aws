@@ -90,6 +90,8 @@ function link(placementId, title, overrides = {}) {
     resourceId: `resource-${placementId}`,
     title,
     url: `https://contenido.example/${encodeURIComponent(placementId)}`,
+    kind: 'unclassified',
+    topics: [],
     description: `Descripción de ${title}`,
     featured: false,
     position: 0,

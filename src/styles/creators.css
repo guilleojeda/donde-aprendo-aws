@@ -174,6 +174,25 @@
   white-space: nowrap;
 }
 
+.creator-profile__filters {
+  margin-top: 18px;
+}
+
+.creator-profile__filters .directory-filter-disclosure {
+  display: inline-block;
+}
+
+.creator-profile__filter-noscript {
+  margin: 10px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.creator-profile__filter-empty {
+  margin-top: 16px;
+}
+
 .creator-profile__link-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));

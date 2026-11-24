@@ -275,6 +275,11 @@ for (const [section, expectedKind] of [['aprender', 'content'], ['creadores', 's
   }
 }
 
+const cardSearchField = (body, field) => {
+  const match = body.match(new RegExp(
+    `<([a-z][a-z0-9-]*)\\b(?=[^>]*\\bdata-resource-search-field="${field}")\\s*[^>]*>([\\s\\S]*?)<\\/\\1>`, 'u'));
+  return decode(match?.[2] ?? '');
+};
 const cardData = (html) => {
   const listAttributes = html.match(/<ul\b(?=[^>]*\bdata-resource-list\b)([^>]*)>/u)?.[1] ?? '';
   const kind = listAttributes.match(/\bdata-kind="([^"]*)"/u)?.[1] ?? '';
@@ -282,18 +287,19 @@ const cardData = (html) => {
     const id = decode(attributes.match(/\bid="resource-([^"]+)"/u)?.[1] ?? '');
     if (!id || !kind) return [];
     const mainLink = body.match(/<a\b[^>]*class="resource-card__main-link"[^>]*>/u)?.[0] ?? '';
-    const metadata = body.match(/<div class="resource-card__meta">([\s\S]*?)<\/div>/u)?.[1] ?? '';
+    const cardKind = decode(attributes.match(/\bdata-kind="([^"]*)"/u)?.[1] ?? '');
+    assert.equal(cardKind, kind, `Resource card kind matches its directory list: ${id}`);
     return [{
       id,
-      kind,
+      kind: cardKind,
       url: decode(mainLink.match(/\bhref="([^"]*)"/u)?.[1] ?? ''),
-      title: decode(body.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/u)?.[1] ?? ''),
-      description: decode(body.match(/<p class="resource-card__description">([\s\S]*?)<\/p>/u)?.[1] ?? ''),
+      title: cardSearchField(body, 'title'),
+      description: cardSearchField(body, 'description'),
       country: attributes.match(/\bdata-country="([^"]*)"/u)?.[1] ?? '',
-      format: decode(metadata.match(/<span>([\s\S]*?)<\/span>/u)?.[1] ?? ''),
+      format: decode(attributes.match(/\bdata-format="([^"]*)"/u)?.[1] ?? ''),
       topics: (attributes.match(/\bdata-topics="([^"]*)"/u)?.[1] ?? '').split('|').filter(Boolean),
       featured: attributes.match(/\bdata-featured="true"/u) !== null,
-      addedAt: body.match(/<time\b[^>]*\bdatetime="([^"]*)"/u)?.[1] ?? '',
+      addedAt: attributes.match(/\bdata-added-at="([^"]*)"/u)?.[1] ?? '',
       directoryIndex: Number(attributes.match(/\bdata-resource-index="([^"]*)"/u)?.[1]),
     }];
   });
@@ -559,7 +565,9 @@ if (fixtureBuild) {
     title: 'Curso de ejemplo', description: 'Descripción pública de ejemplo.', country: 'AR', format: 'Curso',
     topics: [], featured: true, addedAt: '2026-09-25', directoryIndex: 0,
   }, 'Static card content retains its description, exact outbound URL, and searchable metadata.');
-  assert.match(featuredCard, /Autor o fuente: Canal de ejemplo/);
+  assert.match(featuredCard, /Autor o fuente:/u, 'The source relationship keeps its visible label.');
+  assert.equal(cardSearchField(featuredCard, 'source'), 'Canal de ejemplo',
+    'The source relationship value remains readable through its semantic search field.');
   assert.match(sourceCard, /href="#directory-criteria"[^>]*>Recomendado<\/a>/);
   assert.doesNotMatch(sourceCard, /<time\b/);
   assert.doesNotMatch(sourceCard, /Agregado al directorio/);
