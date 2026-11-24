@@ -1,9 +1,8 @@
 import { RESOURCE_METADATA_POLICIES } from './resource-form-policy.mjs';
 
 export const CREATOR_CONTRACT_HEADER = 'X-Creator-Contract';
-// v2 remains readable for already-open owner pages; new owner writes and the
-// classification-aware read use v3. Receipts and persisted creator state stay
-// at their existing schema versions.
+// Owner writes use the current contract. Receipts and persisted creator state
+// keep their independent existing schema versions.
 export const CREATOR_CONTRACT_VERSION = '3';
 
 /** @type {readonly import('../types/creators').CreatorProgram[]} */

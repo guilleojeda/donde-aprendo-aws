@@ -32,7 +32,6 @@ import {
 import { creatorOwnerNavigationLists } from '../../lib/creator-owner-presentation';
 import ResourceClassificationFields from '../ResourceClassificationFields';
 import ResourceMetadataFields from '../ResourceMetadataFields';
-import CreatorOwnerReadRecoveryAction from './CreatorOwnerReadRecoveryAction';
 import { pageCreatorOwnerCatalog } from '../../lib/creator-owner-catalog';
 import { usableCreatorOwnerFocusTarget } from '../../lib/creator-owner-focus';
 import {
@@ -547,7 +546,7 @@ export default function CreatorOwnerEditorDialog({
           onTopicChange={(value, checked) => { nativeContent.onInput('topics'); onClassificationChange({ type: 'topic', value, checked }); }} />}
         <label class="creator-owner__link-checkbox"><input type="checkbox" name="selectedForDirectory" checked={editor.draft.selectedForDirectory} disabled={locked} onChange={(event) => onUpdateAddLink({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>
         <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Quitarla no quita el enlace de tu página; la actualización del directorio puede demorar.</p></details>
-        {feedback && <p class={`creator-owner__status${feedbackIsError ? ' creator-owner__status--error' : ''}`} data-link-add-status role={feedbackIsError ? 'alert' : 'status'} aria-live="polite">{feedback}</p>}
+        {feedback && <p class={`creator-owner__status${feedbackIsError ? ' creator-owner__status--error' : ''}`} data-owner-form-status="alta-enlace" data-link-add-status role={feedbackIsError ? 'alert' : 'status'} aria-live="polite">{feedback}</p>}
         {matches && <OperationFeedback state={state} rows={comparison} canSaveDraft={Boolean(canSubmitAfterConflict)} onRetryRead={onRetryRead} onResolve={onResolveRecovery} onSaveDraft={onSaveRecoveryDraft} />}
         <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit" disabled={!canSubmit}>Agregar enlace</button><button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button></div>
       </form>}
@@ -649,7 +648,6 @@ function OperationFeedback({ state, rows, canSaveDraft, onRetryRead, onResolve, 
   const recoveryAction = deriveCreatorOwnerRecoveryAction(state);
   if (operation.status === 'idle' || operation.status === 'sending' || recoveryAction.kind === 'none') return null;
   const fact = operation.status === 'reading' || operation.status === 'refresh-failed' ? operation.fact : undefined;
-  const incompatibleRead = operation.status === 'refresh-failed' && operation.readContractObsolete === true;
   const claimIntent = (operation.status === 'unknown' || operation.status === 'conflict') && operation.intent.action === 'create-claim';
   const photoConflict = operation.status === 'conflict'
     && (operation.intent.action === 'photo-authorize' || operation.intent.action === 'photo-finalize');
@@ -670,8 +668,10 @@ function OperationFeedback({ state, rows, canSaveDraft, onRetryRead, onResolve, 
     {photoConflict && <p data-owner-photo-recovery>Tu archivo sigue seleccionado. Puedes cargarlo con la versión actual del perfil.</p>}
     {claimIntent && operation.status === 'unknown' && <p>El historial puede mostrar solicitudes parecidas, pero no permite confirmar si este envío fue el original. Volver al borrador y enviarlo otra vez puede crear un duplicado.</p>}
     {rows && <div class="creator-owner__comparison" data-owner-comparison><ComparisonRows rows={rows} /></div>}
-    {(incompatibleRead || recoveryAction.kind === 'retry') && <CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-refresh-retry" label="Reintentar actualización" onRetryRead={onRetryRead} />}
-    {recoveryAction.kind === 'compare' && <CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-check" label="Comprobar estado guardado" onRetryRead={onRetryRead} />}
+    {recoveryAction.kind === 'retry' && <button class="button button--outline" type="button" data-owner-refresh-retry
+      disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>}
+    {recoveryAction.kind === 'compare' && <button class="button button--outline" type="button" data-owner-check
+      disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Comprobar estado guardado</button>}
     {recoveryAction.kind === 'resolve' && operation.status === 'unknown' && <div class="creator-owner__dialog-actions">
       <button class="button button--outline" type="button" data-owner-use-saved onClick={() => onResolve('saved')}>Usar lo guardado</button>
       <button class="button button--outline" type="button" data-owner-return-to-draft onClick={() => onResolve('draft')}>Volver al borrador</button>

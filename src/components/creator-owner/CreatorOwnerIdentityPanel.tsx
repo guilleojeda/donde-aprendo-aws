@@ -11,7 +11,6 @@ import {
   IdentityFieldError,
   useNativeIdentityFieldErrors,
 } from './CreatorOwnerIdentityFeedback';
-import CreatorOwnerReadRecoveryAction from './CreatorOwnerReadRecoveryAction';
 
 const SOCIAL_LABELS: Record<CreatorSocial, string> = {
   instagram: 'Instagram', x: 'X', linkedin: 'LinkedIn', awsBuilder: 'AWS Builder Center', website: 'Sitio web o newsletter',
@@ -201,7 +200,8 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
           {createGeneralFeedback && <p class="creator-owner__status creator-owner__status--error" data-owner-form-status="crear" role="alert" aria-live="polite">{createGeneralFeedback}</p>}
           <button class="button button--dark" type="submit" disabled={disabled || !creatorOwnerCanSubmitEditor(state)}>Crear borrador</button>
           {(createRecoveryAction?.kind === 'retry' || createRecoveryAction?.kind === 'session-check') && operation.status === 'refresh-failed' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind={operation.status} data-owner-stale role="alert">
-            <p>{operation.message}</p><CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-refresh-retry" label="Reintentar actualización" onRetryRead={onRetryRead} />
+            <p>{operation.message}</p><button class="button button--outline" type="button" data-owner-refresh-retry
+              disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>
           </section>}
           {createRecoveryAction?.kind === 'pending' && operation.status === 'reading' && <p class="creator-owner__status" data-owner-operation-message role="status" aria-live="polite">{operation.message}</p>}
           {createRecoveryAction && (createRecoveryAction.kind === 'compare' || createRecoveryAction.kind === 'resolve') && operation.status === 'unknown' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind="unknown" aria-live="polite">
@@ -277,12 +277,14 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
           {(publishRecoveryAction?.kind === 'retry' || publishRecoveryAction?.kind === 'session-check') && operation.status === 'refresh-failed' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind={operation.fact === 'unknown' ? 'unknown' : 'refresh-failed'} data-owner-stale role="alert" aria-live="polite">
             <h3>{operation.fact === 'unknown' ? 'No sabemos si se publicó' : 'No pudimos actualizar la publicación'}</h3>
             <p>{operation.message}</p>
-            <CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-refresh-retry" label="Reintentar actualización" onRetryRead={onRetryRead} />
+            <button class="button button--outline" type="button" data-owner-refresh-retry
+              disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Reintentar actualización</button>
           </section>}
           {publishRecoveryAction?.kind === 'compare' && operation.status === 'unknown' && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind="unknown" aria-live="polite">
             <h3>No sabemos si se publicó</h3>
             <p>{operation.message}</p>
-            <CreatorOwnerReadRecoveryAction state={state} dataAttribute="data-owner-publish-check" label="Comprobar estado guardado" onRetryRead={onRetryRead} />
+            <button class="button button--outline" type="button" data-owner-publish-check
+              disabled={state.session.state !== 'ready'} onClick={onRetryRead}>Comprobar estado guardado</button>
           </section>}
           {publishRecoveryAction?.kind === 'resolve' && (operation.status === 'unknown' || operation.status === 'conflict') && operation.readCompleted && <section class="creator-owner__conflict" data-owner-recovery data-recovery-kind={operation.status} aria-live="polite">
             <h3>Estado de publicación comprobado</h3>

@@ -132,6 +132,8 @@ test('a valid unlisted exact-ID resource is attachable through HTTP and remains 
     directoryApproval: 'pending',
     metadataEditable: false,
     reincludeAllowed: false,
+    classification: { state: 'absent' },
+    classificationEditable: false,
   });
   const placement = Object.values(after.placements).find(({ resourceId: id }) => id === resourceId);
   assert.deepEqual(placement, { resourceId, selectedForDirectory: true });
