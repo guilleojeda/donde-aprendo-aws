@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import type { CreatorOwnerSnapshotDTO, CreatorSocial } from '../../types/creators';
-import { readCreatorOwnerSnapshot } from '../../lib/creator-owner-data';
+import { isCreatorOwnerV3Resource, readCreatorOwnerSnapshot } from '../../lib/creator-owner-data';
 import {
   createCreatorOwnerRequest,
   readCreatorOwnerAcknowledgement,
@@ -33,7 +33,7 @@ import {
   creatorOwnerChapterRecoveryIsVisibleInDetail,
   creatorOwnerClaimSelectionIsCurrent,
   creatorOwnerClaimSelectionNeedsRefresh,
-  creatorOwnerClassificationFieldsTouched,
+  creatorOwnerClassificationPolicy,
   creatorOwnerLinkMoveContext,
   creatorOwnerMoveDestinationIsValid,
   creatorOwnerMovePositionMessage,
@@ -1544,8 +1544,10 @@ export default function CreatorOwnerApp(props: Props) {
     if (editor.kind === 'create-profile') return makeIntent('save-profile', { displayName: editor.draft.displayName, slug: editor.draft.slug }, { editor });
     const profile = snapshot.profile;
     if (!profile) return undefined;
-    const classificationFields = (draft: { kind: string; format: string; topics: string[] }, fields: readonly string[], omitEmpty = false) => {
-      if (!creatorOwnerClassificationFieldsTouched(fields) || omitEmpty && !draft.kind && !draft.format && draft.topics.length === 0) return {};
+    const classificationFields = (draft: { kind: string; format: string; topics: string[] }, fields: readonly string[], resource?: CreatorOwnerSnapshotDTO['resources'][number]) => {
+      const policy = creatorOwnerClassificationPolicy({ draft, touchedFields: fields,
+        ...(resource && isCreatorOwnerV3Resource(resource) ? { persistedState: resource.classification.state } : {}) });
+      if (!policy.emit) return {};
       return { kind: draft.kind, format: draft.format, topics: [...draft.topics] };
     };
     if (editor.kind === 'profile') {
@@ -1583,7 +1585,7 @@ export default function CreatorOwnerApp(props: Props) {
         ...Object.fromEntries(editor.touchedFields
           .filter((key) => !['kind', 'format', 'topics'].includes(key))
           .map((key) => [key, editor.draft[key]])),
-        ...classificationFields(editor.draft, editor.touchedFields),
+        ...classificationFields(editor.draft, editor.touchedFields, resource),
       };
       return makeIntent('edit-link', fields,
         { target: { resourceId: placement.resourceId, placementId: editor.placementId }, resourceVersion: resource.version, editor });
@@ -1595,7 +1597,7 @@ export default function CreatorOwnerApp(props: Props) {
         ...Object.fromEntries(editor.touchedFields
           .filter((key) => !['kind', 'format', 'topics'].includes(key))
           .map((key) => [key, editor.draft[key]])),
-        ...classificationFields(editor.draft, editor.touchedFields),
+        ...classificationFields(editor.draft, editor.touchedFields, resource),
       };
       return makeIntent('edit-resource', fields,
         { target: { resourceId: editor.resourceId }, resourceVersion: resource.version, editor });
@@ -1605,7 +1607,7 @@ export default function CreatorOwnerApp(props: Props) {
         .map((key) => [key, editor.draft[key]]));
       return makeIntent('add-link', { title: editor.draft.title, url: editor.draft.url,
         selectedForDirectory: editor.draft.selectedForDirectory, ...optionalFields,
-        ...classificationFields(editor.draft, editor.touchedFields, true) }, { editor });
+        ...classificationFields(editor.draft, editor.touchedFields) }, { editor });
     }
     if (editor.kind === 'move-link') {
       if (!creatorOwnerMoveDestinationIsValid(editor, snapshot)) return rejectEditorField(editor, 'position', creatorOwnerMovePositionMessage(editor, snapshot));

@@ -59,3 +59,22 @@ test('a late pair diagnosis remains visible when a later topic correction arrive
   state = ownerState.creatorOwnerReducer(state, { type: 'update-add-link-draft', value: { topics: ['Seguridad'] } });
   assert.deepEqual(state.editorFeedback.fieldErrors, { 'kind-format': 'Elige un tipo y formato compatibles.' });
 });
+
+test('classification policy distinguishes persisted required groups from reverted absent groups', () => {
+  const empty = { kind: '', format: '', topics: [] };
+  const complete = { kind: 'content', format: 'Artículo', topics: [] };
+  for (const persistedState of ['explicit', 'legacy', 'invalid']) {
+    assert.deepEqual(ownerState.creatorOwnerClassificationPolicy({
+      draft: empty, touchedFields: ['kind', 'format', 'topics'], persistedState, classificationEditable: true,
+    }), { required: true, emit: true, eligible: true }, persistedState);
+    assert.deepEqual(ownerState.creatorOwnerClassificationPolicy({
+      draft: empty, touchedFields: [], persistedState, classificationEditable: true,
+    }), { required: false, emit: false, eligible: true }, `${persistedState} untouched metadata edit omits classification`);
+  }
+  assert.deepEqual(ownerState.creatorOwnerClassificationPolicy({
+    draft: empty, touchedFields: ['kind', 'format', 'topics'], persistedState: 'absent', classificationEditable: true,
+  }), { required: false, emit: false, eligible: true }, 'absent classification can be reverted without materializing a tuple');
+  assert.deepEqual(ownerState.creatorOwnerClassificationPolicy({
+    draft: complete, touchedFields: ['kind'], persistedState: 'absent', classificationEditable: false,
+  }), { required: true, emit: true, eligible: false }, 'a non-empty attempted tuple remains permission-gated');
+});

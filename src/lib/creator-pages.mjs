@@ -159,7 +159,8 @@ function adminClassificationDetails(error, body) {
   let applicable = false;
   if (entry.field === 'category' && entry.reason === 'required') applicable = Object.hasOwn(body, 'category');
   else if (entry.field === 'topics' && entry.reason === 'invalid_option') applicable = Object.hasOwn(body, 'topics');
-  else if (entry.field === 'kind-format' && entry.reason === 'invalid_combination') {
+  else if (entry.field === 'kind-format'
+    && (entry.reason === 'invalid_combination' || entry.reason === 'required')) {
     applicable = Object.hasOwn(body, 'kind') || Object.hasOwn(body, 'format');
   }
   return applicable ? { fieldErrors: [{ field: entry.field, reason: entry.reason }] } : undefined;

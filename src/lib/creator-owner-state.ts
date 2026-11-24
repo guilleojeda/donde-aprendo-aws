@@ -5,6 +5,7 @@ import type {
   CreatorOwnerSnapshotV2DTO,
   CreatorOwnerSnapshotWireDTO,
   CreatorProgram,
+  CreatorResourceClassificationState,
   CreatorSocial,
 } from '../types/creators';
 import type { CreatorOwnerSeriesMembership, CreatorOwnerSeriesQuery } from './creator-owner-series';
@@ -45,13 +46,27 @@ export type CreatorOwnerFieldMessages = Partial<Record<CreatorOwnerEditorField, 
 export type CreatorOwnerClaimSelection = { resourceId: string; url: string; title: string };
 export type CreatorOwnerReferenceCandidate = Pick<CreatorCatalogSelectionDTO, 'id' | 'url' | 'title'>;
 
-export function creatorOwnerClassificationFieldsTouched(fields: readonly string[]): boolean {
+function creatorOwnerClassificationFieldsTouched(fields: readonly string[]): boolean {
   return fields.some((field) => field === 'kind' || field === 'format' || field === 'topics');
 }
 
-export function creatorOwnerEditorTouchesClassification(editor: CreatorOwnerEditorDraft): boolean {
-  if (editor.kind !== 'link-placement' && editor.kind !== 'link-resource' && editor.kind !== 'add-link') return false;
-  return creatorOwnerClassificationFieldsTouched(editor.touchedFields);
+export interface CreatorOwnerClassificationPolicyInput {
+  draft: CreatorOwnerClassificationDraft;
+  touchedFields: readonly string[];
+  persistedState?: CreatorResourceClassificationState;
+  classificationEditable?: boolean;
+}
+
+export function creatorOwnerClassificationPolicy({ draft, touchedFields, persistedState, classificationEditable = true }: CreatorOwnerClassificationPolicyInput) {
+  const touched = creatorOwnerClassificationFieldsTouched(touchedFields);
+  const hasValues = Boolean(draft.kind || draft.format || draft.topics.length);
+  const requiresCompletion = persistedState === 'explicit' || persistedState === 'legacy' || persistedState === 'invalid';
+  const emit = touched && (hasValues || requiresCompletion);
+  return {
+    required: hasValues || touched && requiresCompletion,
+    emit,
+    eligible: !emit || classificationEditable,
+  };
 }
 
 export function creatorOwnerClassificationDraft(resource: CreatorOwnerSnapshotDTO['resources'][number]): CreatorOwnerClassificationDraft {
@@ -645,13 +660,19 @@ export function creatorOwnerCanSubmitEditor(state: CreatorOwnerState): boolean {
     const placement = snapshot.placements[editor.placementId];
     if (!placement) return false;
     const resource = snapshot.resources.find(({ id }) => id === placement.resourceId);
-    return Boolean(resource && (!editor.editable || resource.metadataEditable)
-      && (!creatorOwnerEditorTouchesClassification(editor) || resource.classificationEditable));
+    const classificationPolicy = resource && creatorOwnerClassificationPolicy({
+      draft: editor.draft, touchedFields: editor.touchedFields, persistedState: resource.classification.state,
+      classificationEditable: resource.classificationEditable,
+    });
+    return Boolean(resource && (!editor.editable || resource.metadataEditable) && classificationPolicy?.eligible);
   }
   if (editor.kind === 'link-resource') {
     const resource = snapshot.resources.find(({ id }) => id === editor.resourceId);
-    return Boolean(resource && resource.reincludeAllowed
-      && (!creatorOwnerEditorTouchesClassification(editor) || resource.classificationEditable));
+    const classificationPolicy = resource && creatorOwnerClassificationPolicy({
+      draft: editor.draft, touchedFields: editor.touchedFields, persistedState: resource.classification.state,
+      classificationEditable: resource.classificationEditable,
+    });
+    return Boolean(resource && resource.reincludeAllowed && classificationPolicy?.eligible);
   }
   if (editor.kind === 'add-link') return true;
   if (editor.kind === 'move-link') return [...snapshot.order.featured, ...snapshot.order.ordinary].includes(editor.placementId);

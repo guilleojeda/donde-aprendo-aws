@@ -76,6 +76,13 @@ function inferFormat(kind, category, host, path, title) {
 
 export function validateTaxonomy(value, index = 0) {
   const { kind, format, topics } = value ?? {};
+  if (kind === undefined || format === undefined
+    || (typeof kind === 'string' && kind.length === 0)
+    || (typeof format === 'string' && format.length === 0)) {
+    const error = new Error(`Catalog record ${index + 1} has a required kind and format`);
+    error.fieldErrors = [{ field: 'kind-format', reason: 'required' }];
+    throw error;
+  }
   if (!Object.hasOwn(KIND_LABELS, kind)) throw new Error(`Catalog record ${index + 1} has an invalid kind`);
   if (!FORMATS_BY_KIND[kind].includes(format)) {
     const error = new Error(`Catalog record ${index + 1} has an invalid format`);

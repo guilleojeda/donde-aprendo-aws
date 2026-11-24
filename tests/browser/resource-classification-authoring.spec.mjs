@@ -4,6 +4,7 @@ import { seedResource } from '../fixtures/creator-pages.mjs';
 import { themeColor } from '../fixtures/browser-styles.mjs';
 import {
   addCookie,
+  addLink,
   api,
   captureCreatorApi,
   createProfile,
@@ -768,6 +769,109 @@ test('a confirmed v3 edit keeps its draft when the ensuing real v2 read arrives 
     await freshPage?.close().catch(() => {});
     await page.unroute('**/api/creador/**', oldRead).catch(() => {});
     await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+
+for (const mode of ['active', 'retained']) {
+  test(`active and retained classification clearing is native-invalid and correctable (${mode})`, async ({ fixture, page }) => {
+    const cookie = await loggedInOwner(fixture, page);
+    const created = await addClassified(fixture, cookie, {
+      title: `Ficha ${mode} con clasificación obligatoria`,
+      url: `https://links.example.invalid/owner-required-classification-${mode}`,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openLinks(page, fixture);
+    if (mode === 'retained') {
+      page.once('dialog', (dialog) => dialog.accept());
+      await page.locator(`[data-link-row="${created.placementId}"]`).getByRole('button', { name: 'Quitar de tu página', exact: true }).click();
+      await expect(page.locator(`[data-link-row="${created.placementId}"]`)).toHaveCount(0);
+    }
+    const trigger = mode === 'active'
+      ? page.locator(`[data-link-row="${created.placementId}"]`).getByRole('button', { name: 'Editar ficha', exact: true })
+      : page.locator(`[data-retained-resource="${created.resourceId}"]`).getByRole('button', { name: 'Editar ficha', exact: true });
+    await trigger.click();
+    const editor = form(page);
+    const fields = await expectTaxonomy(editor);
+    await fields.kind.selectOption('');
+    await expect(fields.format).toHaveValue('');
+    for (let index = 0; index < await fields.topics.count(); index += 1) {
+      if (await fields.topics.nth(index).isChecked()) await fields.topics.nth(index).uncheck();
+    }
+    await editor.getByLabel('Título', { exact: true }).fill(`Borrador ${mode} conserva el texto`);
+    const beforeInvalid = await fixture.rawResource(created.resourceId);
+    const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+    const editPath = mode === 'active' ? `/api/creador/enlaces/${created.placementId}/editar` : '/api/creador/recursos';
+    try {
+      await editor.getByRole('button', { name: mode === 'active' ? 'Guardar cambios' : 'Guardar ficha', exact: true }).click();
+      await expect.poll(() => writesTo(capture, 'PATCH', editPath).length).toBe(0);
+      const kindError = editor.locator('[data-owner-field-error], [data-field-error], [role="alert"]')
+        .filter({ hasText: /tipo de recurso|tipo/iu }).first();
+      const formatError = editor.locator('[data-owner-field-error], [data-field-error], [role="alert"]')
+        .filter({ hasText: /formato/iu }).first();
+      await expect(kindError).toBeVisible();
+      await expect(formatError).toBeVisible();
+      await expect(fields.kind).toHaveAttribute('aria-invalid', 'true');
+      await expect(fields.format).toHaveAttribute('aria-invalid', 'true');
+      await expect(fields.kind).toBeFocused();
+      await expectSharedClassificationErrorStyle(fields.kind, kindError);
+      await expectSharedClassificationErrorStyle(fields.format, formatError);
+      const errorBounds = await kindError.boundingBox();
+      assert.ok(errorBounds && errorBounds.y >= 0 && errorBounds.y + errorBounds.height <= 844, JSON.stringify(errorBounds));
+      await expect(editor.getByLabel('Título', { exact: true })).toHaveValue(`Borrador ${mode} conserva el texto`);
+      assert.deepEqual(await fixture.rawResource(created.resourceId), beforeInvalid, 'native validation leaves the stored row unchanged');
+
+      await fields.kind.selectOption('source');
+      await fields.format.selectOption('Newsletter');
+      await expect(kindError).toBeHidden();
+      await expect(formatError).toBeHidden();
+      await editor.getByRole('button', { name: mode === 'active' ? 'Guardar cambios' : 'Guardar ficha', exact: true }).click();
+      await expect.poll(() => writesTo(capture, 'PATCH', editPath)[0]?.status).toBe(200);
+      const corrected = writesTo(capture, 'PATCH', editPath)[0];
+      assert.equal(Object.hasOwn(corrected.body, 'kind'), true);
+      assert.equal(Object.hasOwn(corrected.body, 'format'), true);
+      assert.equal(Object.hasOwn(corrected.body, 'topics'), true);
+      const saved = await ownerSnapshot(fixture, cookie);
+      const savedResource = saved.resources.find(({ id }) => id === created.resourceId);
+      assert.deepEqual({ ...savedResource.classification, topics: sortedTopics(savedResource.classification.topics) }, {
+        state: 'explicit', kind: 'source', format: 'Newsletter', topics: [],
+      });
+      assert.equal(savedResource.title, `Borrador ${mode} conserva el texto`);
+      if (mode === 'retained') await expect(page.locator(`[data-retained-resource="${created.resourceId}"]`)).toBeVisible();
+    } finally {
+      await capture.stop({ skipErrorBodies: true });
+    }
+  });
+}
+
+test('an absent persisted classification stays optional after a reverted interaction', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const created = await addLink(fixture, cookie, {
+    title: 'Ficha sin clasificación',
+    url: 'https://links.example.invalid/owner-absent-classification-edit',
+  });
+  await openLinks(page, fixture);
+  await page.locator(`[data-link-row="${created.placementId}"]`).getByRole('button', { name: 'Editar ficha', exact: true }).click();
+  const editor = form(page);
+  const fields = await expectTaxonomy(editor);
+  const topic = editor.locator('input[name="topics"][value="Seguridad"]');
+  await topic.check();
+  await topic.uncheck();
+  await editor.getByLabel('Título', { exact: true }).fill('Ficha sin clasificación editada');
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  try {
+    await editor.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    const path = `/api/creador/enlaces/${created.placementId}/editar`;
+    await expect.poll(() => writesTo(capture, 'PATCH', path)[0]?.status).toBe(200);
+    const write = writesTo(capture, 'PATCH', path)[0];
+    assert.equal(Object.hasOwn(write.body, 'kind'), false);
+    assert.equal(Object.hasOwn(write.body, 'format'), false);
+    assert.equal(Object.hasOwn(write.body, 'topics'), false);
+    const saved = await ownerSnapshot(fixture, cookie);
+    const resource = saved.resources.find(({ id }) => id === created.resourceId);
+    assert.equal(resource.title, 'Ficha sin clasificación editada');
+    assert.deepEqual(resource.classification, { state: 'absent' }, 'a reverted optional group does not materialize inferred classification');
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
   }
 });
 

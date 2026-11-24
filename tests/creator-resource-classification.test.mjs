@@ -292,6 +292,30 @@ test('pending community city remains stored when its classification changes to s
   assert.equal(saved.city, 'Córdoba');
 });
 
+test('owner classification diagnostics identify required kind and format', async () => {
+  const harness = await createCreatorPagesHarness();
+  await createProfile(harness, 'creator-a', { slug: 'required-kind-format' });
+  const added = await addLink(harness, 'creator-a', {
+    title: 'Incomplete classification', url: 'https://classification.example/required-kind-format',
+    kind: '', format: '', topics: [],
+  });
+  assert.equal(added.response.status, 422, JSON.stringify(added.body));
+  assert.deepEqual(added.body.fieldErrors, [{ field: 'kind-format', reason: 'required' }]);
+
+  const resource = {
+    id: 'required-kind-format-edit', title: 'Pending resource',
+    url: 'https://classification.example/required-kind-format-edit', description: '',
+    category: 'Seguridad', ...CONTENT, order: 1, featured: false, published: false,
+    hidden: false, approvalRevoked: false, directoryControl: 'creator',
+    editorProfileId: (await owner(harness)).profile.id, version: 1,
+  };
+  await seedResource(harness.store, resource);
+  await reference(harness, 'creator-a', resource);
+  const edited = await editLink(harness, 'creator-a', resource.id, { kind: '', format: '', topics: [] });
+  assert.equal(edited.response.status, 422, JSON.stringify(edited.body));
+  assert.deepEqual(edited.body.fieldErrors, [{ field: 'kind-format', reason: 'required' }]);
+});
+
 test('owner Add and edit reject partial, incompatible, and invalid-topic taxonomy without persisted effects', async (t) => {
   const cases = [
     { name: 'partial taxonomy', fields: { kind: 'content' } },

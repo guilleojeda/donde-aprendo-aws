@@ -14,6 +14,7 @@ import {
 } from '../../lib/creator-values.mjs';
 import {
   creatorOwnerCanSubmitEditor,
+  creatorOwnerClassificationPolicy,
   creatorOwnerClaimSelectionIsCurrent,
   creatorOwnerClaimSelectionNeedsRefresh,
   creatorOwnerLinkMoveContext,
@@ -276,6 +277,10 @@ export default function CreatorOwnerEditorDialog({
     || Boolean(resourceForEditor && isCreatorOwnerV3Resource(resourceForEditor) && resourceForEditor.classification.state !== 'event');
   const classificationEditable = editor?.kind === 'add-link'
     || Boolean(resourceForEditor && isCreatorOwnerV3Resource(resourceForEditor) && resourceForEditor.classificationEditable);
+  const classificationPolicy = editor && (editor.kind === 'link-placement' || editor.kind === 'link-resource' || editor.kind === 'add-link')
+    ? creatorOwnerClassificationPolicy({ draft: editor.draft, touchedFields: editor.touchedFields,
+      ...(resourceForEditor && isCreatorOwnerV3Resource(resourceForEditor) ? { persistedState: resourceForEditor.classification.state } : {}),
+      classificationEditable }) : undefined;
   const classificationErrors = {
     kind: contentError('kind') ?? nativeContent.errors.kind, format: contentError('format') ?? nativeContent.errors.format,
     kindFormat: contentError('kind-format') ?? nativeContent.errors['kind-format'], topics: contentError('topics') ?? nativeContent.errors.topics,
@@ -482,7 +487,7 @@ export default function CreatorOwnerEditorDialog({
             onChange={(field, value) => onUpdateLink({ [field]: value })} />
         </fieldset>
         {showClassification && <ResourceClassificationFields idPrefix="owner-link" value={editor.draft} errors={classificationErrors}
-          disabled={locked || !classificationEditable} required={Boolean(editor.draft.kind || editor.draft.format || editor.draft.topics.length)}
+          disabled={locked || !classificationEditable} required={classificationPolicy?.required ?? false}
           hookPrefix="owner"
           onKindChange={(value) => { nativeContent.onInput('kind'); nativeContent.onInput('format'); onClassificationChange({ type: 'kind', value }); }}
           onFormatChange={(value) => { nativeContent.onInput('format'); onClassificationChange({ type: 'format', value }); }}
@@ -513,7 +518,7 @@ export default function CreatorOwnerEditorDialog({
             onChange={(field, value) => onUpdateLink({ [field]: value })} />
         </fieldset>
         {showClassification && <ResourceClassificationFields idPrefix="owner-link" value={editor.draft} errors={classificationErrors}
-          disabled={locked || !classificationEditable} required={Boolean(editor.draft.kind || editor.draft.format || editor.draft.topics.length)}
+          disabled={locked || !classificationEditable} required={classificationPolicy?.required ?? false}
           hookPrefix="owner"
           onKindChange={(value) => { nativeContent.onInput('kind'); nativeContent.onInput('format'); onClassificationChange({ type: 'kind', value }); }}
           onFormatChange={(value) => { nativeContent.onInput('format'); onClassificationChange({ type: 'format', value }); }}
@@ -535,7 +540,7 @@ export default function CreatorOwnerEditorDialog({
           onInvalid={(field, event) => nativeContent.onInvalid(field, event.currentTarget as HTMLInputElement, event)}
           onChange={(field, value) => onUpdateAddLink({ [field]: value })} />
         {showClassification && <ResourceClassificationFields idPrefix="owner-add-link" value={editor.draft} errors={classificationErrors}
-          disabled={locked} required={Boolean(editor.draft.kind || editor.draft.format || editor.draft.topics.length)}
+          disabled={locked} required={classificationPolicy?.required ?? false}
           hookPrefix="owner"
           onKindChange={(value) => { nativeContent.onInput('kind'); nativeContent.onInput('format'); onClassificationChange({ type: 'kind', value }); }}
           onFormatChange={(value) => { nativeContent.onInput('format'); onClassificationChange({ type: 'format', value }); }}
