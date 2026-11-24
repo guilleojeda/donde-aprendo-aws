@@ -259,7 +259,11 @@ for (const [section, expectedKind] of [['aprender', 'content'], ['creadores', 's
   assert.match(directory, /data-show-more/);
   const listAttributes = directory.match(/<ul\b(?=[^>]*\bdata-resource-list\b)([^>]*)>/u)?.[1] ?? '';
   assert.match(listAttributes, new RegExp(`\\bdata-kind="${expectedKind}"`), `The directory list declares its invariant kind: ${section}`);
-  assert.doesNotMatch(directory, /\bdata-search=/u, 'Search text is reconstructed from existing static card content.');
+  const searchRoles = [...directory.matchAll(/\bdata-search="([^"]*)"/gu)].map(([, role]) => role);
+  const allowedSearchRoles = new Set(['title', 'description', 'source', 'community', 'event', 'series']);
+  assert.ok(searchRoles.length > 0, `${section}: cards publish semantic search roles.`);
+  assert.ok(searchRoles.every((role) => allowedSearchRoles.has(role)),
+    `${section}: data-search contains only semantic roles, not duplicated rendered text.`);
   assert.match(directory, /id="directory-criteria"/);
   assert.match(directory, /Recomendado/);
   assert.match(directory, /selección editorial/);
@@ -277,7 +281,7 @@ for (const [section, expectedKind] of [['aprender', 'content'], ['creadores', 's
 
 const cardSearchField = (body, field) => {
   const match = body.match(new RegExp(
-    `<([a-z][a-z0-9-]*)\\b(?=[^>]*\\bdata-resource-search-field="${field}")\\s*[^>]*>([\\s\\S]*?)<\\/\\1>`, 'u'));
+    `<([a-z][a-z0-9-]*)\\b(?=[^>]*\\bdata-search="${field}")\\s*[^>]*>([\\s\\S]*?)<\\/\\1>`, 'u'));
   return decode(match?.[2] ?? '');
 };
 const cardData = (html) => {

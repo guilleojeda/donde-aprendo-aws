@@ -28,11 +28,10 @@ if (controls && list) {
     .map((id) => [id, { ...group, groupIndex }])));
   const groupMembership = directoryGroupMembership(collectionGroups);
   const labels = (value, knownLabels) => value ? knownLabels[value] ?? value : '';
-  const readSemanticValues = (card, field) => [...card.querySelectorAll(`[data-resource-search-field="${field}"]`)]
+  const readSemanticValues = (card, field) => [...card.querySelectorAll(`[data-search="${field}"]`)]
     .map(({ textContent = '' }) => textContent.trim())
     .filter(Boolean);
-  const readSemanticText = (card, field) => [...card.querySelectorAll(`[data-resource-search-field="${field}"]`)]
-    .map(({ textContent = '' }) => textContent.trim()).filter(Boolean).join(' ');
+  const readSemanticText = (card, field) => readSemanticValues(card, field).join(' ');
   const records = cards.map((card) => {
     const resourceId = card.id.replace(/^resource-/u, '');
     const topics = (card.dataset.topics || '').split('|').filter(Boolean);

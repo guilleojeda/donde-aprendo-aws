@@ -73,27 +73,27 @@ const addedAtLabel = (date: string) => new Intl.DateTimeFormat('es', {
       {resource.country && <span>{countryLabel(resource.country)}</span>}
       {resource.level && <span>{levelLabel(resource.level)}</span>}
     </div>
-    <h3 data-resource-search-field="title">{resource.title}</h3>
-    {resource.description && <p class="resource-card__description" data-resource-search-field="description">{resource.description}</p>}
+    <h3 data-search="title">{resource.title}</h3>
+    {resource.description && <p class="resource-card__description" data-search="description">{resource.description}</p>}
     {resource.addedAt && <p class="resource-card__added"><span>Agregado al directorio</span> <time datetime={resource.addedAt}>{addedAtLabel(resource.addedAt)}</time></p>}
   </a>
   <div class="resource-card__related">
     {resource.featured && <a href="#directory-criteria" class="resource-card__recommendation">Recomendado</a>}
     {relatedSource && <a data-resource-related-id={resource.sourceId || relatedSource.id} href={resourceHref(relatedSource)}>
-      <span>Autor o fuente: <span data-resource-search-field="source">{relatedSource.title}</span></span>
+      <span>Autor o fuente: <span data-search="source">{relatedSource.title}</span></span>
     </a>}
     {relatedCommunity && <a data-resource-related-id={resource.communityId || relatedCommunity.id} href={resourceHref(relatedCommunity)}>
-      <span>Comunidad: <span data-resource-search-field="community">{relatedCommunity.title}</span></span>
+      <span>Comunidad: <span data-search="community">{relatedCommunity.title}</span></span>
     </a>}
     {event && <a data-resource-related-id={resource.eventId || event.id} href={eventHref(event, countryPages, catalogResources)}>
-      <span>Grabación de: <span data-resource-search-field="event">{event.title}</span></span>
+      <span>Grabación de: <span data-search="event">{event.title}</span></span>
     </a>}
     {agendaPath && <a href={agendaPath}>Consultar agenda de {countryLabel(resource.country)}</a>}
     {resource.kind === 'community' && hasUpcomingCommunityEvents && <a href={`/eventos/?community=${encodeURIComponent(resource.id)}`}>
       Ver eventos de esta comunidad
     </a>}
     {resource.series?.map((series) => <a data-resource-series data-resource-related-id={series.seriesId} href={series.href}>
-      <span>Serie <span data-resource-search-field="series">{series.name} · {series.creatorName}</span></span>
+      <span>Serie <span data-search="series">{series.name} · {series.creatorName}</span></span>
     </a>)}
     <ReportLink title={resource.title} recordId={resource.id} targetUrl={resource.url} />
   </div>

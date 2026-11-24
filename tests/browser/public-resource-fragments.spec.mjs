@@ -191,7 +191,7 @@ test('catalog filters and search survive decorative metadata and relationship-la
         const walker = document.createTreeWalker(link, NodeFilter.SHOW_TEXT);
         let node;
         while ((node = walker.nextNode())) {
-          if (node.parentElement?.closest('[data-resource-search-field]')) continue;
+          if (node.parentElement?.closest('[data-search]')) continue;
           const replacement = node.textContent.replace(/^Autor o fuente: /u, 'Por ')
             .replace(/^Comunidad: /u, 'Con ');
           if (replacement !== node.textContent) changedLabels += 1;

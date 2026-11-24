@@ -343,7 +343,11 @@ test('resource cards publish semantic filter facts and marked search titles', ()
       assert.ok(FORMATS_BY_KIND[page.kind].includes(format), `${page.route}: each card owns a valid format`);
       assert.ok(find(card, (node) => node.tag === 'span' && text(node) === format).length,
         `${page.route}: semantic format also remains readable in the card`);
-      const titleFields = byAttribute(card, 'data-resource-search-field', 'title');
+      const searchFields = find(card, (node) => node.attrs?.has('data-search'));
+      const allowedSearchFields = new Set(['title', 'description', 'source', 'community', 'event', 'series']);
+      assert.ok(searchFields.every((node) => allowedSearchFields.has(node.attrs.get('data-search'))),
+        `${page.route}: cards publish only compact semantic search roles`);
+      const titleFields = byAttribute(card, 'data-search', 'title');
       assert.equal(titleFields.length, 1, `${page.route}: search title has one semantic marker`);
       assert.ok(text(titleFields[0]), `${page.route}: marked search title is not empty`);
     }
