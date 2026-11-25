@@ -654,8 +654,8 @@ test('the enriched growth build publishes every valid selection with exact ident
     assert.equal(card.attrs.get('data-added-at'), record.addedAt, record.id + ': addedAt metadata is preserved.');
     assert.equal(card.attrs.get('data-featured') === 'true', record.featured, record.id + ': selection flag is preserved.');
     const generatedIndex = record.id.startsWith('growth-added-')
-      ? GROWTH_BASE_ADDITIONAL_COUNT + existingContentCount + Number(record.id.slice('growth-added-'.length)) - 1
-      : Number(record.id.slice('growth-base-'.length)) - 1;
+      ? existingContentCount + GROWTH_BASE_ADDITIONAL_COUNT + Number(record.id.slice('growth-added-'.length)) - 1
+      : existingContentCount + Number(record.id.slice('growth-base-'.length)) - 1;
     assert.equal(card.attrs.get('data-resource-index'), String(generatedIndex),
       record.id + ': source order index is preserved.');
     const title = byAttribute(card, 'data-search', 'title')[0];

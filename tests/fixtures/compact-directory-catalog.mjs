@@ -37,14 +37,18 @@ function syntheticResource(phase, index) {
   const country = syntheticCountries[(index - 1) % syntheticCountries.length];
   const level = syntheticLevels[(index - 1) % syntheticLevels.length];
   const id = `growth-${phase}-${index}`;
+  // Keep the existing editorial records first in the real catalog order. The
+  // base batch precedes the added batch, while both remain after the fixture's
+  // order-zero records.
+  const order = phase === 'base' ? -index : -(GROWTH_BASE_ADDITIONAL_COUNT + index);
   return {
     id,
     title: `Recurso ${phase === 'base' ? 'base representativo' : 'agregado'} ${padded} de AWS ${topic}`,
     url: `https://growth.example.invalid/catalog/${phase}/${padded}`,
     description: `Descripción pública válida del recurso ${phase} ${padded}: AWS ${topic}, ${format} y crecimiento del catálogo.`,
     category: topic,
-    order: phase === 'base' ? 2_000_000 - index : -index,
-    featured: index % 97 === 0,
+    order,
+    featured: false,
     kind: 'content',
     format,
     topics: [topic],
