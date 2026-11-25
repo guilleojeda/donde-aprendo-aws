@@ -20,16 +20,6 @@ jobs:
       # Hosted Ubuntu supplies Chromium libraries; application fonts are bundled.
       - run: npx playwright install chromium
       - run: npm run test:browser
-      - name: Upload browser diagnostics on failure
-        if: failure()
-        uses: actions/upload-artifact@v7.0.2
-        with:
-          name: creator-browser-diagnostics
-          path: |
-            playwright-report/creator-browser/
-            test-results/creator-browser/
-          if-no-files-found: ignore
-          retention-days: 7
       - run: python3 -m unittest discover -s tests -p 'test_*.py'
       - run: npm run package:submission
       - run: npm run smoke:submission
@@ -98,6 +88,10 @@ jobs:
         run: node --test tests/built-deployment-context.mjs
         env:
           RELEASE_CONTEXT_FILE: tests/fixtures/release-production-context.json
+      - name: Exercise the built catalog with 1,000 additional resources
+        run: npm run test:browser -- tests/browser/public-catalog-growth.spec.mjs
+        env:
+          RUN_BUILT_CATALOG_GROWTH: '1'
       - run: npm prune --omit=dev
       - run: mv node_modules ./.amplify-hosting/compute/default/node_modules
       - name: Verify packaged production-shaped release
@@ -105,3 +99,13 @@ jobs:
         env:
           RELEASE_CONTEXT_FILE: tests/fixtures/release-production-context.json
           ACCOUNT_ORIGIN: https://dondeaprendoaws.com
+      - name: Upload browser diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: creator-browser-diagnostics
+          path: |
+            playwright-report/creator-browser/
+            test-results/creator-browser/
+          if-no-files-found: ignore
+          retention-days: 7
