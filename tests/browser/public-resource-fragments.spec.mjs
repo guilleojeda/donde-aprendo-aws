@@ -185,9 +185,9 @@ test('catalog filters and search survive decorative metadata and relationship-la
     await target.evaluate((card) => {
       const badge = document.createElement('span');
       badge.textContent = 'Selección editorial';
-      card.querySelector('.resource-card__meta').prepend(badge);
+      card.querySelector('a[target="_blank"]')?.prepend(badge);
       let changedLabels = 0;
-      for (const link of card.querySelectorAll('.resource-card__related a')) {
+      for (const link of card.querySelectorAll('a[data-resource-related-id]')) {
         const walker = document.createTreeWalker(link, NodeFilter.SHOW_TEXT);
         let node;
         while ((node = walker.nextNode())) {
@@ -204,11 +204,11 @@ test('catalog filters and search survive decorative metadata and relationship-la
       for (const attribute of title.attributes) replacement.setAttribute(attribute.name, attribute.value);
       replacement.append(...title.childNodes);
       title.replaceWith(replacement);
-      card.querySelector('.resource-card__description')?.classList.remove('resource-card__description');
+      card.querySelector('[data-search="description"]')?.removeAttribute('class');
     });
     release();
     await expect(page.locator('[data-resource-list]')).toHaveAttribute('data-directory-ready', '');
-    const visibleRelationLabels = await target.locator('.resource-card__related a').evaluateAll((links) => links
+    const visibleRelationLabels = await target.locator('a[data-resource-related-id]').evaluateAll((links) => links
       .map((link) => link.textContent.replace(/\s+/gu, ' ').trim())
       .filter((label) => /^(?:Por|Con)\s/u.test(label)));
     assert.deepEqual(visibleRelationLabels, [
@@ -544,7 +544,7 @@ test('without JavaScript, an ordinary resource fragment retains its native highl
     const card = resourceCard(page, 'related-jump-content');
     await expect(card).toBeVisible();
     await expect(card).not.toHaveCSS('box-shadow', 'none');
-    await expect(card.locator('.resource-card__main-link')).toHaveAttribute('href', 'https://resources.example.invalid/related-jump-content');
+    await expect(card.locator('a[target="_blank"]')).toHaveAttribute('href', 'https://resources.example.invalid/related-jump-content');
   } finally {
     await context.close();
   }

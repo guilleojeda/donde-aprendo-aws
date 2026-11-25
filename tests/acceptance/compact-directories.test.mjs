@@ -156,6 +156,22 @@ function verifyStaticCardsAndCount(page) {
       assert.ok(mainLink?.attrs.get('href'), `${page.route}: a card remains a static link without JavaScript`);
       assert.equal(mainLink.attrs.get('target'), '_blank', `${page.route}: external resource opens separately`);
       assert.match(mainLink.attrs.get('rel') ?? '', /\bnoopener\b/u, `${page.route}: external link keeps opener protection`);
+      const titleFields = byAttribute(card, 'data-search', 'title');
+      assert.equal(titleFields.length, 1, `${page.route}: a card has one semantic title field`);
+      assert.equal(titleFields[0], heading, `${page.route}: the semantic title is the visible card heading`);
+      assert.ok(isInside(titleFields[0], mainLink), `${page.route}: the title stays in the static destination link`);
+      const descriptions = byAttribute(card, 'data-search', 'description');
+      assert.ok(descriptions.length <= 1, `${page.route}: a card has at most one semantic description field`);
+      if (descriptions.length) {
+        assert.equal(descriptions[0].tag, 'p', `${page.route}: the description remains a paragraph`);
+        assert.ok(text(descriptions[0]), `${page.route}: a published description remains non-empty`);
+        assert.ok(isInside(descriptions[0], mainLink), `${page.route}: the description stays in the static destination link`);
+      }
+      const reportLinks = find(card, (node) => node.tag === 'a'
+        && text(node) === 'Reportar enlace roto o dato incorrecto');
+      assert.equal(reportLinks.length, 1, `${page.route}: each card retains one report action`);
+      assert.match(reportLinks[0].attrs.get('href') ?? '', /^mailto:/u,
+        `${page.route}: the report action remains a native mailto link`);
       assert.ok(cardFormat(card), `${page.route}: card exposes a recognized format in its public metadata`);
     }
     const counts = control(page, 'data-result-count');
@@ -498,8 +514,28 @@ test('the enriched fixture retains long titles and source, community, and record
     const familyPages = Object.fromEntries(Object.entries(familyRoutes).map(([kind, route]) => [kind, pageAt(route)]));
     for (const record of fixtureRecords) {
       const expectedFamily = familyPages[record.kind];
-      assert.ok(expectedFamily && cardsOn(expectedFamily).some((card) => card.attrs.get('id') === `resource-${record.id}`),
+      const card = expectedFamily && cardsOn(expectedFamily).find((candidate) => candidate.attrs.get('id') === `resource-${record.id}`);
+      assert.ok(card,
         `The enriched build exposes ${record.id} as a static ${record.kind} card.`);
+      if (card) {
+        assert.equal(text(byAttribute(card, 'data-search', 'title')[0]), record.title,
+          `${record.id}: the full title remains in the static card.`);
+        assert.equal(text(byAttribute(card, 'data-search', 'description')[0]), record.description,
+          `${record.id}: the full description remains in the static card.`);
+        const mainLink = find(card, (node) => node.tag === 'a' && node.attrs.get('target') === '_blank')[0];
+        assert.equal(mainLink?.attrs.get('href'), record.url, `${record.id}: the destination remains unchanged.`);
+        const reportLink = find(card, (node) => node.tag === 'a'
+          && text(node) === 'Reportar enlace roto o dato incorrecto')[0];
+        assert.ok(reportLink, `${record.id}: the report action remains present.`);
+        const report = new URL(reportLink.attrs.get('href'));
+        assert.equal(report.protocol, 'mailto:');
+        assert.equal(report.pathname, 'contact@dondeaprendoaws.com');
+        assert.equal(report.searchParams.get('subject'), 'Reporte de enlace');
+        const reportBody = report.searchParams.get('body') ?? '';
+        assert.ok(reportBody.includes(`Título: ${record.title}`), `${record.id}: report keeps the public title.`);
+        assert.ok(reportBody.includes(`Referencia: ${JSON.stringify(record.id)}`), `${record.id}: report keeps the exact identity.`);
+        assert.ok(reportBody.includes(`Enlace público: ${record.url}`), `${record.id}: report keeps the public destination.`);
+      }
       for (const [kind, familyPage] of Object.entries(familyPages)) {
         if (kind === record.kind) continue;
         assert.ok(!cardsOn(familyPage).some((card) => card.attrs.get('id') === `resource-${record.id}`),

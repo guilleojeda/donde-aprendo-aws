@@ -290,7 +290,10 @@ const cardData = (html) => {
   return [...html.matchAll(/<li\b([^>]*)>([\s\S]*?)<\/li>/gu)].flatMap(([, attributes, body]) => {
     const id = decode(attributes.match(/\bid="resource-([^"]+)"/u)?.[1] ?? '');
     if (!id || !kind) return [];
-    const mainLink = body.match(/<a\b[^>]*class="resource-card__main-link"[^>]*>/u)?.[0] ?? '';
+    // The card's public contract is the external, opener-protected link. Its
+    // presentation class is intentionally compacted and must not be used to
+    // identify the link here.
+    const mainLink = body.match(/<a\b(?=[^>]*\btarget="_blank")(?=[^>]*\brel="[^"]*\bnoopener\b)[^>]*>/u)?.[0] ?? '';
     const cardKind = decode(attributes.match(/\bdata-kind="([^"]*)"/u)?.[1] ?? '');
     assert.equal(cardKind, kind, `Resource card kind matches its directory list: ${id}`);
     return [{
