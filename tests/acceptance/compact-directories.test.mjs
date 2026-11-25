@@ -7,6 +7,13 @@ import { RESOURCE_COLLECTIONS, groupCertificationResources, learningCollectionNa
 import { FORMATS_BY_KIND } from '../../src/lib/resource-taxonomy.mjs';
 import { siteOutputRoot } from '../../scripts/lib/site-output.mjs';
 import { searchIndex } from '../../src/lib/unified-search.mjs';
+import {
+  createGrowthCatalog,
+  GROWTH_BASE_ADDITIONAL_COUNT,
+  GROWTH_BASE_CONTENT_COUNT,
+  GROWTH_TOTAL_CONTENT_COUNT,
+  GROWTH_LAST_ID,
+} from '../fixtures/compact-directory-catalog.mjs';
 
 const dist = siteOutputRoot;
 const fixtureMode = process.env.DIRECTORY_ACCEPTANCE_FIXTURE_MODE ?? '';
@@ -447,6 +454,8 @@ test('community country navigation stays primary, and country-page filters do no
 const fixturePath = resolve('tests/fixtures/compact-directory-resources.json');
 const fixtureRecords = JSON.parse(readFileSync(fixturePath, 'utf8'));
 const fixtureIds = fixtureRecords.map(({ id }) => id);
+const growthFixture = createGrowthCatalog();
+const growthRecords = growthFixture.items.filter(({ id }) => id.startsWith('growth-'));
 const expectedCertificationCardOrder = [
   'directory-cert-cloud-practitioner',
   'directory-cert-ai-practitioner',
@@ -592,4 +601,89 @@ test('the enriched build publishes selected series in HTML and search without le
   assert.deepEqual(searchIndex(index, 'Zafiro').map(({ url }) => url), ['/aprender/#resource-fixture-no-country-reference']);
   assert.deepEqual(searchIndex(index, 'Opalo'), []);
   assert.equal(JSON.stringify(index).includes('fixture-series-withdrawn'), false);
+});
+
+test('the enriched growth build publishes every valid selection with exact identity, index, links and privacy', () => {
+  if (fixtureMode !== 'enriched') return;
+  const learn = pageAt('/aprender/');
+  const cards = cardsOn(learn);
+  const growthCards = cards.filter((card) => card.attrs.get('id')?.startsWith('resource-growth-'));
+  const existingContentCount = GROWTH_BASE_CONTENT_COUNT - GROWTH_BASE_ADDITIONAL_COUNT;
+  assert.equal(cards.length, GROWTH_TOTAL_CONTENT_COUNT,
+    'The growth fixture keeps the complete 1,619-resource base plus 1,000 added resources.');
+  assert.equal(growthCards.length, growthRecords.length,
+    'Every generated growth resource is rendered as a content card.');
+  assert.equal(new Set(growthCards.map((card) => card.attrs.get('id'))).size, growthCards.length,
+    'Generated resource IDs are unique in HTML.');
+  assert.equal(new Set(growthCards.map((card) => find(card, (node) => node.tag === 'a' && node.attrs.get('target') === '_blank')[0]?.attrs.get('href'))).size,
+    growthCards.length, 'Generated resource destinations are unique in HTML.');
+
+  const selection = JSON.parse(readFileSync(join(dist, 'catalog-selection.json'), 'utf8'));
+  const selectedGrowth = selection.filter(({ id }) => id.startsWith('growth-'));
+  assert.equal(selectedGrowth.length, growthRecords.length,
+    'The real build selection keeps every generated eligible resource.');
+  assert.equal(new Set(selectedGrowth.map(({ id }) => id)).size, selectedGrowth.length,
+    'The public selection has unique generated IDs.');
+  assert.equal(new Set(selectedGrowth.map(({ url }) => url)).size, selectedGrowth.length,
+    'The public selection has unique generated destinations.');
+  const selectedById = new Map(selectedGrowth.map((record) => [record.id, record]));
+  for (const record of growthRecords) {
+    assert.deepEqual(selectedById.get(record.id), {
+      id: record.id, title: record.title, url: record.url, tipo: record.kind,
+    }, record.id + ': catalog selection retains exact ID, title, URL and kind.');
+  }
+
+  const index = JSON.parse(readFileSync(join(dist, 'search-index.json'), 'utf8'));
+  const growthIndexEntries = index.filter(({ type, url }) => type === 'content'
+    && url.startsWith('/aprender/#resource-growth-'));
+  assert.equal(growthIndexEntries.length, growthRecords.length,
+    'The real search index has one entry for every generated resource.');
+  assert.equal(new Set(growthIndexEntries.map(({ url }) => url)).size, growthIndexEntries.length,
+    'The real search index has unique generated resource destinations.');
+  const indexByUrl = new Map(index.filter(({ type }) => type === 'content').map((entry) => [entry.url, entry]));
+  const cardById = new Map(cards.map((card) => [card.attrs.get('id')?.replace(/^resource-/u, ''), card]));
+  for (const record of growthRecords) {
+    const card = cardById.get(record.id);
+    assert.ok(card, record.id + ': exact generated resource card exists.');
+    assert.equal(card.attrs.get('data-kind'), record.kind, record.id + ': kind selection is preserved.');
+    assert.equal(card.attrs.get('data-format'), record.format, record.id + ': format classification is preserved.');
+    assert.deepEqual(card.attrs.get('data-topics')?.split('|'), record.topics,
+      record.id + ': topic classification is preserved.');
+    assert.equal(card.attrs.get('data-country'), record.country, record.id + ': country metadata is preserved.');
+    assert.equal(card.attrs.get('data-level'), record.level, record.id + ': level metadata is preserved.');
+    assert.equal(card.attrs.get('data-added-at'), record.addedAt, record.id + ': addedAt metadata is preserved.');
+    assert.equal(card.attrs.get('data-featured') === 'true', record.featured, record.id + ': selection flag is preserved.');
+    const generatedIndex = record.id.startsWith('growth-added-')
+      ? existingContentCount + GROWTH_BASE_ADDITIONAL_COUNT + Number(record.id.slice('growth-added-'.length)) - 1
+      : existingContentCount + Number(record.id.slice('growth-base-'.length)) - 1;
+    assert.equal(card.attrs.get('data-resource-index'), String(generatedIndex),
+      record.id + ': source order index is preserved.');
+    const title = byAttribute(card, 'data-search', 'title')[0];
+    const description = byAttribute(card, 'data-search', 'description')[0];
+    assert.equal(text(title), record.title, record.id + ': title is complete.');
+    assert.equal(text(description), record.description, record.id + ': description is complete.');
+    const destination = find(card, (node) => node.tag === 'a' && node.attrs.get('target') === '_blank')[0];
+    assert.equal(destination.attrs.get('href'), record.url, record.id + ': external destination is exact.');
+    const report = find(card, (node) => node.tag === 'a' && text(node) === 'Reportar enlace roto o dato incorrecto')[0];
+    assert.match(report.attrs.get('href') ?? '', new RegExp('Referencia%3A%20%22' + record.id + '%22', 'u'),
+      record.id + ': report keeps the exact public identity.');
+    const indexed = indexByUrl.get('/aprender/#resource-' + record.id);
+    assert.ok(indexed, record.id + ': real build search index keeps the card destination.');
+    assert.deepEqual(
+      { title: indexed.title, description: indexed.description, url: indexed.url },
+      { title: record.title, description: record.description, url: '/aprender/#resource-' + record.id },
+      record.id + ': search index text and destination match the rendered card.',
+    );
+  }
+
+  const lastCard = cards.find((card) => card.attrs.get('id') === 'resource-' + GROWTH_LAST_ID);
+  assert.equal(lastCard?.attrs.get('data-resource-index'), String(GROWTH_TOTAL_CONTENT_COUNT - 1),
+    'The last generated resource retains the final source index for fragment navigation.');
+  const html = readFileSync(join(dist, 'aprender/index.html'), 'utf8');
+  assert.ok(Buffer.byteLength(html) > 2_000_000,
+    'The real generated directory exceeds the retired 2 MB guard in the growth scenario.');
+  assert.doesNotMatch(html, /growth-private|submitterEmail|privateNote/u,
+    'Private fixture fields never enter the generated HTML.');
+  assert.doesNotMatch(JSON.stringify(index), /growth-private|submitterEmail|privateNote/u,
+    'Private fixture fields never enter the generated search index.');
 });

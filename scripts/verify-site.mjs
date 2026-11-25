@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import deployment from '../config/deployment.json' with { type: 'json' };
@@ -57,10 +57,6 @@ const learningDetailPaths = LEARNING_PATHS.map(({ id }) => `${learningPathHref(i
 const isCountryRoute = (path, section) => new RegExp(`^${section}/[^/]+/index\\.html$`, 'u').test(path) && !collectionHtmlPaths.includes(path);
 const communityCountryRoutePaths = allHtmlPaths.filter((path) => isCountryRoute(path, 'comunidades'));
 const eventCountryRoutePaths = allHtmlPaths.filter((path) => isCountryRoute(path, 'eventos'));
-const resourceDirectoryPaths = [
-  'aprender/index.html', 'creadores/index.html', 'comunidades/index.html', ...communityCountryRoutePaths,
-  ...RESOURCE_COLLECTIONS.map(({ path }) => `${path.slice(1)}index.html`),
-];
 const routeCountries = (paths, section) => paths.map((htmlPath) => {
   const slug = htmlPath.split('/')[1];
   const country = Object.entries(COUNTRY_SLUGS).find(([, countrySlug]) => countrySlug === slug)?.[0];
@@ -90,11 +86,6 @@ assert.equal(new Set(locations).size, expectedLocations.length, 'Sitemap URLs mu
 assert.deepEqual([...allHtmlPaths].sort(), [...pagePaths].sort(), 'Every prerendered public HTML page must be checked, with no runtime page or unexpected event detail route.');
 assert.ok(!existsSync(resolve(dist, '404.html')), 'The 404 page must be rendered by compute, not emitted as static HTML.');
 assert.ok(!existsSync(resolve(dist, 'cuenta/index.html')), 'The account page must never be emitted as static HTML.');
-for (const path of resourceDirectoryPaths) {
-  const size = statSync(resolve(dist, path)).size;
-  assert.ok(size <= 2_000_000, `Resource directory HTML must stay within 2,000,000 bytes: ${path} is ${size.toLocaleString('en')} bytes.`);
-}
-
 const htmlEntities = { amp: '&', quot: '"', '#39': "'", '#x27': "'", lt: '<', gt: '>' };
 // Decode the entities Astro emits once, preserving literal entity-like ID text.
 const decode = (value) => value.replace(/&(amp|quot|#39|#x27|lt|gt);/gu, (_, entity) => htmlEntities[entity]);
