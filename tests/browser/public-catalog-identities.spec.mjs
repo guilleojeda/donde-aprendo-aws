@@ -410,6 +410,100 @@ for (const [label, invalidTest, title, publicRecordId] of [
   });
 }
 
+async function setTheme(page, dark, card) {
+  const toggle = page.locator('[data-theme-toggle]');
+  const current = (await toggle.getAttribute('aria-pressed')) === 'true';
+  if (dark) {
+    if (!current) await toggle.click();
+  } else if (current) {
+    await toggle.click();
+  } else {
+    // A fresh document follows the system query until a light preference is
+    // explicitly selected. Visit dark and return through the real toggle so
+    // the light case also exercises the controller's manual branch.
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await toggle.click();
+  }
+  await expect(toggle).toHaveAttribute('aria-pressed', String(dark));
+  await expect.poll(() => page.evaluate(() => document.getElementById('site-theme-dark')?.media ?? ''))
+    .toBe(dark ? 'all' : 'not all');
+  const expectedColors = await card.evaluate(() => {
+    const probe = document.createElement('span');
+    document.body.append(probe);
+    probe.style.color = 'var(--color-surface)';
+    const surface = getComputedStyle(probe).color;
+    probe.style.color = 'var(--color-border)';
+    const border = getComputedStyle(probe).color;
+    probe.remove();
+    return { surface, border };
+  });
+  await expect.poll(() => card.evaluate((element) => getComputedStyle(element).backgroundColor))
+    .toBe(expectedColors.surface);
+  await expect.poll(() => card.evaluate((element) => getComputedStyle(element).borderTopColor))
+    .toBe(expectedColors.border);
+}
+
+async function readCardAppearance(card) {
+  return card.evaluate((element) => {
+    const resolveThemeColor = (name) => {
+      const probe = document.createElement('span');
+      probe.style.position = 'fixed';
+      probe.style.visibility = 'hidden';
+      probe.style.color = `var(${name})`;
+      document.body.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    };
+    const style = (node) => {
+      if (!node) return undefined;
+      const computed = getComputedStyle(node);
+      return {
+        color: computed.color,
+        backgroundColor: computed.backgroundColor,
+        borderTopColor: computed.borderTopColor,
+        minHeight: computed.minHeight,
+        fontSize: computed.fontSize,
+        lineHeight: computed.lineHeight,
+        marginTop: computed.marginTop,
+        marginBottom: computed.marginBottom,
+      };
+    };
+    const rect = (node) => {
+      const bounds = node.getBoundingClientRect();
+      return { top: bounds.top, right: bounds.right, bottom: bounds.bottom, width: bounds.width, height: bounds.height };
+    };
+    const main = element.querySelector('a[target="_blank"]');
+    const title = main?.querySelector('h3');
+    const description = main?.querySelector('[data-search="description"]');
+    const metadata = [...(main?.children ?? [])].find((child) => child.tagName === 'DIV');
+    const badges = [...(metadata?.children ?? [])].filter((child) => child.tagName === 'SPAN');
+    const secondaryLinks = [...element.querySelectorAll('a[data-resource-related-id], a[href^="mailto:"]')];
+    return {
+      documentWidth: document.documentElement.scrollWidth,
+      palette: {
+        border: resolveThemeColor('--color-border'),
+        surface: resolveThemeColor('--color-surface'),
+        subtleSurface: resolveThemeColor('--color-surface-subtle'),
+        text: resolveThemeColor('--color-text'),
+        heading: resolveThemeColor('--color-heading'),
+        focus: resolveThemeColor('--color-focus'),
+      },
+      card: style(element),
+      title: style(title),
+      description: style(description),
+      badges: badges.map((badge) => ({ style: style(badge), rect: rect(badge) })),
+      secondaryLinks: secondaryLinks.map((link) => ({
+        style: style(link), rect: rect(link), scrollWidth: link.scrollWidth, clientWidth: link.clientWidth,
+      })),
+      titleRect: rect(title),
+      descriptionRect: rect(description),
+      rootColorScheme: getComputedStyle(document.documentElement).colorScheme,
+    };
+  });
+}
+
 boundaryTest('the real resource card keeps a Unicode identity and title intact in its safe report link', async ({ app, page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const response = await page.goto(`${app.origin}/aprender/`);
@@ -418,10 +512,10 @@ boundaryTest('the real resource card keeps a Unicode identity and title intact i
   const card = page.locator('li.resource-card').filter({ hasText: identityBoundary.title });
   await expect(card).toHaveAttribute('id', `resource-${identityBoundary.id}`);
   const layout = await card.evaluate((element) => {
-    const main = element.querySelector('.resource-card__main-link');
+    const main = element.querySelector('a[target="_blank"]');
     const title = main?.querySelector('h3');
-    const description = main?.querySelector('.resource-card__description');
-    const related = element.querySelector('.resource-card__related a');
+    const description = main?.querySelector('[data-search="description"]');
+    const related = element.querySelector('a[data-resource-related-id]');
     const measure = (node) => node && ({
       text: node.textContent,
       clientWidth: node.clientWidth,
@@ -453,6 +547,101 @@ boundaryTest('the real resource card keeps a Unicode identity and title intact i
   assert.ok(details.body.includes(`Referencia: ${JSON.stringify(identityBoundary.id)}`), 'the report keeps the complete resource identity');
   assert.ok(!details.body.includes('private-contact-secret') && !details.body.includes('private-account-secret'));
   await expect(page.getByRole('heading', { name: 'Recurso ordinario visible', exact: true })).toBeVisible();
+
+  for (const [width, dark] of [[390, false], [390, true], [1365, true], [1365, false]]) {
+    await page.setViewportSize({ width, height: 844 });
+    await setTheme(page, dark, card);
+    const appearance = await readCardAppearance(card);
+    const mode = dark ? 'dark' : 'light';
+    assert.ok(appearance.documentWidth <= width, `${mode} ${width}px: no horizontal overflow`);
+    assert.equal(appearance.card.backgroundColor, appearance.palette.surface,
+      `${mode} ${width}px: card uses the semantic surface color`);
+    assert.equal(appearance.card.borderTopColor, appearance.palette.border,
+      `${mode} ${width}px: card uses the semantic border color`);
+    assert.equal(appearance.title.color, appearance.palette.heading,
+      `${mode} ${width}px: title uses the semantic heading color`);
+    assert.equal(appearance.description.color, appearance.palette.text,
+      `${mode} ${width}px: description uses the semantic text color`);
+    assert.equal(appearance.badges.length, 2, `${mode} ${width}px: both metadata badges remain laid out`);
+    for (const [index, badge] of appearance.badges.entries()) {
+      assert.equal(badge.style.backgroundColor, appearance.palette.subtleSurface,
+        `${mode} ${width}px: badge ${index + 1} uses the semantic subtle surface`);
+      assert.equal(badge.style.color, index === 0 ? appearance.palette.heading : appearance.palette.text,
+        `${mode} ${width}px: badge ${index + 1} uses its semantic text color`);
+      assert.ok(badge.rect.width > 0 && badge.rect.height > 0,
+        `${mode} ${width}px: badge ${index + 1} remains visible`);
+    }
+    assert.equal(appearance.secondaryLinks.length, 2,
+      `${mode} ${width}px: relationship and report links remain present`);
+    for (const [index, link] of appearance.secondaryLinks.entries()) {
+      assert.ok(link.rect.height >= 44, `${mode} ${width}px: secondary link ${index + 1} keeps a 44px target`);
+      assert.ok(link.scrollWidth <= link.clientWidth,
+        `${mode} ${width}px: secondary link ${index + 1} wraps its complete text`);
+    }
+    for (let index = 1; index < appearance.secondaryLinks.length; index += 1) {
+      const separation = appearance.secondaryLinks[index].rect.top - appearance.secondaryLinks[index - 1].rect.bottom;
+      assert.ok(separation >= 8, `${mode} ${width}px: secondary links retain vertical separation`);
+    }
+    assert.ok(appearance.titleRect.height >= 20 && appearance.descriptionRect.height >= 22,
+      `${mode} ${width}px: long text remains rendered rather than collapsing`);
+    assert.equal(appearance.description.fontSize, '14px', `${mode} ${width}px: description keeps its readable size`);
+    assert.equal(appearance.description.lineHeight, '22.4px', `${mode} ${width}px: description keeps its readable line height`);
+    assert.equal(appearance.description.marginTop, '0px', `${mode} ${width}px: description has no collapsed top spacing`);
+    assert.equal(appearance.description.marginBottom, '0px', `${mode} ${width}px: description has no collapsed bottom spacing`);
+    assert.equal(appearance.rootColorScheme, dark ? 'dark' : 'light',
+      `${mode} ${width}px: the real theme controller applies the requested scheme`);
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setTheme(page, false, card);
+  const lightAppearance = await readCardAppearance(card);
+  const normalBorder = await card.evaluate((element) => getComputedStyle(element).borderTopColor);
+  await card.hover();
+  await expect.poll(() => card.evaluate((element) => getComputedStyle(element).borderTopColor))
+    .toBe(lightAppearance.palette.focus);
+  const hoverState = await card.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    const titleStyle = getComputedStyle(element.querySelector('h3'));
+    const descriptionStyle = getComputedStyle(element.querySelector('[data-search="description"]'));
+    return {
+      border: computed.borderTopColor,
+      titleColor: titleStyle.color,
+      descriptionColor: descriptionStyle.color,
+    };
+  });
+  assert.notEqual(hoverState.border, normalBorder, 'hover changes the card border without changing its content');
+  assert.equal(hoverState.border, lightAppearance.palette.focus, 'hover uses the semantic focus border color');
+  assert.equal(hoverState.titleColor, lightAppearance.palette.heading, 'hover keeps the title legible');
+  assert.equal(hoverState.descriptionColor, lightAppearance.palette.text, 'hover keeps the description legible');
+
+  const mainLink = card.locator('a[target="_blank"]');
+  await card.evaluate((element) => element.focus());
+  await page.keyboard.press('Tab');
+  const focusState = await mainLink.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return {
+      active: document.activeElement === element,
+      outlineStyle: computed.outlineStyle,
+      outlineWidth: computed.outlineWidth,
+      outlineColor: computed.outlineColor,
+    };
+  });
+  assert.equal(focusState.active, true, 'the main resource link receives focus');
+  assert.equal(focusState.outlineStyle, 'solid', 'the focused main link has a visible outline');
+  assert.ok(Number.parseFloat(focusState.outlineWidth) >= 3, 'the focused main link retains a 3px outline');
+  assert.equal(focusState.outlineColor, lightAppearance.palette.focus, 'focus uses the semantic focus color');
+
+  await page.goto(`${app.origin}/aprender/${resourceFragment(identityBoundary.id)}`);
+  const highlighted = page.locator(`li.resource-card[id="resource-${identityBoundary.id}"]`);
+  await expect(highlighted).toBeVisible();
+  await expect(page.locator('[data-resource-fragment-target]')).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => document.activeElement?.id ?? '')).toBe(`resource-${identityBoundary.id}`);
+  const highlightState = await highlighted.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return { border: computed.borderTopColor, boxShadow: computed.boxShadow };
+  });
+  assert.equal(highlightState.border, lightAppearance.palette.focus, 'the exact fragment target uses the focus border');
+  assert.notEqual(highlightState.boxShadow, 'none', 'the exact fragment target retains a visible highlight');
 });
 
 longIdentityTest('no-JavaScript SSR reports and the fetched public selection index preserve full 130-ASCII and 256-byte IDs', async ({ app, publicPage }) => {

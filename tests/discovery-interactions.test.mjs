@@ -243,17 +243,15 @@ function createDirectory({
         .map((node) => Object.assign(new MockElement(document, { tagName: 'SPAN' }), { textContent: node.textContent.slice('Grabación de: '.length) })),
       series: resource.seriesLabels?.map((textContent) => Object.assign(new MockElement(document, { tagName: 'SPAN' }), { textContent })) ?? [],
     };
-    card.querySelector = (selector) => {
-      if (selector === 'h3') return title;
-      if (selector === '.resource-card__description') return description;
-      if (selector === 'time') return time;
-      return null;
-    };
+    // Directory behavior reads semantic fields, not presentation classes. Keep
+    // the mock's metadata available for the focused badge assertion below,
+    // without making the fixture depend on the card's CSS naming.
+    card.metadata = metadata;
+    card.querySelector = (selector) => selector === 'time' ? time : null;
     card.querySelectorAll = (selector) => {
       const semanticField = selector.match(/^\[data-search="([^"]+)"\]$/u)?.[1];
       if (semanticField) return semantic[semanticField] ?? [];
-      return selector === '.resource-card__meta span' ? metadata
-        : selector === '.resource-card__related a' ? related : [];
+      return [];
     };
     return card;
   });
@@ -515,7 +513,7 @@ test('directory search reconstructs searchable text from static card content and
     '¿Cómo leer CloudTrail? Introducción práctica a AWS. Guías y laboratorios Curso Seguridad Auditoría Certificaciones Perú Inicial AWS Academy (oficial) Mujeres AWS Perú re:Invent 2025');
   assert.deepEqual([...reconstructed.topics], ['Seguridad', 'Auditoría', 'Certificaciones'], 'All topics remain available to filters and search.');
   assert.deepEqual(
-    reconstructed.card.querySelectorAll('.resource-card__meta span').map(({ textContent }) => textContent),
+    reconstructed.card.metadata.map(({ textContent }) => textContent),
     ['Curso', 'Seguridad', 'Auditoría', 'Perú', 'Inicial'],
     'Only the first two topics stay visible as badges.',
   );
